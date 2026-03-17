@@ -8028,7 +8028,6 @@ def proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion :
   partialEqInst := proto.pq_ratchet.Version.Insts.CoreCmpPartialEqVersion
   partial_cmp :=
     proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion.partial_cmp
-  le := proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion.le
 }
 
 /-- [spqr::proto::pq_ratchet::{core::cmp::Ord for spqr::proto::pq_ratchet::Version}::cmp]:
@@ -8183,7 +8182,6 @@ def proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection :
   partialEqInst := proto.pq_ratchet.Direction.Insts.CoreCmpPartialEqDirection
   partial_cmp :=
     proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection.partial_cmp
-  le := proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection.le
 }
 
 /-- [spqr::proto::pq_ratchet::{core::cmp::Ord for spqr::proto::pq_ratchet::Direction}::cmp]:
@@ -10391,7 +10389,6 @@ def encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt : core.cmp.PartialOrd
   encoding.polynomial.Pt encoding.polynomial.Pt := {
   partialEqInst := encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt
   partial_cmp := encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.partial_cmp
-  le := encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.le
 }
 
 /-- [spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}::cmp]:
@@ -14842,6 +14839,20 @@ def v1.chunked.send_ct.send_ct2_encoder
   core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug r (toStr
     "should be able to send ct2")
 
+/-- [spqr::v1::unchunked::send_ct::{spqr::v1::unchunked::send_ct::Ct1SentEkReceived}::send_ct2]:
+    Source: 'src/v1/unchunked/send_ct.rs', lines 177:4-195:5 -/
+def v1.unchunked.send_ct.Ct1SentEkReceived.send_ct2
+  (self : v1.unchunked.send_ct.Ct1SentEkReceived) :
+  Result (v1.unchunked.send_ct.Ct2Sent × (alloc.vec.Vec Std.U8) ×
+    (alloc.vec.Vec Std.U8))
+  := do
+  let ct2 ← incremental_mlkem768.encaps2 self.ek self.es
+  let s := alloc.vec.Vec.deref ct2
+  let ct1 ← alloc.vec.Vec.extend_from_slice core.clone.CloneU8 self.ct1 s
+  let s1 := alloc.vec.Vec.deref ct1
+  let mac ← authenticator.Authenticator.mac_ct self.auth self.epoch s1
+  ok ({ epoch := self.epoch, auth := self.auth }, ct2, mac)
+
 /-- [spqr::v1::unchunked::send_ct::{spqr::v1::unchunked::send_ct::Ct1Sent}::recv_ek]:
     Source: 'src/v1/unchunked/send_ct.rs', lines 154:4-171:5 -/
 def v1.unchunked.send_ct.Ct1Sent.recv_ek
@@ -16315,16 +16326,52 @@ def v1.chunked.states.serialize.MessageType.from_payload
 @[global_simps, irreducible]
 def v1.chunked.states.serialize.MAX_VARINT_BYTES_LEN : Std.Usize := 10#usize
 
+/-- [spqr::v1::chunked::states::serialize::encode_varint]: loop body 0:
+    Source: 'src/v1/chunked/states/serialize.rs', lines 141:4-151:1 -/
+@[rust_loop_body]
+def v1.chunked.states.serialize.encode_varint_loop.body
+  (a : Std.U64) (into : alloc.vec.Vec Std.U8) (i : Std.Usize) :
+  Result (ControlFlow (Std.U64 × (alloc.vec.Vec Std.U8) × Std.Usize)
+    (alloc.vec.Vec Std.U8))
+  := do
+  if i < v1.chunked.states.serialize.MAX_VARINT_BYTES_LEN
+  then
+    let i1 ← lift (a &&& 127#u64)
+    let byte ← lift (UScalar.cast .U8 i1)
+    if a < 128#u64
+    then let into1 ← alloc.vec.Vec.push into byte
+         ok (done into1)
+    else
+      let i2 ← lift (128#u8 ||| byte)
+      let into1 ← alloc.vec.Vec.push into i2
+      let a1 ← a >>> 7#i32
+      let i3 ← i + 1#usize
+      ok (cont (a1, into1, i3))
+  else ok (done into)
+
+/-- [spqr::v1::chunked::states::serialize::encode_varint]: loop 0:
+    Source: 'src/v1/chunked/states/serialize.rs', lines 141:4-151:1 -/
+@[rust_loop]
+def v1.chunked.states.serialize.encode_varint_loop
+  (a : Std.U64) (into : alloc.vec.Vec Std.U8) (i : Std.Usize) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (a1, into1, i1) => v1.chunked.states.serialize.encode_varint_loop.body
+      a1 into1 i1)
+    (a, into, i)
+
 /-- [spqr::v1::chunked::states::serialize::encode_varint]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 139:0-150:1 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 139:0-151:1 -/
+@[reducible]
 def v1.chunked.states.serialize.encode_varint
   (a : Std.U64) (into : alloc.vec.Vec Std.U8) :
   Result (alloc.vec.Vec Std.U8)
   := do
-  sorry
+  v1.chunked.states.serialize.encode_varint_loop a into 0#usize
 
 /-- [spqr::v1::chunked::states::serialize::decode_varint]: loop body 0:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 166:4-175:5 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 167:4-176:5 -/
 @[rust_loop_body]
 def v1.chunked.states.serialize.decode_varint_loop.body
   (from1 : alloc.vec.Vec Std.U8) (at1 : Std.Usize) (max_i : Std.Usize)
@@ -16353,7 +16400,7 @@ def v1.chunked.states.serialize.decode_varint_loop.body
   else ok (done (out, i, done1))
 
 /-- [spqr::v1::chunked::states::serialize::decode_varint]: loop 0:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 166:4-175:5 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 167:4-176:5 -/
 @[rust_loop]
 def v1.chunked.states.serialize.decode_varint_loop
   (from1 : alloc.vec.Vec Std.U8) (at1 : Std.Usize) (out : Std.U64)
@@ -16367,7 +16414,7 @@ def v1.chunked.states.serialize.decode_varint_loop
     (out, i, done1)
 
 /-- [spqr::v1::chunked::states::serialize::decode_varint]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 153:0-183:1 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 154:0-184:1 -/
 def v1.chunked.states.serialize.decode_varint
   (from1 : alloc.vec.Vec Std.U8) (at1 : Std.Usize) :
   Result ((core.result.Result Std.U64 Error) × Std.Usize)
@@ -16390,7 +16437,7 @@ def v1.chunked.states.serialize.decode_varint
     else ok (core.result.Result.Err Error.MsgDecode, at1)
 
 /-- [spqr::v1::chunked::states::serialize::encode_chunk]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 185:0-189:1 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 186:0-190:1 -/
 def v1.chunked.states.serialize.encode_chunk
   (c : encoding.Chunk) (into : alloc.vec.Vec Std.U8) :
   Result (alloc.vec.Vec Std.U8)
@@ -16404,7 +16451,7 @@ def v1.chunked.states.serialize.encode_chunk
   alloc.vec.Vec.extend_from_slice core.clone.CloneU8 into1 s
 
 /-- [spqr::v1::chunked::states::serialize::decode_chunk]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 191:0-203:1 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 192:0-204:1 -/
 def v1.chunked.states.serialize.decode_chunk
   (from1 : alloc.vec.Vec Std.U8) (at1 : Std.Usize) :
   Result ((core.result.Result encoding.Chunk Error) × Std.Usize)
@@ -16440,7 +16487,7 @@ def v1.chunked.states.serialize.decode_chunk
     ok (r1, at2)
 
 /-- [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::serialize]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 222:4-246:5 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 223:4-247:5 -/
 def v1.chunked.states.serialize.Message.serialize
   (self : v1.chunked.states.Message) (index : Std.U32) :
   Result (alloc.vec.Vec Std.U8)
@@ -16471,7 +16518,7 @@ def v1.chunked.states.serialize.Message.serialize
     v1.chunked.states.serialize.encode_chunk chunk into4
 
 /-- [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::{core::ops::function::FnOnce<(alloc::string::String), spqr::Error> for spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::closure#1}::call_once]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 264:63-264:83 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 265:63-265:83 -/
 def
   v1.chunked.states.serialize.Message.deserialize.closure_1.Insts.CoreOpsFunctionFnOnceTupleStringError.call_once
   (c : v1.chunked.states.serialize.Message.deserialize.closure_1)
@@ -16481,7 +16528,7 @@ def
   ok Error.MsgDecode
 
 /-- Trait implementation: [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::{core::ops::function::FnOnce<(alloc::string::String), spqr::Error> for spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::closure#1}]
-    Source: 'src/v1/chunked/states/serialize.rs', lines 264:63-264:83 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 265:63-265:83 -/
 @[reducible]
 def
   v1.chunked.states.serialize.Message.deserialize.closure_1.Insts.CoreOpsFunctionFnOnceTupleStringError
@@ -16492,7 +16539,7 @@ def
 }
 
 /-- [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::{core::ops::function::FnOnce<(core::num::error::TryFromIntError), spqr::Error> for spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::closure}::call_once]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 260:21-260:41 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 261:21-261:41 -/
 def
   v1.chunked.states.serialize.Message.deserialize.closure.Insts.CoreOpsFunctionFnOnceTupleTryFromIntErrorError.call_once
   (c : v1.chunked.states.serialize.Message.deserialize.closure)
@@ -16502,7 +16549,7 @@ def
   ok Error.MsgDecode
 
 /-- Trait implementation: [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::{core::ops::function::FnOnce<(core::num::error::TryFromIntError), spqr::Error> for spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize::closure}]
-    Source: 'src/v1/chunked/states/serialize.rs', lines 260:21-260:41 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 261:21-261:41 -/
 @[reducible]
 def
   v1.chunked.states.serialize.Message.deserialize.closure.Insts.CoreOpsFunctionFnOnceTupleTryFromIntErrorError
@@ -16514,7 +16561,7 @@ def
 }
 
 /-- [spqr::v1::chunked::states::serialize::{spqr::v1::chunked::states::Message}::deserialize]:
-    Source: 'src/v1/chunked/states/serialize.rs', lines 249:4-279:5 -/
+    Source: 'src/v1/chunked/states/serialize.rs', lines 250:4-280:5 -/
 def v1.chunked.states.serialize.Message.deserialize
   (from1 : alloc.vec.Vec Std.U8) :
   Result (core.result.Result (v1.chunked.states.Message × Std.U32 ×
@@ -16712,5 +16759,483 @@ def v1.chunked.states.States.init_b
   (auth_key : Slice Std.U8) : Result v1.chunked.states.States := do
   let nhr ← v1.chunked.send_ct.NoHeaderReceived.new auth_key
   ok (v1.chunked.states.States.NoHeaderReceived nhr)
+
+/-- [spqr::v1::chunked::states::{spqr::v1::chunked::states::States}::send]:
+    Source: 'src/v1/chunked/states.rs', lines 115:4-273:5 -/
+def v1.chunked.states.States.send
+  {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
+  rand_core.CryptoRng R) (self : v1.chunked.states.States) (rng : R) :
+  Result ((core.result.Result v1.chunked.states.Send Error) × R)
+  := do
+  match self with
+  | v1.chunked.states.States.KeysUnsampled state =>
+    let epoch ← v1.chunked.send_ek.KeysUnsampled.epoch state
+    let (p, rng1) ←
+      v1.chunked.send_ek.KeysUnsampled.send_hdr_chunk randrngRngInst
+        rand_coreCryptoRngInst state rng
+    let (state1, chunk) := p
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Hdr chunk) },
+        key := none,
+        state := (v1.chunked.states.States.KeysSampled state1)
+      }, rng1)
+  | v1.chunked.states.States.KeysSampled state =>
+    let epoch ← v1.chunked.send_ek.KeysSampled.epoch state
+    let (state1, chunk) ← v1.chunked.send_ek.KeysSampled.send_hdr_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Hdr chunk) },
+        key := none,
+        state := (v1.chunked.states.States.KeysSampled state1)
+      }, rng)
+  | v1.chunked.states.States.HeaderSent state =>
+    let epoch ← v1.chunked.send_ek.HeaderSent.epoch state
+    let (state1, chunk) ← v1.chunked.send_ek.HeaderSent.send_ek_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ek chunk) },
+        key := none,
+        state := (v1.chunked.states.States.HeaderSent state1)
+      }, rng)
+  | v1.chunked.states.States.Ct1Received state =>
+    let epoch ← v1.chunked.send_ek.Ct1Received.epoch state
+    let (state1, chunk) ← v1.chunked.send_ek.Ct1Received.send_ek_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.EkCt1Ack chunk)
+          },
+        key := none,
+        state := (v1.chunked.states.States.Ct1Received state1)
+      }, rng)
+  | v1.chunked.states.States.EkSentCt1Received state =>
+    let epoch ← v1.chunked.send_ek.EkSentCt1Received.epoch state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ct1Ack true) },
+        key := none,
+        state := self
+      }, rng)
+  | v1.chunked.states.States.NoHeaderReceived state =>
+    let epoch ← v1.chunked.send_ct.NoHeaderReceived.epoch state
+    ok (core.result.Result.Ok
+      {
+        msg := { epoch, payload := v1.chunked.states.MessagePayload.None },
+        key := none,
+        state := self
+      }, rng)
+  | v1.chunked.states.States.HeaderReceived state =>
+    let epoch ← v1.chunked.send_ct.HeaderReceived.epoch state
+    let (t, rng1) ←
+      v1.chunked.send_ct.HeaderReceived.send_ct1_chunk randrngRngInst
+        rand_coreCryptoRngInst state rng
+    let (state1, chunk, epoch_secret) := t
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ct1 chunk) },
+        key := (some epoch_secret),
+        state := (v1.chunked.states.States.Ct1Sampled state1)
+      }, rng1)
+  | v1.chunked.states.States.Ct1Sampled state =>
+    let epoch ← v1.chunked.send_ct.Ct1Sampled.epoch state
+    let (state1, chunk) ← v1.chunked.send_ct.Ct1Sampled.send_ct1_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ct1 chunk) },
+        key := none,
+        state := (v1.chunked.states.States.Ct1Sampled state1)
+      }, rng)
+  | v1.chunked.states.States.EkReceivedCt1Sampled state =>
+    let epoch ← v1.chunked.send_ct.EkReceivedCt1Sampled.epoch state
+    let (state1, chunk) ←
+      v1.chunked.send_ct.EkReceivedCt1Sampled.send_ct1_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ct1 chunk) },
+        key := none,
+        state := (v1.chunked.states.States.EkReceivedCt1Sampled state1)
+      }, rng)
+  | v1.chunked.states.States.Ct1Acknowledged state =>
+    let epoch ← v1.chunked.send_ct.Ct1Acknowledged.epoch state
+    ok (core.result.Result.Ok
+      {
+        msg := { epoch, payload := v1.chunked.states.MessagePayload.None },
+        key := none,
+        state := self
+      }, rng)
+  | v1.chunked.states.States.Ct2Sampled state =>
+    let epoch ← v1.chunked.send_ct.Ct2Sampled.epoch state
+    let (state1, chunk) ← v1.chunked.send_ct.Ct2Sampled.send_ct2_chunk state
+    ok (core.result.Result.Ok
+      {
+        msg :=
+          { epoch, payload := (v1.chunked.states.MessagePayload.Ct2 chunk) },
+        key := none,
+        state := (v1.chunked.states.States.Ct2Sampled state1)
+      }, rng)
+
+/-- [spqr::v1::chunked::states::{spqr::v1::chunked::states::States}::recv]:
+    Source: 'src/v1/chunked/states.rs', lines 275:4-532:5 -/
+def v1.chunked.states.States.recv
+  (self : v1.chunked.states.States) (msg : v1.chunked.states.Message) :
+  Result (core.result.Result v1.chunked.states.Recv Error)
+  := do
+  match self with
+  | v1.chunked.states.States.KeysUnsampled state =>
+    let i ← v1.chunked.send_ek.KeysUnsampled.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.KeysSampled state =>
+    let i ← v1.chunked.send_ek.KeysSampled.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      match msg.payload with
+      | v1.chunked.states.MessagePayload.None =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Hdr _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ek _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.EkCt1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1 chunk =>
+        let hs ←
+          v1.chunked.send_ek.KeysSampled.recv_ct1_chunk state msg.epoch chunk
+        ok (core.result.Result.Ok
+          { key := none, state := (v1.chunked.states.States.HeaderSent hs) })
+      | v1.chunked.states.MessagePayload.Ct2 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.HeaderSent state =>
+    let i ← v1.chunked.send_ek.HeaderSent.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      match msg.payload with
+      | v1.chunked.states.MessagePayload.None =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Hdr _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ek _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.EkCt1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1 chunk =>
+        let hsrc ←
+          v1.chunked.send_ek.HeaderSent.recv_ct1_chunk state msg.epoch chunk
+        match hsrc with
+        | v1.chunked.send_ek.HeaderSentRecvChunk.StillReceiving state1 =>
+          ok (core.result.Result.Ok
+            {
+              key := none,
+              state := (v1.chunked.states.States.HeaderSent state1)
+            })
+        | v1.chunked.send_ek.HeaderSentRecvChunk.Done state1 =>
+          ok (core.result.Result.Ok
+            {
+              key := none,
+              state := (v1.chunked.states.States.Ct1Received state1)
+            })
+      | v1.chunked.states.MessagePayload.Ct2 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.Ct1Received state =>
+    let i ← v1.chunked.send_ek.Ct1Received.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      match msg.payload with
+      | v1.chunked.states.MessagePayload.None =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Hdr _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ek _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.EkCt1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct2 chunk =>
+        let escr ←
+          v1.chunked.send_ek.Ct1Received.recv_ct2_chunk state msg.epoch chunk
+        ok (core.result.Result.Ok
+          {
+            key := none,
+            state := (v1.chunked.states.States.EkSentCt1Received escr)
+          })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.EkSentCt1Received state =>
+    let i ← v1.chunked.send_ek.EkSentCt1Received.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      match msg.payload with
+      | v1.chunked.states.MessagePayload.None =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Hdr _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ek _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.EkCt1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct2 chunk =>
+        let r ←
+          v1.chunked.send_ek.EkSentCt1Received.recv_ct2_chunk state msg.epoch
+            chunk
+        let cf ←
+          core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+            r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          match val with
+          | v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.StillReceiving state1
+            =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.EkSentCt1Received state1)
+              })
+          | v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.Done p =>
+            let (state1, sec) := p
+            ok (core.result.Result.Ok
+              {
+                key := (some sec),
+                state := (v1.chunked.states.States.NoHeaderReceived state1)
+              })
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+            v1.chunked.states.Recv (core.convert.FromSame Error) residual
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.NoHeaderReceived state =>
+    let i ← v1.chunked.send_ct.NoHeaderReceived.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      match msg.payload with
+      | v1.chunked.states.MessagePayload.None =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Hdr chunk =>
+        let r ←
+          v1.chunked.send_ct.NoHeaderReceived.recv_hdr_chunk state msg.epoch
+            chunk
+        let cf ←
+          core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+            r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          match val with
+          | v1.chunked.send_ct.NoHeaderReceivedRecvChunk.StillReceiving state1
+            =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.NoHeaderReceived state1)
+              })
+          | v1.chunked.send_ct.NoHeaderReceivedRecvChunk.Done state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.HeaderReceived state1)
+              })
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+            v1.chunked.states.Recv (core.convert.FromSame Error) residual
+      | v1.chunked.states.MessagePayload.Ek _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.EkCt1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1Ack _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct1 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+      | v1.chunked.states.MessagePayload.Ct2 _ =>
+        ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.HeaderReceived state =>
+    let i ← v1.chunked.send_ct.HeaderReceived.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.Ct1Sampled state =>
+    let i ← v1.chunked.send_ct.Ct1Sampled.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      let (chunk, ack) ←
+        match msg.payload with
+        | v1.chunked.states.MessagePayload.None => ok (none, false)
+        | v1.chunked.states.MessagePayload.Hdr _ => ok (none, false)
+        | v1.chunked.states.MessagePayload.Ek chunk1 => ok (some chunk1, false)
+        | v1.chunked.states.MessagePayload.EkCt1Ack chunk1 =>
+          ok (some chunk1, true)
+        | v1.chunked.states.MessagePayload.Ct1Ack _ => ok (none, false)
+        | v1.chunked.states.MessagePayload.Ct1 _ => ok (none, false)
+        | v1.chunked.states.MessagePayload.Ct2 _ => ok (none, false)
+      match chunk with
+      | none => ok (core.result.Result.Ok { key := none, state := self })
+      | some chunk1 =>
+        let r ←
+          v1.chunked.send_ct.Ct1Sampled.recv_ek_chunk state msg.epoch chunk1
+            ack
+        let cf ←
+          core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+            r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          match val with
+          | v1.chunked.send_ct.Ct1SampledRecvChunk.StillReceivingStillSending
+            state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.Ct1Sampled state1)
+              })
+          | v1.chunked.send_ct.Ct1SampledRecvChunk.StillReceiving state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.Ct1Acknowledged state1)
+              })
+          | v1.chunked.send_ct.Ct1SampledRecvChunk.StillSending state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.EkReceivedCt1Sampled state1)
+              })
+          | v1.chunked.send_ct.Ct1SampledRecvChunk.Done state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.Ct2Sampled state1)
+              })
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+            v1.chunked.states.Recv (core.convert.FromSame Error) residual
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.EkReceivedCt1Sampled state =>
+    let i ← v1.chunked.send_ct.EkReceivedCt1Sampled.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      let b ←
+        match msg.payload with
+        | v1.chunked.states.MessagePayload.None => ok false
+        | v1.chunked.states.MessagePayload.Hdr _ => ok false
+        | v1.chunked.states.MessagePayload.Ek _ => ok false
+        | v1.chunked.states.MessagePayload.EkCt1Ack _ => ok true
+        | v1.chunked.states.MessagePayload.Ct1Ack b1 =>
+          if b1
+          then ok true
+          else ok false
+        | v1.chunked.states.MessagePayload.Ct1 _ => ok false
+        | v1.chunked.states.MessagePayload.Ct2 _ => ok false
+      if b
+      then
+        let cs ←
+          v1.chunked.send_ct.EkReceivedCt1Sampled.recv_ct1_ack state msg.epoch
+        ok (core.result.Result.Ok
+          { key := none, state := (v1.chunked.states.States.Ct2Sampled cs) })
+      else ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.Ct1Acknowledged state =>
+    let i ← v1.chunked.send_ct.Ct1Acknowledged.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq =>
+      let chunk ←
+        match msg.payload with
+        | v1.chunked.states.MessagePayload.None => ok none
+        | v1.chunked.states.MessagePayload.Hdr _ => ok none
+        | v1.chunked.states.MessagePayload.Ek chunk1 => ok (some chunk1)
+        | v1.chunked.states.MessagePayload.EkCt1Ack chunk1 => ok (some chunk1)
+        | v1.chunked.states.MessagePayload.Ct1Ack _ => ok none
+        | v1.chunked.states.MessagePayload.Ct1 _ => ok none
+        | v1.chunked.states.MessagePayload.Ct2 _ => ok none
+      match chunk with
+      | none => ok (core.result.Result.Ok { key := none, state := self })
+      | some chunk1 =>
+        let r ←
+          v1.chunked.send_ct.Ct1Acknowledged.recv_ek_chunk state msg.epoch
+            chunk1
+        let cf ←
+          core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+            r
+        match cf with
+        | core.ops.control_flow.ControlFlow.Continue val =>
+          match val with
+          | v1.chunked.send_ct.Ct1AcknowledgedRecvChunk.StillReceiving state1
+            =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.Ct1Acknowledged state1)
+              })
+          | v1.chunked.send_ct.Ct1AcknowledgedRecvChunk.Done state1 =>
+            ok (core.result.Result.Ok
+              {
+                key := none,
+                state := (v1.chunked.states.States.Ct2Sampled state1)
+              })
+        | core.ops.control_flow.ControlFlow.Break residual =>
+          core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+            v1.chunked.states.Recv (core.convert.FromSame Error) residual
+    | Ordering.gt =>
+      ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
+  | v1.chunked.states.States.Ct2Sampled state =>
+    let i ← v1.chunked.send_ct.Ct2Sampled.epoch state
+    let o ← lift (core.cmp.impls.OrdU64.cmp msg.epoch i)
+    match o with
+    | Ordering.lt => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.eq => ok (core.result.Result.Ok { key := none, state := self })
+    | Ordering.gt =>
+      let i1 ← i + 1#u64
+      if msg.epoch = i1
+      then
+        let ku ←
+          v1.chunked.send_ct.Ct2Sampled.recv_next_epoch state msg.epoch
+        ok (core.result.Result.Ok
+          { key := none, state := (v1.chunked.states.States.KeysUnsampled ku) })
+      else ok (core.result.Result.Err (Error.EpochOutOfRange msg.epoch))
 
 end spqr

@@ -21,7 +21,6 @@ charon:
     - "spqr::encoding::gf::check_accelerated" # cpufeatures macro: arrow types unsupported by Aeneas
     - "spqr::encoding::gf::accelerated" # platform-specific SIMD intrinsics
     - "log" # log crate internals cause Aeneas "Internal error" (arrow types in __private_api)
-    - "spqr::incremental_mlkem768::encaps2"
     - "spqr::incremental_mlkem768::potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275"
     - "spqr::proto::_::{impl core::fmt::Debug for _}"
     - "spqr::proto::_::_::{impl core::fmt::Debug for _}"
@@ -31,6 +30,7 @@ charon:
     - "spqr::proto::_::_::_::{impl core::hash::Hash for _}"
   opaque: # treat as opaque (no body extracted)
     - "spqr::kdf::hkdf_to_slice"
+    - "spqr::incremental_mlkem768::encaps2" # uses log macros internally
     - "spqr::encoding::gf::check_accelerated"
     - "spqr::encoding::gf::accelerated"
     - "spqr::encoding::gf::mul2_u16" # dispatches to excluded accelerated code
