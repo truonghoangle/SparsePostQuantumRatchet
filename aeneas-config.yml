@@ -29,6 +29,14 @@ charon:
     - "spqr::proto::_::{impl core::hash::Hash for _}"
     - "spqr::proto::_::_::{impl core::hash::Hash for _}"
     - "spqr::proto::_::_::_::{impl core::hash::Hash for _}"
+    - "spqr::proto::_::_::{impl core::cmp::PartialEq for _}" # prost-generated, Aeneas type mismatch
+    - "spqr::proto::_::_::_::{impl core::cmp::PartialEq for _}"
+    - "spqr::proto::_::_::{impl core::cmp::Eq for _}"
+    - "spqr::proto::_::_::_::{impl core::cmp::Eq for _}"
+    - "spqr::proto::_::_::{impl core::marker::StructuralPartialEq for _}"
+    - "spqr::proto::_::_::_::{impl core::marker::StructuralPartialEq for _}"
+    - "spqr::proto::_::_::{_}::merge" # inherent merge methods have closure typing issues
+    - "spqr::proto::_::_::_::{_}::merge"
   opaque: # treat as opaque (no body extracted)
     - "spqr::kdf::hkdf_to_slice"
     - "spqr::incremental_mlkem768::encaps2" # uses log macros internally
@@ -57,7 +65,7 @@ crate:
 tweaks:
   files: ["Types.lean", "Funs.lean"]
   substitutions:
-    # 0. Disable long line linter for auto-generated files
+    # Disable long line linter for auto-generated files
     - find: |
         set_option linter.unusedVariables false
       replace: |
@@ -66,7 +74,7 @@ tweaks:
         set_option linter.style.setOption false
         set_option linter.style.whitespace false
 
-    # 1. Insert Pt trait instances into Types.lean after the Pt struct definition
+    # Insert Pt trait instances into Types.lean after the Pt struct definition
     - find: |
         structure encoding.polynomial.Pt where
           x : encoding.gf.GF16
@@ -146,7 +154,7 @@ tweaks:
 
         /-- [spqr::encoding::polynomial::Poly]
 
-    # 2. Remove Pt PartialEq + Eq from Funs.lean (before serialize)
+    # Remove Pt PartialEq + Eq from Funs.lean (before serialize)
     - find: |
         /-- [spqr::encoding::polynomial::{core::cmp::PartialEq<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}::eq]:
             Source: 'src/encoding/polynomial.rs', lines 61:4-63:5 -/
@@ -186,7 +194,7 @@ tweaks:
 
         /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::Pt}::serialize]:
 
-    # 3. Remove Pt PartialOrd + Ord from Funs.lean (before MAX_STORED_POLYNOMIAL_DEGREE_V1)
+    # Remove Pt PartialOrd + Ord from Funs.lean (before MAX_STORED_POLYNOMIAL_DEGREE_V1)
     - find: |
         /-- [spqr::encoding::polynomial::{core::cmp::PartialOrd<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}::partial_cmp]:
             Source: 'src/encoding/polynomial.rs', lines 55:4-57:5 -/
@@ -231,3 +239,50 @@ tweaks:
         -- Pt PartialOrd and Ord instances moved to Types.lean (needed by PolyDecoder type signature)
 
         /-- [spqr::encoding::polynomial::MAX_STORED_POLYNOMIAL_DEGREE_V1]
+
+    # Strip `map` and `collect` fields from Enumerate Iterator instance
+    # (Aeneas extractor generates these but the Lean backend struct doesn't have them)
+    - find: |
+        step_by :=
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.step_by
+            traitsiteratorIteratorInst
+          map := fun {B : Type} {F : Type} (opsfunctionFnMutPTuplePairUsizeFPInst :
+            core.ops.function.FnMut F (Std.Usize × Clause0_Item) B) =>
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
+            traitsiteratorIteratorInst opsfunctionFnMutPTuplePairUsizeFPInst
+          enumerate :=
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.enumerate
+            traitsiteratorIteratorInst
+          collect := fun {B : Type} (traitscollectFromIteratorPPairUsizePInst :
+            core.iter.traits.collect.FromIterator B (Std.Usize × Clause0_Item)) =>
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.collect
+            traitsiteratorIteratorInst traitscollectFromIteratorPPairUsizePInst
+      replace: |
+        step_by :=
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.step_by
+            traitsiteratorIteratorInst
+          enumerate :=
+            core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.enumerate
+            traitsiteratorIteratorInst
+          take := sorry
+
+    # Strip `map` and `collect` fields from VecDeque IntoIter Iterator instance
+    - find: |
+        step_by :=
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.step_by
+          map := fun {B : Type} {F : Type} (coreopsfunctionFnMutPTupleBPInst :
+            core.ops.function.FnMut F T B) =>
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.map
+            coreopsfunctionFnMutPTupleBPInst
+          enumerate :=
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.enumerate
+          collect := fun {B : Type} (coreitertraitscollectFromIteratorInst :
+            core.iter.traits.collect.FromIterator B T) =>
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.collect
+            coreitertraitscollectFromIteratorInst
+      replace: |
+        step_by :=
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.step_by
+          enumerate :=
+            alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.enumerate
+          take := sorry
