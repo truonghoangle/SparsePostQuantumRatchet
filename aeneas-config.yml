@@ -1,26 +1,27 @@
 # Aeneas extraction configuration
-# See: https://github.com/oliver-butterley/aeneas-cli
+# See: https://www.npmjs.com/package/aeneas-cli
 
 aeneas:
-  commit: "e99c02e2" # pinned commit hash (or branch name)
+  commit: "e99c02e2" # pinned commit hash or branch name
   repo: "https://github.com/AeneasVerif/aeneas.git"
 
 charon:
-  cargo_args: ["--features", "extraction"] # gate via feature flag
+  cargo_args: ["--features", "extraction"] # any cargo args
+  # here we use `"--features", "extraction"` to gate via a feature flag
   start_from: # Rust paths to extract
     - "spqr::util" 
-    - "spqr::encoding" # several functions excluded
+    - "spqr::encoding" 
     - "spqr::serialize" 
-    - "spqr::incremental_mlkem768" # log was excluded
-    - "spqr::proto" # Debug/Hash excluded, opaque Message impls, feature-gated as_str_name/from_str_name
-    - "spqr::kdf" # opaque hkdf_to_slice
+    - "spqr::incremental_mlkem768" 
+    - "spqr::proto" 
+    - "spqr::kdf" 
     - "spqr::chain" 
     - "spqr::authenticator"
     - "spqr::v1" 
   exclude: # patterns to skip
     - "spqr::encoding::gf::check_accelerated" # cpufeatures macro: arrow types unsupported by Aeneas
     - "spqr::encoding::gf::accelerated" # platform-specific SIMD intrinsics
-    - "log" # log crate internals cause Aeneas "Internal error" (arrow types in __private_api)
+    - "log" # log crate internals cause Aeneas error
     - "spqr::incremental_mlkem768::potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275"
     - "spqr::proto::_::{impl core::fmt::Debug for _}"
     - "spqr::proto::_::_::{impl core::fmt::Debug for _}"
@@ -34,7 +35,7 @@ charon:
     - "spqr::encoding::gf::check_accelerated"
     - "spqr::encoding::gf::accelerated"
     - "spqr::encoding::gf::mul2_u16" # dispatches to excluded accelerated code
-    - "spqr::encoding::gf::{core::ops::arith::MulAssign<&spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}" # references excluded TOKEN
+    - "spqr::encoding::gf::{core::ops::arith::MulAssign<&spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}" 
     - "spqr::encoding::polynomial::{spqr::encoding::Decoder for spqr::encoding::polynomial::PolyDecoder}::decoded_message"
     - "spqr::proto::_::{impl prost::message::Message for _}"
     - "spqr::proto::_::_::{impl prost::message::Message for _}"
@@ -43,19 +44,16 @@ charon:
 aeneas_args:
   options:
     - split-files
-  dest: "LeanOutput" # output directory for generated Lean files
+  dest: "SPQR" # output directory for generated Lean files
 
 crate:
-  dir: "." # path to Rust crate (relative to project root)
+  dir: "." # path to Rust crate
   name: "spqr" # package name
 
 # Post-extraction find/replace applied to generated Lean files.
-# Useful for patching output that doesn't compile or needs adjustment.
 tweaks:
   files: [] # Lean files to patch, e.g. ["Funs.lean", "Types.lean"]
   substitutions: []
   # Example:
   # - find: "someGeneratedName"
   #   replace: "betterName"
-  # - find: "open Result"
-  #   replace: "open Result\nopen MyModule"
