@@ -35,8 +35,6 @@ charon:
     - "spqr::proto::_::_::_::{impl core::cmp::Eq for _}"
     - "spqr::proto::_::_::{impl core::marker::StructuralPartialEq for _}"
     - "spqr::proto::_::_::_::{impl core::marker::StructuralPartialEq for _}"
-    - "spqr::proto::_::_::{_}::merge" # inherent merge methods have closure typing issues
-    - "spqr::proto::_::_::_::{_}::merge"
   opaque: # treat as opaque (no body extracted)
     - "spqr::kdf::hkdf_to_slice"
     - "spqr::incremental_mlkem768::encaps2" # uses log macros internally
@@ -286,3 +284,27 @@ tweaks:
           enumerate :=
             alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.enumerate
           take := sorry
+
+    # Sorry proto enum partial_cmp bodies (PartialCmpI32 doesn't exist in Aeneas stdlib)
+    - find: "ok (core.cmp.impls.PartialCmpI32.partial_cmp self1 other1)"
+      replace: "sorry"
+
+    # Add missing fields to proto enum PartialOrd instances
+    - regex: "(partial_cmp :=\\n    proto\\.pq_ratchet\\.\\w+\\.Insts\\.CoreCmpPartialOrd\\w+\\.partial_cmp\\n)\\}"
+      replace: "$1  lt := sorry\n  le := sorry\n  gt := sorry\n  ge := sorry\n}"
+
+    # Add missing fields to proto enum Ord instances
+    - regex: "(cmp := proto\\.pq_ratchet\\.\\w+\\.Insts\\.CoreCmpOrd\\.cmp\\n)\\}"
+      replace: "$1  max := sorry\n  min := sorry\n  clamp := sorry\n}"
+
+    # Sorry loop bodies where Aeneas generates () instead of the correct typed value
+    - regex: "(def (?:encoding\\.gf\\.parallel_mult_loop\\.body|encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+      replace: "$1:= sorry"
+
+    # Sorry merge closure FnOnce call_once assignments (Aeneas types them wrong)
+    - regex: "call_once :=\\n    proto\\.pq_ratchet\\.\\S+\\.merge\\.closure\\S*\\.Insts\\.CoreOpsFunctionFnOnceTupleTupleTuple\\.call_once\\n    bytesbufbuf_implBufInst\\n}"
+      replace: "call_once := sorry\n}"
+
+    # Sorry merge function bodies (broken Result.map with mistyped closures)
+    - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+      replace: "$1:= sorry"
