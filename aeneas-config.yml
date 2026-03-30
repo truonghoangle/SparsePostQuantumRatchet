@@ -66,6 +66,10 @@ aeneas_args:
 tweaks:
   files: ["Types.lean", "Funs.lean"]
   substitutions:
+    # Normalize absolute build paths in Source comments so they are reproducible across machines
+    - regex: "Source: '[^']*/target/[^']*/out/"
+      replace: "Source: 'target/out/"
+
     # Disable long line linter for auto-generated files
     - find: |
         set_option linter.unusedVariables false
