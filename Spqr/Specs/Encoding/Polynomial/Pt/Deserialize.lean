@@ -97,16 +97,10 @@ theorem from_be_bytes_spec (a : Array Std.U8 2#usize) :
     Nat.one_lt_ofNat, List.getElem_cons_succ, WP.spec_ok]
     -- Unfold UScalar.val coercion to expose BitVec.toNat
     simp only [Std.UScalar.val]
-    -- Goal: (setWidth 16 a1.bv ||| setWidth 16 a0.bv <<< 8).toNat
-    --       = a0.bv.toNat * 256 + a1.bv.toNat
-    -- Step 1: Push .toNat through ||| then <<<, then setWidth
     rw [BitVec.toNat_or, BitVec.toNat_shiftLeft]
     simp only [Nat.shiftLeft_eq]
-    -- Now goal is in pure Nat: a1.bv.toNat % 2^16 ||| (a0.bv.toNat % 2^16 * 2^8 % 2^16)
-    --   = a0.bv.toNat * 256 + a1.bv.toNat
     have h0 : a0.bv.toNat < 2 ^ 8 := a0.bv.isLt
     have h1 : a1.bv.toNat < 2 ^ 8 := a1.bv.isLt
-    -- Simplify mod (values fit in 16 bits)
     simp only at h0
     simp only at h1
     simp only [UScalarTy.U16_numBits_eq,

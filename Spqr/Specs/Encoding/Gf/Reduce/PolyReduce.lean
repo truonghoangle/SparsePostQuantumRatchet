@@ -205,7 +205,7 @@ verified separately.
 theorem poly_reduce_spec (v : Std.U32) :
     poly_reduce v ⦃ result =>
       result.val = polyMod v.val 16 ⦄ := by
-    sorry
+  sorry
 
 
 end spqr.encoding.gf.reduce
