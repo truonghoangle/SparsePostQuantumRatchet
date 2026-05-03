@@ -1996,13 +1996,8 @@ axiom kdf.hkdf_to_slice
   Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Result
     (Slice Std.U8)
 
-/-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-    Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
-axiom encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
-  : encoding.gf.GF16 → encoding.gf.GF16 → Result encoding.gf.GF16
-
 /-- [spqr::encoding::gf::mul2_u16]:
-    Source: 'src/encoding/gf.rs', lines 216:0-225:1 -/
+    Source: 'src/encoding/gf.rs', lines 581:0-590:1 -/
 axiom encoding.gf.mul2_u16
   : Std.U16 → Std.U16 → Std.U16 → Result (Std.U16 × Std.U16)
 

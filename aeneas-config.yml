@@ -198,3 +198,39 @@ tweaks:
     # Sorry merge function bodies (broken Result.map with mistyped closures)
     - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
+
+    # Replace the auto-generated `GF16::Mul::mul` definition with a
+    # concrete `MulAssign::mul_assign` body that delegates to the
+    # unaccelerated multiplication routine. The `MulAssign` impl is marked
+    # opaque in the extraction config (because the Rust source dispatches
+    # to platform-specific SIMD code via `accelerated::mul`), but for
+    # verification we want a concrete, unaccelerated definition. We also
+    # re-emit the surrounding `Mul::mul` definition unchanged so the
+    # downstream call sites still type-check.
+    - find: |
+        /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
+            Source: 'src/encoding/gf.rs', lines 515:4-519:5
+            Visibility: public -/
+        def encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul
+          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
+          Result encoding.gf.GF16
+          := do
+          encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
+      replace: |
+        /-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
+            Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
+        def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
+          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
+          Result encoding.gf.GF16
+          := do
+          let i ← encoding.gf.unaccelerated.mul self.value other.value
+          ok { value := i }
+
+        /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
+            Source: 'src/encoding/gf.rs', lines 515:4-519:5
+            Visibility: public -/
+        def encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul
+          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
+          Result encoding.gf.GF16
+          := do
+          encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
