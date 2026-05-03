@@ -3,7 +3,6 @@ import Spqr.Code.FunsExternal
 import Spqr.Code.Types
 import Spqr.Code.TypesExternal
 import Spqr.Math.Gf
-import Spqr.Specs.Encoding.Gf.DivImplLoopBody
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
