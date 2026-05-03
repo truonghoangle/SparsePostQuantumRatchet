@@ -188,7 +188,7 @@ tweaks:
       replace: "$1  max := sorry\n  min := sorry\n  clamp := sorry\n}"
 
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
-    - regex: "(def (?:encoding\\.gf\\.parallel_mult_loop\\.body|encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+    - regex: "(def (?:encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
     # Sorry merge closure FnOnce call_once assignments (Aeneas types them wrong)
@@ -234,3 +234,70 @@ tweaks:
           Result encoding.gf.GF16
           := do
           encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
+
+
+    # Replace the auto-generated `mul2_u16` axiom (declared opaque in the
+    # extraction config because the Rust source dispatches to platform-specific
+    # SIMD intrinsics via `accelerated::mul2`) with a concrete definition that
+    # delegates to the unaccelerated implementation, so downstream proofs can
+    # reduce calls to it.
+    #
+    # Additionally, patch the body of `parallel_mult_loop.body` that immediately
+    # follows: Aeneas extracts the second component returned by `mul2_u16` as
+    # `_` and writes `()` into the slice (because the original axiom returned
+    # `Result (U16 × U16)` whose second projection was unused upstream). With
+    # the concrete definition above, both lanes of the parallel multiplication
+    # are meaningful, so we rebind the second result to `v3` and store
+    # `{ value := v3 }` at index `i3` instead of `()`, matching the Rust
+    # semantics.
+    - find: |
+        /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
+            Source: 'src/encoding/gf.rs', lines 570:4-575:5
+            Visibility: public -/
+        @[rust_loop_body]
+        def encoding.gf.parallel_mult_loop.body
+          (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
+          Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
+            × (Slice encoding.gf.GF16) × Std.Usize))
+          := do
+          let i1 ← i + 2#usize
+          let i2 := Slice.len into
+          if i1 <= i2
+          then
+            let g ← Slice.index_usize into i
+            let i3 ← i + 1#usize
+            let g1 ← Slice.index_usize into i3
+            let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value
+            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
+            let s ← Slice.update into1 i3 ()
+            ok (cont (s, i1))
+          else ok (done (a, into, i))
+      replace: |
+        /-- [spqr::encoding::gf::mul2_u16]:
+            Source: 'src/encoding/gf.rs', lines 581:0-590:1 -/
+        def encoding.gf.mul2_u16
+          (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
+          Result (Std.U16 × Std.U16) :=
+          encoding.gf.unaccelerated.mul2 a b1 b2
+
+        /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
+            Source: 'src/encoding/gf.rs', lines 570:4-575:5
+            Visibility: public -/
+        @[rust_loop_body]
+        def encoding.gf.parallel_mult_loop.body
+          (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
+          Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
+            × (Slice encoding.gf.GF16) × Std.Usize))
+          := do
+          let i1 ← i + 2#usize
+          let i2 := Slice.len into
+          if i1 <= i2
+          then
+            let g ← Slice.index_usize into i
+            let i3 ← i + 1#usize
+            let g1 ← Slice.index_usize into i3
+            let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value
+            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
+            let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)  
+            ok (cont (s, i1))
+          else ok (done (a, into, i))

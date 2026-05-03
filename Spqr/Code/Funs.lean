@@ -7223,6 +7223,13 @@ def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16 : core.ops.arith.Div
   div := encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div
 }
 
+/-- [spqr::encoding::gf::mul2_u16]:
+    Source: 'src/encoding/gf.rs', lines 581:0-590:1 -/
+def encoding.gf.mul2_u16
+  (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
+  Result (Std.U16 × Std.U16) :=
+  encoding.gf.unaccelerated.mul2 a b1 b2
+
 /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/
@@ -7231,7 +7238,20 @@ def encoding.gf.parallel_mult_loop.body
   (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
   Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
     × (Slice encoding.gf.GF16) × Std.Usize))
-  := sorry
+  := do
+  let i1 ← i + 2#usize
+  let i2 := Slice.len into
+  if i1 <= i2
+  then
+    let g ← Slice.index_usize into i
+    let i3 ← i + 1#usize
+    let g1 ← Slice.index_usize into i3
+    let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value
+    let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
+    let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)  
+    ok (cont (s, i1))
+  else ok (done (a, into, i))
+
 /-- [spqr::encoding::gf::parallel_mult]: loop 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/

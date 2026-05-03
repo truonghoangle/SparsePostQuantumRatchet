@@ -60,29 +60,6 @@ natural language specs:
     `(a + b).value = add_assign(a, b).value`
 -/
 
-/-- **Spec and proof concerning
-`encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16.add_assign`**:
-
-The by-reference `AddAssign<&GF16> for GF16` computes GF(2¹⁶)
-addition: bitwise XOR of the two underlying `u16` values.
-
-The result satisfies the GF(2¹⁶)-level postcondition:
-
-  `result.value.val.toGF216 =
-       self.value.val.toGF216 + other.value.val.toGF216`
-
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
-number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : (ZMod 2)[X] →+* GF216` that vanishes on
-`POLY_GF2`.
-
-The proof reduces `result.value` to `self.value ^^^ other.value`,
-applies `UScalar.val_xor` to push `.val` through `^^^`, and then
-uses `natToGF2Poly_xor` together with the additivity of the ring
-homomorphism `φ` (`map_add`).
-
-**Source**: spqr/src/encoding/gf.rs (lines 28:4-31:5)
--/
 @[step]
 theorem add_assign_spec (self other : spqr.encoding.gf.GF16) :
     add_assign self other ⦃ result =>
