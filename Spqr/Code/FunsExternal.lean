@@ -1996,11 +1996,6 @@ axiom kdf.hkdf_to_slice
   Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Result
     (Slice Std.U8)
 
-/-- [spqr::encoding::gf::mul2_u16]:
-    Source: 'src/encoding/gf.rs', lines 581:0-590:1 -/
-axiom encoding.gf.mul2_u16
-  : Std.U16 → Std.U16 → Std.U16 → Result (Std.U16 × Std.U16)
-
 /-- [spqr::encoding::polynomial::{spqr::encoding::Decoder for spqr::encoding::polynomial::PolyDecoder}::decoded_message]:
     Source: 'src/encoding/polynomial.rs', lines 909:4-961:5 -/
 axiom encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
