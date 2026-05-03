@@ -78,7 +78,7 @@ is definitionally equal to `add_assign` (via `sub_assign`).
 @[step]
 theorem sub_spec (self other : spqr.encoding.gf.GF16) :
     sub self other ⦃ result =>
-      (result.value : GF216) = self.value - other.value ⦄ := by
+      (result.value.val.toGF216 : GF216) = self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
   unfold sub CoreOpsArithSubAssignShared0GF16.sub_assign
   step*
 

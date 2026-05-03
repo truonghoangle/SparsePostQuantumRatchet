@@ -5,39 +5,22 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Basic
+import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 import Mathlib.RingTheory.Polynomial.Basic
+
+/-! # Spec for `reduce_bytes`
+
+The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
+`POLY_GF2_monic`, `natToGF2Poly_POLY`, `natToGF2Poly_xor`,
+`natToGF2Poly_shiftLeft`, etc.) are imported from `Spqr.Math.Gf`.
+-/
 
 open Aeneas Aeneas.Std Result
 open Polynomial spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.reduce
-
-
-
-
-open Polynomial spqr.encoding.gf.unaccelerated in
-/-- The natural-number encoding of the irreducible polynomial
-    POLY = 0x1100b corresponds to `POLY_GF2` in GF(2)[X].
-
-    `natToGF2Poly 0x1100b = X¹⁶ + X¹² + X³ + X + 1 = POLY_GF2` -/
-private lemma natToGF2Poly_POLY :
-    natToGF2Poly 0x1100b = POLY_GF2 := by
-  ext m
-  simp only [natToGF2Poly_coeff]
-  unfold POLY_GF2
-  simp only [coeff_add, coeff_X_pow, coeff_X, coeff_one]
-  rcases Nat.lt_or_ge m 17 with hlt | hge
-  · interval_cases m <;> decide
-  · have htb : Nat.testBit (0x1100b : Nat) m = false := by
-      apply Nat.testBit_eq_false_of_lt
-      exact lt_of_lt_of_le (by norm_num : (0x1100b : Nat) < 2 ^ 17)
-        (Nat.pow_le_pow_right (by norm_num) hge)
-    simp only [htb, ↓reduceIte, show m ≠ 16 from by omega, show m ≠ 12 from by omega,
-               show m ≠ 3 from by omega, show (1 : ℕ) ≠ m from by omega, show m ≠ 0 from by omega,
-               add_zero]
-    simp
 
 
 /-- Array indexing is unchanged after `set` at a different position. -/

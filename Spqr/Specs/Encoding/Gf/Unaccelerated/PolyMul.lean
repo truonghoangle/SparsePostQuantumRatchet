@@ -5,7 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Basic
-import Mathlib.RingTheory.Polynomial.Basic
+import Spqr.Math.Gf
 
 /-! # Spec Theorem for `unaccelerated::poly_mul`
 
@@ -30,6 +30,11 @@ The result is an unreduced 32-bit product; to obtain a GF(2¹⁶) element,
 it must subsequently be reduced modulo the irreducible polynomial
 POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b) via `poly_reduce`.
 
+The core polynomial-library definitions and lemmas (`natToGF2Poly`,
+`POLY_GF2`, and the basic coefficient/XOR/shift identities) are now
+gathered once in `Spqr.Math.Gf`; this file imports them rather than
+re-proving them.
+
 **Source**: spqr/src/encoding/gf.rs (lines 381:4-427:5)
 -/
 
@@ -52,7 +57,7 @@ def clmul (a b : Nat) : (n : Nat) → Nat
 /-!
 ## Algebraic (GF(2)[X]) formulation of carry-less multiplication
 
-The following definitions express `clmul` in terms of the polynomial
+The following definition expresses `clmul` in terms of the polynomial
 ring GF(2)[X] = (ZMod 2)[X], making the algebraic structure explicit:
 - XOR (`^^^`) becomes polynomial addition (`+`) over GF(2)
 - Shift-left by n (`<<< n`) becomes multiplication by `X ^ n`
@@ -62,15 +67,6 @@ The final GF(2¹⁶) product is obtained by reducing the polynomial
 product modulo the irreducible polynomial
   POLY = X¹⁶ + X¹² + X³ + X + 1   (0x1100b).
 -/
-
-/-- Convert a natural number to a GF(2) polynomial by interpreting
-    its binary representation as polynomial coefficients.
-
-    For example, `natToGF2Poly 0b1011 = X³ + X + 1` since bits 0, 1,
-    and 3 are set. -/
-noncomputable def natToGF2Poly (n : Nat) : (ZMod 2)[X] :=
-  ∑ i ∈ Finset.range (n.log2 + 1),
-    if n.testBit i then (X : (ZMod 2)[X]) ^ i else 0
 
 /-- Carry-less multiplication in the polynomial ring (ZMod 2)[X].
 
@@ -85,52 +81,6 @@ noncomputable def clmul_poly (a b : (ZMod 2)[X]) : (n : Nat) → (ZMod 2)[X]
   | n + 1 =>
     let acc := clmul_poly a b n
     if b.coeff n ≠ 0 then acc + a * X ^ n else acc
-
-/-- The irreducible polynomial used for GF(2¹⁶) reduction:
-    POLY = X¹⁶ + X¹² + X³ + X + 1   (0x1100b in hex).
-
-    GF(2¹⁶) ≅ GF(2)[X] / (POLY). -/
-noncomputable def POLY_GF2 : (ZMod 2)[X] :=
-  X ^ 16 + X ^ 12 + X ^ 3 + X + 1
-
-/-- The coefficient of `natToGF2Poly n` at position `m` is `1` when bit `m`
-    of `n` is set, and `0` otherwise. -/
-lemma natToGF2Poly_coeff (n : Nat) (m : Nat) :
-    (natToGF2Poly n).coeff m = if n.testBit m then (1 : ZMod 2) else 0 := by
-  unfold natToGF2Poly
-  simp only [finset_sum_coeff]
-  simp_rw [apply_ite (fun (p : (ZMod 2)[X]) => p.coeff m), coeff_X_pow, coeff_zero]
-  cases htb : n.testBit m with
-  | false =>
-    exact Finset.sum_eq_zero fun i _ => by
-      by_cases him : m = i
-      · subst him; simp [htb]
-      · simp [him]
-  | true =>
-    have hne : n ≠ 0 := by rintro rfl; simp at htb
-    have hm : m ∈ Finset.range (n.log2 + 1) := by
-      rw [Finset.mem_range]
-      have := (Nat.le_log2 hne).mpr (Nat.ge_two_pow_of_testBit htb)
-      omega
-    rw [Finset.sum_eq_single_of_mem m hm (fun j _ hjm => by simp [Ne.symm hjm])]
-    simp [htb]
-
-lemma natToGF2Poly_zero : natToGF2Poly 0 = 0 := by
-  ext m; simp [natToGF2Poly_coeff]
-
-open Polynomial in
-lemma natToGF2Poly_xor (a b : Nat) :
-    natToGF2Poly (a ^^^ b) = natToGF2Poly a + natToGF2Poly b := by
-  ext m
-  simp only [natToGF2Poly_coeff, coeff_add, Nat.testBit_xor]
-  cases a.testBit m <;> cases b.testBit m <;> decide
-
-lemma natToGF2Poly_shiftLeft (a k : Nat) :
-    natToGF2Poly (a <<< k) = natToGF2Poly a * X ^ k := by
-  ext m
-  simp only [natToGF2Poly_coeff, coeff_mul_X_pow', Nat.testBit_shiftLeft,
-    Bool.and_eq_true, decide_eq_true_eq]
-  by_cases hkm : k ≤ m <;> simp [hkm]
 
 /-- **Correspondence between `clmul` on `Nat` and `clmul_poly` on GF(2)[X]**:
 

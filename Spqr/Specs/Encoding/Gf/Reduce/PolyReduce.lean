@@ -3,6 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
+import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
 
 /-! # Spec Theorem for `reduce::poly_reduce`
@@ -41,40 +42,6 @@ open Polynomial spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.reduce
 
-
-
-/-- **POLY_GF2 is monic** (leading coefficient is 1).
-
-Promotes the local proof from `ReduceFromByte.lean` to a named theorem
-for reuse across the reduction proof chain. -/
-theorem POLY_GF2_monic : POLY_GF2.Monic := by
-  unfold POLY_GF2 Polynomial.Monic Polynomial.leadingCoeff
-  have hnd : (X ^ 16 + X ^ 12 + X ^ 3 + X + (1 : (ZMod 2)[X])).natDegree = 16 := by
-    compute_degree!
-  rw [hnd]
-  simp [coeff_add, coeff_X_pow, coeff_X, coeff_one]
-
-/-- **POLY_GF2 has degree 16.** -/
-theorem POLY_GF2_natDegree : POLY_GF2.natDegree = 16 := by
-  unfold POLY_GF2; compute_degree!
-
-/-- **In (ZMod 2)[X], every element is its own negation.**
-
-This is a consequence of characteristic 2: `a + a = 0` implies `-a = a`. -/
-private lemma zmod2_poly_neg_eq (a : (ZMod 2)[X]) : -a = a := by
-  have h : a + a = 0 := by
-    ext n; simp only [coeff_add, coeff_zero]
-    have h2 : (2 : ZMod 2) = 0 := by decide
-    calc (a.coeff n) + (a.coeff n) = 2 * (a.coeff n) := by ring
-      _ = 0 * (a.coeff n) := by rw [h2]
-      _ = 0 := by ring
-  exact neg_eq_of_add_eq_zero_left h
-
-/-- **In (ZMod 2)[X], subtraction equals addition.**
-
-Direct consequence of `zmod2_poly_neg_eq`: `a - b = a + (-b) = a + b`. -/
-private lemma zmod2_poly_sub_eq_add (a b : (ZMod 2)[X]) : a - b = a + b := by
-  rw [sub_eq_add_neg, zmod2_poly_neg_eq]
 
 /-- Spec-level bit-by-bit polynomial reduction modulo POLY over GF(2).
 
@@ -125,27 +92,6 @@ noncomputable def polyMod_poly (p : (ZMod 2)[X]) :
     if p'.coeff (n + 16) ≠ 0
     then p' + POLY_GF2 * X ^ n
     else p'
-
-/-- The natural-number encoding of the irreducible polynomial
-    POLY = 0x1100b corresponds to `POLY_GF2` in GF(2)[X].
-
-    `natToGF2Poly 0x1100b = X¹⁶ + X¹² + X³ + X + 1 = POLY_GF2` -/
-private lemma natToGF2Poly_POLY :
-    natToGF2Poly 0x1100b = POLY_GF2 := by
-  ext m
-  simp only [natToGF2Poly_coeff]
-  unfold POLY_GF2
-  simp only [coeff_add, coeff_X_pow, coeff_X, coeff_one]
-  rcases Nat.lt_or_ge m 17 with hlt | hge
-  · interval_cases m <;> decide
-  · have htb : Nat.testBit (0x1100b : Nat) m = false := by
-      apply Nat.testBit_eq_false_of_lt
-      exact lt_of_lt_of_le (by norm_num : (0x1100b : Nat) < 2 ^ 17)
-        (Nat.pow_le_pow_right (by norm_num) hge)
-    simp only [htb, ↓reduceIte, show m ≠ 16 from by omega, show m ≠ 12 from by omega,
-               show m ≠ 3 from by omega, show (1 : ℕ) ≠ m from by omega, show m ≠ 0 from by omega,
-               add_zero]
-    simp
 
 /-- **Correspondence between `polyMod` on `Nat` and `polyMod_poly` on GF(2)[X]**:
 
@@ -319,34 +265,6 @@ corresponding to requirements (a)-(d) for proving `poly_reduce_spec`:
   the identity for values < 2^n. After both reduction passes,
   the result has degree < 16 (value < 2^16), so truncation is exact.
 -/
-
-/-- **(d) Truncation to n bits is identity for values < 2^n.**
-
-If `v < 2^n`, then `v % 2^n = v`, so `natToGF2Poly (v % 2^n) = natToGF2Poly v`. -/
-theorem natToGF2Poly_mod_eq_of_lt (v n : Nat) (hv : v < 2 ^ n) :
-    natToGF2Poly (v % 2 ^ n) = natToGF2Poly v := by
-  congr 1; exact Nat.mod_eq_of_lt hv
-
-/-- **Natural-number polynomial decomposition at arbitrary bit boundary.**
-
-For any natural number `v` and bit position `n`:
-  `natToGF2Poly v = natToGF2Poly (v % 2^n) + natToGF2Poly (v >>> n) * X^n`
-
-This decomposes a GF(2) polynomial into its lower `n` coefficients
-and its upper coefficients shifted down. Generalizes the `nat_poly_split`
-lemma (proved locally for n = 16 in ReduceFromByte.lean). -/
-theorem natToGF2Poly_split (v n : Nat) :
-    natToGF2Poly v =
-      natToGF2Poly (v % 2 ^ n) + natToGF2Poly (v >>> n) * X ^ n := by
-  ext m
-  simp only [natToGF2Poly_coeff, coeff_add, coeff_mul_X_pow',
-             Nat.testBit_mod_two_pow, Nat.testBit_shiftRight]
-  by_cases hm : n ≤ m
-  · simp only [hm, ↓reduceIte, show ¬ m < n from by omega]
-    grind
-  · push_neg at hm
-    simp only [show ¬ n ≤ m from by omega, ↓reduceIte, hm, ↓reduceIte, add_zero]
-    congr 1
 
 /-- **Linearity of the table reduction function over GF(2).**
 
@@ -708,27 +626,6 @@ theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
 
 
 
-/-- **Injectivity of `natToGF2Poly` on naturals.**
-
-If two natural numbers map to the same GF(2) polynomial, they are equal.
-This is because the coefficient of `natToGF2Poly n` at position `m` is
-`1` iff bit `m` of `n` is set, so equal polynomials force equal bit
-patterns. -/
-private lemma natToGF2Poly_inj (a b : Nat)
-    (h : natToGF2Poly a = natToGF2Poly b) : a = b := by
-  apply Nat.eq_of_testBit_eq
-  intro m
-  have hcoeff : (natToGF2Poly a).coeff m = (natToGF2Poly b).coeff m :=
-    congrArg (fun p => p.coeff m) h
-  simp only [natToGF2Poly_coeff] at hcoeff
-  by_cases ha : a.testBit m
-  · by_cases hb : b.testBit m
-    · exact ha.trans hb.symm
-    · simp [ha, hb] at hcoeff
-  · by_cases hb : b.testBit m
-    · simp [ha, hb] at hcoeff
-    · exact (Bool.eq_false_iff.mpr ha).trans (Bool.eq_false_iff.mpr hb).symm
-
 /-!
 ## Main postcondition theorem for `poly_reduce`
 
@@ -908,28 +805,6 @@ the polynomial-level `%ₘ POLY_GF2`, enabling algebraic reasoning
 about the two-pass table-based reduction.
 -/
 
-/-- **Helper lemma: `p %ₘ q - p` is divisible by `q` (for `q` monic).**
-
-A direct consequence of the division identity
-`p %ₘ q + (p /ₘ q) * q = p`. Used below to bridge between the
-"compute then mod" pattern and modByMonic equality. -/
-private lemma POLY_GF2_dvd_modByMonic_sub (p : (ZMod 2)[X])
-    (hirr : POLY_GF2.Monic) :
-    POLY_GF2 ∣ (p %ₘ POLY_GF2 - p) := by
-  have hadd := Polynomial.modByMonic_add_div p hirr
-  refine ⟨-(p /ₘ POLY_GF2), ?_⟩
-  linear_combination hadd
-
-/-- **Idempotence of `%ₘ POLY_GF2`**: applying the reduction twice is
-the same as applying it once.
-
-This is a direct corollary of `POLY_GF2_dvd_modByMonic_sub` combined
-with `Polynomial.modByMonic_eq_of_dvd_sub`. -/
-private lemma modByMonic_modByMonic_self (p : (ZMod 2)[X])
-    (hirr : POLY_GF2.Monic) :
-    (p %ₘ POLY_GF2) %ₘ POLY_GF2 = p %ₘ POLY_GF2 :=
-  Polynomial.modByMonic_eq_of_dvd_sub hirr (POLY_GF2_dvd_modByMonic_sub p hirr)
-
 /-- **`polyReduceSpec` preserves congruence modulo POLY_GF2**:
 
 For any 32-bit value `v` (i.e. `v < 2^32`), `polyReduceSpec v` is
@@ -953,15 +828,14 @@ indexing the table out of its meaningful range). For instance,
 `polyReduceSpec (2^32) = 0`, but `natToGF2Poly (2^32) %ₘ POLY_GF2
 = X^32 %ₘ POLY_GF2 ≠ 0`. Hence the theorem is stated under the
 necessary precondition `v < 2^32`. -/
-theorem polyReduceSpec_eq_modByMonic (v : Nat) (hv : v < 2 ^ 32)
-    (hirr : POLY_GF2.Monic) :
+theorem polyReduceSpec_eq_modByMonic (v : Nat) (hv : v < 2 ^ 32) :
     (natToGF2Poly (polyReduceSpec v)) %ₘ POLY_GF2 =
       (natToGF2Poly v) %ₘ POLY_GF2 := by
   -- Use `polyReduceSpec_correct` (already proved) to rewrite the LHS as
   --   ((natToGF2Poly v) %ₘ POLY_GF2) %ₘ POLY_GF2,
   -- then conclude by idempotence of `%ₘ POLY_GF2`.
   rw [polyReduceSpec_correct v hv reduceByteTable_eq_poly_full]
-  exact modByMonic_modByMonic_self _ hirr
+  exact modByMonic_modByMonic_self _
 
 
 /-!

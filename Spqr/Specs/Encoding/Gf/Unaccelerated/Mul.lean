@@ -5,8 +5,10 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Basic
+import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Reduce.PolyReduce
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
+
 /-! # Spec Theorem for `unaccelerated::mul`
 
 Specification and proof for `encoding.gf.unaccelerated.mul`,
@@ -30,6 +32,9 @@ This function is the software (unaccelerated) fallback; on x86/x86_64
 and aarch64, the same operation may be dispatched to hardware carry-
 less multiplication instructions (`PCLMULQDQ` / `PMULL`).
 
+The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
+`POLY_GF2_monic`, etc.) are imported from `Spqr.Math.Gf`.
+
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
 
@@ -38,31 +43,10 @@ open Polynomial spqr.encoding.gf.reduce
 
 namespace spqr.encoding.gf.unaccelerated
 
-/-! ## Bridging lemmas: polynomial level → ring-homomorphism level -/
+/-! ## Bridging lemmas: polynomial level → ring-homomorphism level
 
-/-- **Bridge lemma**: any monic polynomial `P` and ring-homomorphism `φ`
-that vanishes at `P` makes the residue `p %ₘ P` φ-equal to `p` itself.
-
-This is the standard "transport along the quotient map" identity:
-if `φ : (ZMod 2)[X] →+* R` factors through `(ZMod 2)[X] ⧸ (P)` (i.e.
-`φ P = 0`), then `φ p = φ (p %ₘ P)`.  Multiplying through by the
-quotient identity `p = P * (p /ₘ P) + (p %ₘ P)`, the `P · q` term is
-killed by `φ P = 0`.
--/
-private lemma ringHom_modByMonic
-    {R : Type*} [CommRing R]
-    (φ : (ZMod 2)[X] →+* R)
-    (P : (ZMod 2)[X]) (hMonic : P.Monic) (hφ : φ P = 0)
-    (p : (ZMod 2)[X]) :
-    φ (p %ₘ P) = φ p := by
-  -- `modByMonic_add_div p hMonic : p %ₘ P + P * (p /ₘ P) = p`
-  have heq : p %ₘ P + P * (p /ₘ P) = p :=
-    Polynomial.modByMonic_add_div p hMonic
-  have h1 : φ p = φ (p %ₘ P + P * (p /ₘ P)) := by rw [heq]
-  have h2 :
-      φ (p %ₘ P + P * (p /ₘ P)) = φ (p %ₘ P) + φ P * φ (p /ₘ P) := by
-    simp [map_add, map_mul]
-  rw [h1, h2, hφ]; ring
+The general facts `ringHom_modByMonic` and `natToGF2Poly_modByMonic_eq`
+have been moved to `Spqr.Math.Gf` for reuse. -/
 
 /-- **Composition lemma**: combining `poly_mul_spec` with the
 algebraic property of `%ₘ POLY_GF2`, for any `u32` value `v` whose
@@ -74,31 +58,6 @@ private lemma natToGF2Poly_modByMonic_of_eq
     (h : natToGF2Poly v = p * q) :
     natToGF2Poly v %ₘ POLY_GF2 = (p * q) %ₘ POLY_GF2 := by
   rw [h]
-
-/-- **Multiplicativity of `%ₘ POLY_GF2` (compatibility with the quotient ring
-multiplication).**
-
-For any two natural numbers `p` and `q`, reducing the product of their
-`natToGF2Poly` encodings modulo `POLY_GF2` is the same as first reducing
-each factor modulo `POLY_GF2`, multiplying the residues, and reducing the
-result again.  This is the algebraic statement that the quotient map
-`(ZMod 2)[X] → (ZMod 2)[X] ⧸ (POLY_GF2)` is a ring homomorphism.
-
-**Mathematical note.** The "naive" identity without the outer `%ₘ POLY_GF2`,
-i.e.
-  `(natToGF2Poly p %ₘ POLY_GF2) * (natToGF2Poly q %ₘ POLY_GF2)
-     = (natToGF2Poly p * natToGF2Poly q) %ₘ POLY_GF2`,
-is **false in general**.  Counter-example: take `p = q = 2 ^ 15` so that
-`natToGF2Poly p = natToGF2Poly q = X ^ 15`.  Both factors already have
-degree `< 16`, so `%ₘ POLY_GF2` is the identity on each.  The LHS is
-`X ^ 30` (degree 30), while the RHS, being a residue, has degree `< 16`.
-Hence the two sides cannot be equal.  The correct statement, proved
-below, requires an outer `%ₘ POLY_GF2` on the LHS — exactly Mathlib's
-`Polynomial.mul_modByMonic`. -/
-lemma natToGF2Poly_modByMonic_eq (p q : Nat) :
-    ((natToGF2Poly p %ₘ POLY_GF2) * (natToGF2Poly q %ₘ POLY_GF2)) %ₘ POLY_GF2 =
-      (natToGF2Poly p * natToGF2Poly q) %ₘ POLY_GF2 :=
-  (Polynomial.mul_modByMonic _ _ _).symm
 
 /-- **Polynomial-level postcondition for `encoding.gf.unaccelerated.mul`**:
 
@@ -143,16 +102,15 @@ requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
 field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 theorem mul_spec_via_ringHom
-    (φ : (ZMod 2)[X] →+* GF216)
-    (hφ : φ POLY_GF2 = 0)
     (a b : Std.U16) :
     mul a b ⦃ result =>
-      φ (natToGF2Poly result.val) =
-        φ (natToGF2Poly a.val) * φ (natToGF2Poly b.val) ⦄ := by
-  have hMonic : POLY_GF2.Monic :=   POLY_GF2_monic
+      result.val.toGF216 =
+        a.val.toGF216 * b.val.toGF216 ⦄ := by
+  have hMonic : POLY_GF2.Monic := POLY_GF2_monic
   have h := mul_spec a b
   unfold mul
   step*
+  simp only [Nat.toGF216]
   have key :
       φ (natToGF2Poly result.val) =
         φ ((natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2) := by
