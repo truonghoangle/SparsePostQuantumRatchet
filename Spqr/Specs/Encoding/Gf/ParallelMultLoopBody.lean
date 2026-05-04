@@ -130,6 +130,8 @@ theorem parallel_mult_loop_body_spec'
       | (rw [Slice.set_val_eq,
              List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
       | scalar_tac)
+  · grind
+  · grind
 
 /-- **GF(2¹⁶)-level postcondition for
 `encoding.gf.parallel_mult_loop.body`** (provable, parametric):
@@ -178,5 +180,7 @@ theorem parallel_mult_loop_body_spec
       | (rw [Slice.set_val_eq,
              List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
       | scalar_tac)
+  · grind
+  · grind
 
 end spqr.encoding.gf
