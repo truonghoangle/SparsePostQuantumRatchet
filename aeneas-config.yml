@@ -274,7 +274,8 @@ tweaks:
           else ok (done (a, into, i))
       replace: |
         /-- [spqr::encoding::gf::mul2_u16]:
-            Source: 'src/encoding/gf.rs', lines 581:0-590:1 -/
+            Source: 'src/encoding/gf.rs', lines 581:0-590:1 
+            Visibility: public -/
         def encoding.gf.mul2_u16
           (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
           Result (Std.U16 × Std.U16) :=
