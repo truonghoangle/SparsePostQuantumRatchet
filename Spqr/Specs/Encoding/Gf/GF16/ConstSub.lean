@@ -27,7 +27,7 @@ Unlike `unaccelerated::mul`, no reduction modulo the irreducible
 polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 is required: XOR of two
 `u16` values is itself representable in 16 bits, so the resulting
 GF(2) polynomial already has degree `< 16` and is the canonical
-representative of its class in `(ZMod 2)[X] / (POLY_GF2)`.
+representative of its class in `GF2Poly / (POLY_GF2)`.
 
 The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
 `natToGF2Poly_xor`, `zmod2_poly_sub_eq_add`, `Nat.toGF216`, `φ`,
@@ -49,7 +49,7 @@ Bitwise XOR of two `u16` values in GF(2¹⁶), wrapped into a `GF16`.
 At the GF(2)-polynomial level, XOR corresponds to polynomial
 addition: each bit of the inputs is a coefficient in `ZMod 2`, and
 XOR is exactly coefficient-wise addition modulo 2.  Since
-`(ZMod 2)[X]` has characteristic 2, polynomial subtraction
+`GF2Poly` has characteristic 2, polynomial subtraction
 coincides with polynomial addition, so XOR equally encodes
 polynomial subtraction.
 
@@ -60,7 +60,7 @@ The result satisfies the polynomial-level specification:
 This follows from composing:
   1. `UScalar.val_xor`:        `(a ^^^ b).val = a.val ^^^ b.val`
   2. `natToGF2Poly_xor`:        XOR of naturals = addition of polys
-  3. `zmod2_poly_sub_eq_add`:   in `(ZMod 2)[X]`, `a - b = a + b`
+  3. `zmod2_poly_sub_eq_add`:   in `GF2Poly`, `a - b = a + b`
 
 This establishes that `const_sub` computes subtraction in the
 quotient ring
@@ -81,7 +81,7 @@ theorem const_sub_spec' (self other : spqr.encoding.gf.GF16) :
 
 /-- **GF216-level postcondition (provable, parametric)**:
 
-For the chosen ring-homomorphism `φ : (ZMod 2)[X] →+* GF216` (which
+For the chosen ring-homomorphism `φ : GF2Poly →+* GF216` (which
 vanishes on `POLY_GF2`), the result of `const_sub self other`
 corresponds — via `φ ∘ natToGF2Poly = Nat.toGF216` — to the
 difference of `self.value.val` and `other.value.val` in `GF216`.

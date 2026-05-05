@@ -20,11 +20,11 @@ represented by the `u16` value `0`:
 
 The underlying `u16` value `0` has natural-number value `0`, and lifts
 into `GF216 = GaloisField 2 16` via the canonical chain
-`Nat → (ZMod 2)[X] → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
+`Nat → GF2Poly → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
 to the additive identity `0 : GF216`.  This follows because:
   * `natToGF2Poly 0 = 0` (the empty bit pattern represents the zero
-    polynomial in `(ZMod 2)[X]`); and
-  * the ring homomorphism `φ : (ZMod 2)[X] →+* GF216` chosen in
+    polynomial in `GF2Poly`); and
+  * the ring homomorphism `φ : GF2Poly →+* GF216` chosen in
     `Spqr.Math.Gf` preserves zero (`map_zero`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 541:4-541:45)
@@ -106,7 +106,7 @@ representation lifts to the additive identity of
 The proof discharges the trivial Hoare triple by reducing
 `ok ZERO` and applying `ZERO_toGF216`, which combines
 `natToGF2Poly_zero` with the ring-homomorphism law `map_zero`
-for the chosen `φ : (ZMod 2)[X] →+* GF216`.
+for the chosen `φ : GF2Poly →+* GF216`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 541:4-541:45)
 -/

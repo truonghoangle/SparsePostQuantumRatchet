@@ -24,7 +24,7 @@ the abstract type `GF16`, and so its semantic interpretation in
 `GF216 = GaloisField 2 16` is exactly the lift of the input `u16`
 under the canonical map
 `Nat.toGF216 = φ ∘ natToGF2Poly` (with
-`φ : (ZMod 2)[X] →+* GF216`).
+`φ : GF2Poly →+* GF216`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 544:4-546:5)
 -/

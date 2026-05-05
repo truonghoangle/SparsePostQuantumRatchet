@@ -64,7 +64,7 @@ def polyMod (v : Nat) : (n : Nat) → Nat
 ## Algebraic (GF(2)[X]) formulation of polynomial reduction
 
 The following definitions express `polyMod` in terms of the polynomial
-ring GF(2)[X] = (ZMod 2)[X], making the algebraic structure explicit:
+ring GF(2)[X] = GF2Poly, making the algebraic structure explicit:
 - XOR (`^^^`) becomes polynomial addition (`+`) over GF(2)
 - Shift-left by n (`<<< n`) becomes multiplication by `X ^ n`
 - `Nat.testBit n` becomes checking if the n-th coefficient is nonzero
@@ -73,7 +73,7 @@ The reduction computes `v mod POLY_GF2` where
   POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1.
 -/
 
-/-- Spec-level polynomial reduction modulo POLY_GF2 in (ZMod 2)[X].
+/-- Spec-level polynomial reduction modulo POLY_GF2 in GF2Poly.
 
 Given a polynomial `p ∈ GF(2)[X]`, reduces it modulo POLY_GF2 by
 iterating from degree `n + 15` down to degree 16, subtracting
@@ -82,8 +82,8 @@ coefficient at position `k + 16`.
 
 Morally, `polyMod_poly p n = p %ₘ POLY_GF2` when
 `natDegree p < n + 16`. -/
-noncomputable def polyMod_poly (p : (ZMod 2)[X]) :
-    (n : Nat) → (ZMod 2)[X]
+noncomputable def polyMod_poly (p : GF2Poly) :
+    (n : Nat) → GF2Poly
   | 0     => p
   | n + 1 =>
     let p' := polyMod_poly p n
@@ -132,7 +132,7 @@ theorem polyMod_eq_polyMod_poly (v n : Nat) :
     and each successor step either leaves the polynomial unchanged
     (divisibility preserved) or adds `POLY_GF2 * X ^ n`, which is
     itself divisible by `POLY_GF2`. -/
-private lemma polyMod_poly_dvd_sub (p : (ZMod 2)[X]) (n : Nat) :
+private lemma polyMod_poly_dvd_sub (p : GF2Poly) (n : Nat) :
     POLY_GF2 ∣ (p - polyMod_poly p n) := by
   induction n with
   | zero => simp [polyMod_poly]
@@ -167,7 +167,7 @@ Note: `polyMod_poly` processes bit positions from low to high
 which has already been processed. Hence `polyMod_poly p n` may
 not be fully reduced (i.e. may have degree ≥ 16), but it always
 preserves congruence modulo POLY_GF2. -/
-theorem polyMod_poly_eq_modByMonic (p : (ZMod 2)[X]) (n : Nat) :
+theorem polyMod_poly_eq_modByMonic (p : GF2Poly) (n : Nat) :
     (polyMod_poly p n) %ₘ POLY_GF2 =
       p %ₘ POLY_GF2 := by
   have hirr : POLY_GF2.Monic := POLY_GF2_monic
@@ -269,7 +269,7 @@ Since `reduceByteTable_poly` is defined as multiplication by `X^16`
 followed by `modByMonic`, both of which are additive maps, the
 composition is additive:
   `reduceByteTable_poly (p + q) = reduceByteTable_poly p + reduceByteTable_poly q` -/
-theorem reduceByteTable_poly_add (p q : (ZMod 2)[X]) :
+theorem reduceByteTable_poly_add (p q : GF2Poly) :
     reduceByteTable_poly (p + q) =
       reduceByteTable_poly p + reduceByteTable_poly q := by
   unfold reduceByteTable_poly
@@ -856,7 +856,7 @@ This is exactly multiplication in the quotient ring
 
 The remaining bridge to `GaloisField 2 16` (Mathlib's abstract
 construction) requires:
-  - An explicit isomorphism `GaloisField 2 16 ≅ (ZMod 2)[X] / (POLY_GF2)`
+  - An explicit isomorphism `GaloisField 2 16 ≅ GF2Poly / (POLY_GF2)`
   - Showing that POLY_GF2 is irreducible over GF(2)
   - Connecting the natural-number ↔ polynomial ↔ quotient-ring chain
 

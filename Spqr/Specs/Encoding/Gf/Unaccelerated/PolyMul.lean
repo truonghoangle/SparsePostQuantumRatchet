@@ -57,7 +57,7 @@ def clmul (a b : Nat) : (n : Nat) → Nat
 ## Algebraic (GF(2)[X]) formulation of carry-less multiplication
 
 The following definition expresses `clmul` in terms of the polynomial
-ring GF(2)[X] = (ZMod 2)[X], making the algebraic structure explicit:
+ring GF(2)[X] = GF2Poly, making the algebraic structure explicit:
 - XOR (`^^^`) becomes polynomial addition (`+`) over GF(2)
 - Shift-left by n (`<<< n`) becomes multiplication by `X ^ n`
 - `Nat.testBit n` becomes checking if the n-th coefficient is nonzero
@@ -67,15 +67,15 @@ product modulo the irreducible polynomial
   POLY = X¹⁶ + X¹² + X³ + X + 1   (0x1100b).
 -/
 
-/-- Carry-less multiplication in the polynomial ring (ZMod 2)[X].
+/-- Carry-less multiplication in the polynomial ring GF2Poly.
 
     This is the algebraic equivalent of `clmul` on `Nat`:
     - XOR becomes polynomial addition over GF(2)
     - Left-shift by `n` becomes multiplication by `X ^ n`
     - `testBit n` becomes checking if `coeff b n ≠ 0`
 
-    Morally, `clmul_poly a b n = a * (b mod X^n)` in (ZMod 2)[X]. -/
-noncomputable def clmul_poly (a b : (ZMod 2)[X]) : (n : Nat) → (ZMod 2)[X]
+    Morally, `clmul_poly a b n = a * (b mod X^n)` in GF2Poly. -/
+noncomputable def clmul_poly (a b : GF2Poly) : (n : Nat) → GF2Poly
   | 0     => 0
   | n + 1 =>
     let acc := clmul_poly a b n
@@ -114,11 +114,11 @@ theorem clmul_eq_clmul_poly (a b n : Nat) :
       simp (config := { zeta := true }) [clmul_poly, hcoeff]
 
 
-private lemma clmul_poly_b_zero (a : (ZMod 2)[X]) : ∀ n, clmul_poly a 0 n = 0
+private lemma clmul_poly_b_zero (a : GF2Poly) : ∀ n, clmul_poly a 0 n = 0
   | 0 => rfl
   | n + 1 => by dsimp [clmul_poly]; simp [clmul_poly_b_zero a n]
 
-private lemma clmul_poly_coeff_eq (a b c : (ZMod 2)[X]) :
+private lemma clmul_poly_coeff_eq (a b c : GF2Poly) :
     ∀ n, (∀ i, i < n → b.coeff i = c.coeff i) → clmul_poly a b n = clmul_poly a c n
   | 0, _ => rfl
   | n + 1, h => by
@@ -134,7 +134,7 @@ private lemma clmul_poly_coeff_eq (a b c : (ZMod 2)[X]) :
 
     In particular, for 16-bit inputs (degree < 16):
       `clmul_poly a b 16 = a * b` -/
-theorem clmul_poly_eq_mul (a b : (ZMod 2)[X]) (n : Nat)
+theorem clmul_poly_eq_mul (a b : GF2Poly) (n : Nat)
     (hb : b.natDegree < n) :
     clmul_poly a b n = a * b := by
   induction n generalizing b with

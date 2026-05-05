@@ -136,7 +136,7 @@ theorem parallel_mult_loop_body_spec'
 /-- **GF(2¹⁶)-level postcondition for
 `encoding.gf.parallel_mult_loop.body`** (provable, parametric):
 
-For any ring-homomorphism `φ : (ZMod 2)[X] →+* GF216` that vanishes on
+For any ring-homomorphism `φ : GF2Poly →+* GF216` that vanishes on
 `POLY_GF2`, the body of `parallel_mult` either leaves the state
 unchanged (`done` branch, when `i + 2 > into.len()`) or advances `i`
 by two while preserving the slice length, with the two written

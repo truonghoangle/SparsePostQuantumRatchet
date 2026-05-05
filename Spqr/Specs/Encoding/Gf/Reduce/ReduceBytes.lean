@@ -198,7 +198,7 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
       -- Helpers (defined before the rewrites so they're all available)
       have hmonic : POLY_GF2.Monic := by
         unfold POLY_GF2 Polynomial.Monic Polynomial.leadingCoeff
-        have hnd : (X ^ 16 + X ^ 12 + X ^ 3 + X + (1 : (ZMod 2)[X])).natDegree = 16 := by
+        have hnd : (X ^ 16 + X ^ 12 + X ^ 3 + X + (1 : GF2Poly)).natDegree = 16 := by
           compute_degree!
         rw [hnd]; simp [coeff_add, coeff_X_pow, coeff_X, coeff_one]
       have hpoly_ps : natToGF2Poly ps = POLY_GF2 * X ^ n := by
@@ -252,13 +252,13 @@ theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
   rw [← reduceByteLoopFull_snd_eq]
   have hmonic : POLY_GF2.Monic := by
     unfold POLY_GF2 Polynomial.Monic Polynomial.leadingCoeff
-    have hnd : (X ^ 16 + X ^ 12 + X ^ 3 + X + (1 : (ZMod 2)[X])).natDegree = 16 := by
+    have hnd : (X ^ 16 + X ^ 12 + X ^ 3 + X + (1 : GF2Poly)).natDegree = 16 := by
       compute_degree!
     rw [hnd]; simp [coeff_add, coeff_X_pow, coeff_X, coeff_one]
   have hPOLYdeg : POLY_GF2.natDegree = 16 := by unfold POLY_GF2; compute_degree!
   have hne1 : POLY_GF2 ≠ 1 := by
     intro heq
-    have : (POLY_GF2 : (ZMod 2)[X]).coeff 16 = (1 : (ZMod 2)[X]).coeff 16 := by rw [heq]
+    have : (POLY_GF2 : GF2Poly).coeff 16 = (1 : GF2Poly).coeff 16 := by rw [heq]
     simp [POLY_GF2, coeff_add, coeff_X_pow, coeff_X, coeff_one] at this
   have hinv := reduceByteLoopFull_inv k 0 8 hk
   simp only [Nat.zero_mod, natToGF2Poly_zero, zero_add] at hinv

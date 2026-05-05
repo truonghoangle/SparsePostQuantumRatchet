@@ -64,7 +64,7 @@ theorem mul2_u16_spec' (a b1 b2 : Std.U16) :
 
 /-- **GF216-level postcondition (provable, parametric)**:
 
-For any ring-homomorphism `φ : (ZMod 2)[X] →+* GF216` that vanishes
+For any ring-homomorphism `φ : GF2Poly →+* GF216` that vanishes
 on `POLY_GF2`, both components of `mul2_u16 a b1 b2` correspond — via
 `φ ∘ natToGF2Poly` — to the products `a · b1` and `a · b2`
 in `GF216`.

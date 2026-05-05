@@ -19,11 +19,11 @@ around `u16`, the one element is represented by the `u16` value `1`:
 
 The underlying `u16` value `1` has natural-number value `1`, and lifts
 into `GF216 = GaloisField 2 16` via the canonical chain
-`Nat → (ZMod 2)[X] → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
+`Nat → GF2Poly → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
 to the multiplicative identity `1 : GF216`.  This follows because:
   * `natToGF2Poly 1 = 1` (the bit pattern `0b1` represents the
-    constant polynomial `1` in `(ZMod 2)[X]`); and
-  * the ring homomorphism `φ : (ZMod 2)[X] →+* GF216` chosen in
+    constant polynomial `1` in `GF2Poly`); and
+  * the ring homomorphism `φ : GF2Poly →+* GF216` chosen in
     `Spqr.Math.Gf` preserves one (`map_one`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 542:4-542:44)
@@ -111,7 +111,7 @@ representation lifts to the multiplicative identity of
 The proof discharges the trivial Hoare triple by reducing
 `ok ONE` and applying `ONE_toGF216`, which combines
 `natToGF2Poly_one` with the ring-homomorphism law `map_one`
-for the chosen `φ : (ZMod 2)[X] →+* GF216`.
+for the chosen `φ : GF2Poly →+* GF216`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 542:4-542:44)
 -/
