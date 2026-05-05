@@ -6,10 +6,9 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.GF16.ConstMul
+/-! # Spec Theorem for `spqr::encoding::gf::GF16::const_div`
 
-/-! # Spec Theorem for `GF16::const_div`
-
-Specification and proof for `encoding.gf.GF16.const_div`,
+Specification and proof for `spqr::encoding::gf::GF16::const_div`,
 which implements GF(2¹⁶) division on the `GF16` wrapper by
 Fermat-style iterated squaring, delegating its actual computation
 to the extracted `while`-loop `const_div_loop`.
@@ -189,9 +188,33 @@ theorem const_div_loop_spec
     · simp only [Nat.sub_self, pow_zero, pow_one]
     · simp only [Nat.sub_self, zero_add, pow_one, pow_zero, mul_one]
 
+/-- **Spec and proof concerning `encoding.gf.GF16.const_div`**:
+
+`const_div` computes GF(2¹⁶) division `self / other` on the `GF16`
+wrapper by Fermat-style iterated squaring, deferring to the
+extracted loop driver
+`encoding.gf.GF16.const_div_loop other self 1#usize`.
+
+The result satisfies the GF(2¹⁶)-level postcondition:
+
+  `(result.value.val.toGF216 : GF216) =
+       self.value.val.toGF216 *
+       other.value.val.toGF216 ^ (2 ^ 16 − 2)`,
+
+i.e. the GF(2¹⁶) quotient `self · other^(2¹⁶ − 2)`.  When
+`other ≠ 0`, Fermat's little theorem in GF(2¹⁶) gives
+`other^(2¹⁶ − 1) = 1`, so `other^(2¹⁶ − 2) = other⁻¹` and the
+right-hand side is genuinely `self / other`.
+
+This follows from `const_div_loop_spec` at the entry-point loop state
+`(square, out, i) = (other, self, 1)`, where `17 − 1 = 16` so the
+closed-form exponent collapses to `2¹⁶ − 2`.
+
+**Source**: spqr/src/encoding/gf.rs (lines 572:4-589:5)
+-/
 @[step]
 theorem const_div_spec (self other : spqr.encoding.gf.GF16) :
-    const_div self other ⦃ result =>
+    const_div self other ⦃ (result : spqr.encoding.gf.GF16) =>
       (result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 *
           other.value.val.toGF216 ^ (2 ^ 16 - 2) ⦄ := by

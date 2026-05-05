@@ -6,13 +6,12 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
+/-! # Spec Theorem for `spqr::encoding::gf::GF16::const_mul`
 
-/-! # Spec Theorem for `GF16::const_mul`
-
-Specification and proof for `encoding.gf.GF16.const_mul`,
+Specification and proof for `spqr::encoding::gf::GF16::const_mul`,
 which implements GF(2¹⁶) multiplication on the `GF16` wrapper by
 delegating to the underlying carry-less multiplication on `u16`,
-`encoding.gf.unaccelerated.mul`, and re-wrapping the result back
+`spqr::encoding::gf::unaccelerated::mul`, and re-wrapping the result back
 into a `GF16`.
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
@@ -64,9 +63,32 @@ natural language specs:
   `GF216 = GaloisField 2 16`.
 -/
 
+/-- **Spec and proof concerning `encoding.gf.GF16.const_mul`**:
+
+`const_mul` computes GF(2¹⁶) multiplication on the `GF16` wrapper by
+delegating to the underlying `unaccelerated::mul` (carry-less
+polynomial multiplication followed by reduction modulo
+POLY = 0x1100b) and wrapping the resulting `u16` back into a `GF16`.
+
+The result satisfies the GF(2¹⁶)-level postcondition:
+
+  `(result.value.val.toGF216 : GF216) =
+       self.value.val.toGF216 * other.value.val.toGF216`
+
+where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+number as an element of `GF216 = GaloisField 2 16` via the chosen
+ring homomorphism `φ : (ZMod 2)[X] →+* GF216` that vanishes on
+`POLY_GF2`.
+
+The proof unfolds `const_mul` to expose the underlying
+`unaccelerated::mul` call and discharges the resulting goal with
+`step*`, which applies the already-registered `mul_spec`.
+
+**Source**: spqr/src/encoding/gf.rs (lines 560:4-564:5)
+-/
 @[step]
 theorem const_mul_spec (self other : spqr.encoding.gf.GF16) :
-    const_mul self other ⦃ result =>
+    const_mul self other ⦃ (result : spqr.encoding.gf.GF16) =>
       (result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 * other.value.val.toGF216 ⦄ := by
   unfold const_mul

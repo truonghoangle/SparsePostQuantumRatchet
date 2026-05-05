@@ -5,10 +5,9 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf
+/-! # Spec Theorem for `spqr::encoding::gf::GF16::const_sub`
 
-/-! # Spec Theorem for `GF16::const_sub`
-
-Specification and proof for `encoding.gf.GF16.const_sub`,
+Specification and proof for `spqr::encoding::gf::GF16::const_sub`,
 which implements GF(2¹⁶) subtraction on the `GF16` wrapper as
 bitwise XOR of the two underlying `u16` values, re-wrapped into a
 fresh `GF16`.
@@ -99,7 +98,7 @@ equivalently
 @[step]
 theorem const_sub_spec
     (self other : spqr.encoding.gf.GF16) :
-    const_sub self other ⦃ result =>
+    const_sub self other ⦃ (result : spqr.encoding.gf.GF16) =>
       (result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
   unfold const_sub

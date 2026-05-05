@@ -141,11 +141,11 @@ For any ring-homomorphism `φ : (ZMod 2)[X] →+* GF216` that vanishes on
 unchanged (`done` branch, when `i + 2 > into.len()`) or advances `i`
 by two while preserving the slice length, with the two written
 entries equal — in GF(2¹⁶) — to the shared-left-operand products
-`a · into[i]`, `a · into[i + 1]`.  This algebraic content is exposed
-inside the proof by the `@[step]` lemma `mul2_u16_spec`, but the
-externally stated postcondition is kept minimal (length and index
-invariants), mirroring the per-iteration body specs of the other
-slice-mutating loops in the project.
+`a · into[i]`, `a · into[i + 1]`.
+
+Additionally, the **frame condition** asserts that all slice elements
+outside `{i, i+1}` are left unchanged by the body, which is critical
+for the value-level loop invariant in `parallel_mult_loop_spec`.
 
 Specialising `φ` to the canonical isomorphism (whose construction
 requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
@@ -168,11 +168,13 @@ theorem parallel_mult_loop_body_spec
               (into.val[i.val]!).value.val.toGF216 ∧
           (s.val[i.val + 1]!).value.val.toGF216 =
             a.value.val.toGF216 *
-              (into.val[i.val + 1]!).value.val.toGF216 ⦄ := by
+              (into.val[i.val + 1]!).value.val.toGF216 ∧
+          (∀ j : Nat, j ≠ i.val → j ≠ i.val + 1 →
+            s.val[j]! = into.val[j]!) ⦄ := by
   unfold parallel_mult_loop.body
   have h := mul2_u16_spec a.value
   step*
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp_all <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp_all <;>
     (try first
       | (rw [Slice.set_val_eq, Slice.set_val_eq,
              List.getElem!_set_ne (by scalar_tac : i.val ≠ i.val + 1),
