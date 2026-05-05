@@ -128,8 +128,15 @@ theorem parallel_mult_spec
   constructor
   · simp_all
   · intro j hj
-    simp_all
-    sorry
+    set i:=ha1.2.2
+    have hj_loop : j < i ∨ j ≥ i := Nat.lt_or_ge j i
+    rcases hj_loop with hj1 | hj2
+    · -- Case 1: `j` is processed by the pair loop, so we can apply the loop spec invariants.
+      have :=hterm.2.2.2.2.2.1 j (by simp)  hj1
+      simp_all
+      rw[← this]
+      
+
 
 
 end spqr.encoding.gf

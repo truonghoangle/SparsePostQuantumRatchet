@@ -100,22 +100,6 @@ theorem reduce_from_byte_loop_body_spec1
       reduceFromByteLoopSpec a out n := by
   rfl
 
-/-- Variant of `reduce_from_byte_loop_body_spec1` lifted to `Std.U8`/`Std.U32`
-    parameters, for use in the loop body spec. -/
-theorem reduce_from_byte_loop_body_spec1'
-    (a : Std.U8) (out : Std.U32) (i : Std.U32)
-    (hi : i.val ≤ 8) (hi_lt : i.val > 0) :
-    reduceFromByteLoopSpec a.val out.val i.val =
-    (if a.val.testBit (i.val - 1) then
-      let poly_shifted := 0x1100b <<< (i.val - 1)
-      reduceFromByteLoopSpec ((a.val ^^^ (poly_shifted >>> 16)) % 256)
-        (out.val ^^^ poly_shifted) (i.val - 1)
-    else
-      reduceFromByteLoopSpec a.val out.val (i.val - 1)) := by
-  have h := reduce_from_byte_loop_body_spec1 a.val out.val (i.val - 1)
-  rw [show (i.val - 1) + 1 = i.val from by omega] at h
-  exact h
-
 /-- Connection between the U8 shift-and-AND bit test and `Nat.testBit`:
     `(1 <<< n) % 256 &&& a = 0` iff bit `n` of `a` is not set.
     Uses `Nat.two_pow_and` from Mathlib. -/
@@ -524,13 +508,6 @@ noncomputable def reduceFromByteSpec_poly (p : (ZMod 2)[X]) : (ZMod 2)[X] :=
 theorem reduceFromByteSpec_poly_eq_reduceByteTable_poly (p : (ZMod 2)[X]) :
     reduceFromByteSpec_poly p = reduceByteTable_poly p := by
   simp [reduceFromByteSpec_poly, reduceByteTable_poly]
-
-/-- The degree of `reduceFromByteSpec_poly p` is strictly less than 16. -/
-theorem reduceFromByteSpec_poly_degree_lt (p : (ZMod 2)[X])
-    (hirr : POLY_GF2.Monic) :
-    (reduceFromByteSpec_poly p).natDegree < POLY_GF2.natDegree := by
-  rw [reduceFromByteSpec_poly_eq_reduceByteTable_poly]
-  exact reduceByteTable_poly_degree_lt p hirr
 
 /-- High-to-low loop agrees with `reduceByteTable` at the 16-bit level. -/
 theorem reduceFromByteLoopSpec_eq_reduceByteTable

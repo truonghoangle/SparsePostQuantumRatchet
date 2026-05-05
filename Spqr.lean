@@ -18,8 +18,11 @@ import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Spqr.Specs.Encoding.Gf.GF16.Sub
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Gf.Mul2U16
+import Spqr.Specs.Encoding.Gf.ParallelMult
+import Spqr.Specs.Encoding.Gf.ParallelMultLoop0
 import Spqr.Specs.Encoding.Gf.ParallelMultLoopBody
 import Spqr.Specs.Encoding.Gf.Reduce.PolyReduce
+import Spqr.Specs.Encoding.Gf.Reduce.REDUCE_BYTES
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
