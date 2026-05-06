@@ -99,7 +99,7 @@ theorem REDUCE_BYTES_spec :
         ∃ v : Std.U16,
           Array.index_usize result j = ok v ∧
             v.val = reduceByteTable j.val ⦄ := by
-  simp [REDUCE_BYTES]
+  simp only [REDUCE_BYTES]
   exact reduce_bytes_spec
 
 /-- **Polynomial-level spec for `encoding.gf.reduce.REDUCE_BYTES`**:
@@ -127,7 +127,7 @@ theorem REDUCE_BYTES_poly_spec :
           Array.index_usize result j = ok v ∧
             natToGF2Poly v.val =
               (natToGF2Poly j.val * X ^ 16) %ₘ POLY_GF2 ⦄ := by
-  simp [REDUCE_BYTES]
+  simp only [REDUCE_BYTES]
   exact reduce_byte_poly_spec
 
 end spqr.encoding.gf.reduce

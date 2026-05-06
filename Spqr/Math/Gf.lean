@@ -118,14 +118,6 @@ lemma natToGF2Poly_POLY :
                add_zero]
     simp
 
-/-- **Truncation to `n` bits is the identity for values `< 2^n`.**
-
-If `v < 2^n`, then `v % 2^n = v`, so
-`natToGF2Poly (v % 2^n) = natToGF2Poly v`. -/
-theorem natToGF2Poly_mod_eq_of_lt (v n : Nat) (hv : v < 2 ^ n) :
-    natToGF2Poly (v % 2 ^ n) = natToGF2Poly v := by
-  congr 1; exact Nat.mod_eq_of_lt hv
-
 /-- **Natural-number polynomial decomposition at an arbitrary bit boundary.**
 
 For any natural number `v` and bit position `n`:
@@ -182,6 +174,11 @@ theorem POLY_GF2_monic : POLY_GF2.Monic := by
 theorem POLY_GF2_natDegree : POLY_GF2.natDegree = 16 := by
   unfold POLY_GF2; compute_degree!
 
+/-- **`POLY_GF2 ≠ 1`** (its degree is 16, not 0). -/
+theorem POLY_GF2_ne_one : POLY_GF2 ≠ 1 := by
+  intro h; have := congr_arg Polynomial.natDegree h
+  simp [POLY_GF2_natDegree] at this
+
 /-! ### Computable GF(2) polynomial arithmetic for irreducibility verification -/
 
 /-- One step of GF(2) polynomial long-division: if the leading term of `a`
@@ -200,14 +197,6 @@ private def gf2Mod (a b : Nat) : Nat := gf2ModAux b a (a + 1)
 /-- Check that no monic GF(2) polynomial of degree `d` divides `n`. -/
 private def gf2NoDivisorOfDeg (n d : Nat) : Bool :=
   (List.range (2 ^ d)).all fun lower => gf2Mod n (2 ^ d + lower) != 0
-
-/-- Computable GF(2) polynomial irreducibility check: verify that no monic
-    polynomial of degree 1 through `n.log2 / 2` divides `n`. -/
-private def gf2IrredCheck (n : Nat) : Bool :=
-  n > 1 && (List.range (n.log2 / 2)).all fun d => gf2NoDivisorOfDeg n (d + 1)
-
-/-- Computational verification that `0x1100b` passes the irreducibility check. -/
-private lemma gf2IrredCheck_POLY : gf2IrredCheck 0x1100b = true := by decide
 
 /-! ## Characteristic-2 facts in `GF2Poly` -/
 
@@ -421,7 +410,7 @@ private lemma gf2Mod_ne_zero_of_not_dvd (a b : Nat) (hb : b ≥ 2)
   omega
 
 /-- `natToGF2Poly 1 = 1` as a GF(2) polynomial. -/
-private lemma natToGF2Poly_one' : natToGF2Poly 1 = 1 := by
+lemma natToGF2Poly_one : natToGF2Poly 1 = 1 := by
   ext m; simp only [natToGF2Poly_coeff, coeff_one]
   cases m with
   | zero => decide
@@ -433,7 +422,7 @@ private lemma natToGF2Poly_one' : natToGF2Poly 1 = 1 := by
 /-- `natToGF2Poly (2^k) = X^k` as a GF(2) polynomial. -/
 private lemma natToGF2Poly_pow2 (k : Nat) : natToGF2Poly (2 ^ k) = X ^ k := by
   rw [show (2 : Nat) ^ k = 1 <<< k from (Nat.one_shiftLeft k).symm,
-      natToGF2Poly_shiftLeft, natToGF2Poly_one', one_mul]
+      natToGF2Poly_shiftLeft, natToGF2Poly_one, one_mul]
 
 /-- Every polynomial over GF(2) is in the range of `natToGF2Poly`. -/
 private lemma natToGF2Poly_surj (q : GF2Poly) : ∃ n, natToGF2Poly n = q := by
@@ -461,7 +450,7 @@ private lemma monic_eq_natToGF2Poly (q : GF2Poly)
   · simp only [natToGF2Poly_zero] at hn
     rw [← hn] at hd
     simp at hd
-  · rw [← hn] at hd; simp [natToGF2Poly_one'] at hd
+  · rw [← hn] at hd; simp [natToGF2Poly_one] at hd
 
 /-- Computational check that no monic polynomial of degree `d` (1 ≤ d ≤ 8)
     divides `0x1100b`, proved for each degree by `native_decide`. -/
@@ -488,10 +477,7 @@ algebraic statement using `natToGF2Poly` and
 `Monic.irreducible_iff_lt_natDegree_lt`. -/
 theorem POLY_GF2_irreducible : Irreducible POLY_GF2 := by
   have hmonic := POLY_GF2_monic
-  have hne1 : POLY_GF2 ≠ 1 := by
-    intro h; have := congr_arg Polynomial.natDegree h
-    simp [POLY_GF2_natDegree] at this
-  rw [hmonic.irreducible_iff_lt_natDegree_lt hne1, POLY_GF2_natDegree]
+  rw [hmonic.irreducible_iff_lt_natDegree_lt POLY_GF2_ne_one, POLY_GF2_natDegree]
   -- Goal: ∀ q, q.Monic → q.natDegree ∈ Finset.Ioc 0 8 → ¬ q ∣ POLY_GF2
   intro q hq_monic hq_deg hq_dvd
   simp only [Nat.reduceDiv, Finset.mem_Ioc] at hq_deg
@@ -574,23 +560,7 @@ each factor modulo `POLY_GF2`, multiplying the residues, and reducing the
 result again.  This is the algebraic statement that the quotient map
 `GF2Poly → GF2Poly ⧸ (POLY_GF2)` is a ring homomorphism.
 
-**Mathematical note.** The "naive" identity without the outer `%ₘ POLY_GF2`,
-i.e.
-  `(natToGF2Poly p %ₘ POLY_GF2) * (natToGF2Poly q %ₘ POLY_GF2)
-     = (natToGF2Poly p * natToGF2Poly q) %ₘ POLY_GF2`,
-is **false in general**.  Counter-example: take `p = q = 2 ^ 15` so that
-`natToGF2Poly p = natToGF2Poly q = X ^ 15`.  Both factors already have
-degree `< 16`, so `%ₘ POLY_GF2` is the identity on each.  The LHS is
-`X ^ 30` (degree 30), while the RHS, being a residue, has degree `< 16`.
-Hence the two sides cannot be equal.  The correct statement, proved
-below, requires an outer `%ₘ POLY_GF2` on the LHS — exactly Mathlib's
-`Polynomial.mul_modByMonic`. -/
-lemma natToGF2Poly_modByMonic_eq (p q : Nat) :
-    ((natToGF2Poly p %ₘ POLY_GF2) * (natToGF2Poly q %ₘ POLY_GF2)) %ₘ POLY_GF2 =
-      (natToGF2Poly p * natToGF2Poly q) %ₘ POLY_GF2 :=
-  (Polynomial.mul_modByMonic _ _ _).symm
-
-/- **Existence of a ring homomorphism from `GF2Poly` to `GF216`
+ **Existence of a ring homomorphism from `GF2Poly` to `GF216`
 that vanishes on `POLY_GF2`.**
 
 Concretely, since `POLY_GF2` is irreducible of degree `16` over `ZMod 2`,
@@ -602,7 +572,6 @@ quotient map `AdjoinRoot.mk POLY_GF2` with this isomorphism gives a
 ring homomorphism `GF2Poly →+* GF216` which sends `POLY_GF2` to
 `0` (because `AdjoinRoot.mk_self` says `AdjoinRoot.mk POLY_GF2 POLY_GF2 = 0`).
 -/
-
 lemma exists_ringHom_modByMonic :
     ∃ φ : GF2Poly →+* GF216,
       φ POLY_GF2 = 0 := by

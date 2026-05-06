@@ -68,13 +68,6 @@ theorem ONE_value : (ONE).value = 1#u16 := by
 theorem ONE_value_val : (ONE).value.val = 1 := by
   simp [ONE]
 
-/-- **`natToGF2Poly 1 = 1`**: the binary representation of the natural
-number `1` is the single-bit pattern `0b1`, which encodes the constant
-polynomial `1` over `(ZMod 2)`. -/
-private lemma natToGF2Poly_one : natToGF2Poly 1 = 1 := by
-  unfold natToGF2Poly
-  simp
-
 /-- **Spec and proof concerning `encoding.gf.GF16.ONE`**:
 
 `ONE` is the multiplicative identity of GF(2¹⁶): lifting its
