@@ -182,32 +182,32 @@ theorem POLY_GF2_monic : POLY_GF2.Monic := by
 theorem POLY_GF2_natDegree : POLY_GF2.natDegree = 16 := by
   unfold POLY_GF2; compute_degree!
 
-/-- **`POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1` is irreducible over `GF(2) = ZMod 2`.**
+/-! ### Computable GF(2) polynomial arithmetic for irreducibility verification -/
 
-Since `POLY_GF2` is a polynomial of degree 16 over the finite field `GF(2)`,
-its irreducibility is a finite, decidable property: a polynomial of degree
-`d` over a finite field is irreducible iff it has no factor of degree
-`≤ d / 2`, and there are only finitely many such polynomials to test.
+/-- One step of GF(2) polynomial long-division: if the leading term of `a`
+    can be cancelled by a shift of `b`, XOR to cancel it. -/
+private def gf2ModAux (b : Nat) : Nat → Nat → Nat
+  | a, 0       => a
+  | a, fuel + 1 =>
+    if b ≤ 1 then (if b = 1 then 0 else a)
+    else if a.log2 < b.log2 then a
+    else gf2ModAux b (a ^^^ (b <<< (a.log2 - b.log2))) fuel
 
-The most natural Lean proof would be `by native_decide`, but Mathlib does
-not (yet) provide a `Decidable (Irreducible p)` instance for
-`p : (ZMod q)[X]`.  Producing a fully computational proof therefore
-requires either:
+/-- GF(2) polynomial remainder: `gf2Mod a b` computes `a mod b` where
+    `a` and `b` are natural-number encodings of GF(2) polynomials. -/
+private def gf2Mod (a b : Nat) : Nat := gf2ModAux b a (a + 1)
 
-1. building such a decidability instance (e.g. via the explicit factor
-   enumeration above), or
-2. exhibiting a degree-16 element of `GF(2¹⁶)` whose minimal polynomial
-   is `POLY_GF2` (using `minpoly.unique` or `IsPrimitiveRoot`).
+/-- Check that no monic GF(2) polynomial of degree `d` divides `n`. -/
+private def gf2NoDivisorOfDeg (n d : Nat) : Bool :=
+  (List.range (2 ^ d)).all fun lower => gf2Mod n (2 ^ d + lower) != 0
 
-Both approaches are non-trivial in Lean 4 / Mathlib.  For the purposes
-of the rest of this development we record the theorem statement now and
-defer the proof; it is the key fact that makes the quotient
-`GF2Poly / (POLY_GF2)` a field — namely `GF(2¹⁶)`. -/
-theorem POLY_GF2_irreducible : Irreducible POLY_GF2 := by
-  sorry
+/-- Computable GF(2) polynomial irreducibility check: verify that no monic
+    polynomial of degree 1 through `n.log2 / 2` divides `n`. -/
+private def gf2IrredCheck (n : Nat) : Bool :=
+  n > 1 && (List.range (n.log2 / 2)).all fun d => gf2NoDivisorOfDeg n (d + 1)
 
-
-
+/-- Computational verification that `0x1100b` passes the irreducibility check. -/
+private lemma gf2IrredCheck_POLY : gf2IrredCheck 0x1100b = true := by decide
 
 /-! ## Characteristic-2 facts in `GF2Poly` -/
 
@@ -228,6 +228,298 @@ lemma zmod2_poly_neg_eq (a : GF2Poly) : -a = a := by
 Direct consequence of `zmod2_poly_neg_eq`: `a - b = a + (-b) = a + b`. -/
 lemma zmod2_poly_sub_eq_add (a b : GF2Poly) : a - b = a + b := by
   rw [sub_eq_add_neg, zmod2_poly_neg_eq]
+
+/-! #### Linking lemmas -/
+
+/-- Each step of `gf2ModAux` preserves the congruence class modulo
+    `natToGF2Poly b`: the difference `natToGF2Poly a - natToGF2Poly result`
+    is divisible by `natToGF2Poly b`. -/
+private lemma gf2ModAux_preserves_dvd (b a fuel : Nat) (hb : b ≥ 2) :
+    natToGF2Poly b ∣ natToGF2Poly a - natToGF2Poly (gf2ModAux b a fuel) := by
+  induction fuel generalizing a with
+  | zero => simp [gf2ModAux, sub_self]
+  | succ n ih =>
+    simp only [gf2ModAux, show ¬(b ≤ 1) from by omega, ↓reduceIte]
+    split
+    · -- a.log2 < b.log2 → result = a
+      simp [sub_self]
+    · -- recursive case
+      rename_i hlog
+      push_neg at hlog
+      set shift := a.log2 - b.log2
+      set a' := a ^^^ (b <<< shift)
+      -- One step: natToGF2Poly a - natToGF2Poly a' = natToGF2Poly b * X ^ shift
+      have hstep : natToGF2Poly a - natToGF2Poly a' =
+          natToGF2Poly b * X ^ shift := by
+        have h1 : natToGF2Poly a' = natToGF2Poly a + natToGF2Poly b * X ^ shift := by
+          change natToGF2Poly (a ^^^ (b <<< shift)) = _
+          rw [natToGF2Poly_xor, natToGF2Poly_shiftLeft]
+        have haa : ∀ (p : GF2Poly), p + p = 0 := fun p =>
+          (zmod2_poly_sub_eq_add p p).symm.trans (sub_self p)
+        calc natToGF2Poly a - natToGF2Poly a'
+            = natToGF2Poly a + natToGF2Poly a' := zmod2_poly_sub_eq_add ..
+          _ = natToGF2Poly a + (natToGF2Poly a + natToGF2Poly b * X ^ shift) := by rw [h1]
+          _ = (natToGF2Poly a + natToGF2Poly a) + natToGF2Poly b * X ^ shift := by ring
+          _ = 0 + natToGF2Poly b * X ^ shift := by rw [haa]
+          _ = natToGF2Poly b * X ^ shift := by ring
+      -- Telescope: a - result = (a - a') + (a' - result)
+      have ih' := ih a'
+      have htelescope : natToGF2Poly a - natToGF2Poly (gf2ModAux b a' n) =
+          (natToGF2Poly a - natToGF2Poly a') +
+          (natToGF2Poly a' - natToGF2Poly (gf2ModAux b a' n)) := by ring
+      rw [htelescope, hstep]
+      exact dvd_add (dvd_mul_right _ _) ih'
+
+
+
+/-- The degree of the result of `gf2ModAux` (with sufficient fuel) is
+    strictly less than the degree of the divisor. -/
+private lemma gf2ModAux_log2_lt (b a fuel : Nat) (hb : b ≥ 2)
+    (hfuel : a.log2 + 1 ≤ b.log2 + fuel) :
+    gf2ModAux b a fuel = 0 ∨ (gf2ModAux b a fuel).log2 < b.log2 := by
+  induction fuel generalizing a with
+  | zero =>
+    simp [gf2ModAux]
+    omega
+  | succ n ih =>
+    simp only [gf2ModAux, show ¬(b ≤ 1) from by omega, ↓reduceIte]
+    split
+    · -- a.log2 < b.log2 → result is a
+      rename_i hlt
+      rcases Nat.eq_zero_or_pos a with rfl | ha
+      · left
+        rfl
+      · right
+        exact hlt
+    · -- recursive step
+      rename_i hlog
+      push_neg at hlog
+      set shift := a.log2 - b.log2
+      set a' := a ^^^ (b <<< shift)
+      -- After XOR, the highest bit of a is cleared, so a'.log2 < a.log2
+      have ha_pos : a ≥ 2 := by
+        have hb_log2 : 1 ≤ b.log2 := (Nat.le_log2 (by omega)).mpr (by omega)
+        have h1 : 1 ≤ a.log2 := le_trans hb_log2 hlog
+        have ha_ne : a ≠ 0 := by
+          intro heq
+          subst heq
+          simp [Nat.log2_zero] at h1
+        exact (Nat.le_log2 ha_ne).mp h1
+      have hlog2_lt : a'.log2 < a.log2 := by
+        by_cases ha'_zero : a' = 0
+        · simp [ha'_zero, Nat.log2_zero]
+          have : 1 ≤ a.log2 := (Nat.le_log2 (by omega)).mpr (by omega)
+          omega
+        · rw [Nat.log2_lt ha'_zero]
+          -- Goal: a' < 2 ^ a.log2  (XOR clears the top bit)
+          apply Nat.lt_of_testBit a.log2
+          · -- (a').testBit a.log2 = false (XOR of two set bits)
+            change (a ^^^ (b <<< shift)).testBit a.log2 = false
+            rw [Nat.testBit_xor, Nat.testBit_shiftLeft]
+            have h1 : a.testBit a.log2 = true := Nat.testBit_log2 (by omega)
+            have h2 : decide (shift ≤ a.log2) = true := decide_eq_true_eq.mpr (by omega)
+            have h3 : a.log2 - shift = b.log2 := by omega
+            have h4 : b.testBit b.log2 = true := Nat.testBit_log2 (by omega)
+            simp [h1, h2, h3, h4]
+          · rw [← Nat.one_shiftLeft, Nat.testBit_shiftLeft]
+            simp
+          · intro j hj
+            change (a ^^^ (b <<< shift)).testBit j = (2 ^ a.log2).testBit j
+            rw [Nat.testBit_xor, Nat.testBit_shiftLeft,
+                ← Nat.one_shiftLeft, Nat.testBit_shiftLeft]
+            have haj : a.testBit j = false :=
+              Nat.testBit_eq_false_of_lt ((Nat.log2_lt (show a ≠ 0 by omega)).mp (by omega))
+            have hbsj : b.testBit (j - shift) = false :=
+              Nat.testBit_eq_false_of_lt ((Nat.log2_lt (show b ≠ 0 by omega)).mp (by omega))
+            have h1j : (1 : Nat).testBit (j - a.log2) = false :=
+              Nat.testBit_eq_false_of_lt (Nat.one_lt_pow (by omega) (by norm_num))
+            simp [haj, show shift ≤ j from by omega, hbsj,
+                  show a.log2 ≤ j from by omega, h1j]
+      apply ih
+      omega
+
+/-- For `b ≥ 2`, `natToGF2Poly b` has `natDegree = b.log2`. -/
+private lemma natToGF2Poly_natDegree_eq_log2 (b : Nat) (hb : b ≥ 2) :
+    (natToGF2Poly b).natDegree = b.log2 := by
+  have hb_ne : b ≠ 0 := by omega
+  apply le_antisymm
+  · apply Polynomial.natDegree_le_of_degree_le
+    rw [Polynomial.degree_le_iff_coeff_zero]
+    intro m hm
+    rw [natToGF2Poly_coeff]
+    have hm' : b.log2 < m := by exact_mod_cast hm
+    simp [Nat.testBit_eq_false_of_lt ((Nat.log2_lt hb_ne).mp hm')]
+  · apply Polynomial.le_natDegree_of_ne_zero
+    rw [natToGF2Poly_coeff]
+    simp [Nat.testBit_log2 hb_ne]
+
+/-- A natural number `b ≥ 2` encodes a monic GF(2) polynomial. -/
+private lemma natToGF2Poly_monic_of_ge_two (b : Nat) (hb : b ≥ 2) :
+    (natToGF2Poly b).Monic := by
+  unfold Polynomial.Monic Polynomial.leadingCoeff
+  rw [natToGF2Poly_natDegree_eq_log2 b hb, natToGF2Poly_coeff]
+  simp [Nat.testBit_log2 (show b ≠ 0 by omega)]
+
+/-- If `gf2Mod a b ≠ 0` and `b ≥ 2`, then `natToGF2Poly b` does not
+    divide `natToGF2Poly a`. -/
+private lemma gf2Mod_ne_zero_of_not_dvd (a b : Nat) (hb : b ≥ 2)
+    (hmod : gf2Mod a b ≠ 0) : ¬ (natToGF2Poly b ∣ natToGF2Poly a) := by
+  intro ⟨q, hq⟩
+  set r := gf2Mod a b with hr_def
+  have hdvd_diff := gf2ModAux_preserves_dvd b a (a + 1) hb
+  have hdvd_r : natToGF2Poly b ∣ natToGF2Poly r := by
+    have : natToGF2Poly b ∣ natToGF2Poly a := ⟨q, hq⟩
+    have : natToGF2Poly b ∣ natToGF2Poly a - natToGF2Poly r := hdvd_diff
+    exact (dvd_add_right this).mp ⟨q, by rw [hq]; ring⟩
+  obtain ⟨s, hs⟩ := hdvd_r
+  have hr_ne : natToGF2Poly r ≠ 0 := by
+    intro h
+    have := natToGF2Poly_inj r 0 (by rw [h, natToGF2Poly_zero])
+    exact hmod this
+  have hs_ne : s ≠ 0 := by
+    rintro rfl
+    simp only [mul_zero] at hs
+    exact hr_ne hs
+  have hmonic_b : (natToGF2Poly b).Monic := natToGF2Poly_monic_of_ge_two b hb
+  have hdeg : (natToGF2Poly b * s).natDegree = (natToGF2Poly b).natDegree + s.natDegree :=
+    hmonic_b.natDegree_mul' hs_ne
+  have hdeg_b : (natToGF2Poly b).natDegree = b.log2 :=
+    natToGF2Poly_natDegree_eq_log2 b hb
+  have hlower : b.log2 ≤ (natToGF2Poly r).natDegree := by
+    rw [hs, hdeg, hdeg_b]
+    omega
+  have hupper : (natToGF2Poly r).natDegree ≤ r.log2 := by
+    apply Polynomial.natDegree_le_of_degree_le
+    rw [Polynomial.degree_le_iff_coeff_zero]
+    intro m hm
+    rw [natToGF2Poly_coeff]
+    have hm' : r.log2 < m := by exact_mod_cast hm
+    simp [Nat.testBit_eq_false_of_lt ((Nat.log2_lt hmod).mp hm')]
+  have hlog2_lt : r.log2 < b.log2 := by
+    have hfuel : a.log2 + 1 ≤ b.log2 + (a + 1) := by
+      have hb_log2 : 1 ≤ b.log2 := (Nat.le_log2 (by omega)).mpr (by omega)
+      suffices a.log2 ≤ a by omega
+      rcases Nat.eq_zero_or_pos a with rfl | ha_pos
+      · simp
+      · suffices a < 2 ^ (a + 1) by
+          have := (Nat.log2_lt (by omega)).mpr this
+          omega
+        suffices ∀ n : Nat, n < 2 ^ (n + 1) from this a
+        intro n
+        induction n with
+        | zero => norm_num
+        | succ k ih =>
+          calc k + 1 ≤ 2 ^ (k + 1) := ih
+            _ < 2 ^ (k + 1) + 2 ^ (k + 1) :=
+              lt_add_of_pos_right _ (pos_of_gt ih)
+            _ = 2 ^ (k + 2) := by ring
+    have hbound := gf2ModAux_log2_lt b a (a + 1) hb hfuel
+    change r = 0 ∨ r.log2 < b.log2 at hbound
+    rcases hbound with h | h
+    · exact absurd h hmod
+    · exact h
+  omega
+
+/-- `natToGF2Poly 1 = 1` as a GF(2) polynomial. -/
+private lemma natToGF2Poly_one' : natToGF2Poly 1 = 1 := by
+  ext m; simp only [natToGF2Poly_coeff, coeff_one]
+  cases m with
+  | zero => decide
+  | succ n =>
+    have htb : Nat.testBit 1 (n + 1) = false :=
+      Nat.testBit_eq_false_of_lt (Nat.one_lt_pow (by omega) (by norm_num))
+    simp [htb]
+
+/-- `natToGF2Poly (2^k) = X^k` as a GF(2) polynomial. -/
+private lemma natToGF2Poly_pow2 (k : Nat) : natToGF2Poly (2 ^ k) = X ^ k := by
+  rw [show (2 : Nat) ^ k = 1 <<< k from (Nat.one_shiftLeft k).symm,
+      natToGF2Poly_shiftLeft, natToGF2Poly_one', one_mul]
+
+/-- Every polynomial over GF(2) is in the range of `natToGF2Poly`. -/
+private lemma natToGF2Poly_surj (q : GF2Poly) : ∃ n, natToGF2Poly n = q := by
+  induction q using Polynomial.induction_on' with
+  | add p r ih_p ih_r =>
+    obtain ⟨np, rfl⟩ := ih_p
+    obtain ⟨nr, rfl⟩ := ih_r
+    exact ⟨np ^^^ nr, natToGF2Poly_xor np nr⟩
+  | monomial n a =>
+    fin_cases a
+    · exact ⟨0, by simp [natToGF2Poly_zero]⟩
+    · refine ⟨2 ^ n, ?_⟩
+      rw [natToGF2Poly_pow2]
+      simp [X_pow_eq_monomial]
+
+/-- If `q` is monic with `1 ≤ q.natDegree`, then `q = natToGF2Poly b`
+    for some `b ≥ 2`. -/
+private lemma monic_eq_natToGF2Poly (q : GF2Poly)
+    (hd : 1 ≤ q.natDegree) : ∃ b, b ≥ 2 ∧ natToGF2Poly b = q := by
+  obtain ⟨n, hn⟩ := natToGF2Poly_surj q
+  refine ⟨n, ?_, hn⟩
+  by_contra h
+  push_neg at h
+  interval_cases n
+  · simp only [natToGF2Poly_zero] at hn
+    rw [← hn] at hd
+    simp at hd
+  · rw [← hn] at hd; simp [natToGF2Poly_one'] at hd
+
+/-- Computational check that no monic polynomial of degree `d` (1 ≤ d ≤ 8)
+    divides `0x1100b`, proved for each degree by `native_decide`. -/
+private lemma gf2NoDivisorOfDeg_POLY (d : Nat) (hd : 1 ≤ d) (hd8 : d ≤ 8) :
+    gf2NoDivisorOfDeg 0x1100b d = true := by
+  interval_cases d <;> decide
+
+/-- For all `lower < 2^d`, `gf2Mod 0x1100b (2^d + lower) ≠ 0`,
+    extracted from `gf2NoDivisorOfDeg_POLY`. -/
+private lemma gf2_no_divisor_all (d : Nat) (hd : 1 ≤ d) (hd8 : d ≤ 8)
+    (lower : Nat) (hlower : lower < 2 ^ d) :
+    gf2Mod 0x1100b (2 ^ d + lower) ≠ 0 := by
+  have hstep := gf2NoDivisorOfDeg_POLY d hd hd8
+  simp only [gf2NoDivisorOfDeg, List.all_eq_true, List.mem_range, bne_iff_ne, ne_eq] at hstep
+  exact hstep lower hlower
+
+/-- **`POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1` is irreducible over `GF(2) = ZMod 2`.**
+
+The proof proceeds by computational verification: we implement a GF(2)
+polynomial remainder function via XOR bit-manipulation on natural numbers,
+check that no monic polynomial of degree 1 through 8 divides `0x1100b`
+(the bit-encoding of `POLY_GF2`), and link this computation back to the
+algebraic statement using `natToGF2Poly` and
+`Monic.irreducible_iff_lt_natDegree_lt`. -/
+theorem POLY_GF2_irreducible : Irreducible POLY_GF2 := by
+  have hmonic := POLY_GF2_monic
+  have hne1 : POLY_GF2 ≠ 1 := by
+    intro h; have := congr_arg Polynomial.natDegree h
+    simp [POLY_GF2_natDegree] at this
+  rw [hmonic.irreducible_iff_lt_natDegree_lt hne1, POLY_GF2_natDegree]
+  -- Goal: ∀ q, q.Monic → q.natDegree ∈ Finset.Ioc 0 8 → ¬ q ∣ POLY_GF2
+  intro q hq_monic hq_deg hq_dvd
+  simp only [Nat.reduceDiv, Finset.mem_Ioc] at hq_deg
+  -- We know: 0 < q.natDegree ≤ 8, q is monic, q ∣ POLY_GF2
+  -- Get the natural number encoding b ≥ 2 with natToGF2Poly b = q
+  obtain ⟨b, hb_ge, hb_eq⟩ := monic_eq_natToGF2Poly q (by omega)
+  -- q divides POLY_GF2 = natToGF2Poly 0x1100b
+  rw [← hb_eq, ← natToGF2Poly_POLY] at hq_dvd
+  -- b.log2 = q.natDegree, so 1 ≤ b.log2 ≤ 8
+  have hlog_eq : b.log2 = q.natDegree := by
+    rw [← natToGF2Poly_natDegree_eq_log2 b hb_ge, hb_eq]
+  have hlog_pos : 1 ≤ b.log2 := by omega
+  have hlog_le : b.log2 ≤ 8 := by omega
+  -- Decompose b = 2^(b.log2) + (b - 2^(b.log2))
+  set d := b.log2
+  set lower := b - 2 ^ d
+  have h2d_le_b : 2 ^ d ≤ b := Nat.log2_self_le (show b ≠ 0 by omega)
+  have hb_decomp : b = 2 ^ d + lower := by omega
+  have hb_lt_2d1 : b < 2 ^ (d + 1) :=
+    (Nat.log2_lt (show b ≠ 0 by omega)).mp (by omega : b.log2 < b.log2 + 1)
+  have h2d1_eq : 2 ^ (d + 1) = 2 * 2 ^ d := by ring
+  have hlower_lt : lower < 2 ^ d := by omega
+  -- The computational check says gf2Mod 0x1100b b ≠ 0
+  have hmod_ne : gf2Mod 0x1100b b ≠ 0 := by
+    rw [hb_decomp]
+    exact gf2_no_divisor_all d hlog_pos hlog_le lower hlower_lt
+  -- Therefore natToGF2Poly b does not divide natToGF2Poly 0x1100b
+  exact gf2Mod_ne_zero_of_not_dvd 0x1100b b hb_ge hmod_ne hq_dvd
 
 /-! ## Modular-reduction utilities for `POLY_GF2` -/
 
