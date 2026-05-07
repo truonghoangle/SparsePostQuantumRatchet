@@ -6,140 +6,90 @@ Analysis of `Spqr/Math/Gf.lean` and `Spqr/Specs/Encoding/Gf/`.
 
 ## 1. Unused in `Spqr/Math/Gf.lean`
 
-These public lemmas/theorems/definitions in `Spqr/Math/Gf.lean` are **not referenced** by
+These public lemmas in `Spqr/Math/Gf.lean` are **not referenced** by
 any file under `Spqr/Specs/Encoding/Gf/`:
 
 | Name | Kind | Line | Notes |
 |------|------|------|-------|
-| `natToGF2Poly_mod_eq_of_lt` | theorem | 125 | Truncation identity for values `< 2^n`. Mentioned in a comment in `PolyReduce.lean` (line 264) but never invoked in any proof. |
-| `natToGF2Poly_modByMonic_eq` | lemma | 588 | Multiplicativity of `%ₘ POLY_GF2`. Not used by any Specs file. |
+| `POLY_GF2_dvd_modByMonic_sub` | lemma | 517 | Shows `POLY_GF2 ∣ (p %ₘ POLY_GF2 - p)`. Only used internally by `modByMonic_modByMonic_self` (line 525). Not referenced by any Specs file. |
+| `modByMonic_modByMonic_self` | lemma | 525 | Idempotence of `%ₘ POLY_GF2`. Not used by any Specs file. |
 
-These **private** definitions in `Spqr/Math/Gf.lean` are unused even *within* the file:
-
-| Name | Kind | Line | Notes |
-|------|------|------|-------|
-| `gf2IrredCheck` | private def | 206 | A wrapper combining `gf2NoDivisorOfDeg` for all degrees. The actual irreducibility proof (`POLY_GF2_irreducible`) checks each degree individually via `gf2NoDivisorOfDeg_POLY` and never calls `gf2IrredCheck`. |
-| `gf2IrredCheck_POLY` | private lemma | 210 | Proves `gf2IrredCheck 0x1100b = true` by `decide`, but this fact is never used by `POLY_GF2_irreducible` or any other lemma. |
+All **private** definitions in `Spqr/Math/Gf.lean` (`gf2ModAux`, `gf2Mod`,
+`gf2NoDivisorOfDeg`, `gf2ModAux_preserves_dvd`, `gf2ModAux_log2_lt`,
+`natToGF2Poly_natDegree_eq_log2`, `natToGF2Poly_monic_of_ge_two`,
+`gf2Mod_ne_zero_of_not_dvd`, `natToGF2Poly_pow2`, `natToGF2Poly_surj`,
+`monic_eq_natToGF2Poly`, `gf2NoDivisorOfDeg_POLY`, `gf2_no_divisor_all`)
+are all used within the file's internal proof chain
+(`POLY_GF2_irreducible` → `exists_ringHom_modByMonic` → `φ` / `hφ`).
 
 ---
 
 ## 2. Unused in `Spqr/Specs/Encoding/Gf/`
 
-### 2.1 `Reduce/PolyReduce.lean` — unused cluster
-
-The following definitions and lemmas form a self-contained "bit-by-bit reduction"
-development that is **never used** downstream. The actual `poly_reduce_spec` proof
-uses `polyReduceSpec_correct` via a different (two-pass table-based) path.
+### 2.1 `Reduce/ReduceFromByte.lean` — unused definition
 
 | Name | Kind | Line | Notes |
 |------|------|------|-------|
-| `polyMod` | def | 55 | Spec-level bit-by-bit polynomial reduction. Only used by `polyMod_eq_polyMod_poly`. |
-| `polyMod_poly` | noncomputable def | 85 | Algebraic counterpart of `polyMod`. Only used within this cluster. |
-| `polyMod_eq_polyMod_poly` | theorem | 104 | Correspondence between `polyMod` and `polyMod_poly`. Not used elsewhere. |
-| `polyMod_poly_dvd_sub` | private lemma | 135 | Supporting lemma for `polyMod_poly_eq_modByMonic`. |
-| `polyMod_poly_eq_modByMonic` | theorem | 170 | Shows `polyMod_poly` preserves congruence mod `POLY_GF2`. Not used elsewhere. |
+| `reduceByteTable_poly` | noncomputable def | 327 | Algebraic counterpart `(p * X ^ 16) %ₘ POLY_GF2`. Not used by any other file. The actual polynomial correctness is established by `reduceByteTable_eq_poly_full` in `ReduceBytes.lean`, which works directly with the `Nat`-level `reduceByteTable`. Only mentioned in comments in `PolyReduce.lean`. |
 
-### 2.2 `Reduce/PolyReduce.lean` — other unused items
+### 2.2 `GF16/Eq.lean` — unused theorem
 
 | Name | Kind | Line | Notes |
 |------|------|------|-------|
-| `reduceByteTable_poly_add` | theorem | 272 | Linearity of `reduceByteTable_poly`. Not used by any proof. |
-| `first_pass_congr` | theorem | 324 | First-pass congruence (alternative proof path). Not used by `poly_reduce_spec` or any other theorem. |
-| `second_pass_congr` | theorem | 373 | Second-pass congruence (alternative proof path). Not used by any theorem. |
-| `polyReduceSpec_eq_modByMonic` | theorem | 828 | Shows `polyReduceSpec` preserves congruence. Not used outside this file. |
-| `poly_reduce_poly_mul_spec` | theorem | 886 | Proves `mul a b` satisfies the polynomial-level spec. **Duplicates** `mul_spec'` in `Unaccelerated/Mul.lean` (same postcondition, same function). Not used by any other file. |
+| `gf16_eq_iff` | theorem | 64 | Structural equality ↔ value equality for `GF16`. Not referenced by any other file. |
 
-### 2.3 `Reduce/ReduceFromByte.lean` — unused items
+### 2.3 `GF16/ConstSub.lean` — unused polynomial-level spec
 
 | Name | Kind | Line | Notes |
 |------|------|------|-------|
-| `reduceFromByte` | def | 277 | Low-to-high loop spec. Only feeds into lemmas that are themselves unused externally. Superseded by `reduceByteLoopFull` in `ReduceBytes.lean`. |
-| `reduceFromByte_carry_eq_zero` | lemma | 351 | Only used by `reduceByteTable_eq_reduceByteTable_poly` (which is itself unused externally). |
-| `reduceByteTable_eq_reduceByteTable_poly` | theorem | 366 | Proves table correctness for `k < 16` only. **Superseded** by `reduceByteTable_eq_poly_full` in `ReduceBytes.lean` (which handles `k < 256`). |
-| `reduceByteTable_poly_degree_lt` | theorem | 485 | Degree bound for `reduceByteTable_poly`. Not used by any other file. |
-| `reduceFromByteSpec_poly` | noncomputable def | 504 | **Identical** to `reduceByteTable_poly` (same body: `(p * X ^ 16) %ₘ POLY_GF2`). See §3 below. |
-| `reduceFromByteSpec_poly_eq_reduceByteTable_poly` | theorem | 508 | Trivially true since both definitions are identical. Not used elsewhere. |
-| `reduceFromByteLoopSpec_eq_reduceByteTable` | theorem | 513 | Trivially `rfl`. Not used by any other file. |
-| `reduce_from_byte_poly_spec` | theorem | 581 | Polynomial-level spec for `reduce_from_byte`, restricted to `a.val < 16`. Superseded by `reduceByteTable_eq_poly_full`. Not used externally. |
+| `const_sub_spec'` | theorem | 74 | Polynomial-level postcondition (`natToGF2Poly result = natToGF2Poly self - natToGF2Poly other`). The `@[step]` GF216-level `const_sub_spec` (line 99) is what's used by downstream proofs. |
 
-### 2.4 Other unused items across Specs files
+### 2.4 `GF16/DivImpl.lean` — unused `Range<Usize>` iterator spec
 
-| File | Name | Kind | Notes |
+| Name | Kind | Line | Notes |
 |------|------|------|-------|
-| `GF16/ConstSub.lean` | `const_sub_spec'` | theorem (line 74) | Polynomial-level postcondition. The `@[step]` GF216-level `const_sub_spec` is what's used by downstream proofs. |
-| `GF16/Eq.lean` | `gf16_eq_iff` | theorem (line 64) | Structural equality ↔ value equality for `GF16`. Not referenced by any other file. |
-| `GF16/DivImpl.lean` | `next_spec` | `@[step]` theorem (line 92) | Spec for `Range<usize>` iterator `next`. All range-iterator proofs in the codebase use `Range<I32>` (via `IteratorRange_next_I32_ok`/`IteratorRange_next_I32_post`), never `Range<Usize>`. |
-| `ParallelMult.lean` | `parallel_mult_loop_body_spec'` | theorem (line 97) | Polynomial-level body spec. The `@[step]` GF216-level `parallel_mult_loop_body_spec` is what's actually used by `parallel_mult_loop_spec`. |
-| `Unaccelerated/PolyMul.lean` | `poly_mul_spec'` | theorem (line 363) | Returns `result.val = clmul a.val b.val 16`. Not used by any other file; the `@[step]` `poly_mul_spec` (polynomial-level) is used instead. |
+| `next_spec` | `@[step]` theorem | 92 | Spec for `Range<Usize>` iterator `next`. All range-iterator proofs in the codebase use `Range<I32>` (via the private axioms `IteratorRange_next_I32_ok` / `IteratorRange_next_I32_post`), never `Range<Usize>`. The `const_div` loop in `ConstDiv.lean` uses a `while i < 16` pattern (not a `for` loop), so it bypasses the iterator infrastructure entirely. |
+
+### 2.5 `ParallelMult.lean` — unused polynomial-level body spec
+
+| Name | Kind | Line | Notes |
+|------|------|------|-------|
+| `parallel_mult_loop_body_spec'` | theorem | 97 | Polynomial-level body spec expressing the postcondition in terms of `natToGF2Poly … %ₘ POLY_GF2`. The `@[step]` GF216-level `parallel_mult_loop_body_spec` (line 147) is what's actually used by `parallel_mult_loop_spec`. |
+
+### 2.6 `Unaccelerated/PolyMul.lean` — unused items
+
+| Name | Kind | Line | Notes |
+|------|------|------|-------|
+| `and_one_shiftLeft_eq_zero_of_not_testBit` | private theorem | 241 | Proves `testBit k = false → n &&& (1 <<< k) = 0` (the "forward" direction). Never invoked; the proof of `poly_mul_loop_spec` uses only `not_testBit_of_and_one_shiftLeft_eq_zero` (the converse direction, line 248) and `testBit_of_and_one_shiftLeft_ne_zero` (line 231). |
+| `poly_mul_spec'` | theorem | 363 | Returns `result.val = clmul a.val b.val 16`. Not used by any other file; the `@[step]` `poly_mul_spec` (polynomial-level, line 371) is used instead. |
+
+### 2.7 `Mul2U16.lean` — unused polynomial-level spec
+
+| Name | Kind | Line | Notes |
+|------|------|------|-------|
+| `mul2_u16_spec'` | theorem | 55 | Polynomial-level postcondition for the double-product. Only consumed by `parallel_mult_loop_body_spec'` (ParallelMult.lean line 115), which is itself unused (see §2.5 above). The `@[step]` GF216-level `mul2_u16_spec` (line 77) is what's actually used. |
 
 ---
 
 ## 3. Repeated / Duplicated Definitions and Proofs
 
-### 3.1 `natToGF2Poly 1 = 1` — proved twice
+### Status of previously reported duplications
 
-| File | Name | Line | Visibility |
-|------|------|------|------------|
-| `Spqr/Math/Gf.lean` | `natToGF2Poly_one'` | 424 | `private` |
-| `Spqr/Specs/Encoding/Gf/GF16/ONE.lean` | `natToGF2Poly_one` | 74 | `private` |
+The following duplications from the previous audit have been **resolved**:
 
-Both are `private`, so `ONE.lean` cannot import the one from `Gf.lean` and must
-re-prove it.  **Recommendation**: make `natToGF2Poly_one'` public (and rename to
-`natToGF2Poly_one`) so that `ONE.lean` can import it.
+| Issue | Status | Details |
+|-------|--------|---------|
+| `natToGF2Poly 1 = 1` proved twice | ✅ Fixed | `natToGF2Poly_one` is now public in `Gf.lean` (line 413) and directly imported by `ONE.lean` (line 92). |
+| `POLY_GF2.Monic` re-proved from scratch | ✅ Fixed | `ReduceBytes.lean` now uses `have hmonic := POLY_GF2_monic` (imported) instead of re-proving. |
+| `POLY_GF2.natDegree = 16` re-proved | ✅ Fixed | `ReduceBytes.lean` now uses `have hPOLYdeg := POLY_GF2_natDegree` (imported). |
+| `POLY_GF2 ≠ 1` re-proved in multiple files | ✅ Fixed | `POLY_GF2_ne_one` is now a public theorem in `Gf.lean` (line 178) and used via import in `ReduceBytes.lean`. |
+| `reduceFromByteSpec_poly` duplicates `reduceByteTable_poly` | ✅ Fixed | `reduceFromByteSpec_poly` and its trivial equality theorem have been removed. |
+| `poly_reduce_poly_mul_spec` duplicates `mul_spec'` | ✅ Fixed | `poly_reduce_poly_mul_spec` has been removed from `PolyReduce.lean`. |
 
-### 3.2 `POLY_GF2.Monic` — re-proved from scratch
+### Remaining note
 
-| File | Line | Pattern |
-|------|------|---------|
-| `Spqr/Math/Gf.lean` | 174 | `theorem POLY_GF2_monic` (canonical) |
-| `Reduce/ReduceBytes.lean` | ~199 | `have hmonic : POLY_GF2.Monic := by unfold POLY_GF2 …` |
-| `Reduce/ReduceBytes.lean` | ~253 | `have hmonic : POLY_GF2.Monic := by unfold POLY_GF2 …` |
-
-The two occurrences in `ReduceBytes.lean` re-prove monicity from scratch instead
-of writing `have hmonic := POLY_GF2_monic` (as done correctly elsewhere, e.g.
-`ReduceFromByte.lean` line 369).
-
-### 3.3 `POLY_GF2.natDegree = 16` — re-proved
-
-| File | Line | Pattern |
-|------|------|---------|
-| `Spqr/Math/Gf.lean` | 182 | `theorem POLY_GF2_natDegree` (canonical) |
-| `Reduce/ReduceBytes.lean` | ~258 | `have hPOLYdeg : POLY_GF2.natDegree = 16 := by unfold POLY_GF2; compute_degree!` |
-
-Re-proved instead of using the existing `POLY_GF2_natDegree`.
-
-### 3.4 `POLY_GF2 ≠ 1` — re-proved in multiple files
-
-| File | Line |
-|------|------|
-| `Reduce/ReduceBytes.lean` | ~259 |
-| `Reduce/ReduceFromByte.lean` | ~431 |
-
-Both files prove `POLY_GF2 ≠ 1` with an identical proof pattern.
-This fact is also proved (inline) in `POLY_GF2_irreducible` (Gf.lean line 492)
-but is not exported as a standalone lemma.  **Recommendation**: add a public
-`POLY_GF2_ne_one` lemma to `Spqr/Math/Gf.lean`.
-
-### 3.5 `reduceFromByteSpec_poly` duplicates `reduceByteTable_poly`
-
-| File | Name | Line | Body |
-|------|------|------|------|
-| `Reduce/ReduceFromByte.lean` | `reduceByteTable_poly` | 346 | `(p * X ^ 16) %ₘ POLY_GF2` |
-| `Reduce/ReduceFromByte.lean` | `reduceFromByteSpec_poly` | 504 | `(p * X ^ 16) %ₘ POLY_GF2` |
-
-Identical definitions. The theorem `reduceFromByteSpec_poly_eq_reduceByteTable_poly`
-(line 508) is trivially `simp`-provable and both the definition and the theorem are
-unused. **Recommendation**: remove `reduceFromByteSpec_poly` and the trivial equality theorem.
-
-### 3.6 `poly_reduce_poly_mul_spec` duplicates `mul_spec'`
-
-| File | Name | Line |
-|------|------|------|
-| `Reduce/PolyReduce.lean` | `poly_reduce_poly_mul_spec` | 886 |
-| `Unaccelerated/Mul.lean` | `mul_spec'` | 69 |
-
-Both prove the same postcondition for `spqr.encoding.gf.unaccelerated.mul`:
-```
-natToGF2Poly result.val = (natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2
-```
-`poly_reduce_poly_mul_spec` is never used. **Recommendation**: remove it.
+`reduceByteTable_poly` (ReduceFromByte.lean line 327) defines the same
+algebraic operation — `(p * X ^ 16) %ₘ POLY_GF2` — that
+`reduceByteTable_eq_poly_full` (ReduceBytes.lean line 244) proves about
+the `Nat`-level `reduceByteTable`.  The definition is unused (see §2.1)
+and could be removed without affecting any proof.

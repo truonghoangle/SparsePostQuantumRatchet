@@ -1,0 +1,682 @@
+# TODO: Verification Plan for Polynomial Encoding Functions
+
+## Overview
+
+This document describes the TODO plan for verifying the functions and constants
+listed in [`doc/truong/poly_functions.txt`](../truong/poly_functions.txt), which
+enumerates all fully qualified function and constant names from
+`src/encoding/polynomial.rs` (Rust source). These are extracted into
+`Spqr/Code/Funs.lean` (Lean 4 / Aeneas extraction).
+
+All extractable functions are configured via
+[`aeneas-config.yml`](../../aeneas-config.yml). Functions not appearing in
+that configuration (e.g. `#[cfg(test)]` or `#[cfg(feature = "test-utils")]`
+items) are not extracted and therefore cannot be verified in the current
+framework.
+
+---
+
+## 0. Mathematical Foundations — Statistics and Analysis
+
+File: [`Spqr/Math/Gf.lean`](../../Spqr/Math/Gf.lean)
+
+The polynomial encoding module operates over `GF(2¹⁶)` using the `GF16`
+type from `encoding/gf.rs`. All polynomial arithmetic (addition,
+multiplication, subtraction, division of coefficients and evaluation
+points) reduces to GF(2¹⁶) operations. The mathematical foundations
+for those operations are defined in `Spqr/Math/Gf.lean` and have been
+fully verified as part of the GF(2¹⁶) verification plan (see
+[`doc/fields/Plan_gf`](Plan_gf)).
+
+There is **no separate mathematical foundations file** for the polynomial
+module. The polynomial encoding relies on:
+
+- `GF16` field arithmetic (add = XOR, mul = carry-less multiply + reduce)
+- Lagrange interpolation over GF(2¹⁶) (implemented procedurally in Rust,
+  not via a Mathlib formalization)
+- Polynomial evaluation as a sum of `coefficient[i] * x^i`
+
+### 0a. Relevant GF(2¹⁶) Definitions Used by Polynomial Code
+
+| Definition | Source | Used For |
+|------------|--------|----------|
+| `GF16` struct | `encoding/gf.rs` | All coefficients and evaluation points |
+| `GF16::ZERO` | `encoding/gf.rs` | Zero polynomial, initialization |
+| `GF16::ONE` | `encoding/gf.rs` | Lagrange basis construction |
+| `GF16::new` | `encoding/gf.rs` | Constructing field elements from `u16` |
+| `AddAssign<&GF16>` (XOR) | `encoding/gf.rs` | Polynomial addition, coefficient accumulation |
+| `Sub<&GF16>` | `encoding/gf.rs` | Lagrange denominator computation `(xi - xj)` |
+| `Mul for GF16` | `encoding/gf.rs` | Polynomial evaluation, scaling |
+| `MulAssign<&GF16>` | `encoding/gf.rs` | Coefficient scaling |
+| `Div<&GF16>` | `encoding/gf.rs` | Lagrange scaling factor `y / denominator` |
+| `parallel_mult` | `encoding/gf.rs` | `Poly::mult_assign` |
+| `const_sub` | `encoding/gf.rs` | `PolyConst` subtraction in const context |
+| `const_mul` | `encoding/gf.rs` | `PolyConst` multiplication in const context |
+| `const_div` | `encoding/gf.rs` | `PolyConst` division in const context |
+
+### 0b. Math Foundation Dependency
+
+All GF(2¹⁶) operations used by polynomial code have been **fully
+verified** (see `Plan_gf` Section 0). The polynomial verification
+therefore depends on:
+
+- **0 `sorry`** in `Spqr/Math/Gf.lean` (all 29 lemmas/theorems proved)
+- **0 `sorry`** in GF(2¹⁶) spec files (`Spqr/Specs/Encoding/Gf/`)
+- **2 axioms** for `Range<i32>` iterator semantics in `GF16::div_impl`
+  (documented in `Plan_gf` Section 2d)
+
+### 0c. Existing Polynomial Spec Files
+
+| Spec File | Function | Status |
+|-----------|----------|--------|
+| `Spqr/Specs/Encoding/Polynomial/Pt/Serialize.lean` | `Pt::serialize` | ✅ Verified |
+| `Spqr/Specs/Encoding/Polynomial/Pt/Deserialize.lean` | `Pt::deserialize` | ✅ Verified |
+
+### 0d. Statistics Summary
+
+| Metric | Count |
+|--------|-------|
+| Separate math foundations file for polynomials | **None** (uses `Spqr/Math/Gf.lean` transitively) |
+| GF(2¹⁶) operations used by polynomial code | 13 |
+| All GF(2¹⁶) dependencies verified | ✅ Yes |
+| Existing polynomial spec files | 2 |
+| `sorry` in polynomial spec files | **0** |
+
+---
+
+## 1. Combined Function and Constant Inventory
+
+The following tables list every function and constant from
+`encoding/polynomial.rs`, combined with its corresponding Lean name
+in `Spqr/Code/Funs.lean`, its spec file (if any), and verification status.
+
+### Constants
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| C1 | `MAX_STORED_POLYNOMIAL_DEGREE_V1` | `encoding.polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1` | N/A (irreducible def, value `35`) | ✅ Used as-is |
+| C2 | `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` | `encoding.polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` | N/A (irreducible def, value `36`) | ✅ Used as-is |
+| C3 | `COMPLETE_POINTS_POLYS_1` | `encoding.polynomial.COMPLETE_POINTS_POLYS_1` | — | ❌ Not verified |
+| C4 | `COMPLETE_POINTS_POLYS_3` | `encoding.polynomial.COMPLETE_POINTS_POLYS_3` | — | ❌ Not verified |
+| C5 | `COMPLETE_POINTS_POLYS_5` | `encoding.polynomial.COMPLETE_POINTS_POLYS_5` | — | ❌ Not verified |
+| C6 | `COMPLETE_POINTS_POLYS_30` | `encoding.polynomial.COMPLETE_POINTS_POLYS_30` | — | ❌ Not verified |
+| C7 | `COMPLETE_POINTS_POLYS_34` | `encoding.polynomial.COMPLETE_POINTS_POLYS_34` | — | ❌ Not verified |
+| C8 | `COMPLETE_POINTS_POLYS_36` | `encoding.polynomial.COMPLETE_POINTS_POLYS_36` | — | ❌ Not verified |
+| C9 | `CHUNK_SIZE` | `encoding.polynomial.CHUNK_SIZE` | N/A (irreducible def, value `32`) | ✅ Used as-is |
+| C10 | `NUM_POLYS` | `encoding.polynomial.NUM_POLYS` | N/A (`CHUNK_SIZE / 2 = 16`) | ✅ Used as-is |
+| C11 | `PolyConst::ZEROS` | `encoding.polynomial.PolyConst.ZEROS` | N/A (array of `GF16::ZERO`) | ✅ Used as-is |
+
+### Functions: Pt
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F1 | `Pt::serialize` | `encoding.polynomial.Pt.serialize` | `Polynomial/Pt/Serialize.lean` | ✅ Verified |
+| F2 | `Pt::deserialize` | `encoding.polynomial.Pt.deserialize` | `Polynomial/Pt/Deserialize.lean` | ✅ Verified |
+| F3 | `{impl Ord for Pt}::cmp` | `encoding.polynomial.Pt.Insts.CoreCmpOrd.cmp` | — | ⏭️ Skipped |
+| F4 | `{impl PartialOrd for Pt}::partial_cmp` | `encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.partial_cmp` | — | ⏭️ Skipped |
+| F5 | `{impl PartialEq for Pt}::eq` | `encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt.eq` | — | ⏭️ Skipped |
+
+### Functions: Poly
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F6 | `Poly::zero` | `encoding.polynomial.Poly.zero` | — | ❌ Not verified |
+| F7 | `Poly::lagrange_interpolate` | `encoding.polynomial.Poly.lagrange_interpolate` | — | ❌ Not verified |
+| F8 | `Poly::lagrange_interpolate_prepare` | `encoding.polynomial.Poly.lagrange_interpolate_prepare` | — | ❌ Not verified |
+| F9 | `Poly::mult_xdiff_assign_trailing` | `encoding.polynomial.Poly.mult_xdiff_assign_trailing` | — | ❌ Not verified |
+| F10 | `Poly::lagrange_interpolate_complete` | `encoding.polynomial.Poly.lagrange_interpolate_complete` | — | ❌ Not verified |
+| F11 | `Poly::lagrange_interpolate_pt` | `encoding.polynomial.Poly.lagrange_interpolate_pt` | — | ❌ Not verified |
+| F12 | `Poly::add_assign` | `encoding.polynomial.Poly.add_assign` | — | ❌ Not verified |
+| F13 | `Poly::mult_assign` | `encoding.polynomial.Poly.mult_assign` | — | ❌ Not verified |
+| F14 | `Poly::compute_at` | `encoding.polynomial.Poly.compute_at` | — | ❌ Not verified |
+| F15 | `Poly::lagrange_sum` | `encoding.polynomial.Poly.lagrange_sum` | — | ❌ Not verified |
+| F16 | `Poly::from_complete_points` | `encoding.polynomial.Poly.from_complete_points` | — | ❌ Not verified |
+| F17 | `Poly::serialize` | `encoding.polynomial.Poly.serialize` | — | ❌ Not verified |
+| F18 | `Poly::deserialize` | `encoding.polynomial.Poly.deserialize` | — | ❌ Not verified |
+
+### Functions: PolyConst
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F19 | `PolyConst::lagrange_interpolate_pt` | `encoding.polynomial.PolyConst.lagrange_interpolate_pt` | — | ❌ Not verified |
+| F20 | `PolyConst::mult` | `encoding.polynomial.PolyConst.mult` | — | ❌ Not verified |
+| F21 | `PolyConst::mult_xdiff` | `encoding.polynomial.PolyConst.mult_xdiff` | — | ❌ Not verified |
+| F22 | `PolyConst::to_poly` | `encoding.polynomial.PolyConst.to_poly` | — | ❌ Not verified |
+
+### Functions: Free Functions
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F23 | `const_polys_to_polys` | `encoding.polynomial.const_polys_to_polys` | — | ❌ Not verified |
+| F24 | `lagrange_polys_for_complete_points` | `encoding.polynomial.lagrange_polys_for_complete_points` | — | ⚠️ Has `sorry` |
+
+### Functions: PolyEncoder
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F25 | `PolyEncoder::get_encoder_state` | `encoding.polynomial.PolyEncoder.get_encoder_state` | — | ❌ Not verified |
+| F26 | `PolyEncoder::into_pb` | `encoding.polynomial.PolyEncoder.into_pb` | — | ❌ Not verified |
+| F27 | `PolyEncoder::from_pb` | `encoding.polynomial.PolyEncoder.from_pb` | — | ⚠️ Has `sorry` |
+| F28 | `PolyEncoder::point_at` | `encoding.polynomial.PolyEncoder.point_at` | — | ❌ Not verified |
+| F29 | `PolyEncoder::encode_bytes_base` | `encoding.polynomial.PolyEncoder.encode_bytes_base` | — | ⚠️ Has `sorry` |
+| F30 | `PolyEncoder::chunk_at` | `encoding.polynomial.PolyEncoder.chunk_at` | — | ❌ Not verified |
+| F31 | `PolyEncoder::into_pb_test` | — (not extracted) | — | ⏭️ Skipped |
+| F32 | `PolyEncoder::from_pb_test` | — (not extracted) | — | ⏭️ Skipped |
+
+### Functions: PolyEncoder Trait Impls
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F33 | `{impl Encoder}::encode_bytes` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes` | — | ❌ Not verified |
+| F34 | `{impl Encoder}::next_chunk` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk` | — | ❌ Not verified |
+
+### Functions: PolyDecoder
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F35 | `PolyDecoder::get_pts_needed` | `encoding.polynomial.PolyDecoder.get_pts_needed` | — | ❌ Not verified |
+| F36 | `PolyDecoder::necessary_points` | `encoding.polynomial.PolyDecoder.necessary_points` | — | ❌ Not verified |
+| F37 | `PolyDecoder::new_with_poly_count` | `encoding.polynomial.PolyDecoder.new_with_poly_count` | — | ❌ Not verified |
+| F38 | `PolyDecoder::into_pb` | `encoding.polynomial.PolyDecoder.into_pb` | — | ❌ Not verified |
+| F39 | `PolyDecoder::from_pb` | `encoding.polynomial.PolyDecoder.from_pb` | — | ❌ Not verified |
+| F40 | `PolyDecoder::into_pb_test` | — (not extracted) | — | ⏭️ Skipped |
+| F41 | `PolyDecoder::from_pb_test` | — (not extracted) | — | ⏭️ Skipped |
+
+### Functions: PolyDecoder Trait Impls
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F42 | `{impl Decoder}::new` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new` | — | ❌ Not verified |
+| F43 | `{impl Decoder}::add_chunk` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk` | — | ❌ Not verified |
+| F44 | `{impl Decoder}::decoded_message` | axiom in `FunsExternal.lean` | — | ⏭️ Skipped (opaque) |
+
+### Functions: Tests
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F45 | `test::encode_and_decode_small` | — (not extracted) | — | ⏭️ Skipped |
+| F46 | `test::encode_and_decode_large` | — (not extracted) | — | ⏭️ Skipped |
+| F47 | `test::poly_lagrange_interpolate` | — (not extracted) | — | ⏭️ Skipped |
+| F48 | `test::point_serialize_deserialize` | — (not extracted) | — | ⏭️ Skipped |
+| F49 | `test::to_and_from_pb` | — (not extracted) | — | ⏭️ Skipped |
+| F50 | `test::const_polys` | — (not extracted) | — | ⏭️ Skipped |
+
+---
+
+## 2. Functions Skipped (Not Verified) and Reasons
+
+### 2a. Trait Instance Wrappers (Ordering/Equality for Pt)
+
+These are ordering and equality trait implementations for the `Pt`
+struct. They are inserted into `Types.lean` via post-extraction
+tweaks (see `aeneas-config.yml`) because the `PolyDecoder` type
+signature references `Pt.Insts.CoreCmpOrd`. They perform simple
+`u16` comparisons on `Pt.x.value` — no field arithmetic is involved.
+
+| # | Rust Name | Lean Name | Why Skipped |
+|---|-----------|-----------|-------------|
+| F3 | `{impl Ord for Pt}::cmp` | `Pt.Insts.CoreCmpOrd.cmp` | Delegates to `partial_cmp` + `unwrap`; no field arithmetic |
+| F4 | `{impl PartialOrd for Pt}::partial_cmp` | `Pt.Insts.CoreCmpPartialOrdPt.partial_cmp` | Simple `u16` ordering comparison on `x.value` |
+| F5 | `{impl PartialEq for Pt}::eq` | `Pt.Insts.CoreCmpPartialEqPt.eq` | Simple `u16` equality comparison on `x.value` |
+
+### 2b. Feature-Gated Test Utility Wrappers (Not Extracted)
+
+These functions are gated behind `#[cfg(feature = "test-utils")]` and
+are trivial delegation wrappers around `into_pb` / `from_pb`. They
+exist solely to expose the serialization interface for benchmarks and
+tests. Aeneas does not extract feature-gated code.
+
+| # | Rust Name | Why Skipped |
+|---|-----------|-------------|
+| F31 | `PolyEncoder::into_pb_test` | `#[cfg(feature = "test-utils")]` — delegates to `into_pb` |
+| F32 | `PolyEncoder::from_pb_test` | `#[cfg(feature = "test-utils")]` — delegates to `from_pb` |
+| F40 | `PolyDecoder::into_pb_test` | `#[cfg(feature = "test-utils")]` — delegates to `into_pb` |
+| F41 | `PolyDecoder::from_pb_test` | `#[cfg(feature = "test-utils")]` — delegates to `from_pb` |
+
+### 2c. Opaque Function (Aeneas Internal Error)
+
+The `decoded_message` function is declared as an opaque axiom in
+`Spqr/Code/FunsExternal.lean` because Aeneas encountered an internal
+error during extraction (configured as opaque in `aeneas-config.yml`).
+Without an extracted body, formal verification is not possible in the
+current framework.
+
+| # | Rust Name | Lean Declaration | Why Skipped |
+|---|-----------|-----------------|-------------|
+| F44 | `{impl Decoder}::decoded_message` | `axiom encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message` | Opaque axiom — Aeneas internal error; no body to verify |
+
+### 2d. Test Functions (Not Extracted by Aeneas)
+
+These are `#[cfg(test)]` functions used only in unit tests. Aeneas
+does not extract test modules; they have no security relevance and
+are not part of the library's public API.
+
+| # | Rust Name | Why Skipped |
+|---|-----------|-------------|
+| F45 | `test::encode_and_decode_small` | `#[cfg(test)]` — unit test, not extracted |
+| F46 | `test::encode_and_decode_large` | `#[cfg(test)]` — unit test, not extracted |
+| F47 | `test::poly_lagrange_interpolate` | `#[cfg(test)]` — unit test, not extracted |
+| F48 | `test::point_serialize_deserialize` | `#[cfg(test)]` — unit test, not extracted |
+| F49 | `test::to_and_from_pb` | `#[cfg(test)]` — unit test, not extracted |
+| F50 | `test::const_polys` | `#[cfg(test)]` — unit test, not extracted |
+
+### 2e. `sorry` Usage in `Spqr/Code/Funs.lean` (Polynomial Functions)
+
+Three polynomial loop bodies in `Spqr/Code/Funs.lean` are replaced
+with `sorry` via post-extraction tweaks in `aeneas-config.yml`. This
+happens because Aeneas generates `()` instead of the correct typed
+value for certain loop body results.
+
+| Function | Loop Body with `sorry` | Effect |
+|----------|----------------------|--------|
+| `lagrange_polys_for_complete_points` | `lagrange_polys_for_complete_points_loop0.body` | All `COMPLETE_POINTS_POLYS_*` constants depend on this |
+| `PolyEncoder::from_pb` | `PolyEncoder.from_pb_loop1.body` | `from_pb` deserialization path affected |
+| `PolyEncoder::encode_bytes_base` | `PolyEncoder.encode_bytes_base_loop.body` | Encoding initialization path affected |
+
+These `sorry` instances mean that **verification of these functions
+and their transitive dependents cannot be completed** without first
+resolving the extraction issues (either by fixing Aeneas or by
+providing manual Lean definitions for the loop bodies).
+
+### 2f. Axioms in `Spqr/Code/FunsExternal.lean` Affecting Polynomials
+
+The following axiom in `FunsExternal.lean` directly affects the
+polynomial verification:
+
+| Axiom | Location | Why Needed |
+|-------|----------|------------|
+| `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message` | `FunsExternal.lean` | Aeneas internal error — extraction failed; declared opaque in `aeneas-config.yml` |
+
+Additionally, the polynomial code transitively depends on several
+external axioms for iterator operations, `SortedSet` methods, and
+`core::array::from_fn` that are standard library functions not
+extracted by Aeneas. These are documented in `FunsExternal.lean`.
+
+---
+
+## 3. Function Descriptions
+
+### Constants
+
+- **`MAX_STORED_POLYNOMIAL_DEGREE_V1` (35)** [C1]: Maximum degree of a
+  polynomial that will be stored/serialized for Protocol V1. A degree-35
+  polynomial has 36 coefficients.
+- **`MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` (36)** [C2]: Maximum degree of a
+  polynomial that may appear during intermediate Lagrange interpolation
+  calculations. One degree higher than the stored maximum.
+- **`COMPLETE_POINTS_POLYS_1`** [C3]: Precomputed array of 1 Lagrange basis
+  polynomial for 1 complete point.
+- **`COMPLETE_POINTS_POLYS_3`** [C4]: Precomputed array of 3 Lagrange basis
+  polynomials for 3 complete points.
+- **`COMPLETE_POINTS_POLYS_5`** [C5]: Precomputed array of 5 Lagrange basis
+  polynomials for 5 complete points.
+- **`COMPLETE_POINTS_POLYS_30`** [C6]: Precomputed array of 30 Lagrange basis
+  polynomials for 30 complete points.
+- **`COMPLETE_POINTS_POLYS_34`** [C7]: Precomputed array of 34 Lagrange basis
+  polynomials for 34 complete points.
+- **`COMPLETE_POINTS_POLYS_36`** [C8]: Precomputed array of 36 Lagrange basis
+  polynomials for 36 complete points.
+- **`CHUNK_SIZE` (32)** [C9]: Size of an encoding chunk in bytes.
+- **`NUM_POLYS` (16)** [C10]: Number of polynomials tracked per chunk;
+  equals `CHUNK_SIZE / 2` (each GF16 element is 2 bytes).
+- **`PolyConst::ZEROS`** [C11]: A `PolyConst<N>` with all coefficients set
+  to `GF16::ZERO`. Used as the initial value when constructing arrays of
+  `PolyConst` values.
+
+### Pt (Cartesian Point)
+
+- **`Pt::serialize`** [F1]: Serializes a GF(2¹⁶) cartesian point
+  `Pt { x, y }` into a 4-byte big-endian array: `[x_hi, x_lo, y_hi, y_lo]`.
+- **`Pt::deserialize`** [F2]: Deserializes a 4-byte big-endian array into a
+  `Pt { x, y }` by reading two `u16` values via `from_be_bytes`.
+- **`{impl Ord}::cmp`** [F3]: Total ordering on `Pt` by delegating to
+  `partial_cmp` and unwrapping.
+- **`{impl PartialOrd}::partial_cmp`** [F4]: Partial ordering on `Pt` by
+  comparing `self.x.value` vs `other.x.value` as `u16`.
+- **`{impl PartialEq}::eq`** [F5]: Equality on `Pt` by comparing
+  `self.x.value == other.x.value` (y-coordinate ignored).
+
+### Poly (Dynamic Polynomial)
+
+- **`Poly::zero(capacity)`** [F6]: Creates an empty polynomial with the given
+  Vec capacity. Used to pre-allocate result polynomials.
+- **`Poly::lagrange_interpolate(pts)`** [F7]: Given a set of points with unique
+  X values, returns a polynomial `p` such that `p(pts[i].x) == pts[i].y` for
+  all `i`. Uses O(N²) work and O(N) space with the prepare/complete strategy.
+- **`Poly::lagrange_interpolate_prepare(pts)`** [F8]: Computes
+  `PRODUCT(x - pi.x)` for all points, building the polynomial from its
+  largest coefficient down. Returns a template polynomial used by
+  `lagrange_interpolate_complete`.
+- **`Poly::mult_xdiff_assign_trailing(start, difference)`** [F9]: Multiplies
+  the trailing coefficients `self[start..]` by `(x - difference)` in-place,
+  propagating the carry into `self[start-1]`.
+- **`Poly::lagrange_interpolate_complete(pts, i)`** [F10]: Given the product
+  polynomial from `prepare`, divides out `(x - pts[i].x)` and scales the
+  result so that `f(pts[i].x) == pts[i].y`. The result is scaled by `x`
+  (callers handle this).
+- **`Poly::lagrange_interpolate_pt(pts, i)`** [F11]: Convenience method that
+  calls `prepare` + `complete` + removes the leading zero coefficient.
+  Used as a fallback for encoding.
+- **`Poly::add_assign(other)`** [F12]: Adds `other` to `self` coefficient-by-
+  coefficient. Extends `self` if `other` has more coefficients.
+- **`Poly::mult_assign(m)`** [F13]: Multiplies every coefficient by scalar `m`
+  using `gf::parallel_mult`.
+- **`Poly::compute_at(x)`** [F14]: Evaluates the polynomial at point `x` by
+  computing `x^0, x^1, ..., x^N` via repeated squaring, then summing
+  `coefficient[i] * x^i`. Marked `#[hax_lib::opaque]` due to `zip`.
+- **`Poly::lagrange_sum(pts, polys)`** [F15]: Computes `SUM(polys[i] *
+  pts[i].y)` to combine Lagrange basis polynomials into a single
+  interpolating polynomial. Marked `#[hax_lib::opaque]` due to `zip`.
+- **`Poly::from_complete_points(pts)`** [F16]: Given points with X values
+  filling `[0..pts.len())`, returns the interpolating polynomial using
+  precomputed Lagrange basis polynomials (for sizes 0, 1, 3, 5, 30, 34, 36)
+  or falls back to `lagrange_interpolate_pt`. Marked `#[hax_lib::opaque]`.
+- **`Poly::serialize`** [F17]: Serializes the polynomial as a byte vector:
+  each coefficient's `u16` value is written in big-endian (2 bytes each).
+- **`Poly::deserialize(serialized)`** [F18]: Deserializes a byte slice into
+  a `Poly` by reading pairs of bytes as big-endian `u16` → `GF16`.
+  Returns an error if the input is empty or has odd length.
+
+### PolyConst (Fixed-Size Const Polynomial)
+
+- **`PolyConst::lagrange_interpolate_pt(pts, i)`** [F19]: Const-evaluable
+  version of Lagrange interpolation for a single point. Constructs the
+  basis polynomial and scales it, using `const_sub`, `const_mul`, and
+  `const_div` for GF16 operations.
+- **`PolyConst::mult(m)`** [F20]: Const-evaluable scalar multiplication:
+  multiplies every coefficient by `m` using `const_mul`.
+- **`PolyConst::mult_xdiff(difference)`** [F21]: Const-evaluable multiplication
+  by `(x - difference)`. Distributes as `x*poly - d*poly` using separate
+  `xp` and `dp` arrays. Marked `#[hax_lib::opaque]`.
+- **`PolyConst::to_poly`** [F22]: Converts a fixed-size `PolyConst<N>` to a
+  dynamic `Poly` by calling `.to_vec()` on the coefficient array.
+
+### Free Functions
+
+- **`const_polys_to_polys(cps)`** [F23]: Converts an array of `PolyConst<N>`
+  to a `Vec<Poly>` by mapping `to_poly` over the array via iterators.
+- **`lagrange_polys_for_complete_points<N>()`** [F24]: Const-evaluable function
+  that precomputes N Lagrange basis polynomials for points
+  `{(0, 1), (1, 1), ..., (N-1, 1)}`. Used to initialize the
+  `COMPLETE_POINTS_POLYS_*` constants.
+
+### PolyEncoder
+
+- **`PolyEncoder::get_encoder_state`** [F25]: Returns a reference to the
+  internal `EncoderState` (either `Points` or `Polys`). Used in hax
+  annotations.
+- **`PolyEncoder::into_pb`** [F26]: Serializes the encoder state into a
+  protobuf `PolynomialEncoder` message. Handles both `Points` and `Polys`
+  variants.
+- **`PolyEncoder::from_pb`** [F27]: Deserializes a protobuf `PolynomialEncoder`
+  message back into a `PolyEncoder`. Validates field lengths and
+  reconstructs either `Points` or `Polys` state.
+- **`PolyEncoder::point_at(poly, idx)`** [F28]: Returns the GF16 value at
+  position `(poly, idx)`. If the encoder is in `Points` state and the
+  requested index exceeds stored points, converts to `Polys` state by
+  calling `from_complete_points`, then evaluates via `compute_at`.
+  Marked `#[hax_lib::opaque]`.
+- **`PolyEncoder::encode_bytes_base(msg)`** [F29]: Encodes a byte message
+  into the encoder's initial `Points` state. Splits the message into
+  2-byte GF16 elements distributed round-robin across 16 polynomials.
+- **`PolyEncoder::chunk_at(idx)`** [F30]: Generates the chunk at the given
+  index by evaluating each of 16 polynomials at the appropriate point
+  indices.
+- **`PolyEncoder::into_pb_test`** [F31]: Test-utility wrapper for `into_pb`.
+- **`PolyEncoder::from_pb_test`** [F32]: Test-utility wrapper for `from_pb`.
+- **`{impl Encoder}::encode_bytes(msg)`** [F33]: Trait method that delegates
+  directly to `encode_bytes_base`.
+- **`{impl Encoder}::next_chunk`** [F34]: Generates the next chunk by calling
+  `chunk_at(self.idx)` and incrementing the index.
+
+### PolyDecoder
+
+- **`PolyDecoder::get_pts_needed`** [F35]: Returns `self.pts_needed`.
+  Used in hax annotations.
+- **`PolyDecoder::necessary_points(poly)`** [F36]: Computes the number of
+  points needed for polynomial `poly`: `pts_needed / 16` plus 1 if
+  `poly < pts_needed % 16`.
+- **`PolyDecoder::new_with_poly_count(len_bytes, _polys)`** [F37]: Creates
+  a new decoder with `pts_needed = len_bytes / 2` and 16 empty
+  `SortedSet<Pt>` arrays.
+- **`PolyDecoder::into_pb`** [F38]: Serializes the decoder state into a
+  protobuf `PolynomialDecoder` message.
+- **`PolyDecoder::from_pb`** [F39]: Deserializes a protobuf
+  `PolynomialDecoder` message back into a `PolyDecoder`. Validates
+  lengths and reconstructs `SortedSet` arrays. Marked `#[hax_lib::opaque]`.
+- **`PolyDecoder::into_pb_test`** [F40]: Test-utility wrapper for `into_pb`.
+- **`PolyDecoder::from_pb_test`** [F41]: Test-utility wrapper for `from_pb`.
+- **`{impl Decoder}::new(len_bytes)`** [F42]: Trait method that delegates
+  to `new_with_poly_count(len_bytes, 16)`.
+- **`{impl Decoder}::add_chunk(chunk)`** [F43]: Adds a chunk's 16 GF16
+  values to the appropriate `SortedSet<Pt>` arrays, keyed by polynomial
+  index and point index. Only adds if the point is needed or has a
+  small index (to enable direct lookup without interpolation).
+- **`{impl Decoder}::decoded_message`** [F44]: Attempts to decode the
+  original message from collected points. Uses direct lookup for points
+  with matching X values, falling back to Lagrange interpolation. Returns
+  `None` if insufficient points are available.
+
+### Test Functions (Not Extracted)
+
+- **`test::encode_and_decode_small`** [F45]: Tests encoding and decoding
+  of a small message (10 bytes).
+- **`test::encode_and_decode_large`** [F46]: Tests encoding and decoding
+  of a large message (1088 bytes) with worst-case chunk indices.
+- **`test::poly_lagrange_interpolate`** [F47]: Tests Lagrange interpolation
+  with 30 random points and verifies evaluation.
+- **`test::point_serialize_deserialize`** [F48]: Tests `Pt` serialization
+  round-trip.
+- **`test::to_and_from_pb`** [F49]: Tests protobuf serialization round-trip
+  for both encoder and decoder.
+- **`test::const_polys`** [F50]: Tests `lagrange_polys_for_complete_points`
+  with size 35.
+
+---
+
+## 4. Verification Order (Dependency Table)
+
+The following table lists **all 50 functions and 11 constants** from
+`encoding/polynomial.rs` in **dependency order**: to complete
+the verification of function A, all functions listed as its
+dependencies (column "Depends On") must be verified first. Functions
+are ordered so that dependencies always appear before dependents.
+
+- ✅ = Verified (spec file exists, no `sorry`)
+- ❌ = Not yet verified
+- ⚠️ = Has `sorry` in extracted code (loop body replaced by tweak)
+- ⏭️ = Skipped — not verified (see Section 2 for reasons)
+
+| Order | # | Function | Spec File | Depends On | Status |
+|-------|---|----------|-----------|------------|--------|
+| 1 | C1 | `MAX_STORED_POLYNOMIAL_DEGREE_V1` | N/A | (none — irreducible constant) | ✅ |
+| 2 | C2 | `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` | N/A | (none — irreducible constant) | ✅ |
+| 3 | C9 | `CHUNK_SIZE` | N/A | (none — irreducible constant) | ✅ |
+| 4 | C10 | `NUM_POLYS` | N/A | C9 | ✅ |
+| 5 | C11 | `PolyConst::ZEROS` | N/A | (none — uses `GF16::ZERO`) | ✅ |
+| 6 | F5 | `{impl PartialEq for Pt}::eq` | — | (none — u16 equality) | ⏭️ Trait instance |
+| 7 | F4 | `{impl PartialOrd for Pt}::partial_cmp` | — | F5 | ⏭️ Trait instance |
+| 8 | F3 | `{impl Ord for Pt}::cmp` | — | F4 | ⏭️ Trait instance |
+| 9 | F1 | `Pt::serialize` | `Pt/Serialize.lean` | (none — byte conversion) | ✅ |
+| 10 | F2 | `Pt::deserialize` | `Pt/Deserialize.lean` | (none — byte conversion) | ✅ |
+| 11 | F6 | `Poly::zero` | — | (none — Vec allocation) | ❌ |
+| 12 | F9 | `Poly::mult_xdiff_assign_trailing` | — | (none — GF16 mul, sub) | ❌ |
+| 13 | F12 | `Poly::add_assign` | — | (none — GF16 add) | ❌ |
+| 14 | F13 | `Poly::mult_assign` | — | `parallel_mult` (GF) | ❌ |
+| 15 | F17 | `Poly::serialize` | — | (none — byte conversion) | ❌ |
+| 16 | F18 | `Poly::deserialize` | — | (none — byte conversion) | ❌ |
+| 17 | F8 | `Poly::lagrange_interpolate_prepare` | — | F6, F9 | ❌ |
+| 18 | F10 | `Poly::lagrange_interpolate_complete` | — | GF16 arithmetic | ❌ |
+| 19 | F14 | `Poly::compute_at` | — | GF16 mul, add | ❌ |
+| 20 | F7 | `Poly::lagrange_interpolate` | — | F6, F8, F10, F12 | ❌ |
+| 21 | F11 | `Poly::lagrange_interpolate_pt` | — | F8, F10 | ❌ |
+| 22 | F15 | `Poly::lagrange_sum` | — | F6, F12, F13 | ❌ |
+| 23 | F20 | `PolyConst::mult` | — | `const_mul` (GF) | ❌ |
+| 24 | F21 | `PolyConst::mult_xdiff` | — | `const_mul`, `const_sub` (GF) | ❌ |
+| 25 | F19 | `PolyConst::lagrange_interpolate_pt` | — | F20, F21, `const_sub`, `const_div` (GF) | ❌ |
+| 26 | F22 | `PolyConst::to_poly` | — | (none — array to Vec) | ❌ |
+| 27 | F24 | `lagrange_polys_for_complete_points` | — | F19, C11 | ⚠️ `sorry` in loop0 body |
+| 28 | C3 | `COMPLETE_POINTS_POLYS_1` | — | F24 | ❌ (depends on sorry) |
+| 29 | C4 | `COMPLETE_POINTS_POLYS_3` | — | F24 | ❌ (depends on sorry) |
+| 30 | C5 | `COMPLETE_POINTS_POLYS_5` | — | F24 | ❌ (depends on sorry) |
+| 31 | C6 | `COMPLETE_POINTS_POLYS_30` | — | F24 | ❌ (depends on sorry) |
+| 32 | C7 | `COMPLETE_POINTS_POLYS_34` | — | F24 | ❌ (depends on sorry) |
+| 33 | C8 | `COMPLETE_POINTS_POLYS_36` | — | F24 | ❌ (depends on sorry) |
+| 34 | F23 | `const_polys_to_polys` | — | F22 | ❌ |
+| 35 | F16 | `Poly::from_complete_points` | — | F15, F23, C3–C8, F11 | ❌ |
+| 36 | F35 | `PolyDecoder::get_pts_needed` | — | (none — field access) | ❌ |
+| 37 | F36 | `PolyDecoder::necessary_points` | — | (none — arithmetic) | ❌ |
+| 38 | F37 | `PolyDecoder::new_with_poly_count` | — | (none — initialization) | ❌ |
+| 39 | F42 | `{impl Decoder}::new` | — | F37 | ❌ |
+| 40 | F43 | `{impl Decoder}::add_chunk` | — | F36 | ❌ |
+| 41 | F38 | `PolyDecoder::into_pb` | — | F1 | ❌ |
+| 42 | F39 | `PolyDecoder::from_pb` | — | F2 | ❌ |
+| 43 | F44 | `{impl Decoder}::decoded_message` | — | F7, F14, F36 | ⏭️ Opaque axiom |
+| 44 | F29 | `PolyEncoder::encode_bytes_base` | — | (none — GF16 construction) | ⚠️ `sorry` in loop body |
+| 45 | F33 | `{impl Encoder}::encode_bytes` | — | F29 | ❌ |
+| 46 | F25 | `PolyEncoder::get_encoder_state` | — | (none — field access) | ❌ |
+| 47 | F28 | `PolyEncoder::point_at` | — | F16, F14 | ❌ |
+| 48 | F30 | `PolyEncoder::chunk_at` | — | F28 | ❌ |
+| 49 | F34 | `{impl Encoder}::next_chunk` | — | F30 | ❌ |
+| 50 | F26 | `PolyEncoder::into_pb` | — | F17 | ❌ |
+| 51 | F27 | `PolyEncoder::from_pb` | — | F18 | ⚠️ `sorry` in loop1 body |
+| 52 | F31 | `PolyEncoder::into_pb_test` | — | F26 | ⏭️ Feature-gated |
+| 53 | F32 | `PolyEncoder::from_pb_test` | — | F27 | ⏭️ Feature-gated |
+| 54 | F40 | `PolyDecoder::into_pb_test` | — | F38 | ⏭️ Feature-gated |
+| 55 | F41 | `PolyDecoder::from_pb_test` | — | F39 | ⏭️ Feature-gated |
+| 56 | F45 | `test::encode_and_decode_small` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+| 57 | F46 | `test::encode_and_decode_large` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+| 58 | F47 | `test::poly_lagrange_interpolate` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+| 59 | F48 | `test::point_serialize_deserialize` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+| 60 | F49 | `test::to_and_from_pb` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+| 61 | F50 | `test::const_polys` | — | — | ⏭️ Not extracted (#[cfg(test)]) |
+
+### Dependency DAG (ASCII)
+
+```
+MAX_STORED(C1)  MAX_INTERMEDIATE(C2)  CHUNK_SIZE(C9)  PolyConst::ZEROS(C11)
+                                           │
+                                       NUM_POLYS(C10)
+
+Pt::serialize(F1)  Pt::deserialize(F2)   [Pt trait impls: F3,F4,F5 — skipped]
+
+Poly::zero(F6)  mult_xdiff_assign_trailing(F9)  add_assign(F12)  mult_assign(F13)
+     │                    │                           │                │
+     └────────┬───────────┘                           │                │
+              ▼                                       │                │
+  lagrange_interpolate_prepare(F8)                    │                │
+              │                                       │                │
+              ▼                                       │                │
+  lagrange_interpolate_complete(F10)                  │                │
+              │                                       │                │
+     ┌────────┼────────────┐                          │                │
+     ▼        ▼            ▼                          ▼                ▼
+lagrange_   lagrange_   lagrange_               lagrange_sum(F15)
+interpolate interpolate_pt  interpolate_pt           │
+   (F7)      (F11)          (F11)                    │
+                                                     │
+  PolyConst::mult(F20)  PolyConst::mult_xdiff(F21)  │
+        │                    │                        │
+        └─────────┬──────────┘                        │
+                  ▼                                   │
+  PolyConst::lagrange_interpolate_pt(F19)             │
+                  │                                   │
+                  ▼                                   │
+  lagrange_polys_for_complete_points(F24) ⚠️ sorry    │
+         ┌────────┼────────┐                          │
+         ▼        ▼        ▼                          │
+  COMPLETE_POINTS_POLYS_* (C3-C8)                     │
+                  │                                   │
+         PolyConst::to_poly(F22)                      │
+                  │                                   │
+         const_polys_to_polys(F23)                    │
+                  │                                   │
+                  └──────────────────────┬─────────────┘
+                                        ▼
+                           from_complete_points(F16)
+                                        │
+                                        ▼
+     compute_at(F14)  ◄──── point_at(F28)
+         │                      │
+         │                  chunk_at(F30)
+         │                      │
+         │                  next_chunk(F34)
+         │
+         ▼
+  decoded_message(F44) — OPAQUE AXIOM
+
+  Poly::serialize(F17)  ──►  PolyEncoder::into_pb(F26)
+  Poly::deserialize(F18) ──► PolyEncoder::from_pb(F27) ⚠️ sorry
+
+  encode_bytes_base(F29) ⚠️ sorry ──► encode_bytes(F33)
+
+  new_with_poly_count(F37) ──► Decoder::new(F42)
+  necessary_points(F36)    ──► add_chunk(F43)
+  Pt::serialize(F1)        ──► PolyDecoder::into_pb(F38)
+  Pt::deserialize(F2)      ──► PolyDecoder::from_pb(F39)
+```
+
+---
+
+## 5. Source Code Modification Links
+
+All polynomial encoding functions are extracted from
+`src/encoding/polynomial.rs` via the Aeneas toolchain. The extraction
+configuration is defined in [`aeneas-config.yml`](../../aeneas-config.yml).
+
+### Extraction Configuration (`aeneas-config.yml`) — Polynomial-Specific Entries
+
+| Section | Entry | Purpose |
+|---------|-------|---------|
+| `charon.opaque` | `PolyDecoder::decoded_message` | Marked opaque due to Aeneas internal error — extracted as axiom in `FunsExternal.lean` |
+| `tweaks` | Pt trait instances → `Types.lean` | Moves `PartialEq`, `Eq`, `PartialOrd`, `Ord` for `Pt` from `Funs.lean` to `Types.lean` (needed because `PolyDecoder` references `Pt.Insts.CoreCmpOrd` in its type) |
+| `tweaks` | Remove Pt `PartialEq`+`Eq` from `Funs.lean` | Avoids duplicate definitions after insertion into `Types.lean` |
+| `tweaks` | Remove Pt `PartialOrd`+`Ord` from `Funs.lean` | Avoids duplicate definitions after insertion into `Types.lean` |
+| `tweaks` | Sorry loop bodies | Replaces 3 polynomial loop bodies (`lagrange_polys_for_complete_points_loop0.body`, `PolyEncoder.from_pb_loop1.body`, `PolyEncoder.encode_bytes_base_loop.body`) with `sorry` because Aeneas generates `()` instead of the correct typed value |
+
+### `sorry` Impact Analysis
+
+The 3 loop body `sorry` instances create the following verification gaps:
+
+1. **`lagrange_polys_for_complete_points_loop0.body`**: This loop initializes
+   the `ones` array with sequential X values `{0, 1, ..., N-1}`. Without it,
+   none of the `COMPLETE_POINTS_POLYS_*` constants can be verified, which
+   blocks `from_complete_points` and the entire precomputed Lagrange
+   interpolation path.
+
+2. **`PolyEncoder.from_pb_loop1.body`**: This loop deserializes protobuf
+   points into `GF16` values. Without it, `PolyEncoder::from_pb` cannot
+   be fully verified.
+
+3. **`PolyEncoder.encode_bytes_base_loop.body`**: This loop distributes
+   input bytes into the 16 polynomial point arrays. Without it,
+   `encode_bytes_base` and `encode_bytes` cannot be fully verified.
+
+The source modifications applied before extraction are documented in
+[`src-modifications.diff`](../../src-modifications.diff).
+
+---
+
+## 6. Summary
+
+Based on the 50 functions + 11 constants in `encoding/polynomial.rs`:
+
+- **11 constants**: 5 trivially verified (✅), 6 not yet verified (❌)
+  — the 6 `COMPLETE_POINTS_POLYS_*` constants depend on a `sorry`
+  in `lagrange_polys_for_complete_points`.
+- **50 functions**: 2 verified (✅), 32 not yet verified (❌),
+  3 have `sorry` in extracted code (⚠️), 13 skipped (⏭️).
+  - 3 skipped as Pt trait instance wrappers (ordering/equality, no
+    field arithmetic).
+  - 4 skipped as feature-gated test utility wrappers
+    (`#[cfg(feature = "test-utils")]`, not extracted).
+  - 1 skipped as opaque axiom (`decoded_message` — Aeneas internal error).
+  - 6 skipped as test functions (`#[cfg(test)]`, not extracted).
+- **3 `sorry`** instances exist in polynomial function loop bodies
+  (injected by `aeneas-config.yml` tweaks to work around Aeneas
+  extraction issues).
+- **1 axiom** for `decoded_message` — declared opaque in `aeneas-config.yml`
+  due to Aeneas internal error.
+- **Verified functions**: `Pt::serialize` and `Pt::deserialize` are the
+  only fully verified polynomial functions, with spec files in
+  `Spqr/Specs/Encoding/Polynomial/Pt/`.

@@ -17,7 +17,7 @@ not extracted and therefore cannot be verified in the current framework.
 
 ## 0. Mathematical Foundations — Statistics and Analysis
 
-File: [`Spqr/Math/Gf.lean`](../../Spqr/Math/Gf.lean) (654 lines)
+File: [`Spqr/Math/Gf.lean`](../../Spqr/Math/Gf.lean) (623 lines)
 
 This file provides the basic mathematical knowledge required to verify
 all GF(2¹⁶) functions. Every spec file in `Spqr/Specs/Encoding/Gf/`
@@ -27,6 +27,7 @@ depends (directly or transitively) on the definitions and lemmas below.
 
 | Definition | Type | Description |
 |------------|------|-------------|
+| `GF2Poly` | `abbrev` | `(ZMod 2)[X]` — shorthand for the polynomial ring over GF(2) (from Mathlib). |
 | `GF216` | `abbrev` | `GaloisField 2 16` — the abstract finite field with 2¹⁶ elements (from Mathlib). |
 | `natToGF2Poly` | `Nat → (ZMod 2)[X]` | Interprets a natural number's binary representation as a GF(2) polynomial. Bit `i` of `n` becomes the coefficient of `Xⁱ`. |
 | `POLY_GF2` | `(ZMod 2)[X]` | The irreducible polynomial `X¹⁶ + X¹² + X³ + X + 1` (= `0x1100b`). Defines `GF(2¹⁶) ≅ (ZMod 2)[X] / (POLY_GF2)`. |
@@ -40,7 +41,6 @@ depends (directly or transitively) on the definitions and lemmas below.
 | `gf2ModAux` | `Nat → Nat → Nat → Nat` | One step of GF(2) polynomial long-division via XOR bit-manipulation. |
 | `gf2Mod` | `Nat → Nat → Nat` | GF(2) polynomial remainder: `gf2Mod a b` computes `a mod b` on natural-number encodings. |
 | `gf2NoDivisorOfDeg` | `Nat → Nat → Bool` | Checks that no monic GF(2) polynomial of degree `d` divides `n`. |
-| `gf2IrredCheck` | `Nat → Bool` | Computable GF(2) polynomial irreducibility check: verifies no monic polynomial of degree 1 through `n.log2 / 2` divides `n`. |
 
 ### 0b. Lemmas and Theorems (Verified — No `sorry`)
 
@@ -51,20 +51,20 @@ depends (directly or transitively) on the definitions and lemmas below.
 | `natToGF2Poly_xor` | ✅ | `natToGF2Poly (a ^^^ b) = natToGF2Poly a + natToGF2Poly b` (XOR = polynomial addition). |
 | `natToGF2Poly_shiftLeft` | ✅ | `natToGF2Poly (a <<< k) = natToGF2Poly a * X^k` (shift = multiply by `X^k`). |
 | `natToGF2Poly_POLY` | ✅ | `natToGF2Poly 0x1100b = POLY_GF2`. |
-| `natToGF2Poly_mod_eq_of_lt` | ✅ | If `v < 2^n`, then `natToGF2Poly (v % 2^n) = natToGF2Poly v`. |
 | `natToGF2Poly_split` | ✅ | Decomposes `natToGF2Poly v` into lower-`n`-bit and upper parts. |
 | `natToGF2Poly_inj` | ✅ | `natToGF2Poly` is injective (equal polynomials ⇒ equal bit patterns). |
+| `natToGF2Poly_one` | ✅ | `natToGF2Poly 1 = 1` as a GF(2) polynomial. |
 | `POLY_GF2_monic` | ✅ | `POLY_GF2` is monic (leading coeff = 1). |
 | `POLY_GF2_natDegree` | ✅ | `POLY_GF2.natDegree = 16`. |
+| `POLY_GF2_ne_one` | ✅ | `POLY_GF2 ≠ 1` (its degree is 16, not 0). |
 | `zmod2_poly_neg_eq` | ✅ | In `(ZMod 2)[X]`, `-a = a` (char 2). |
 | `zmod2_poly_sub_eq_add` | ✅ | In `(ZMod 2)[X]`, `a - b = a + b` (char 2). |
 | `POLY_GF2_dvd_modByMonic_sub` | ✅ | `POLY_GF2 ∣ (p %ₘ POLY_GF2 - p)`. |
 | `modByMonic_modByMonic_self` | ✅ | `(p %ₘ POLY_GF2) %ₘ POLY_GF2 = p %ₘ POLY_GF2` (idempotence). |
 | `ringHom_modByMonic` | ✅ | If `φ P = 0`, then `φ (p %ₘ P) = φ p` (transport along quotient). |
-| `natToGF2Poly_modByMonic_eq` | ✅ | Multiplicativity of `%ₘ POLY_GF2` (quotient ring multiplication). |
 | `exists_ringHom_modByMonic` | ✅ | Existence of `φ : (ZMod 2)[X] →+* GF216` with `φ POLY_GF2 = 0`. |
 | `hφ` | ✅ | The chosen `φ` satisfies `φ POLY_GF2 = 0`. |
-| `POLY_GF2_irreducible` | ✅ | `POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1` is irreducible over `ZMod 2`. (Previously `sorry`; now fully proved via computational GF(2) trial-division — see §0b'.) |
+| `POLY_GF2_irreducible` | ✅ | `POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1` is irreducible over `ZMod 2`. Fully proved via computational GF(2) trial-division — see §0b'. |
 
 #### 0b'. Private Helper Lemmas for the Irreducibility Proof
 
@@ -77,13 +77,11 @@ degree 1–8 divides `0x1100b`, and link the computation back to
 
 | Lemma | Status | What It States |
 |-------|--------|----------------|
-| `gf2IrredCheck_POLY` | ✅ | Computational verification that `gf2IrredCheck 0x1100b = true`. |
 | `gf2ModAux_preserves_dvd` | ✅ | Each step of `gf2ModAux` preserves the congruence class modulo `natToGF2Poly b`. |
 | `gf2ModAux_log2_lt` | ✅ | The degree (log2) of the remainder is strictly less than the divisor's. |
 | `natToGF2Poly_natDegree_eq_log2` | ✅ | For `b ≥ 2`, `(natToGF2Poly b).natDegree = b.log2`. |
 | `natToGF2Poly_monic_of_ge_two` | ✅ | A natural number `b ≥ 2` encodes a monic GF(2) polynomial. |
 | `gf2Mod_ne_zero_of_not_dvd` | ✅ | Non-zero `gf2Mod` remainder implies `natToGF2Poly b ∤ natToGF2Poly a`. |
-| `natToGF2Poly_one'` | ✅ | `natToGF2Poly 1 = 1`. |
 | `natToGF2Poly_pow2` | ✅ | `natToGF2Poly (2^k) = X^k`. |
 | `natToGF2Poly_surj` | ✅ | Every polynomial over GF(2) is in the range of `natToGF2Poly`. |
 | `monic_eq_natToGF2Poly` | ✅ | If `q` is monic with `1 ≤ q.natDegree`, then `q = natToGF2Poly b` for some `b ≥ 2`. |
@@ -100,7 +98,7 @@ trial-division strategy that checks no monic GF(2) polynomial of degree
 
 | Theorem | Location | Previous Status | Current Status | Notes |
 |---------|----------|-----------------|----------------|-------|
-| `POLY_GF2_irreducible` | `Spqr/Math/Gf.lean:489` | ⚠️ `sorry` | ✅ Proved | Fully verified via GF(2) trial-division over degrees 1–8. |
+| `POLY_GF2_irreducible` | `Spqr/Math/Gf.lean:478` | ⚠️ `sorry` | ✅ Proved | Fully verified via GF(2) trial-division over degrees 1–8. |
 
 ### 0d. Dependency of Spec Files on Math Foundations
 
@@ -108,29 +106,41 @@ The following spec files directly import or use lemmas from `Spqr/Math/Gf.lean`:
 
 | Spec File | Math Lemmas Used |
 |-----------|-----------------|
-| `Unaccelerated/PolyMul.lean` | `natToGF2Poly_xor`, `natToGF2Poly_shiftLeft`, `natToGF2Poly_zero` |
-| `Unaccelerated/Mul.lean` | `natToGF2Poly_modByMonic_eq` (via `poly_mul` + `poly_reduce`) |
+| `Unaccelerated/PolyMul.lean` | `natToGF2Poly_xor`, `natToGF2Poly_shiftLeft`, `natToGF2Poly_zero`, `natToGF2Poly_coeff` |
+| `Unaccelerated/Mul.lean` | `ringHom_modByMonic`, `POLY_GF2_monic`, `hφ`, `φ` |
 | `Unaccelerated/Mul2.lean` | (transitively via `Mul.lean`) |
-| `Reduce/ReduceFromByte.lean` | `natToGF2Poly_xor`, `natToGF2Poly_shiftLeft` |
-| `Reduce/PolyReduce.lean` | `natToGF2Poly_split`, `POLY_GF2_monic`, `modByMonic_modByMonic_self` |
+| `Reduce/ReduceFromByte.lean` | `natToGF2Poly_xor`, `natToGF2Poly_shiftLeft`, `natToGF2Poly_POLY` |
+| `Reduce/ReduceBytes.lean` | `natToGF2Poly_xor`, `natToGF2Poly_shiftLeft`, `natToGF2Poly_POLY`, `POLY_GF2_monic`, `POLY_GF2_natDegree`, `POLY_GF2_ne_one`, `zmod2_poly_sub_eq_add` |
+| `Reduce/PolyReduce.lean` | `natToGF2Poly_split`, `natToGF2Poly_xor`, `natToGF2Poly_inj`, `POLY_GF2_monic`, `POLY_GF2_natDegree`, `POLY_GF2_ne_one`, `zmod2_poly_sub_eq_add` |
+| `Reduce/REDUCE_BYTES.lean` | (transitively via `ReduceBytes.lean`) |
 | `GF16/AddAssign.lean` | `natToGF2Poly_xor` (XOR = addition) |
-| `GF16/Sub.lean` | `zmod2_poly_sub_eq_add` (sub = add in char 2) |
-| `GF16/ConstSub.lean` | `zmod2_poly_sub_eq_add` |
-| `GF16/DivImpl.lean` | `natToGF2Poly_inj`, `hφ`, `ringHom_modByMonic` |
+| `GF16/Add.lean` | (transitively via `AddAssign.lean`) |
+| `GF16/Sub.lean` | (transitively via `AddAssign.lean`) |
+| `GF16/ConstSub.lean` | `natToGF2Poly_xor`, `zmod2_poly_sub_eq_add` |
+| `GF16/MulAssign.lean` | (transitively via `Unaccelerated/Mul.lean`) |
+| `GF16/Mul.lean` | (transitively via `MulAssign.lean`) |
+| `GF16/ConstMul.lean` | (transitively via `Unaccelerated/Mul.lean`) |
+| `GF16/ConstDiv.lean` | (transitively via `ConstMul.lean`) |
+| `GF16/DivImpl.lean` | `Nat.toGF216`, `GF216` |
+| `GF16/Div.lean` | (transitively via `DivImpl.lean`) |
+| `GF16/New.lean` | `Nat.toGF216`, `GF216` |
+| `GF16/ONE.lean` | `natToGF2Poly_one`, `Nat.toGF216` |
+| `GF16/ZERO.lean` | `natToGF2Poly_zero`, `Nat.toGF216` |
+| `Mul2U16.lean` | (transitively via `Unaccelerated/Mul2.lean`) |
 | `ParallelMult.lean` | `Nat.toGF216`, `natToGF2Poly`, `POLY_GF2` (via `Mul2U16` and `MulAssign`) |
 
 ### 0e. Statistics Summary
 
 | Metric | Count |
 |--------|-------|
-| Total lines in `Spqr/Math/Gf.lean` | 654 |
-| Core definitions (public) | 5 |
-| Private definitions (irreducibility machinery) | 4 |
+| Total lines in `Spqr/Math/Gf.lean` | 623 |
+| Core definitions (public) | 6 |
+| Private definitions (irreducibility machinery) | 3 |
 | Verified public lemmas/theorems (no `sorry`) | 19 |
-| Verified private lemmas (no `sorry`) | 12 |
+| Verified private lemmas (no `sorry`) | 10 |
 | `sorry` instances | **0** |
 | Mathlib imports used | `Algebra.Field.ZMod`, `FieldTheory.Finite.GaloisField`, `RingTheory.Polynomial.Basic` |
-| Spec files depending on this file | 10 (out of 25 total spec files) |
+| Spec files depending on this file | 22 (out of 25 total spec files) |
 
 ---
 
@@ -162,7 +172,7 @@ in `Spqr/Code/Funs.lean`, its spec file (if any), and verification status.
 | F7 | `{impl Sub for GF16}::sub` | `CoreOpsArithSubGF16GF16.sub` | — | ⏭️ Skipped |
 | F8 | `{impl Sub<&GF16>}::sub` | `CoreOpsArithSubShared0GF16GF16.sub` | `GF16/Sub.lean` | ✅ Verified |
 | F9 | `{impl MulAssign<&GF16>}::mul_assign` | `CoreOpsArithMulAssignShared0GF16.mul_assign` | `GF16/MulAssign.lean` | ✅ Verified |
-| F10 | `{impl MulAssign for GF16}::mul_assign` | `CoreOpsArithMulAssignGF16.mul_assign` | `GF16/DivImpl.lean` (helper) | ⏭️ Skipped (verified as helper) |
+| F10 | `{impl MulAssign for GF16}::mul_assign` | `CoreOpsArithMulAssignGF16.mul_assign` | `GF16/MulAssign.lean` | ✅ Verified |
 | F11 | `{impl Mul for GF16}::mul` | `CoreOpsArithMulGF16GF16.mul` | `GF16/Mul.lean` | ✅ Verified |
 | F12 | `{impl Mul<&GF16>}::mul` | `CoreOpsArithMulShared0GF16GF16.mul` | — | ⏭️ Skipped |
 | F13 | `{impl DivAssign<&GF16>}::div_assign` | `CoreOpsArithDivAssignShared0GF16.div_assign` | — | ⏭️ Skipped |
@@ -208,7 +218,6 @@ The postcondition is inherited verbatim from the delegate.
 | F5 | `{impl SubAssign<&GF16>}::sub_assign` | `CoreOpsArithSubAssignShared0GF16.sub_assign` | F1 `add_assign` | Sub = Add in char 2; delegates to add_assign |
 | F6 | `{impl SubAssign for GF16}::sub_assign` | `CoreOpsArithSubAssignGF16.sub_assign` | F5 | By-value wrapper of F5 |
 | F7 | `{impl Sub for GF16}::sub` | `CoreOpsArithSubGF16GF16.sub` | F5 | By-value Sub delegates to sub_assign |
-| F10 | `{impl MulAssign for GF16}::mul_assign` | `CoreOpsArithMulAssignGF16.mul_assign` | F9 `MulAssign<&GF16>` | By-value wrapper (verified as helper in DivImpl.lean) |
 | F12 | `{impl Mul<&GF16>}::mul` | `CoreOpsArithMulShared0GF16GF16.mul` | F9 via `mul_assign` | By-ref Mul delegates to same mul_assign |
 | F13 | `{impl DivAssign<&GF16>}::div_assign` | `CoreOpsArithDivAssignShared0GF16.div_assign` | F29 `div_impl` | Direct delegation to div_impl |
 | F14 | `{impl DivAssign for GF16}::div_assign` | `CoreOpsArithDivAssignGF16.div_assign` | F29 `div_impl` | Direct delegation to div_impl |
@@ -292,7 +301,9 @@ and are sound axioms reflecting the known Rust behaviour of `Range<i32>`.
 - **`sub` (Sub<&GF16>)** [F8]: By-ref subtraction via F5.
 - **`mul_assign` (MulAssign<&GF16>)** [F9]: GF(2¹⁶) multiplication via
   `unaccelerated::mul`. Core implementation.
-- **`mul_assign` (MulAssign for GF16)** [F10]: By-value wrapper of F9.
+- **`mul_assign` (MulAssign for GF16)** [F10]: By-value wrapper of F9;
+  verified in `GF16/MulAssign.lean` (spec theorem
+  `CoreOpsArithMulAssignGF16.mul_assign_spec`).
 - **`mul` (Mul for GF16)** [F11]: GF(2¹⁶) multiplication via F9.
 - **`mul` (Mul<&GF16>)** [F12]: By-ref multiplication via F9.
 - **`div_assign` (DivAssign<&GF16>)** [F13]: Delegates to `div_impl` (F29).
@@ -384,7 +395,7 @@ are ordered so that dependencies always appear before dependents.
 | 21 | F23 | `unaccelerated::mul2` | `Unaccelerated/Mul2.lean` | F24 | ✅ |
 | 22 | F30 | `GF16::const_mul` | `GF16/ConstMul.lean` | F24 | ✅ |
 | 23 | F9 | `mul_assign` (MulAssign<&GF16>) | `GF16/MulAssign.lean` | F24 | ✅ |
-| 24 | F10 | `mul_assign` (MulAssign for GF16) | `GF16/DivImpl.lean` (helper) | F9 | ⏭️ Delegation wrapper (verified as helper) |
+| 24 | F10 | `mul_assign` (MulAssign for GF16) | `GF16/MulAssign.lean` | F9 | ✅ |
 | 25 | F11 | `mul` (Mul for GF16) | `GF16/Mul.lean` | F9 | ✅ |
 | 26 | F12 | `mul` (Mul<&GF16>) | — | F9 | ⏭️ Delegation wrapper |
 | 27 | F32 | `GF16::const_div` | `GF16/ConstDiv.lean` | F30 | ✅ |
@@ -489,11 +500,9 @@ polynomial `POLY_GF2`, `natToGF2Poly`, `GF216`, etc.) is defined in
 Based on the 37 functions + 4 constants in `encoding/gf.rs`:
 
 - **4 constants**: All 4 verified (✅).
-- **37 functions**: 21 verified (✅), 16 skipped (⏭️).
-  - 10 skipped as delegation-only trait wrappers (no new logic).
+- **37 functions**: 22 verified (✅), 15 skipped (⏭️).
+  - 9 skipped as delegation-only trait wrappers (no new logic).
   - 3 skipped as hardware-accelerated (`accelerated::*`; not extracted by Aeneas).
   - 4 skipped as test functions (`test::*`; `#[cfg(test)]`, not extracted).
 - **0 `sorry`** instances exist in any GF(2¹⁶) function definition, spec, or math foundation.
-  - `POLY_GF2_irreducible` (previously `sorry`) is now **fully proved** via
-    computational GF(2) trial-division.
 - **2 axioms** used for the opaque `Range<i32>` iterator in `div_impl` — clearly documented.
