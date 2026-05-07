@@ -74,6 +74,30 @@ natural language specs:
   `GF216 = GaloisField 2 16`.
 -/
 
+/-- **Spec and proof concerning
+`encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign`**:
+
+The by-reference `MulAssign<&GF16> for GF16` computes GF(2¹⁶)
+multiplication by delegating to `unaccelerated.mul`, which performs
+carry-less polynomial multiplication (`poly_mul`) followed by
+reduction modulo POLY = 0x1100b (`poly_reduce`).
+
+The result satisfies the GF(2¹⁶)-level postcondition:
+
+  `(result.value.val.toGF216 : GF216) =
+       self.value.val.toGF216 * other.value.val.toGF216`
+
+where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+number as an element of `GF216 = GaloisField 2 16` via the chosen
+ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
+`POLY_GF2`.
+
+The proof unfolds `mul_assign` to expose the underlying
+`unaccelerated.mul` call and discharges the resulting goal with
+`step*`, which applies the already-registered `mul_spec`.
+
+**Source**: spqr/src/encoding/gf.rs (lines 492:4-502:5)
+-/
 @[step]
 theorem mul_assign_spec (self other : spqr.encoding.gf.GF16) :
     mul_assign self other ⦃ result =>
