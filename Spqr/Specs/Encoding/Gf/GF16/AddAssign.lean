@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
 import Mathlib.Data.Nat.Bitwise
+import Spqr.Math.Gf
 /-! # Spec Theorem for `spqr::encoding::gf::{impl ops::AddAssign for GF16}::add_assign`
 
 Specification and proof for
@@ -31,7 +31,7 @@ since every element is its own additive inverse (`a + a = 0`).
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16
 
@@ -80,13 +80,12 @@ homomorphism `φ` (`map_add`).
 **Source**: spqr/src/encoding/gf.rs (lines 28:4-31:5)
 -/
 @[step]
-theorem add_assign_spec (self other : spqr.encoding.gf.GF16) :
-    add_assign self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      result.value.val.toGF216 =
-        self.value.val.toGF216 + other.value.val.toGF216 ⦄ := by
+theorem add_assign_spec (self other : GF16) :
+    add_assign self other ⦃ (result : GF16) =>
+      GF16toGF216 result = GF16toGF216 self + GF16toGF216 other ⦄ := by
   unfold add_assign
   step*
-  simp_all only [UScalar.val_xor, Nat.toGF216, natToGF2Poly_xor, map_add]
+  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToGF2Poly_xor, map_add]
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16
 
@@ -152,10 +151,9 @@ with `step*`, which applies the already-registered
 **Source**: spqr/src/encoding/gf.rs (lines 40:4-43:5)
 -/
 @[step]
-theorem add_assign_spec (self other : spqr.encoding.gf.GF16) :
-    add_assign self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 + other.value.val.toGF216 ⦄ := by
+theorem add_assign_spec (self other : GF16) :
+    add_assign self other ⦃ (result : GF16) =>
+      GF16toGF216 result = GF16toGF216 self + GF16toGF216 other ⦄ := by
   unfold add_assign
   step*
 

@@ -45,7 +45,7 @@ product of the lifts of `self.value` and `other.value`.
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 
@@ -99,12 +99,14 @@ The proof unfolds `mul_assign` to expose the underlying
 **Source**: spqr/src/encoding/gf.rs (lines 492:4-502:5)
 -/
 @[step]
-theorem mul_assign_spec (self other : spqr.encoding.gf.GF16) :
+theorem mul_assign_spec (self other : GF16) :
     mul_assign self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 * other.value.val.toGF216 ⦄ := by
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self * GF16toGF216 other ⦄ := by
   unfold mul_assign
   step*
+  simp[GF16toGF216]
+  simp_all
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 
@@ -193,10 +195,10 @@ which applies the already-registered `mul_assign_spec`.
 **Source**: spqr/src/encoding/gf.rs (lines 507:4-509:5)
 -/
 @[step]
-theorem mul_assign_spec (self other : spqr.encoding.gf.GF16) :
+theorem mul_assign_spec (self other : GF16) :
     mul_assign self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 * other.value.val.toGF216 ⦄ := by
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self * GF16toGF216 other ⦄ := by
   unfold mul_assign
   step*
 

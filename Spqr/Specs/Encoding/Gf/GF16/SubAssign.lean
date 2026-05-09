@@ -31,7 +31,7 @@ two are observationally identical:
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubAssignShared0GF16
 
@@ -84,10 +84,10 @@ the already-registered `add_assign_spec`.
 **Source**: spqr/src/encoding/gf.rs (lines 81:4-83:5)
 -/
 @[step]
-theorem sub_assign_spec (self other : spqr.encoding.gf.GF16) :
-    sub_assign self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      result.value.val.toGF216 =
-        self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
+theorem sub_assign_spec (self other : GF16) :
+    sub_assign self other ⦃ (result : GF16) =>
+      GF16toGF216 result =
+        GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold sub_assign
   step*
 
@@ -157,10 +157,10 @@ with `step*`, which applies the already-registered
 **Source**: spqr/src/encoding/gf.rs (lines 92:4-94:5)
 -/
 @[step]
-theorem sub_assign_spec (self other : spqr.encoding.gf.GF16) :
-    sub_assign self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
+theorem sub_assign_spec (self other : GF16) :
+    sub_assign self other ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold sub_assign
   step*
 

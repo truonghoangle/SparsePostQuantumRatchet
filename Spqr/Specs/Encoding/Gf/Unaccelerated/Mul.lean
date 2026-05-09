@@ -66,7 +66,7 @@ at the polynomial level.
 
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
-theorem mul_spec' (a b : Std.U16) :
+theorem mul_spec' (a b : U16) :
     mul a b ⦃ result =>
       natToGF2Poly result.val =
         (natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2 ⦄ := by
@@ -85,8 +85,8 @@ field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 @[step]
 theorem mul_spec
-    (a b : Std.U16) :
-    mul a b ⦃ result =>
+    (a b : U16) :
+    mul a b ⦃ (result : U16) =>
       result.val.toGF216 = a.val.toGF216 * b.val.toGF216 ⦄ := by
   have hMonic : POLY_GF2.Monic := POLY_GF2_monic
   have h := mul_spec' a b

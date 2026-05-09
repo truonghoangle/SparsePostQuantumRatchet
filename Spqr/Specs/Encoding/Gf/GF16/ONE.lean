@@ -30,8 +30,7 @@ to the multiplicative identity `1 : GF216`.  This follows because:
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
-
+open Polynomial spqr.encoding.gf
 namespace spqr.encoding.gf.GF16
 
 /-
@@ -88,8 +87,8 @@ reduces `(1 : Std.U16).val` to `1 : Nat`, and then computes
 **Source**: spqr/src/encoding/gf.rs (lines 542:4-542:44)
 -/
 @[simp]
-theorem ONE_toGF216 : (ONE.value.val.toGF216 : GF216) = 1 := by
-  simp [Nat.toGF216, natToGF2Poly_one]
+theorem ONE_toGF216 : (GF16toGF216 ONE : GF216) = 1 := by
+  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_one]
 
 /-- **Top-level spec for `encoding.gf.GF16.ONE`** (Hoare-triple form):
 
@@ -110,8 +109,8 @@ for the chosen `φ : GF2Poly →+* GF216`.
 -/
 @[step]
 theorem one_spec :
-    ok ONE ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) = 1 ⦄ := by
-  simp [Nat.toGF216, natToGF2Poly_one]
+    ok ONE ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) = 1 ⦄ := by
+  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_one]
 
 end spqr.encoding.gf.GF16

@@ -52,7 +52,7 @@ Fermat-style quotient `self · other^(2¹⁶ − 2)` of the lifts of
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivAssignShared0GF16
 
@@ -120,9 +120,9 @@ the already-registered `div_impl_spec`.
 @[step]
 theorem div_assign_spec (self other : spqr.encoding.gf.GF16) :
     div_assign self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-          other.value.val.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
   unfold div_assign
   step*
 
@@ -212,9 +212,9 @@ the already-registered `div_impl_spec`.
 @[step]
 theorem div_assign_spec (self other : spqr.encoding.gf.GF16) :
     div_assign self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-          other.value.val.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
   unfold div_assign
   step*
 

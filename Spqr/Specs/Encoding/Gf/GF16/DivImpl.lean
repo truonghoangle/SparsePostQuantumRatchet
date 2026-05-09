@@ -64,7 +64,7 @@ of each new field element into `GF216 = GaloisField 2 16` via
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16
 
@@ -174,53 +174,92 @@ natural language specs:
   where `*` denotes multiplication in `GF216 = GaloisField 2 16`.
 -/
 
-/-- **Spec and proof concerning
-`encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign`**:
+/-- **Spec theorem for `Step<i32>::forward_checked` with step 1.**
 
-The trait-method `MulAssign<GF16> for GF16` provided by the
-`CoreOpsArithMulAssignGF16` instance is a thin wrapper that
-delegates to the by-reference instance
-`encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign`,
-which itself defers to the software carry-less multiplication
-`encoding.gf.unaccelerated.mul`.
+`I32.Insts.CoreIterRangeStep.forward_checked` is now defined concretely
+(see `Spqr/Code/FunsExternal.lean`) as
+  `fun start n => ok (IScalar.tryMkOpt .I32 (start.val + ↑n.val))`.
 
-Registering the resulting GF(2¹⁶)-level postcondition as a `@[step]`
-lemma allows `step*` to discharge `mul_assign` calls inside the
-`div_impl` loop body without further unfolding.
+This theorem specialises to `n = 1` and derives:
+  * The outer `Result` is always `ok`.
+  * When `start.val + 1 ≤ I32.max`, the result is `some z` with
+    `z.val = start.val + 1`.
+  * When `¬ start.val + 1 ≤ I32.max`, the result is `none`.
 
-**Source**: spqr/src/encoding/gf.rs (lines 507:4-509:5)
+The proof unfolds the definition, applies `IScalar.tryMkOpt_eq` to
+characterise the returned `Option`, and uses `scalar_tac` to discharge
+the I32 bounds arithmetic.
 -/
-@[step]
-theorem CoreOpsArithMulAssignGF16_mul_assign_spec
-    (self other : spqr.encoding.gf.GF16) :
-    Insts.CoreOpsArithMulAssignGF16.mul_assign self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 * other.value.val.toGF216 ⦄ := by
-  unfold Insts.CoreOpsArithMulAssignGF16.mul_assign
-  step*
+private theorem I32_forward_checked_one
+    (start : Std.I32) :
+    ∃ opt,
+      I32.Insts.CoreIterRangeStep.forward_checked start 1#usize = ok opt ∧
+      (start.val + 1 ≤ I32.max →
+          ∃ z, opt = some z ∧ z.val = start.val + 1) ∧
+      (¬ start.val + 1 ≤ I32.max → opt = none) := by
+  -- Unfold the concrete definition of forward_checked.
+  unfold I32.Insts.CoreIterRangeStep.forward_checked
+  -- The goal is now about IScalar.tryMkOpt .I32 (start.val + ↑(1#usize).val).
+  -- Use the specification lemma for tryMkOpt.
+  have htry := IScalar.tryMkOpt_eq .I32 (start.val + ↑(1#usize).val)
+  -- Replace the tryMkOpt call with a fresh variable and case-split.
+  generalize IScalar.tryMkOpt .I32 (start.val + ↑(1#usize).val) = opt at htry ⊢
+  cases opt with
+  | none =>
+    -- htry : ¬ IScalar.inBounds .I32 (start.val + ↑(1#usize).val)
+    refine ⟨none, rfl, ?_, fun _ => rfl⟩
+    intro hle; exfalso; apply htry
+    constructor <;> scalar_tac
+  | some z =>
+    -- htry : z.val = start.val + ↑(1#usize).val ∧
+    --        IScalar.inBounds .I32 (start.val + ↑(1#usize).val)
+    refine ⟨some z, rfl, fun _ => ⟨z, rfl, ?_⟩, fun h => ?_⟩
+    · -- z.val = start.val + 1
+      have hv : (↑(1#usize).val : Int) = 1 := by scalar_tac
+      rw [hv] at htry; exact htry.1
+    · -- contradiction: inBounds implies start.val + 1 ≤ I32.max
+      exfalso; apply h
+      have hv : (↑(1#usize).val : Int) = 1 := by scalar_tac
+      rw [hv] at htry
+      have := htry.2; simp at this; scalar_tac
 
-/-- Auxiliary axiom asserting that the `Range<i32>` iterator's `next`
-method always succeeds (returns `ok`).
+/-- **Spec theorem for `Range<i32>` iterator `next` (totality)**:
 
-The underlying `core.iter.range.IteratorRange.next` is defined in
-terms of `I32.Insts.CoreIterRangeStep.forward_checked`, which Aeneas
-extracts as an opaque axiom (see `Spqr/Code/FunsExternal.lean`).  As a
-consequence, no concrete computational behaviour of `forward_checked`
-is available, and `next` cannot be discharged automatically by
-`step*` for `I32` ranges (unlike the `Usize` case, where
-`Usize.checked_add` is fully specified — see `next_spec` above).
-
-In practice, the Rust implementation of `Step::forward_checked` for
-`i32` is total (it returns `Ok(None)` on overflow and `Ok(Some _)`
-otherwise) and therefore never produces a `Result::Err`, so neither
-does the resulting `IteratorRange::next`.  We lift this fact to a
-dedicated axiom that mirrors the axiomatic treatment of the
-underlying `forward_checked` operation. -/
-private axiom IteratorRange_next_I32_ok
+The `next` method of the `Iterator` instance for `Range<i32>` always
+succeeds (returns `ok`).  The proof unfolds
+`core.iter.range.IteratorRange.next`, simplifies the transparent
+`CloneI32.clone` and `PartialOrdI32.lt` dispatches, then case-splits
+on whether the range is exhausted.  In the positive branch, the
+`forward_checked` call is discharged by the helper theorem
+`I32_forward_checked_one`; in the negative branch, `next` returns
+`(none, iter)` directly.
+-/
+private theorem IteratorRange_next_I32_ok
     (iter : core.ops.range.Range Std.I32) :
     ∃ o iter1,
       core.iter.range.IteratorRange.next I32.Insts.CoreIterRangeStep iter
-        = ok (o, iter1)
+        = ok (o, iter1) := by
+  simp only [core.iter.range.IteratorRange.next]
+  simp only [liftFun2, liftFun1, core.clone.impls.CloneI32.clone, bind_tc_ok]
+  have h_lt_iff :
+      (core.cmp.impls.PartialOrdI32.lt iter.start iter.end = true) =
+      (iter.start.val < iter.end.val) := by
+    simp [core.cmp.impls.PartialOrdI32.lt]
+  simp only [h_lt_iff]
+  by_cases hlt : iter.start.val < iter.end.val
+  · rw [if_pos hlt]
+    obtain ⟨opt_fc, hfc, hsome, _⟩ := I32_forward_checked_one iter.start
+    -- We know `iter.start.val + 1 ≤ I32.max` because
+    -- `iter.start.val < iter.end.val ≤ I32.max`.
+    have hbound : iter.start.val + 1 ≤ I32.max := by
+      have := iter.end.hBounds; scalar_tac
+    obtain ⟨z, hz_opt, _⟩ := hsome hbound
+    subst hz_opt
+    rw [hfc]
+    simp only [bind_tc_ok]
+    exact ⟨some iter.start, { iter with start := z }, rfl⟩
+  · rw [if_neg hlt]
+    exact ⟨none, iter, rfl⟩
 
 /-- **Per-iteration postcondition for `encoding.gf.GF16.div_impl_loop.body`**:
 
@@ -244,17 +283,17 @@ Both branches are characterised at the GF(2¹⁶) level via
 The proof unfolds `div_impl_loop.body` to expose the iterator advance
 and its two-arm `match`.  The advance
 `core.iter.range.IteratorRange.next I32.Insts.CoreIterRangeStep iter`
-delegates (through the `Step<i32>` trait instance) to the opaque
-axiomatised `I32.Insts.CoreIterRangeStep.forward_checked`, so its
-result cannot be inspected by `step*` directly.  We use the auxiliary
-axiom `IteratorRange_next_I32_ok` to extract a successful return
+delegates (through the `Step<i32>` trait instance) to
+`I32.Insts.CoreIterRangeStep.forward_checked`, so its result cannot
+be inspected by `step*` directly.  We use the helper theorem
+`IteratorRange_next_I32_ok` to extract a successful return
 `ok (o, iter1)` and case-split on the `Option`:
 
 * in the `none` branch the body returns `ok (ControlFlow.done out)`,
   whose postcondition is reflexively true;
 * in the `some` branch `step*` discharges the two GF(2¹⁶)
   multiplications through the registered specifications
-  `CoreOpsArithMulAssignGF16_mul_assign_spec` (above) and
+  `mul_assign_spec` (above) and
   `CoreOpsArithMulGF16GF16.mul_spec` (the GF(2¹⁶) multiplication
   kernel imported from `Spqr.Specs.Encoding.Gf.GF16.Mul`).
 
@@ -267,12 +306,12 @@ theorem div_impl_loop_body_spec
     div_impl_loop.body iter square out ⦃ cf =>
       match cf with
       | ControlFlow.done result =>
-          (result.value.val.toGF216 : GF216) = out.value.val.toGF216
+          (GF16toGF216 result : GF216) = GF16toGF216 out
       | ControlFlow.cont (_, square', out') =>
-          (out'.value.val.toGF216 : GF216) =
-            out.value.val.toGF216 * square.value.val.toGF216 ∧
-          (square'.value.val.toGF216 : GF216) =
-            square.value.val.toGF216 * square.value.val.toGF216 ⦄ := by
+          (GF16toGF216 out' : GF216) =
+            GF16toGF216 out * GF16toGF216 square ∧
+          (GF16toGF216 square' : GF216) =
+            GF16toGF216 square * GF16toGF216 square ⦄ := by
   unfold div_impl_loop.body
   obtain ⟨o, iter1, hnext⟩ := IteratorRange_next_I32_ok iter
   rw [hnext]
@@ -334,17 +373,18 @@ The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
 `POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
 `Spqr.Math.Gf`; the per-iteration body specification
 (`div_impl_loop_body_spec`, registered `@[step]`, together with the
-auxiliary axiom `IteratorRange_next_I32_ok` for the opaque `Range<i32>`
+helper theorem `IteratorRange_next_I32_ok` for the `Range<i32>`
 iterator) is imported from `Spqr.Specs.Encoding.Gf.GF16.DivImplLoopBofy`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
 
 
-/-- Auxiliary axiom strengthening `IteratorRange_next_I32_ok`:
-the `next` method of the `Iterator` instance for `Range<i32>`
-not only succeeds, but, on a `range : Range I32`, returns
-`(opt, range')` such that:
+/-- **Spec theorem strengthening `IteratorRange_next_I32_ok`**:
+
+The `next` method of the `Iterator` instance for `Range<i32>`,
+specified at the WP / postcondition level: on a `range : Range I32`,
+`next` returns `(opt, range')` where:
 
 * if `range.start.val ≥ range.end.val` (the range is exhausted), then
   `opt = none` and `range' = range` (the iterator is unchanged);
@@ -352,19 +392,17 @@ not only succeeds, but, on a `range : Range I32`, returns
   then `opt = some range.start`, `range'.start.val = range.start.val + 1`,
   and `range'.end = range.end` (the upper bound is preserved).
 
-The underlying `core.iter.range.IteratorRange.next` is defined in
-terms of `I32.Insts.CoreIterRangeStep.forward_checked`, which Aeneas
-extracts as an opaque axiom (see `Spqr/Code/FunsExternal.lean`) — no
-concrete computational behaviour of `forward_checked` is available in
-Lean.  In practice, the Rust implementation of `Step::forward_checked`
-for `i32` is total and increments the cursor by one on success
-(returning `Ok(None)` only on overflow, which cannot occur for the
-`1..16` range used by `div_impl`), so the resulting `Range::next`
-behaves exactly as for `Usize` ranges (cf. `next_spec` in
-`DivImplLoopBofy.lean`).  We lift this fact to a dedicated axiom
-that mirrors the proven `Usize` specification.
+The proof unfolds `core.iter.range.IteratorRange.next` and simplifies the
+transparent parts (`CloneI32.clone` is the identity, `PartialOrdI32.lt`
+reduces to value comparison).  The opaque `forward_checked` call is
+discharged by the helper theorem `I32_forward_checked_one`, which
+specifies `forward_checked start 1#usize` at the value level.  Since
+`iter.start.val < iter.end.val` implies `iter.start.val + 1 ≤ I32.max`
+(because `iter.end.val ≤ I32.max` from the `I32` bounds), the theorem yields
+a `some z` with `z.val = iter.start.val + 1`, matching the expected
+iterator-advance semantics.
 -/
-private axiom IteratorRange_next_I32_post
+private theorem IteratorRange_next_I32_post
     (iter : core.ops.range.Range Std.I32) :
     ∃ opt iter1,
       core.iter.range.IteratorRange.next I32.Insts.CoreIterRangeStep iter
@@ -374,7 +412,40 @@ private axiom IteratorRange_next_I32_post
       (iter.start.val < iter.end.val →
           opt = some iter.start ∧
           iter1.start.val = iter.start.val + 1 ∧
-          iter1.end = iter.end)
+          iter1.end = iter.end) := by
+  -- Step 1: unfold `next` and simplify the transparent Clone/PartialOrd
+  -- dispatches; this leaves only the opaque `forward_checked` call.
+  simp only [core.iter.range.IteratorRange.next]
+  simp only [liftFun2, liftFun1, core.clone.impls.CloneI32.clone, bind_tc_ok]
+  -- Step 2: rewrite the Bool-valued `PartialOrdI32.lt` comparison to the
+  -- matching `Prop`-level `<` so that `by_cases` / `if_pos` / `if_neg`
+  -- can resolve the branch.
+  have h_lt_iff :
+      (core.cmp.impls.PartialOrdI32.lt iter.start iter.end = true) =
+      (iter.start.val < iter.end.val) := by
+    simp [core.cmp.impls.PartialOrdI32.lt]
+  simp only [h_lt_iff]
+  by_cases hlt : iter.start.val < iter.end.val
+  · -- Positive branch: the iterator still has an element.
+    rw [if_pos hlt]
+    -- `forward_checked iter.start 1#usize` returns `ok (some z)` with
+    -- `z.val = iter.start.val + 1`, because the bounds of `iter.end : I32`
+    -- guarantee `iter.start.val + 1 ≤ I32.max`.
+    have hbound : iter.start.val + 1 ≤ I32.max := by
+      have := iter.end.hBounds; scalar_tac
+    obtain ⟨opt_fc, hfc, hsome, _⟩ := I32_forward_checked_one iter.start
+    obtain ⟨z, hz_opt, hz_val⟩ := hsome hbound
+    subst hz_opt
+    rw [hfc]
+    simp only [bind_tc_ok]
+    exact ⟨some iter.start,
+           { iter with start := z },
+           rfl,
+           fun h => absurd hlt h,
+           fun _ => ⟨rfl, hz_val, rfl⟩⟩
+  · -- Negative branch: the range is exhausted.
+    rw [if_neg hlt]
+    exact ⟨none, iter, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /-- **Closed-form postcondition for `encoding.gf.GF16.div_impl_loop`**:
 
@@ -424,19 +495,15 @@ theorem div_impl_loop_spec
     (square out : spqr.encoding.gf.GF16)
     (h_le : iter.start.val ≤ iter.end.val) :
     div_impl_loop iter square out ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        out.value.val.toGF216 *
-          square.value.val.toGF216 ^
+      (GF16toGF216 result : GF216) =
+       GF16toGF216 out *
+          GF16toGF216 square ^
             (2 ^ (iter.end.val - iter.start.val).toNat - 1) ⦄ := by
   unfold div_impl_loop
   apply loop.spec_decr_nat
-    (measure := fun p : core.ops.range.Range Std.I32 ×
-                          spqr.encoding.gf.GF16 ×
-                          spqr.encoding.gf.GF16 =>
+    (measure := fun p : core.ops.range.Range Std.I32 × GF16 × GF16 =>
                   (p.1.end.val - p.1.start.val).toNat)
-    (inv := fun p : core.ops.range.Range Std.I32 ×
-                       spqr.encoding.gf.GF16 ×
-                       spqr.encoding.gf.GF16 =>
+    (inv := fun p : core.ops.range.Range Std.I32 × GF16 × GF16 =>
         p.1.end = iter.end ∧
         iter.start.val ≤ p.1.start.val ∧
         p.1.start.val ≤ iter.end.val ∧
@@ -482,9 +549,11 @@ theorem div_impl_loop_spec
         have : iter'.end.val = iter.end.val := by rw [← h_end]
         rw [h_start1]; omega
       · -- new square as a power of the original
+        simp only [GF16toGF216]at square1_post
         rw [square1_post, h_sq, ← pow_add, hk1, pow_succ]
         ring_nf
       · -- new out as a power of the original
+        simp only [GF16toGF216] at out1_post
         rw [out1_post, h_sq, h_out, mul_assoc, ← pow_add]
         have h_2le :
             2 ≤ 2 ^ ((iter'.start.val - iter.start.val).toNat + 1) := by
@@ -550,22 +619,6 @@ squaring: starting from `square = b²` and `out = a`, one repeats
 for the 15 indices `i = 1, …, 15`, after which
 
   `out = a · (b²)^(2¹⁵ − 1) = a · b^(2¹⁶ − 2) = a / b`.
-
-Concretely, the Rust source is
-
-```rust
-fn div_impl(&self, other: &Self) -> Self {
-    // Within GF(p^n), inv(a) == a^(p^n-2).  We're GF(2^16) == GF(65536),
-    // so we can compute GF(65534).
-    let mut square = *other * *other;
-    let mut out = *self;
-    for _i in 1..16 {
-        out *= square;
-        square = square * square;
-    }
-    out
-}
-```
 
 The function proceeds in two stages:
   1. The initial squaring `square := other · other` via the
@@ -672,10 +725,10 @@ resulting numeric identity `2 · (2¹⁵ − 1) = 2¹⁶ − 2` with `decide`.
 -/
 @[step]
 theorem div_impl_spec (self other : spqr.encoding.gf.GF16) :
-    div_impl self other ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-          other.value.val.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
+    div_impl self other ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
   unfold div_impl
   have h_loop := fun (square : spqr.encoding.gf.GF16) =>
     div_impl_loop_spec { start := 1#i32, «end» := 16#i32 } square self
@@ -684,8 +737,8 @@ theorem div_impl_spec (self other : spqr.encoding.gf.GF16) :
   -- Close the algebraic gap:
   --   `(other · other) ^ (2 ^ (16 - 1).toNat - 1) = other ^ (2 ^ 16 - 2)`.
   rw [result_post, square_post,
-      show (other.value.val.toGF216 * other.value.val.toGF216 : GF216)
-            = other.value.val.toGF216 ^ 2 from by ring,
+      show (GF16toGF216 other * GF16toGF216 other : GF216)
+            = GF16toGF216 other ^ 2 from by ring,
       ← pow_mul]
   congr 1
 

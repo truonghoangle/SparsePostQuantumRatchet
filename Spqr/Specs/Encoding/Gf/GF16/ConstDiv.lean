@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.GF16.ConstMul
 /-! # Spec Theorem for `spqr::encoding::gf::GF16::const_div`
 
@@ -45,7 +44,7 @@ The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
 -/
 
 open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf.unaccelerated
+open Polynomial spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16
 
@@ -76,16 +75,16 @@ GF(2¹⁶) multiplication kernel that `const_mul` delegates to via
 -/
 @[step]
 theorem const_div_loop_body_spec
-    (square out : spqr.encoding.gf.GF16) (i : Std.Usize) :
-    const_div_loop.body square out i ⦃ cf =>
+    (square out : GF16) (i : Usize) :
+    const_div_loop.body square out i ⦃ (cf : ControlFlow (GF16 × GF16 × Usize) GF16) =>
       match cf with
       | ControlFlow.done result =>
-          (result.value.val.toGF216 : GF216) = out.value.val.toGF216
+          (GF16toGF216 result : GF216) = GF16toGF216 out
       | ControlFlow.cont (square', out', _) =>
-          (square'.value.val.toGF216 : GF216) =
-            square.value.val.toGF216 * square.value.val.toGF216 ∧
-          (out'.value.val.toGF216 : GF216) =
-            out.value.val.toGF216 * square'.value.val.toGF216 ⦄ := by
+          (GF16toGF216 square' : GF216) =
+            GF16toGF216 square * GF16toGF216 square ∧
+          (GF16toGF216 out' : GF216) =
+            GF16toGF216 out * GF16toGF216 square' ⦄ := by
   unfold const_div_loop.body
   step*
 
@@ -127,26 +126,20 @@ already coincides with the postcondition (because
 **Source**: spqr/src/encoding/gf.rs (lines 580:12-586:13)
 -/
 theorem const_div_loop_spec
-    (square out : spqr.encoding.gf.GF16) (i : Std.Usize)
+    (square out : GF16) (i : Usize)
     (hi : i.val ≤ 16) :
-    const_div_loop square out i ⦃ result =>
-      (result.value.val.toGF216 : GF216) =
-        out.value.val.toGF216 *
-          square.value.val.toGF216 ^ (2 ^ (17 - i.val) - 2) ⦄ := by
+    const_div_loop square out i ⦃ (result : GF16) =>
+      GF16toGF216 result = GF16toGF216 out * GF16toGF216 square ^ (2 ^ (17 - i.val) - 2) ⦄ := by
   unfold const_div_loop
   apply loop.spec_decr_nat
-    (measure := fun (p : spqr.encoding.gf.GF16 ×
-                          spqr.encoding.gf.GF16 ×
-                          Std.Usize) => 16 - p.2.2.val)
-    (inv := fun (p : spqr.encoding.gf.GF16 ×
-                      spqr.encoding.gf.GF16 ×
-                      Std.Usize) =>
+    (measure := fun (p : GF16 × GF16 × Usize) => 16 - p.2.2.val)
+    (inv := fun (p : GF16 × GF16 × Usize) =>
       p.2.2.val ≤ 16 ∧ i.val ≤ p.2.2.val ∧
-      (p.1.value.val.toGF216 : GF216) =
-        square.value.val.toGF216 ^ (2 ^ (p.2.2.val - i.val)) ∧
-      (p.2.1.value.val.toGF216 : GF216) =
-        out.value.val.toGF216 *
-          square.value.val.toGF216 ^ (2 ^ (p.2.2.val - i.val + 1) - 2))
+      (GF16toGF216 p.1 : GF216) =
+        GF16toGF216 square ^ (2 ^ (p.2.2.val - i.val)) ∧
+      (GF16toGF216 p.2.1 : GF216) =
+        GF16toGF216 out *
+          GF16toGF216 square ^ (2 ^ (p.2.2.val - i.val + 1) - 2))
   · rintro ⟨s', o', i'⟩ ⟨hi'_le, hi'_ge, h_sq, h_out⟩
     simp only []
     unfold const_div_loop.body
@@ -213,11 +206,9 @@ closed-form exponent collapses to `2¹⁶ − 2`.
 **Source**: spqr/src/encoding/gf.rs (lines 572:4-589:5)
 -/
 @[step]
-theorem const_div_spec (self other : spqr.encoding.gf.GF16) :
-    const_div self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-          other.value.val.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
+theorem const_div_spec (self other : GF16) :
+    const_div self other ⦃ (result : GF16) =>
+      GF16toGF216 result  = GF16toGF216 self * GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
   unfold const_div
   have h := const_div_loop_spec other self 1#usize (by scalar_tac)
   step*

@@ -33,7 +33,7 @@ abbrev GF2Poly := (ZMod 2)[X]
 abbrev GF216 := GaloisField 2 16
 
 
-namespace spqr.encoding.gf.unaccelerated
+namespace spqr.encoding.gf
 
 
 /-! ## Constants -/
@@ -677,4 +677,19 @@ GF(2)-polynomial) and the second arrow is the chosen ring homomorphism
 noncomputable def _root_.Nat.toGF216 (n : Nat) : GF216 :=
   φ (natToGF2Poly n)
 
-end spqr.encoding.gf.unaccelerated
+/-- Convert a `GF16` element to its mathematical counterpart in `GF(2¹⁶)`.
+
+A `GF16` stores a `Std.U16` value whose 16-bit representation encodes
+a polynomial in GF(2)[X] modulo the irreducible polynomial
+`POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1`.  We interpret the U16 value
+as a natural number and map it through `Nat.toGF216` (defined in
+`Spqr.Math.Gf`), which applies the canonical ring homomorphism
+`φ : GF2Poly →+* GF216` to the GF(2)-polynomial encoding of the
+natural number.
+
+For example, `GF16toGF216 ⟨3⟩` (where `3 = 0b11`) maps to the
+GF(2¹⁶) element corresponding to `X + 1`. -/
+noncomputable def GF16toGF216 (g : GF16) : GF216 :=
+  g.value.val.toGF216
+
+end spqr.encoding.gf

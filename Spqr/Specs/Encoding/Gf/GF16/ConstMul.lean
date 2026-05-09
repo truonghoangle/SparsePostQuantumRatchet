@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
 /-! # Spec Theorem for `spqr::encoding::gf::GF16::const_mul`
 
@@ -33,7 +32,7 @@ the GF(2¹⁶) product of the lifts of `self.value` and `other.value`.
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+
 
 namespace spqr.encoding.gf.GF16
 
@@ -87,11 +86,12 @@ The proof unfolds `const_mul` to expose the underlying
 **Source**: spqr/src/encoding/gf.rs (lines 560:4-564:5)
 -/
 @[step]
-theorem const_mul_spec (self other : spqr.encoding.gf.GF16) :
-    const_mul self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 * other.value.val.toGF216 ⦄ := by
+theorem const_mul_spec (self other : GF16) :
+    const_mul self other ⦃ (result : GF16) =>
+      GF16toGF216 result = GF16toGF216 self * GF16toGF216 other ⦄ := by
   unfold const_mul
   step*
+  simp[GF16toGF216]
+  simp_all
 
 end spqr.encoding.gf.GF16

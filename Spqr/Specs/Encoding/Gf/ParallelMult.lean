@@ -55,7 +55,7 @@ The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
 
 open Aeneas Aeneas.Std Result
 open Polynomial
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf
 
@@ -155,12 +155,12 @@ theorem parallel_mult_loop_body_spec
           i.val + 2 ≤ into.length ∧
           i'.val = i.val + 2 ∧
           s.length = into.length ∧
-          (s.val[i.val]!).value.val.toGF216 =
-            a.value.val.toGF216 *
-              (into.val[i.val]!).value.val.toGF216 ∧
-          (s.val[i.val + 1]!).value.val.toGF216 =
-            a.value.val.toGF216 *
-              (into.val[i.val + 1]!).value.val.toGF216 ∧
+          GF16toGF216 (s.val[i.val]!) =
+            GF16toGF216 a *
+              GF16toGF216 (into.val[i.val]!) ∧
+          GF16toGF216 (s.val[i.val + 1]!) =
+            GF16toGF216 a *
+              GF16toGF216 (into.val[i.val + 1]!) ∧
           (∀ j : Nat, j ≠ i.val → j ≠ i.val + 1 →
             s.val[j]! = into.val[j]!) ⦄ := by
   unfold parallel_mult_loop.body
@@ -174,8 +174,10 @@ theorem parallel_mult_loop_body_spec
       | (rw [Slice.set_val_eq,
              List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
       | scalar_tac)
-  · grind
-  · grind
+  · simp_all[GF16toGF216]
+    grind
+  · simp_all[GF16toGF216]
+    grind
 
 
 /-! # Spec Theorem for `spqr::encoding::gf::parallel_mult` — loop 0
@@ -311,8 +313,7 @@ theorem parallel_mult_loop_spec
       i.val ≤ i'.val ∧
       i'.val ≤ into'.length ∧
       (∀ j : Nat, i.val ≤ j → j < i'.val →
-        (into'.val[j]!).value.val.toGF216 =
-          a.value.val.toGF216 * (into.val[j]!).value.val.toGF216) ∧
+        GF16toGF216 (into'.val[j]!) = GF16toGF216 a * GF16toGF216 (into.val[j]!)) ∧
       (∀ j : Nat, i'.val ≤ j → j < into'.length →
         (into'.val[j]!) = (into.val[j]!)) ∧
       (∀ j : Nat, j < i.val →
@@ -326,8 +327,7 @@ theorem parallel_mult_loop_spec
       i.val ≤ p.2.val ∧
       p.2.val ≤ p.1.length ∧
       (∀ j : Nat, i.val ≤ j → j < p.2.val →
-        (p.1.val[j]!).value.val.toGF216 =
-          a.value.val.toGF216 * (into.val[j]!).value.val.toGF216) ∧
+        GF16toGF216 (p.1.val[j]!) = GF16toGF216 a * GF16toGF216 (into.val[j]!)) ∧
       (∀ j : Nat, p.2.val ≤ j → j < p.1.length →
         (p.1.val[j]!) = (into.val[j]!)) ∧
       (∀ j : Nat, j < i.val →
@@ -344,7 +344,7 @@ theorem parallel_mult_loop_spec
     · -- `done` branch: loop guard `i' + 2 ≤ into'.length` failed;
       -- state returned unchanged.  The value properties follow
       -- directly from the invariant via `simp_all`.
-      simp_all
+      simp_all[GF16toGF216]
     · -- `cont` branch: loop guard held; index advanced by 2,
       -- slice length preserved, measure strictly decreased.
       -- The body spec gives us (via `step*`):
@@ -481,8 +481,8 @@ The result satisfies:
      (matching the Rust `#[ensures(|_| future(into).len() == into.len())]`).
 
   2. `∀ j < result.length,
-       (result.val[j]!).value.val.toGF216 =
-         a.value.val.toGF216 * (into.val[j]!).value.val.toGF216`
+       (GF16toGF216 (result.val[j]!) : GF216) =
+         GF16toGF216 a * (GF16toGF216 (into.val[j]!) : GF216)`
      (every element is multiplied by `a` in GF(2¹⁶)).
 
 The proof unfolds `parallel_mult` to expose the loop call and the
@@ -500,8 +500,8 @@ theorem parallel_mult_spec
     parallel_mult a into ⦃ (result : Slice encoding.gf.GF16) =>
       result.length = into.length ∧
       (∀ j : Nat, j < result.length →
-        (result.val[j]!).value.val.toGF216 =
-          a.value.val.toGF216 * (into.val[j]!).value.val.toGF216) ⦄ := by
+        (GF16toGF216 (result.val[j]!) : GF216) =
+          GF16toGF216 a * (GF16toGF216 (into.val[j]!) : GF216)) ⦄ := by
   unfold parallel_mult
   step*
   rename_i ha1 hlen1 hterm hi_hi hval_proc hval_unproc hval_before
@@ -512,21 +512,25 @@ theorem parallel_mult_spec
     have hj_loop : j < i ∨ j ≥ i := Nat.lt_or_ge j i
     rcases hj_loop with hj1 | hj2
     · have :=hterm.2.2.2.2.2.1 j (by simp)  hj1
-      simp_all only [Slice.length, le_refl, List.getElem!_eq_getElem?_getD, Slice.set_val_eq,
-      List.length_set, zero_le, forall_const, getElem!_pos, not_lt_zero, IsEmpty.forall_iff,
+      simp_all only [Slice.length, le_refl, List.getElem!_eq_getElem?_getD,
+      Slice.set_val_eq, List.length_set, zero_le,
+      forall_const, getElem!_pos, not_lt_zero, IsEmpty.forall_iff,
       and_true, true_and, UScalar.lt_equiv,
       Usize.ofNatCore_val_eq, getElem?_pos, Option.getD_some]
       rw[← this]
-      congr 1; congr 1; congr 1
-      simp [show (↑i : Nat) ≠ j from by omega]
+      congr 1
+      have : (↑i : Nat) ≠ j:= by omega
+      simp [this]
     · have : j< ha1.2.1.length := by
         simp_all
       have :=hterm.2.2.2.2.2.2.1 j (by simp[hj2])  this
       have hji : j = ↑i := by
         have := hterm.2.2.1
         have := hterm.2.1
-        simp_all; omega
+        simp_all
+        omega
       subst hji
       simp_all [mul_comm]
+
 
 end spqr.encoding.gf

@@ -31,8 +31,7 @@ to the additive identity `0 : GF216`.  This follows because:
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
-
+open Polynomial spqr.encoding.gf
 namespace spqr.encoding.gf.GF16
 
 /-
@@ -90,8 +89,8 @@ reduces `(0 : Std.U16).val` to `0 : Nat`, and then computes
 **Source**: spqr/src/encoding/gf.rs (lines 541:4-541:45)
 -/
 @[simp]
-theorem ZERO_toGF216 : (ZERO.value.val.toGF216 : GF216) = 0 := by
-  simp [Nat.toGF216, natToGF2Poly_zero]
+theorem ZERO_toGF216 : (GF16toGF216 ZERO : GF216) = 0 := by
+  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_zero]
 
 /-- **Top-level spec for `encoding.gf.GF16.ZERO`** (Hoare-triple form):
 
@@ -112,8 +111,8 @@ for the chosen `φ : GF2Poly →+* GF216`.
 -/
 @[step]
 theorem zero_spec :
-    ok ZERO ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) = 0 ⦄ := by
-  simp [Nat.toGF216, natToGF2Poly_zero]
+    ok ZERO ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) = 0 ⦄ := by
+  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_zero]
 
 end spqr.encoding.gf.GF16

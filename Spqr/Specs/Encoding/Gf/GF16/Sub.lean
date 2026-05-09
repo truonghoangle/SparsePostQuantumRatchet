@@ -40,7 +40,7 @@ since every element is its own additive inverse (`a + a = 0`).
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
+open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubGF16GF16
 
@@ -93,10 +93,10 @@ already-registered `sub_assign_spec`.
 **Source**: spqr/src/encoding/gf.rs (lines 104:4-108:5)
 -/
 @[step]
-theorem sub_spec (self other : spqr.encoding.gf.GF16) :
-    sub self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
+theorem sub_spec (self other : GF16) :
+    sub self other ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold sub
   step*
 
@@ -173,10 +173,10 @@ already-registered `sub_assign_spec`.
 **Source**: spqr/src/encoding/gf.rs (lines 118:4-122:5)
 -/
 @[step]
-theorem sub_spec (self other : spqr.encoding.gf.GF16) :
-    sub self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
+theorem sub_spec (self other : GF16) :
+    sub self other ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) =
+        GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold sub
   step*
 

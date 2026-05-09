@@ -64,7 +64,7 @@ natural language specs:
 is the trivial monadic wrapper around the underlying `u16`. -/
 @[simp]
 theorem new_eq (value : Std.U16) :
-    new value = ok ({ value } : spqr.encoding.gf.GF16) := by
+    new value = ok ({ value } : GF16) := by
   simp [new]
 
 /-- **Spec and proof concerning `encoding.gf.GF16.new`**:
@@ -100,7 +100,7 @@ input `value`, via the canonical map
 `Nat.toGF216 = φ ∘ natToGF2Poly`:
 
   `new value ⦃ result =>
-       (result.value.val.toGF216 : GF216) = value.val.toGF216 ⦄`
+       (GF16toGF216 result : GF216) = value.val.toGF216 ⦄`
 
 The proof discharges the trivial Hoare triple by reducing
 `new value` to `ok (GF16 { value })` (via `new_eq`) and noting that
@@ -110,9 +110,9 @@ the underlying `u16` of the resulting `GF16` is definitionally
 **Source**: spqr/src/encoding/gf.rs (lines 544:4-546:5)
 -/
 @[step]
-theorem new_spec (value : Std.U16) :
-    new value ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) = value.val.toGF216 ⦄ := by
-  simp [new]
+theorem new_spec (value : U16) :
+    new value ⦃ (result : GF16) =>
+      (GF16toGF216 result : GF216) = value.val.toGF216 ⦄ := by
+  simp [GF16toGF216, new]
 
 end spqr.encoding.gf.GF16

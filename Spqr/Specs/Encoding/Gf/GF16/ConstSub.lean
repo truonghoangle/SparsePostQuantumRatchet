@@ -71,8 +71,8 @@ and therefore corresponds to a polynomial of degree `< 16`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 566:4-570:5)
 -/
-theorem const_sub_spec' (self other : spqr.encoding.gf.GF16) :
-    const_sub self other ⦃ result =>
+theorem const_sub_spec' (self other : GF16) :
+    const_sub self other ⦃ (result : GF16) =>
       natToGF2Poly result.value.val =
         natToGF2Poly self.value.val - natToGF2Poly other.value.val ⦄ := by
   unfold const_sub
@@ -97,13 +97,12 @@ equivalently
        self.value.val.toGF216 + other.value.val.toGF216`. -/
 @[step]
 theorem const_sub_spec
-    (self other : spqr.encoding.gf.GF16) :
-    const_sub self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216 ⦄ := by
+    (self other : GF16) :
+    const_sub self other ⦃ (result : GF16) =>
+      GF16toGF216 result = GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold const_sub
   step*
-  simp_all only [UScalar.val_xor, Nat.toGF216, natToGF2Poly_xor,
+  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToGF2Poly_xor,
     ← zmod2_poly_sub_eq_add, map_sub]
 
 end spqr.encoding.gf.GF16

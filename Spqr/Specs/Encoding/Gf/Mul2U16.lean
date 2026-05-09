@@ -52,7 +52,7 @@ After extraction, `mul2_u16` reduces definitionally to
 
 **Source**: spqr/src/encoding/gf.rs (lines 581:0-590:1)
 -/
-theorem mul2_u16_spec' (a b1 b2 : Std.U16) :
+theorem mul2_u16_spec' (a b1 b2 : U16) :
     mul2_u16 a b1 b2 ⦃ result =>
       natToGF2Poly result.1.val =
         (natToGF2Poly a.val * natToGF2Poly b1.val) %ₘ POLY_GF2 ∧
@@ -74,7 +74,7 @@ requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
 field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 @[step]
-theorem mul2_u16_spec (a b1 b2 : Std.U16) :
+theorem mul2_u16_spec (a b1 b2 : U16) :
     mul2_u16 a b1 b2 ⦃ result =>
       result.1.val.toGF216 = a.val.toGF216 * b1.val.toGF216 ∧
       result.2.val.toGF216 = a.val.toGF216 * b2.val.toGF216 ⦄ := by

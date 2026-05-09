@@ -10,6 +10,7 @@ import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
 import Spqr.Specs.Encoding.Gf.GF16.ConstMul
 import Spqr.Specs.Encoding.Gf.GF16.ConstSub
 import Spqr.Specs.Encoding.Gf.GF16.Div
+import Spqr.Specs.Encoding.Gf.GF16.DivAssign
 import Spqr.Specs.Encoding.Gf.GF16.DivImpl
 import Spqr.Specs.Encoding.Gf.GF16.Eq
 import Spqr.Specs.Encoding.Gf.GF16.Mul
@@ -30,8 +31,7 @@ import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul2
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 import Spqr.Specs.Encoding.Polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1
-import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateCompleteLoop0
-import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateCompleteLoopBody0
+import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize

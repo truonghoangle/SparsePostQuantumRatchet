@@ -80,7 +80,7 @@ requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
 field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 @[step]
-theorem mul2_spec (a b1 b2 : Std.U16) :
+theorem mul2_spec (a b1 b2 : U16) :
     mul2 a b1 b2 ⦃ result =>
       result.1.val.toGF216 = a.val.toGF216 * b1.val.toGF216 ∧
       result.2.val.toGF216 = a.val.toGF216 * b2.val.toGF216 ⦄ := by

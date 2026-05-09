@@ -49,6 +49,7 @@ Conventions:
 
 open Aeneas Aeneas.Std Result
 open Polynomial
+open spqr.encoding.gf
 
 abbrev GF216Poly := GF216[X]
 
@@ -60,20 +61,6 @@ namespace spqr.encoding.polynomial
 
 /-! ## Core definitions -/
 
-/-- Convert a `GF16` element to its mathematical counterpart in `GF(2¹⁶)`.
-
-A `GF16` stores a `Std.U16` value whose 16-bit representation encodes
-a polynomial in GF(2)[X] modulo the irreducible polynomial
-`POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1`.  We interpret the U16 value
-as a natural number and map it through `Nat.toGF216` (defined in
-`Spqr.Math.Gf`), which applies the canonical ring homomorphism
-`φ : GF2Poly →+* GF216` to the GF(2)-polynomial encoding of the
-natural number.
-
-For example, `GF16toGF216 ⟨3⟩` (where `3 = 0b11`) maps to the
-GF(2¹⁶) element corresponding to `X + 1`. -/
-noncomputable def GF16toGF216 (g : spqr.encoding.gf.GF16) : GF216 :=
-  g.value.val.toGF216
 
 /-- Interpret a list of `GF16` coefficients (in ascending degree order)
 as a polynomial in `GF(2¹⁶)[X]`.
@@ -205,7 +192,7 @@ lemma GF16toGF216_zero_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 0) :
     GF16toGF216 g = 0 := by
   unfold GF16toGF216 Nat.toGF216
   rw [h]
-  simp [spqr.encoding.gf.unaccelerated.natToGF2Poly_zero, map_zero]
+  simp [natToGF2Poly_zero, map_zero]
 
 /-- **`GF16toGF216` preserves the one element.**
 
@@ -216,7 +203,7 @@ lemma GF16toGF216_one_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 1) :
     GF16toGF216 g = 1 := by
   unfold GF16toGF216 Nat.toGF216
   rw [h]
-  simp [spqr.encoding.gf.unaccelerated.natToGF2Poly_one, map_one]
+  simp [natToGF2Poly_one, map_one]
 
 /-! ## Characteristic-2 facts in `GF216Poly` -/
 
