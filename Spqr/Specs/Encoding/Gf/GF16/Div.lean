@@ -7,12 +7,7 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.GF16.DivImpl
 
-/-! # Spec Theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div`
-
-Specification and proof for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div`,
-which implements `Div<GF16> for GF16` by delegating to
-`encoding.gf.GF16.div_impl`, the Fermat-style iterated-squaring
-GF(2¹⁶) division routine.
+/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — every non-zero
 element `b` satisfies `b^(2¹⁶ − 1) = 1`, so the multiplicative
@@ -55,23 +50,7 @@ open spqr.encoding.gf.GF16
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 
-/-
-natural language description:
-
-• Takes two `GF16` field elements `self` and `other`, each wrapping
-  a `u16` value representing an element of GF(2¹⁶).
-• Delegates immediately to
-    `encoding.gf.GF16.div_impl self other`,
-  which initialises `square := other · other` via the by-value
-  `Mul<GF16> for GF16` instance (itself deferring to the software
-  carry-less multiplication `encoding.gf.unaccelerated.mul`) and then
-  runs the `for _i in 1..16` loop driver
-  `encoding.gf.GF16.div_impl_loop` for 15 iterations of
-  `out := out · square; square := square²`.
-• Returns a fresh `GF16` whose `value` is the GF(2¹⁶) quotient
-  `self · other^(2¹⁶ − 2)`.
-
-natural language specs:
+/-- **Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div`**:
 
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since the underlying `unaccelerated.mul` and the loop
@@ -79,37 +58,14 @@ natural language specs:
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-        other.value.val.toGF216 ^ (2 ^ 16 − 2)`
+    `(GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+        GF16toGF216 other ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
   `other^(2¹⁶ − 2) = other⁻¹` and the right-hand side is genuinely
   the field quotient `self / other`.
--/
-
-/-- **Spec and proof concerning `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div`**:
-
-The by-value `Div<GF16> for GF16` computes GF(2¹⁶) division by
-delegating to `encoding.gf.GF16.div_impl`, the Fermat-style
-iterated-squaring routine that computes
-`self · other^(2¹⁶ − 2) = self / other`.
-
-The result satisfies the GF(2¹⁶)-level postcondition:
-
-  `(result.value.val.toGF216 : GF216) =
-       self.value.val.toGF216 *
-       other.value.val.toGF216 ^ (2 ^ 16 − 2)`
-
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
-number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
-
-The proof unfolds `div` to expose the underlying `div_impl` call
-and discharges the resulting goal with `step*`, which applies the
-already-registered `div_impl_spec`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 550:4-552:5)
 -/
@@ -124,27 +80,7 @@ theorem div_spec (self other : spqr.encoding.gf.GF16) :
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 
-/-! ## By-reference `Div<&GF16> for GF16`
-
-The by-reference `Div<&GF16, Output = GF16> for GF16` takes `other`
-by reference in the original Rust source.  In the Aeneas extraction
-the reference is erased, so the Lean signature is identical to the
-by-value variant.  The implementation delegates directly to
-`encoding.gf.GF16.div_impl`, the Fermat-style iterated-squaring
-GF(2¹⁶) division routine.
-
-Since the by-reference `Div` introduces no additional logic beyond
-the delegation, its postcondition is inherited from the underlying
-`div_impl` specification.
-
-**Source**: spqr/src/encoding/gf.rs (lines 558:4-560:5)
--/
-
-namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
-
-/-
-natural language description:
-
+/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div<&GF16> for GF16}::div`
 • Takes two `GF16` field elements `self` (by value) and `other` (by
   reference), each wrapping a `u16` value representing an element of
   GF(2¹⁶), and computes the GF(2¹⁶) quotient `self / other` by
@@ -163,7 +99,12 @@ natural language description:
 • Returns a fresh `GF16` whose `value` is the GF(2¹⁶) quotient
   `self · other^(2¹⁶ − 2)`.
 
-natural language specs:
+**Source**: spqr/src/encoding/gf.rs (lines 558:4-560:5)
+-/
+
+namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
+
+/-- **Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div`**:
 
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since the underlying `unaccelerated.mul` and the loop
@@ -171,37 +112,14 @@ natural language specs:
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-        other.value.val.toGF216 ^ (2 ^ 16 − 2)`
+    `(GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+        GF16toGF216 other ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
   `other^(2¹⁶ − 2) = other⁻¹` and the right-hand side is genuinely
   the field quotient `self / other`.
--/
-
-/-- **Spec and proof concerning `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div`**:
-
-The by-reference `Div<&GF16> for GF16` computes GF(2¹⁶) division by
-delegating to `encoding.gf.GF16.div_impl`, the Fermat-style
-iterated-squaring routine that computes
-`self · other^(2¹⁶ − 2) = self / other`.
-
-The result satisfies the GF(2¹⁶)-level postcondition:
-
-  `(result.value.val.toGF216 : GF216) =
-       self.value.val.toGF216 *
-       other.value.val.toGF216 ^ (2 ^ 16 − 2)`
-
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
-number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
-
-The proof unfolds `div` to expose the underlying `div_impl` call
-and discharges the resulting goal with `step*`, which applies the
-already-registered `div_impl_spec`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 558:4-560:5)
 -/

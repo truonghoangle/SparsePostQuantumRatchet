@@ -7,12 +7,7 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul2
 
-/-! # Spec Theorem for `encoding::gf::mul2_u16`
-
-Specification and proof for `encoding.gf.mul2_u16`, the top-level
-"double-product" entry point in GF(2¹⁶):
-
-  `mul2_u16(a, b1, b2) = (mul(a, b1), mul(a, b2))`
+/-! # Spec theorem for `encoding::gf::mul2_u16`
 
 In the Rust source this function performs runtime CPU-feature dispatch:
 on x86/x86_64/aarch64 it may delegate to a hardware-accelerated

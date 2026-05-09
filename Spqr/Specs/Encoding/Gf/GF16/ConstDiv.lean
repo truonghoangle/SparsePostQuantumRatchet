@@ -5,12 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Specs.Encoding.Gf.GF16.ConstMul
-/-! # Spec Theorem for `spqr::encoding::gf::GF16::const_div`
-
-Specification and proof for `spqr::encoding::gf::GF16::const_div`,
-which implements GF(2¹⁶) division on the `GF16` wrapper by
-Fermat-style iterated squaring, delegating its actual computation
-to the extracted `while`-loop `const_div_loop`.
+/-! # Spec theorem for `spqr::encoding::gf::GF16::const_div`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — every non-zero
 element `b` satisfies `b^(2¹⁶ − 1) = 1`, so the multiplicative
@@ -33,12 +28,6 @@ The function proceeds in three layers:
   3. `const_div` — the entry point, which initialises
      `(square, out, i) := (other, self, 1)` and returns the loop's
      final accumulator `out = self · other^(2¹⁶ − 2) = self / other`.
-
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
-`Spqr.Math.Gf`; the underlying GF(2¹⁶) multiplication kernel
-(`const_mul_spec`, registered `@[step]`) is imported from
-`Spqr.Specs.Encoding.Gf.GF16.ConstMul`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 572:4-589:5)
 -/
@@ -64,12 +53,6 @@ Both branches are characterised at the GF(2¹⁶) level via
         square.value.val.toGF216 * square.value.val.toGF216`,
     `out'.value.val.toGF216 =
         out.value.val.toGF216 * square'.value.val.toGF216`.
-
-This follows by unfolding `const_div_loop.body` to expose its
-`if`/`then`/`else` skeleton and discharging each branch with `step*`,
-which appeals to the already-registered `const_mul_spec` (the
-GF(2¹⁶) multiplication kernel that `const_mul` delegates to via
-`unaccelerated::mul`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 580:12-586:13)
 -/
@@ -181,7 +164,7 @@ theorem const_div_loop_spec
     · simp only [Nat.sub_self, pow_zero, pow_one]
     · simp only [Nat.sub_self, zero_add, pow_one, pow_zero, mul_one]
 
-/-- **Spec and proof concerning `encoding.gf.GF16.const_div`**:
+/-- **Spec theorem for `spqr.encoding.gf.GF16.const_div`**:
 
 `const_div` computes GF(2¹⁶) division `self / other` on the `GF16`
 wrapper by Fermat-style iterated squaring, deferring to the

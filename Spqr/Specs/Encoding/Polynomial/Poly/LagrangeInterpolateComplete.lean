@@ -15,11 +15,6 @@ import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Mathlib.RingTheory.DedekindDomain.Basic
 /-! # Spec Theorem for `lagrange_interpolate_complete`: loop body 0
 
-Specification and proof for
-`spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`,
-which implements one iteration step of the denominator accumulation
-in Lagrange interpolation over GF(2¹⁶).
-
 Given a distinguished point `pi = pts[i]` and a running accumulator
 `denominator`, the full loop 0 computes the product
   `denominator_final = ∏_{j : pts[j].x ≠ pi.x} (pi.x - pts[j].x)`
@@ -50,31 +45,11 @@ addition:
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.polynomial spqr.encoding.gf
+open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-/-
-natural language description:
-
-• Takes a distinguished point `pi : Pt` (the Lagrange interpolation
-  target), a slice iterator `iter` over the full point set, and the
-  current `denominator : GF16` accumulator (initialized to
-  `GF16::ONE` before the first call).
-• Calls `iter.next()` to retrieve the next point `pj`.
-• If the iterator is exhausted (`none`), returns
-  `done (pi, denominator)` — the loop terminates with the final
-  accumulated denominator.
-• If a point `pj` is obtained (`some pj`):
-  – If `pi.x == pj.x` (same x-coordinate), returns
-    `cont (iter', denominator)` — skips this point since it is
-    the interpolation target itself (the `i = j` case).
-  – If `pi.x ≠ pj.x`, computes `g = pi.x - pj.x` and updates
-    `denominator' = denominator * g`, then returns
-    `cont (iter', denominator')`.
-
-natural language specs:
+/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
 
 • The function always succeeds (no panic) for any valid inputs,
   since `PartialEq<GF16>`, `Sub<GF16>`, and `MulAssign<GF16>`
@@ -88,9 +63,8 @@ natural language specs:
   equals the running product
     `∏_{k ∈ visited, pts[k].x ≠ pi.x} (pi.x - pts[k].x)`
   over all points visited so far.
--/
 
-/-! ## Spec for `core.slice.iter.IteratorSliceIter.next`
+## Spec for `core.slice.iter.IteratorSliceIter.next`
 
 The slice iterator `next` method is a concrete (non-axiomatic)
 definition in the Aeneas standard library.  It advances the internal
@@ -105,20 +79,6 @@ The postcondition captures both branches:
   and `iter'.i = iter.i + 1`, `iter'.slice = iter.slice`.
 
 This function is always total — it never panics.
--/
-
-/-- **Spec and proof concerning
-`core.slice.iter.IteratorSliceIter.next`**:
-
-The `next` method of the `Iterator` instance for `Iter<'a, T>`,
-specified at the WP / postcondition level: on an `iter : Iter T`,
-`next` returns `(opt, iter')` where:
-
-* if `iter.i ≥ iter.slice.len` (the iterator is exhausted), then
-  `opt = none` and `iter' = iter` (the iterator is unchanged);
-* if `iter.i < iter.slice.len` (the iterator still has an element),
-  then `opt = some x` for some element `x`, `iter'.i = iter.i + 1`,
-  and `iter'.slice = iter.slice` (the slice is preserved).
 -/
 @[step]
 theorem IteratorSliceIter_next_spec {T : Type}
@@ -166,8 +126,7 @@ private lemma IteratorSliceIter_next_ok {T : Type}
   split <;> exact ⟨_, _, rfl⟩
 
 
-/-- **Spec and proof concerning
-`encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
+/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
 
 One step of the denominator accumulation for Lagrange interpolation.
 Given a distinguished point `pi`, an iterator over the point set,
@@ -190,12 +149,6 @@ The postcondition captures the mathematical invariant:
     `GF16toGF216 denom' = GF16toGF216 denominator`
     ∨ `∃ pj_x : GF216, GF16toGF216 denom' =
         GF16toGF216 denominator * (GF16toGF216 pi.x - pj_x)`
-
-The proof unfolds `body`, extracts the `IteratorSliceIter.next`
-result using `IteratorSliceIter_next_ok`, case-splits on the
-returned `Option`, and then delegates to `step*` which applies the
-registered specs for `GF16.eq`, `GF16.sub` (by-value), and
-`GF16.mul_assign`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
 -/
@@ -234,11 +187,6 @@ theorem body_spec (pi : Pt)
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 /-! # Spec Theorem for `lagrange_interpolate_complete`: loop 0
-
-Specification and proof for
-`spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0`,
-which implements the full denominator accumulation loop in Lagrange
-interpolation over GF(2¹⁶).
 
 Given a distinguished point `pi = pts[i]`, an iterator over the full
 point set, and an initial `denominator` (typically `GF16::ONE`), the
@@ -279,8 +227,6 @@ addition:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
 -/
-
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
@@ -351,39 +297,12 @@ lemma lagrangeDenomProd_accum (pi_x : spqr.encoding.gf.GF16)
 
 /-! ### Helper lemma for element access across equal slices -/
 
-/-- Elements at the same index in equal slices are equal.
-This avoids dependent-type issues with `rw`/`rwa` when rewriting
-the slice in a `List.get` term whose bound proof depends on the
-slice. -/
 private lemma slice_get_eq_of_eq {T : Type} {s₁ s₂ : Slice T} (h : s₁ = s₂)
     (i : Nat) (h₁ : i < s₁.val.length) (h₂ : i < s₂.val.length) :
     s₁.val.get ⟨i, h₁⟩ = s₂.val.get ⟨i, h₂⟩ := by
   subst h; rfl
 
-/-
-natural language description:
-
-• Takes an iterator `iter` over the full point set (with current
-  position `iter.i` and underlying slice `iter.slice`), a
-  distinguished point `pi : Pt` (the Lagrange interpolation
-  target), and the current `denominator : GF16` accumulator
-  (initialized to `GF16::ONE` before the first call).
-• Drives the Aeneas `loop` combinator with the body function
-  `lagrange_interpolate_complete_loop0.body pi`, threading the
-  `(iter, denominator)` pair through successive iterations.
-• Each iteration calls `body pi iter₁ denominator₁`, which
-  processes the next point from the iterator:
-  – If the iterator is exhausted (`none`), the body returns
-    `done (pi, denominator₁)` and the loop terminates.
-  – If a point `pj` is obtained (`some pj`):
-    • If `pi.x == pj.x`, the body returns
-      `cont (iter', denominator₁)` — the denominator is
-      unchanged (self-point skip).
-    • If `pi.x ≠ pj.x`, the body computes `g = pi.x - pj.x`
-      and returns `cont (iter', denominator₁ * g)`.
-• On termination, the loop returns `(pi, denominator_final)`.
-
-natural language specs:
+/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0`**:
 
 • The function always succeeds (no panic) for any valid inputs,
   since the underlying operations (`PartialEq<GF16>`,
@@ -404,40 +323,6 @@ natural language specs:
         lagrangeDenomProd pi.x
           iter.slice.val 0`
   which is the full Lagrange denominator product over all points.
--/
-
-/-- **Spec and proof concerning
-`encoding.polynomial.Poly.lagrange_interpolate_complete_loop0`**:
-
-The full denominator accumulation loop for Lagrange interpolation
-over GF(2¹⁶).  Given a distinguished point `pi`, an iterator over
-the point set, and an initial denominator accumulator, the loop
-processes every remaining point in the iterator and accumulates the
-product of `(pi.x - pj.x)` for all points where `pj.x ≠ pi.x`.
-
-The result `(pi', denom')` satisfies:
-
-  **`pi'` is unchanged**:  `pi' = pi`
-
-  **Denominator is the full partial product**:
-    `GF16toGF216 denom' =
-        GF16toGF216 denominator *
-          lagrangeDenomProd pi.x
-            iter.slice.val iter.i`
-
-where `lagrangeDenomProd pi_x pts start` is the mathematical
-product `∏_{j ≥ start, pts[j].x.value ≠ pi_x.value}
-(GF16toGF216 pi_x - GF16toGF216 pts[j].x)`,
-with the convention that an empty product equals `1`.
-
-The proof applies `loop.spec_decr_nat` with:
-- **measure**: `iter.slice.len - iter.i` (remaining elements),
-- **invariant**: the iterator's underlying slice is preserved, the
-  index is within bounds, and the current `denominator` satisfies
-  the partial-product identity up to the current iterator position,
-
-and discharges each step by unfolding the body and applying the
-registered specs for `GF16.eq`, `GF16.sub`, and `GF16.mul_assign`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
 -/
@@ -508,8 +393,6 @@ end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 /-! # Spec Theorem for `lagrange_interpolate_complete`: loop 1 -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
-
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop1
 
 noncomputable def hornerAccum (g_x : spqr.encoding.gf.GF16)
@@ -546,7 +429,6 @@ private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
   rw [h1, h2] at h
   exact Option.some_injective _ h
 
-/-- Existential + postcondition form of IteratorRange.next for Usize ranges. -/
 private lemma IteratorRange_next_Usize_post
     (range : core.ops.range.Range Std.Usize) :
     ∃ opt range',
@@ -589,19 +471,15 @@ private lemma IteratorRange_next_Usize_post
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
-/-- After setting position `i` and then position `j ≠ i`,
-    reading at position `i` yields the first-set value `a`. -/
 private lemma list_double_set_getElem_fst {T : Type} {xs : List T} {i j : Nat} {a b : T}
     (hij : j ≠ i) {h : i < ((xs.set i a).set j b).length} :
     ((xs.set i a).set j b)[i]'h = a := by
   simp [hij]
 
-/-- `l[n]?.getD default = l[n]` when `n` is in bounds. -/
 private lemma list_getElem?_getD_eq_getElem {T : Type} [Inhabited T] {xs : List T} {n : Nat}
     (h : n < xs.length) : xs[n]?.getD default = xs[n] := by
   simp [List.getElem?_eq_getElem h]
 
-/-- Body spec using `getElem!` to avoid embedded bound proofs in the type. -/
 @[step]
 theorem body_spec
     (g scale : spqr.encoding.gf.GF16)
@@ -642,13 +520,9 @@ theorem body_spec
     have h_cursor_lt_len : v'.val.length - iter'.start.val < v'.val.length := by omega
     have h_cursor_ge1 : 1 ≤ v'.val.length - iter'.start.val := by omega
     step*
-    -- Close the remaining hbound goal for Vec.set length preservation
     all_goals simp_all
     · grind
-    ·  -- goal1: value at pos after double set equals original * scale
-        -- The outer set at pos-1 doesn't affect index pos (since pos ≥ 1),
-        -- so we read g3 from the inner set at pos.
-        rw [list_double_set_getElem_fst (show v'.val.length - iter'.start.val - 1 ≠
+    ·   rw [list_double_set_getElem_fst (show v'.val.length - iter'.start.val - 1 ≠
             v'.val.length - iter'.start.val from by omega)]
         simp only [GF16toGF216]
         exact g3_post
@@ -656,7 +530,6 @@ theorem body_spec
     rw [h_opt_eq]; simp only [WP.spec_ok]
     exact ⟨trivial, by omega⟩
 
-/-- Bridge lemma: equal indices give equal GF16toGF216 ∘ List.get and hornerAccum values. -/
 private lemma hornerAccum_eq_of_idx_eq
     {g_x : spqr.encoding.gf.GF16} {v_list xs : List spqr.encoding.gf.GF16}
     {a b : Nat} {ha : a < xs.length} {hb : b < xs.length}
@@ -703,18 +576,14 @@ theorem loop1_spec
             hornerAccum g v.val (v.val.length - p.1.start.val)) ∧
       (∀ k, k < v.val.length - p.1.start.val →
         p.2.val[k]? = v.val[k]?))
-  · -- Step case: body preserves invariant and decreases measure
-    rintro ⟨iter', v'⟩ ⟨hlen, hend, hstart_ge, hscaled, hcursor, hunchanged⟩
+  · rintro ⟨iter', v'⟩ ⟨hlen, hend, hstart_ge, hscaled, hcursor, hunchanged⟩
     simp only [] at hlen hend hstart_ge hscaled hcursor hunchanged ⊢
     have h_end_eq : iter'.«end».val = v'.val.length := by omega
     step*
     split
-    · -- `done` branch: iterator exhausted
-      rename_i r_post
+    · rename_i r_post
       simp only [] at r_post
       obtain ⟨h_eq, h_nlt⟩ := r_post
-      -- r_post result = v', and ¬ start < end, so cursor = 0
-      -- The postcondition follows directly from invariant
       constructor
       · simp_all
       constructor
@@ -730,40 +599,25 @@ theorem loop1_spec
         convert hc using 2
         simp_all
         grind
-    · -- `cont` branch: iterator yielded next element
-      rename_i r_post
+    · rename_i r_post
       simp only [] at r_post
       obtain ⟨h_lt, h_start1, h_end1, h_v2len, h_scaled_pos, h_carry_pos, h_frame⟩ := r_post
       set cursor := v.val.length - iter'.start.val with hcursor_def
       have hcge1 : cursor ≥ 1 := by omega
       have hcur_v' : cursor < v'.val.length := by omega
       have h_new_start_eq : v.val.length - (iter'.start.val + 1) = cursor - 1 := by omega
-      -- We need to show the invariant holds for (r_post.1, r_post.2)
-      -- Note: r_post.1.start.val = iter'.start.val + 1 (from h_start1)
-      --       r_post.1.end = iter'.end (from h_end1)
-      --       r_post.2.val.length = v'.val.length (from h_v2len)
-      -- For the invariant, the new cursor is v.val.length - r_post.1.start.val
-      -- = v.val.length - (iter'.start.val + 1) = cursor - 1
-      -- Since h_start1 : r_post.1.start.val = iter'.start.val + 1,
-      -- we have v.val.length - r_post.1.start.val = cursor - 1
       have h_new_cursor_eq : v.val.length - (Prod.fst r_post).start.val = cursor - 1 := by
         omega
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-      -- (1) length preserved
       · omega
-      -- (2) iter end preserved
       · have : (Prod.fst r_post).«end».val = iter'.«end».val := by
           rw [h_end1]
         omega
-      -- (3) start ≥ 1
       · omega
-      -- (4) scaled positions: for k > cursor - 1
       · intro k hk hk_gt
-        -- hk_gt : cursor - 1 < k (after substituting new cursor)
         rw [h_new_cursor_eq] at hk_gt
         by_cases hk_eq : k = cursor
-        · -- k = cursor: body_spec scaled this position
-          subst hk_eq
+        · subst hk_eq
           rw [hlen] at h_scaled_pos
           have h_idx : cursor < (Prod.snd r_post).val.length := by omega
           specialize h_scaled_pos h_idx
@@ -774,8 +628,7 @@ theorem loop1_spec
           rw [hbang]
           specialize hcursor hcur_v'
           rw [hcursor]; ring
-        · -- k > cursor: frame preserved
-          have hk_gt' : cursor < k := by omega
+        · have hk_gt' : cursor < k := by omega
           have hk_v' : k < v'.val.length := by omega
           have h_inv := hscaled k hk_v' (by omega)
           have h_fr := h_frame k (by omega) (by omega)
@@ -783,7 +636,6 @@ theorem loop1_spec
           have h_get := list_get_of_getElem?_eq h_fr (by omega) hk_v'
           simp only [List.get_eq_getElem] at h_get
           grind
-      -- (5) cursor position: hornerAccum at cursor - 1
       · intro hcur
         rw [h_new_cursor_eq] at hcur
         have hcm1_v' : cursor - 1 < v'.val.length := by omega
@@ -793,43 +645,34 @@ theorem loop1_spec
         specialize h_carry_pos h_idx
         have h_idx_eq : v.val.length - (Prod.fst r_post).start.val = cursor - 1 :=
           h_new_cursor_eq
-        -- Use the bridge lemma to align the goal's index with cursor - 1
         suffices hsuff :
             GF16toGF216 ((Prod.snd r_post).val.get ⟨cursor - 1, h_idx⟩) =
               hornerAccum g v.val (cursor - 1) by
           exact hornerAccum_eq_of_idx_eq h_idx_eq hsuff
-        -- Rewrite LHS using h_carry_pos
         rw [h_carry_pos]
-        -- Unfold hornerAccum on the RHS
         rw [hornerAccum_unfold g v.val (cursor - 1) hcm1_v]
         have h_succ : cursor - 1 + 1 = cursor := by omega
         rw [h_succ]
-        -- Convert getElem! to List.get for rewriting
         have hbang_cm1 : v'.val[cursor - 1]! = v'.val.get ⟨cursor - 1, hcm1_v'⟩ :=
           getElem!_pos v'.val (cursor - 1) hcm1_v'
         have hbang_c : v'.val[cursor]! = v'.val.get ⟨cursor, hcur_v'⟩ :=
           getElem!_pos v'.val cursor hcur_v'
         rw [hbang_cm1, hbang_c]
-        -- v'[cursor-1] = v[cursor-1] from hunchanged
         have h_unch := hunchanged (cursor - 1) (by omega)
         have h_get_cm1 := list_get_of_getElem?_eq h_unch hcm1_v' hcm1_v
         rw [h_get_cm1]
-        -- v'[cursor] evaluated as hornerAccum at cursor
         specialize hcursor hcur_v'
         rw [hcursor]
         ring
-      -- (6) unchanged positions: for k < cursor - 1
       · intro k hk_lt
         rw [h_new_cursor_eq] at hk_lt
         have h_fr := h_frame k (by omega) (by omega)
         have h_unch := hunchanged k (by omega)
         rw [h_fr, h_unch]
-      -- (7) measure decrease
       · have : (Prod.fst r_post).«end».val = iter'.«end».val := by
           rw [h_end1]
         omega
-  · -- Initial invariant holds
-    dsimp only [Prod.fst, Prod.snd]
+  · dsimp only [Prod.fst, Prod.snd]
     simp only [h_start]
     refine ⟨trivial, h_end, le_refl 1, ?_, ?_, ?_⟩
     · intro k hk hgt; omega
@@ -843,21 +686,13 @@ theorem loop1_spec
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop1
 
 
-/-! # Spec Theorem for lagrange_interpolate_complete -/
+/-! # Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_complete` -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
 
-
-
-
-
-
-
-
 namespace spqr.encoding.polynomial.Poly
 
-/-- Default `Pt` value needed by `step*` for `Vec.index`. -/
 instance : Inhabited spqr.encoding.polynomial.Pt where
   default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
 
@@ -869,13 +704,13 @@ noncomputable def lagrangeScaleGF216
        pi.x pts 0) ^ (2 ^ 16 - 2)
 
 @[step]
-axiom into_iter_spec (pts : Slice Pt) :
+theorem into_iter_spec (pts : Slice Pt) :
     SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
       pts
       ⦃ (iter : core.slice.iter.Iter Pt) =>
-        iter.slice = pts ∧ iter.i = 0 ⦄
-
-/-! ## Auxiliary lemmas -/
+        iter.slice = pts ∧ iter.i = 0 ⦄ := by
+  unfold SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
+  simp [WP.spec_ok]
 
 private lemma GF216_add_self_eq_zero (x : GF216) : x + x = 0 := by
   have h2 : (2 : GF216) = 0 := GF216_two_eq_zero
@@ -1002,7 +837,6 @@ private lemma poly_identity_from_loop1
         rw [lagrange_interpolate_complete_loop1.hornerAccum_ge
           g coeffs coeffs.length (le_refl _)] at hH_last
         simp [mul_zero, add_zero] at hH_last
-        -- hH_last uses getElem (coeffs[...]) while goal uses List.get; bridge the gap
         have hH_last_get : GF16toGF216 (coeffs.get ⟨coeffs.length - 1, hm1_lt_c⟩) =
             lagrange_interpolate_complete_loop1.hornerAccum g coeffs (coeffs.length - 1) := by
           simp only [List.get_eq_getElem]; exact hH_last.symm
@@ -1016,8 +850,7 @@ private lemma poly_identity_from_loop1
           rw [show GF16toGF216 (v.get ⟨coeffs.length - 1, hm1_lt_v⟩) =
               GF16toGF216 (v.get ⟨0, by omega⟩) from by rw [hv_eq]]
           rw [hv0_zero (by omega), h0, hH0, mul_zero]
-      · -- m > n: both sides are 0
-        have hm_gt : coeffs.length < m := by omega
+      · have hm_gt : coeffs.length < m := by omega
         rw [dif_neg (show ¬(m - 1 < v.length) from by omega),
             dif_neg (show ¬(m < v.length) from by omega),
             dif_neg (show ¬(m - 1 < coeffs.length) from by omega)]
@@ -1028,8 +861,8 @@ private lemma poly_identity_from_loop1
 /-- Shifting lemma: evaluating `hornerAccum` on `c :: cs` at position
     `pos + 1` is the same as evaluating on `cs` at position `pos`. -/
 private lemma hornerAccum_cons
-    (g c : spqr.encoding.gf.GF16)
-    (cs : List spqr.encoding.gf.GF16)
+    (g c : GF16)
+    (cs : List GF16)
     (pos : Nat) :
     lagrange_interpolate_complete_loop1.hornerAccum g (c :: cs) (pos + 1) =
       lagrange_interpolate_complete_loop1.hornerAccum g cs pos := by
@@ -1049,8 +882,8 @@ decreasing_by omega
 
 /-- Decomposition: `coeffsToGF216Poly (c :: cs) = C(GF16toGF216 c) + X · coeffsToGF216Poly cs`. -/
 private lemma coeffsToGF216Poly_cons
-    (c : spqr.encoding.gf.GF16)
-    (cs : List spqr.encoding.gf.GF16) :
+    (c : GF16)
+    (cs : List GF16) :
     coeffsToGF216Poly (c :: cs) =
       C (GF16toGF216 c) + X * coeffsToGF216Poly cs := by
   ext m
@@ -1072,8 +905,8 @@ private lemma coeffsToGF216Poly_cons
     This connects the Horner-scheme computation `hornerAccum g coeffs 0`
     to the Mathlib `Polynomial.eval` of `coeffsToGF216Poly coeffs`. -/
 private lemma hornerAccum_zero_eq_eval
-    (g : spqr.encoding.gf.GF16)
-    (coeffs : List spqr.encoding.gf.GF16) :
+    (g : GF16)
+    (coeffs : List GF16) :
     lagrange_interpolate_complete_loop1.hornerAccum g coeffs 0 =
       (coeffsToGF216Poly coeffs).eval (GF16toGF216 g) := by
   induction coeffs with
@@ -1098,44 +931,35 @@ private lemma Nat_toGF216_eq_zero
     {n : Nat} (hn : n < 2 ^ 16) (h : n.toGF216 = 0) : n = 0 := by
   unfold Nat.toGF216 at h
   by_contra hn0
-  -- natToGF2Poly n ≠ 0
   have hne : natToGF2Poly n ≠ 0 := fun h0 =>
     hn0 (natToGF2Poly_inj n 0 (by rw [h0, natToGF2Poly_zero]))
-  -- All coefficients at positions ≥ 16 are zero (since n < 2^16)
   have hcoeff_zero : ∀ m, 16 ≤ m → (natToGF2Poly n).coeff m = 0 := by
     intro m hm
     rw [natToGF2Poly_coeff]
     simp [Nat.testBit_eq_false_of_lt
       (lt_of_lt_of_le hn (Nat.pow_le_pow_right (by norm_num : 0 < 2) hm))]
-  -- Hence natDegree < 16
   have hnd : (natToGF2Poly n).natDegree < 16 := by
     by_contra h_not
     push_neg at h_not
     have h_lc : (natToGF2Poly n).coeff (natToGF2Poly n).natDegree ≠ 0 := by
       intro h0; exact hne (Polynomial.leadingCoeff_eq_zero.mp h0)
     exact h_lc (hcoeff_zero _ h_not)
-  -- POLY_GF2 is prime (irreducible in UFD)
   have hprime : Prime POLY_GF2 :=
     (UniqueFactorizationMonoid.irreducible_iff_prime).mp POLY_GF2_irreducible
-  -- Ideal.span {POLY_GF2} is a non-zero prime ideal, hence maximal in PID
   have hprime_ideal : (Ideal.span {POLY_GF2}).IsPrime :=
     (Ideal.span_singleton_prime POLY_GF2_monic.ne_zero).mpr hprime
   have hne_bot : Ideal.span ({POLY_GF2} : Set GF2Poly) ≠ ⊥ := by
     rw [Ne, Ideal.span_singleton_eq_bot]; exact POLY_GF2_monic.ne_zero
   have hmax : (Ideal.span {POLY_GF2}).IsMaximal :=
     Ideal.IsPrime.isMaximal hprime_ideal hne_bot
-  -- (POLY_GF2) ≤ ker φ  (since φ(POLY_GF2) = 0)
   have hle : Ideal.span {POLY_GF2} ≤ RingHom.ker φ :=
     Ideal.span_le.mpr (Set.singleton_subset_iff.mpr (RingHom.mem_ker.mpr hφ))
-  -- ker φ = (POLY_GF2)  by maximality
   have hker_eq : RingHom.ker φ = Ideal.span {POLY_GF2} := by
     rcases eq_or_lt_of_le hle with heq | hlt
     · exact heq.symm
     · exact absurd (hmax.out.2 _ hlt) (RingHom.ker_ne_top φ)
-  -- natToGF2Poly n ∈ ker φ, hence POLY_GF2 ∣ natToGF2Poly n
   have hmem : POLY_GF2 ∣ natToGF2Poly n := by
     rwa [← Ideal.mem_span_singleton, ← hker_eq, RingHom.mem_ker]
-  -- But deg(POLY_GF2) = 16 > natDegree(natToGF2Poly n), contradiction
   have := Polynomial.natDegree_le_of_dvd hmem hne
   rw [POLY_GF2_natDegree] at this
   omega
@@ -1143,7 +967,7 @@ private lemma Nat_toGF216_eq_zero
 /-- If `GF16toGF216 g = 0`, then `g.value.val = 0`.
     This is the reverse direction of `GF16toGF216_zero_val`. -/
 private lemma GF16toGF216_eq_zero_imp
-    (g : spqr.encoding.gf.GF16) (h : GF16toGF216 g = 0) :
+    (g : GF16) (h : GF16toGF216 g = 0) :
     g.value.val = 0 := by
   unfold GF16toGF216 at h
   exact Nat_toGF216_eq_zero (by have := g.value.hBounds; scalar_tac) h
@@ -1160,10 +984,7 @@ lemma core_fmt_Arguments_from_str_spec (s : Str) :
   unfold core.fmt.Arguments.from_str
   simp [WP.spec_ok]
 
-/-! ## Main theorem -/
-
-/-!
-### Overview
+/-! ## Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_complete`
 
 The theorem `lagrange_interpolate_complete_spec` is the top-level correctness
 specification for the Rust function `Poly::lagrange_interpolate_complete`
@@ -1195,14 +1016,6 @@ the function:
 
 The net effect is to produce a new polynomial `result` such that:
   `result(X) · (X − pᵢ.x) = X · scale · self(X)`
-
-### Theorem statement analysis
-
-```
-@[step]
-theorem lagrange_interpolate_complete_spec
-    (self : Poly) (pts : Slice Pt) (i : Std.Usize)
-```
 
 **Parameters:**
 - `self : Poly` — The input polynomial, stored as a `Vec<GF16>` of
@@ -1245,10 +1058,6 @@ Without this precondition, the division would leave a non-zero
 remainder in `coefficients[0]`, and the polynomial identity in the
 postcondition would not hold.
 
-```
-    lagrange_interpolate_complete self pts i
-      ⦃ (result : Poly) =>
-```
 
 **Postcondition — a weakest-precondition (WP) spec:**
 The function succeeds (no panic) and produces a `result : Poly` satisfying
@@ -1310,40 +1119,6 @@ the identity says:
 After the caller strips the leading zero (divides by `X`), the final
 polynomial is `lagrangeScale(pᵢ, pts) · Q(X)`, which is exactly the
 i-th Lagrange basis polynomial scaled to produce `pᵢ.y` at `pᵢ.x`.
-
-### Proof structure
-
-The proof unfolds `lagrange_interpolate_complete` and applies `step*`
-to discharge all intermediate verification conditions using the
-registered `@[step]` specs for:
-- `Slice.index_usize` (to get `pᵢ = pts[i]`)
-- `loop0_spec` (denominator accumulation loop)
-- `DivGF16GF16_div_spec` (GF16 division via Fermat exponentiation)
-- `loop1_spec` (long division + scaling loop)
-- `Vec.index_usize` (to read `coefficients[0]`)
-- `GF16.eq_spec` (equality check for the debug assertion)
-
-After `step*`, two goals remain:
-
-**Case h2 (unreachable panic branch):** The debug assertion
-`coefficients[0] == ZERO` fails. This is shown to be impossible by
-chaining:
-1. `heval` ⟹ `hornerAccum g coeffs 0 = 0` (via `hornerAccum_zero_eq_eval`)
-2. `hornerAccum = 0` ⟹ `v[0]` maps to `0` in GF(2¹⁶) (via loop1 postcondition)
-3. `GF16toGF216(v[0]) = 0` ⟹ `v[0].value.val = 0` (via `GF16toGF216_eq_zero_imp`,
-   which uses the algebraic fact that `ker(φ) = (POLY_GF2)` and
-   degree < 16 ⟹ zero)
-4. `v[0] = ZERO` ⟹ `b = true` (via `b_post`), contradicting `¬b = true`
-
-**Case h1 (main branch):** The debug assertion passes. The proof:
-1. Establishes `hH0 : hornerAccum at 0 = 0` (same chain as above)
-2. Shows `GF16toGF216(scale) = lagrangeScaleGF216(pᵢ, pts)` by
-   composing the loop0 and division postconditions
-3. Proves **length preservation** directly from `v_post1`
-4. Proves the **polynomial identity** by applying the auxiliary lemma
-   `poly_identity_from_loop1`, which assembles the coefficient-level
-   facts from loop1's postcondition (`v_post2`, `v_post3`) into the
-   polynomial-level equation using extensional equality of coefficients
 -/
 
 @[step]
@@ -1364,75 +1139,49 @@ theorem lagrange_interpolate_complete_spec
             self.toGF216Poly ⦄ := by
   unfold lagrange_interpolate_complete
   step*
-  -- step* splits on `if b`, producing two goals:
-  --   case h1 (h✝ : b = true)  — the main postcondition
-  --   case h2 (h✝ : ¬b = true) — the fail-panic branch
-  --
-  -- Inaccessible variables (11 total, in order):
-  --   _✝⁷ (pi step), _✝⁶ (iter step), x✝ (loop0 pair),
-  --   _✝⁵ (loop0 step), _✝⁴ (x✝.1 = pi), _✝³ (denom eq),
-  --   _✝² (scale step), _✝¹ (v step), _✝ (left_val step),
-  --   _ (b step), h✝ (b = true / ¬b = true)
   case h2 =>
-    -- The fail-panic branch is unreachable: `heval` forces `b = true`,
-    -- contradicting `¬b = true`.
     simp only [core.fmt.Arguments.from_str, bind_tc_ok,
     List.get_eq_getElem, X_mul_C, WP.spec_fail]
     rename_i _ _ _ _ loop0_fst_eq _ _ _ _ h_not_b
-    -- Bridge pi → pts.val.get
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
-    -- hornerAccum at 0 = evalAt = 0
     have hH0 : lagrange_interpolate_complete_loop1.hornerAccum
         (pts.val.get ⟨i.val, hi⟩).x self.coefficients.val 0 = 0 := by
       rw [hornerAccum_zero_eq_eval]
       unfold Poly.evalAt Poly.toGF216Poly at heval
       exact heval
-    -- v[0] maps to 0 in GF216
     have h0_len : 0 < v.val.length := by omega
     have hv0_zero : GF16toGF216 (v.val.get ⟨0, h0_len⟩) = 0 := by
       rw [v_post3 h0_len, loop0_fst_eq, hpi_eq]; exact hH0
-    -- left_val = v[0]
     have hlv_get : left_val = v.val.get ⟨0, h0_len⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact left_val_post
-    -- left_val.value.val = 0
     have hlv_val_zero : left_val.value.val = 0 :=
       GF16toGF216_eq_zero_imp left_val (by rw [hlv_get]; exact hv0_zero)
-    -- left_val.value = ZERO.value
     have hlv_eq_zero : left_val.value = spqr.encoding.gf.GF16.ZERO.value :=
       UScalar.eq_of_val_eq (by simp only [spqr.encoding.gf.GF16.ZERO]; exact hlv_val_zero)
-    -- b = true, contradiction
     have :=h_not_b (b_post.mpr hlv_eq_zero)
     simp[this]
   case h1 =>
-    -- Name the 10 inaccessible ✝-suffixed variables
-    -- (_✝⁷, _✝⁶, x✝, _✝⁵, _✝⁴, _✝³, _✝², _✝¹, _✝, h✝)
     rename_i _ _ loop0_res _ loop0_fst_eq loop0_snd_eq _ _ _ hb
-    -- Bridge pi (from Slice.index_usize getElem!) to List.get
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
-    -- From b = true and b_post, get left_val.value = ZERO.value
     have hlv_zero := b_post.mp hb
-    -- hornerAccum at position 0 evaluates to 0
     have hH0 : lagrange_interpolate_complete_loop1.hornerAccum
         loop0_res.1.x self.coefficients.val 0 = 0 := by
       have h0 : 0 < v.val.length := by omega
       rw [← v_post3 h0]
-      -- Bridge left_val (getElem!) to v.val.get
       have hlv_get : left_val = v.val.get ⟨0, h0⟩ := by
         rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
         exact left_val_post
       rw [← hlv_get]
-      -- Derive GF16toGF216(left_val) = 0 from left_val.value = ZERO.value
       have hval_zero : left_val.value.val = 0 := by
         have := congr_arg UScalar.val hlv_zero
         simp only [gf.GF16.ZERO, UScalar.ofNatCore_val_eq] at this
         exact this
       exact GF16toGF216_zero_val left_val hval_zero
-    -- GF16toGF216(scale) = lagrangeScaleGF216
     have hscale_eq : GF16toGF216 scale =
         lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩)
           pts.val := by
@@ -1443,14 +1192,11 @@ theorem lagrange_interpolate_complete_spec
       simp only [spqr.encoding.gf.GF16.ONE_toGF216,
         one_mul] at loop0_snd_eq
       rw [loop0_snd_eq, hpi_eq]
-    -- Rewrite loop0_res.1 → pi → pts.val.get in the loop hypotheses
     rw [loop0_fst_eq] at v_post2 v_post3 hH0
     rw [hpi_eq] at v_post2 v_post3 hH0
     constructor
-    · -- Length preservation
-      exact v_post1
-    · -- Polynomial identity
-      unfold Poly.toGF216Poly
+    · exact v_post1
+    · unfold Poly.toGF216Poly
       apply poly_identity_from_loop1
         self.coefficients.val v.val
         (pts.val.get ⟨i.val, hi⟩).x

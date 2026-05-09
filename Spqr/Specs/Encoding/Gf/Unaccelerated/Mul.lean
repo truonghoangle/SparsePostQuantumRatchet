@@ -10,11 +10,6 @@ import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 
 /-! # Spec theorem for `spqr::encoding::gf::unaccelerated::mul`
 
-Specification and proof for `encoding.gf.unaccelerated.mul`,
-which implements carry-less polynomial multiplication of two `u16`
-values in GF(2¹⁶), followed by reduction modulo the irreducible
-polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).
-
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
 is polynomial multiplication modulo the irreducible polynomial POLY.
 Each field element is represented as a polynomial of degree < 16 with
@@ -27,18 +22,10 @@ The function proceeds in two stages:
      POLY using a precomputed table (`REDUCE_BYTES`), yielding a
      16-bit result that is the canonical representative in GF(2¹⁶).
 
-This function is the software (unaccelerated) fallback; on x86/x86_64
-and aarch64, the same operation may be dispatched to hardware carry-
-less multiplication instructions (`PCLMULQDQ` / `PMULL`).
-
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, etc.) are imported from `Spqr.Math.Gf`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf.reduce
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.reduce
 
 namespace spqr.encoding.gf.unaccelerated
 

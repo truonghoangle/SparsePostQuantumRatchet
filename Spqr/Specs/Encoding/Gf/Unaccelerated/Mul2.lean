@@ -28,16 +28,10 @@ representative of the polynomial product, obtained by composing
   2. `poly_reduce`  — table-driven reduction modulo
                       POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).
 
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `ringHom_modByMonic`, etc.) are imported from
-`Spqr.Math.Gf`; the per-factor postconditions (`mul_spec'`,
-`mul_spec`) are imported from `Spqr.Specs.Encoding.Gf.Unaccelerated.Mul`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 436:4-438:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial
+open Aeneas Aeneas.Std Result Polynomial
 
 namespace spqr.encoding.gf.unaccelerated
 

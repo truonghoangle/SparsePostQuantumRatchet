@@ -8,11 +8,6 @@ import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
 /-! # Spec theorem for `spqr::encoding::gf::reduce::REDUCE_BYTES`
 
-Specification and proof for `encoding.gf.reduce.REDUCE_BYTES`, the
-precomputed 256-entry lookup table used by `poly_reduce` for
-table-based polynomial reduction modulo the irreducible polynomial
-POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b) in GF(2¹⁶).
-
 `REDUCE_BYTES` is a `const` associated item on the `reduce` module,
 defined as:
   `const REDUCE_BYTES: [u16; 256] = reduce_bytes();`
@@ -37,25 +32,11 @@ fails and never depends on any input.
 **Source**: spqr/src/encoding/gf.rs (lines 435:4-435:52)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf.unaccelerated
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.reduce
 
-/-
-natural language description:
-
-• `REDUCE_BYTES` is the precomputed reduction lookup table,
-  a `[u16; 256]` array.
-• It is defined as `reduce_bytes()`, i.e. the result of calling
-  the `reduce_bytes` function which builds the table by iterating
-  over all 256 byte values and computing `reduce_from_byte(k) as u16`
-  for each.
-• The constant is unconditional and pure — its evaluation never
-  fails and never depends on any input.
-
-natural language specs:
-
+/-- **Spec theorem for `encoding.gf.reduce.REDUCE_BYTES`**:
 • `REDUCE_BYTES` is definitionally equal to `reduce_bytes`:
     `REDUCE_BYTES = reduce_bytes`
 • For every index `j` with `j.val < 256`, the table entry satisfies:
@@ -67,14 +48,13 @@ natural language specs:
     `natToGF2Poly v.val = (natToGF2Poly j.val * X ^ 16) %ₘ POLY_GF2`
   confirming that each entry is the canonical remainder of `k · X¹⁶`
   modulo the irreducible polynomial POLY_GF2.
--/
 
-/-- **`REDUCE_BYTES` is definitionally `reduce_bytes`**. -/
+**`REDUCE_BYTES` is definitionally `reduce_bytes`**. -/
 @[simp]
 theorem REDUCE_BYTES_eq : REDUCE_BYTES = reduce_bytes := by
   simp [REDUCE_BYTES]
 
-/-- **Spec and proof concerning `encoding.gf.reduce.REDUCE_BYTES`**:
+/-- **Spec theorem for `encoding.gf.reduce.REDUCE_BYTES`**:
 
 `REDUCE_BYTES` is the precomputed 256-entry reduction lookup table:
 for every index `j < 256`, the entry `result[j]` is a `u16` whose

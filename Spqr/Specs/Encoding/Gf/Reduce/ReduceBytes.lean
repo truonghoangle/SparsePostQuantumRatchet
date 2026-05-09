@@ -8,11 +8,8 @@ import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 import Mathlib.RingTheory.Polynomial.Basic
-/-! # Spec Theorem for `spqr::encoding::gf::reduce::reduce_bytes`
+/-! # Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`
 
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `natToGF2Poly_POLY`, `natToGF2Poly_xor`,
-`natToGF2Poly_shiftLeft`, etc.) are imported from `Spqr.Math.Gf`.
 -/
 
 open Aeneas Aeneas.Std Result
@@ -20,8 +17,6 @@ open Polynomial spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.reduce
 
-
-/-- Array indexing is unchanged after `set` at a different position. -/
 private lemma index_usize_set_ne
     {α : Type} {n : Std.Usize}
     (v : Array α n) (i j : Std.Usize) (x : α)
@@ -33,7 +28,6 @@ private lemma index_usize_set_ne
   congr 1
   exact List.getElem?_set_ne hne'
 
-/-- Array indexing at the `set` position returns the new value. -/
 private lemma index_usize_set_eq_of_val_eq
     {α : Type} {n : Std.Usize}
     (v : Array α n) (i j : Std.Usize) (x : α)
@@ -125,7 +119,6 @@ private def reduceByteLoopFull (a out : Nat) : (n : Nat) → Nat × Nat
     else
       reduceByteLoopFull a out n
 
-/-- The second component of `reduceByteLoopFull` agrees with `reduceFromByteLoopSpec`. -/
 private lemma reduceByteLoopFull_snd_eq (a out n : Nat) :
     (reduceByteLoopFull a out n).2 = reduceFromByteLoopSpec a out n := by
   induction n generalizing a out with
@@ -134,7 +127,6 @@ private lemma reduceByteLoopFull_snd_eq (a out n : Nat) :
     simp only [reduceByteLoopFull, reduceFromByteLoopSpec]
     split <;> exact ih _ _
 
-/-- Helper: XOR of two values < 2^8 is < 2^8. -/
 private lemma xor_lt_256 (a b : Nat) (ha : a < 256) (hb : b < 256) : a ^^^ b < 256 := by
   apply Nat.lt_of_testBit 8
   · simp only [Nat.testBit_xor]
@@ -162,8 +154,6 @@ private lemma xor_lt_256 (a b : Nat) (ha : a < 256) (hb : b < 256) : a ^^^ b < 2
         _ < 2^j := by apply Nat.pow_lt_pow_right (by norm_num : 1 < 2); omega
     rw [h1, h2]
 
-
-/-- The algebraic invariant for `reduceByteLoopFull` (for `a < 256`). -/
 private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
     (natToGF2Poly ((reduceByteLoopFull a out n).2 % 2 ^ 16) +
      natToGF2Poly (reduceByteLoopFull a out n).1 * X ^ 16) %ₘ POLY_GF2 =
@@ -173,9 +163,7 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
   | succ n ih =>
     simp only [reduceByteLoopFull]
     split_ifs with htb
-    · -- Bit n is set: htb : a.testBit n = true
-      -- Since a < 256, bits ≥ 8 are zero, so n ≤ 7
-      have hn_le : n ≤ 7 := by
+    · have hn_le : n ≤ 7 := by
         by_contra hlt
         push_neg at hlt  -- hlt : 7 < n
         have hfail : a.testBit n = false := Nat.testBit_eq_false_of_lt
@@ -186,16 +174,13 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
               omega)
         simp [hfail] at htb
       set ps := 0x1100b <<< n with hps_def
-      -- ps >>> 16 < 256 for n ≤ 7
       have hps_hi_lt : ps >>> 16 < 256 := by
         unfold ps
         interval_cases n <;> decide
-      -- New a' is < 256
       have ha'_lt : a ^^^ (ps >>> 16) < 256 :=
         xor_lt_256 a (ps >>> 16) ha hps_hi_lt
       have ha'_eq : (a ^^^ (ps >>> 16)) % 256 = a ^^^ (ps >>> 16) :=
         Nat.mod_eq_of_lt ha'_lt
-      -- Helpers (defined before the rewrites so they're all available)
       have hmonic := POLY_GF2_monic
       have hpoly_ps : natToGF2Poly ps = POLY_GF2 * X ^ n := by
         unfold ps
@@ -215,7 +200,6 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
         intro p q; apply Nat.eq_of_testBit_eq; intro i
         simp only [Nat.testBit_xor, Nat.testBit_mod_two_pow]
         by_cases hi : i < 16 <;> simp [hi]
-      -- The XOR step adds POLY_GF2 * X^n to the combined representation
       have hrw : natToGF2Poly ((out ^^^ ps) % 2 ^ 16) +
                  natToGF2Poly (a ^^^ ps >>> 16) * X ^ 16 =
                  (natToGF2Poly (out % 2 ^ 16) + natToGF2Poly a * X ^ 16) +
@@ -223,15 +207,11 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
         rw [hxor_mod, natToGF2Poly_xor, natToGF2Poly_xor, add_mul,
             ← hpoly_ps, ← hps_split]
         ring
-      -- Substitute (a ^^^ (ps >>> 16)) % 256 → a ^^^ (ps >>> 16) using simp,
-      -- then apply IH, then use hrw to close.
       simp only [ha'_eq]
       rw [ih _ _ ha'_lt, hrw, Polynomial.add_modByMonic,
           (Polynomial.modByMonic_eq_zero_iff_dvd hmonic).mpr (dvd_mul_right POLY_GF2 _), add_zero]
-    · -- Bit n is not set: htb : ¬a.testBit n = true
-      exact ih a out ha
+    · exact ih a out ha
 
-/-- The carry register vanishes after 8 steps for all byte values k < 256. -/
 private lemma reduceByteLoopFull_carry_zero (k : Nat) (hk : k < 256) :
     (reduceByteLoopFull k 0 8).1 = 0 := by
   have h : ∀ k' : Fin 256, (reduceByteLoopFull k'.val 0 8).1 = 0 := by decide
@@ -253,8 +233,6 @@ theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
   simp only [Nat.zero_mod, natToGF2Poly_zero, zero_add] at hinv
   have hcarry := reduceByteLoopFull_carry_zero k hk
   simp only [hcarry, natToGF2Poly_zero, zero_mul, add_zero] at hinv
-  -- hinv : natToGF2Poly ((reduceByteLoopFull k 0 8).2 % 2^16) %ₘ POLY = (k * X^16) %ₘ POLY
-  -- The LHS has degree < 16, so %ₘ POLY is identity
   set A := natToGF2Poly ((reduceByteLoopFull k 0 8).2 % 2 ^ 16)
   have hA_deg : A.natDegree < 16 := by
     rcases eq_or_ne A 0 with heq | hne
@@ -264,10 +242,8 @@ theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
       simp only [A, natToGF2Poly_coeff]
       exact if_neg (Bool.not_eq_true _ ▸ Nat.testBit_eq_false_of_lt
         (Nat.lt_of_lt_of_le (Nat.mod_lt _ (by norm_num)) (Nat.pow_le_pow_right (by norm_num) hm)))
-  -- A %ₘ POLY_GF2 = A
   have hA_self : A %ₘ POLY_GF2 = A := by
     have hA_eq := Polynomial.modByMonic_add_div A hmonic
-    -- hA_eq : A %ₘ POLY_GF2 + A /ₘ POLY_GF2 * POLY_GF2 = A
     suffices hdivz : A /ₘ POLY_GF2 = 0 by
       rw [hdivz, mul_zero, add_zero] at hA_eq
       exact hA_eq

@@ -5,12 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf
-/-! # Spec Theorem for `spqr::encoding::gf::GF16::const_sub`
-
-Specification and proof for `spqr::encoding::gf::GF16::const_sub`,
-which implements GF(2¹⁶) subtraction on the `GF16` wrapper as
-bitwise XOR of the two underlying `u16` values, re-wrapped into a
-fresh `GF16`.
+/-! # Spec theorem for `spqr::encoding::gf::GF16::const_sub`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — subtraction
 coincides with addition: every element is its own additive inverse
@@ -29,16 +24,10 @@ polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 is required: XOR of two
 GF(2) polynomial already has degree `< 16` and is the canonical
 representative of its class in `GF2Poly / (POLY_GF2)`.
 
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`natToGF2Poly_xor`, `zmod2_poly_sub_eq_add`, `Nat.toGF216`, `φ`,
-etc.) are imported from `Spqr.Math.Gf`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 566:4-570:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial
-open spqr.encoding.gf.unaccelerated
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.GF16
 
@@ -79,7 +68,7 @@ theorem const_sub_spec' (self other : GF16) :
   step*
   simp_all only [UScalar.val_xor, natToGF2Poly_xor, zmod2_poly_sub_eq_add]
 
-/-- **GF216-level postcondition (provable, parametric)**:
+/-- **Spec theorem for `spqr.encoding.gf.GF16.const_sub`**:
 
 For the chosen ring-homomorphism `φ : GF2Poly →+* GF216` (which
 vanishes on `POLY_GF2`), the result of `const_sub self other`
@@ -93,8 +82,8 @@ interpretation of the result.
 
 Note that in GF(2¹⁶) addition and subtraction coincide, so this is
 equivalently
-  `result.value.val.toGF216 =
-       self.value.val.toGF216 + other.value.val.toGF216`. -/
+  `GF16toGF216 result =
+       GF16toGF216 self + GF16toGF216 other`. -/
 @[step]
 theorem const_sub_spec
     (self other : GF16) :

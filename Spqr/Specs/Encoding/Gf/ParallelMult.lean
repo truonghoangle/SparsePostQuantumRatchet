@@ -9,15 +9,6 @@ import Spqr.Specs.Encoding.Gf.Mul2U16
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
 /-! # Spec Theorem for `encoding::gf::parallel_mult` — loop body 0
 
-Specification and proof for
-`encoding.gf.parallel_mult_loop.body`, which executes a single
-iteration of the `while i + 2 <= into.len() { … }` loop inside
-`parallel_mult`.  The full loop is driven by
-`encoding.gf.parallel_mult_loop` (the Aeneas-extracted `loop`
-fixed-point); this file isolates the per-step behaviour so that
-`parallel_mult_loop_spec` can appeal to a clean step lemma via
-`loop.spec_decr_nat`.
-
 One call to the body with state `(a, into, i)` performs the following
 computation:
 
@@ -37,29 +28,13 @@ Mathematically, each pair of consecutive entries `into[i]`, `into[i+1]`
 is replaced by `a · into[i]`, `a · into[i+1]` in GF(2¹⁶); the index
 counter advances by two, and all other slice positions are untouched.
 
-In the Rust source this body performs runtime CPU-feature dispatch via
-`mul2_u16` (potentially calling a hardware-accelerated CLMUL kernel);
-after Aeneas extraction every branch collapses to two software
-multiplications sharing the left operand `a`, and the postcondition is
-inherited verbatim from `mul2_u16_spec'` / `mul2_u16_spec` in
-`Spqr.Specs.Encoding.Gf.Mul2U16`.
-
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
-`Spqr.Math.Gf`; the GF(2¹⁶) double-product kernel
-(`mul2_u16_spec`, registered `@[step]`) is imported from
-`Spqr.Specs.Encoding.Gf.Mul2U16`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial
-open spqr.encoding.gf
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf
 
 namespace spqr.encoding.gf
 
-/-- A default `GF16` value, needed by `Slice.index_usize_spec`. -/
 local instance : Inhabited encoding.gf.GF16 := ⟨{ value := 0#u16 }⟩
 
 /-- **Polynomial-level postcondition for
@@ -180,14 +155,7 @@ theorem parallel_mult_loop_body_spec
     grind
 
 
-/-! # Spec Theorem for `spqr::encoding::gf::parallel_mult` — loop 0
-
-Specification and proof for
-`encoding.gf.parallel_mult_loop`, the Aeneas-extracted `loop`
-fixed-point that drives the main loop of `parallel_mult`.  It
-iterates `parallel_mult_loop.body` to multiply every pair of
-consecutive GF(2¹⁶) elements in a mutable slice by a shared
-factor `a`.
+/-! # Spec theorem for `spqr::encoding::gf::parallel_mult` — loop 0
 
 The `while i + 2 <= into.len()` loop in the Rust source
 (lines 570–575) processes the slice in strides of two, computing
@@ -230,31 +198,10 @@ sufficient for the caller (`parallel_mult_spec`) to derive the
 full GF(2¹⁶)-level postcondition: every element of the returned
 slice is the product `a · original` in GF(2¹⁶).
 
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
-`Spqr.Math.Gf`; the per-iteration GF(2¹⁶) double-product kernel
-(`parallel_mult_loop_body_spec`, registered `@[step]`) is
-imported from `Spqr.Specs.Encoding.Gf.ParallelMultLoopBody`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
 
-/-
-natural language description:
-
-• Receives the loop state: multiplier `a : GF16`, mutable slice
-  `into : Slice GF16`, and loop counter `i : usize`.
-• Iterates `parallel_mult_loop.body a` until termination:
-    - Each active step reads `into[i]`, `into[i+1]`, computes the
-      double-product `mul2_u16(a.value, into[i].value, into[i+1].value)`,
-      writes the two results back, and advances `i` by 2.
-    - When `i + 2 > into.len()`, the body returns `done (a, into, i)`,
-      ending the iteration.
-• Returns the triple `(a, into', i')` where `into'` is the
-  pairwise-multiplied slice and `i'` is the index at which the
-  loop stopped.
-
-natural language specs:
+/-- **Spec theorem for `encoding.gf.parallel_mult_loop`**:
 
 • The function always succeeds (no panic / overflow) provided
   `into.length + 2 ≤ Std.Usize.max` (mirrors the Rust
@@ -273,32 +220,6 @@ natural language specs:
   unchanged from the original:  `into'[j] = into[j]`.
 • Every element at index `j < i.val` is unchanged from the
   original:  `into'[j] = into[j]`.
--/
-
-/-- **Spec and proof concerning `encoding.gf.parallel_mult_loop`**:
-
-The `loop` fixed-point driving `parallel_mult`, proved via
-`loop.spec_decr_nat` with measure `into.length − i.val` and the
-structural invariant that the slice length is preserved and the
-index stays within `[i₀ .. into.length]`.
-
-The result satisfies:
-
-  `a' = a`,
-  `into'.length = into.length`,
-  `into.length < i'.val + 2`   (termination),
-  `i.val ≤ i'.val ≤ into'.length`,
-  `∀ j ∈ [i.val, i'.val), into'[j].value.val.toGF216 =
-  a.value.val.toGF216 * into[j].value.val.toGF216`,
-  `∀ j ∈ [i'.val, into'.length), into'[j] = into[j]`,
-  `∀ j < i.val, into'[j] = into[j]`.
-
-The proof unfolds `parallel_mult_loop` to expose the `loop`
-combinator, then applies `loop.spec_decr_nat` with a
-length-preservation / index-bounds / value-level invariant.
-Each step is discharged by `step*` (which invokes the registered
-`parallel_mult_loop_body_spec`), followed by `simp_all` and
-`omega` for the arithmetic obligations in each branch.
 
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
@@ -332,36 +253,18 @@ theorem parallel_mult_loop_spec
         (p.1.val[j]!) = (into.val[j]!)) ∧
       (∀ j : Nat, j < i.val →
         (p.1.val[j]!) = (into.val[j]!)))
-  · -- Step: show that each body call either terminates with the
-    -- postcondition (`done`) or continues with a strictly smaller
-    -- measure and the invariant maintained (`cont`).
-    rintro ⟨into', i'⟩ ⟨hlen', hi_le, hi_bound, hval_proc, hval_unproc, hval_before⟩
+  · rintro ⟨into', i'⟩ ⟨hlen', hi_le, hi_bound, hval_proc, hval_unproc, hval_before⟩
     simp only [] at *
-    -- Provide the body spec's side condition i'.val + 2 ≤ Usize.max.
     have hi' : i'.val + 2 ≤ Std.Usize.max := by omega
     step*
     split
-    · -- `done` branch: loop guard `i' + 2 ≤ into'.length` failed;
-      -- state returned unchanged.  The value properties follow
-      -- directly from the invariant via `simp_all`.
-      simp_all[GF16toGF216]
-    · -- `cont` branch: loop guard held; index advanced by 2,
-      -- slice length preserved, measure strictly decreased.
-      -- The body spec gives us (via `step*`):
-      --   * guard, index, length, GF216 values, frame condition
-      -- Combined with the invariant, we maintain all properties.
-      --
-      -- After `step*`, the goal structure is:
-      --   ⊢ measure_decrease ∧ ⟨length, bounds, processed, unprocessed, before⟩
-      -- We use `refine` to split all conjuncts at once.
-      refine ⟨?measure, ?len, ?lo, ?proc, ?unproc, ?before, ?decr⟩
+    · simp_all[GF16toGF216]
+    · refine ⟨?measure, ?len, ?lo, ?proc, ?unproc, ?before, ?decr⟩
       case measure => simp_all
       case len => simp_all; grind
       case lo => simp_all
       case proc =>
         intro j hj_lo hj_hi
-        -- Body spec hypotheses are anonymous; access them via `‹_›`
-        -- or let `simp_all` use them.
         by_cases hji : j = i'.val
         · subst hji; simp_all
           have := hval_unproc i'.val (le_refl _) (by grind)
@@ -378,8 +281,6 @@ theorem parallel_mult_loop_spec
         have hne2 : j ≠ i'.val + 1 := by omega
         have hunproc := hval_unproc j (by omega) (by omega)
         simp_all
-        -- Extract and specialize the frame condition from body spec
-        -- (which is in getD form); the second simp_all converts to getElem form
         have hf := r_post.2.2.2.2.2 j hne1 hne2
         simp_all
       case before =>
@@ -390,17 +291,12 @@ theorem parallel_mult_loop_spec
         have hb := hval_before j (by omega)
         simp_all
       case decr => simp_all; omega
-  · -- Initial state satisfies the invariant.
-    exact ⟨rfl, le_refl _, hi,
+  · exact ⟨rfl, le_refl _, hi,
            fun _ h1 h2 => absurd h2 (by grind),
            fun j h1 h2 => rfl,
            fun j hj => rfl⟩
 
-/-! # Spec Theorem for `spqr::encoding::gf::parallel_mult`
-
-Specification and proof for `encoding.gf.parallel_mult`, the top-level
-entry point that multiplies every element of a mutable `GF16` slice by
-a shared factor `a` in GF(2¹⁶).
+/-! # Spec theorem for `spqr::encoding::gf::parallel_mult`
 
 The function processes the slice in two phases:
 
@@ -438,22 +334,7 @@ the extracted Lean version contains only the software fallback.
 **Source**: spqr/src/encoding/gf.rs (lines 566:0-579:1)
 -/
 
-/-
-natural language description:
-
-• Takes a GF(2¹⁶) multiplier `a : GF16` and a mutable slice
-  `into : Slice GF16`.
-• Runs the pair loop (`parallel_mult_loop`) starting from index 0,
-  which processes elements two at a time: for each pair
-  `(into[i], into[i+1])`, it computes the GF(2¹⁶) products
-  `a · into[i]` and `a · into[i+1]` via `mul2_u16` and writes
-  them back, advancing `i` by 2.
-• After the loop terminates (when `i + 2 > into.len()`), if there
-  is a trailing odd element (`i < into.len()`), it is multiplied
-  by `a` via `MulAssign<GF16>`.
-• Returns the updated slice.
-
-natural language specs:
+/-- **Spec theorem for `encoding.gf.parallel_mult`**:
 
 • The function always succeeds (no panic / overflow) provided
   `into.length + 2 ≤ Std.Usize.max` (mirrors the Rust
@@ -466,30 +347,6 @@ natural language specs:
     `∀ j < result.length,
        result[j].value.val.toGF216 =
          a.value.val.toGF216 * into[j].value.val.toGF216`
--/
-
-/-- **Spec and proof concerning `encoding.gf.parallel_mult`**:
-
-The top-level `parallel_mult` multiplies every element of a `GF16`
-slice by a shared factor `a`, processing consecutive pairs via
-`mul2_u16` and handling the trailing odd element (if any) with
-a single `MulAssign`.
-
-The result satisfies:
-
-  1. `result.length = into.length`
-     (matching the Rust `#[ensures(|_| future(into).len() == into.len())]`).
-
-  2. `∀ j < result.length,
-       (GF16toGF216 (result.val[j]!) : GF216) =
-         GF16toGF216 a * (GF16toGF216 (into.val[j]!) : GF216)`
-     (every element is multiplied by `a` in GF(2¹⁶)).
-
-The proof unfolds `parallel_mult` to expose the loop call and the
-trailing-element branch, then discharges the resulting goals with
-`step*` (which applies the registered `parallel_mult_loop_spec` and
-`mul_assign_spec`), followed by case analysis and the value-level
-invariants from the loop specification.
 
 **Source**: spqr/src/encoding/gf.rs (lines 566:0-579:1)
 -/

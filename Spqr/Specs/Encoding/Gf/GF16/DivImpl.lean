@@ -8,13 +8,7 @@ import Spqr.Math.Gf
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
 
-/-! # Spec Theorem for `GF16::div_impl_loop.body` (loop body 0)
-
-Specification and proof for
-`encoding.gf.GF16.div_impl_loop.body`,
-the per-iteration body of the `for _i in 1..16` loop driving
-`encoding.gf.GF16.div_impl` (Fermat-style iterated squaring used to
-compute GF(2¹⁶) division by `self · other^(2¹⁶ − 2)`).
+/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div_impl`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
 is polynomial multiplication modulo the irreducible polynomial
@@ -23,14 +17,6 @@ represented as a polynomial of degree < 16 with coefficients in
 GF(2), stored as a 16-bit unsigned integer; the `GF16` Rust type is
 the `u16` wrapper providing the field operations.
 
-Concretely, the Rust source is
-
-```rust
-for _i in 1..16 {
-    out *= square;
-    square = square * square;
-}
-```
 
 The extracted Lean body advances the `1..16` iterator by one step
 and, depending on whether the iterator is exhausted, either returns
@@ -43,22 +29,6 @@ state for the next iteration:
   2. `square1 ← MulGF16GF16.mul square square` — by-value
      `square = square * square` delegating to the same software
      multiplication kernel.
-
-Note that, unlike the `const_div` variant, the `div_impl` body
-performs the `*=` *before* the squaring, so the new `out` involves
-the **old** `square` (i.e. `out' = out · square`), while the new
-`square` is `square² = square · square`.
-
-The on-target Rust implementation may dispatch to hardware carry-less
-multiplication instructions (`PCLMULQDQ` / `PMULL`) on x86/x86_64 and
-aarch64 when the corresponding CPU feature is detected; the extracted
-Lean version contains only the unaccelerated fallback.
-
-The body introduces no additional logic beyond the two delegations
-and the iterator advance, so its postcondition is inherited from the
-underlying `mul_assign` and `mul` specifications: lifting the `u16`
-of each new field element into `GF216 = GaloisField 2 16` via
-`Nat.toGF216` yields the corresponding GF(2¹⁶) products.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
@@ -98,7 +68,6 @@ theorem next_spec (range : core.ops.range.Range Usize) :
             opt = some range.start ∧
             range'.start.val = range.start.val + 1 ∧
             range'.end = range.end) ⦄ := by
-  -- Step 1: prove an existential / equational form of the spec.
   suffices h : ∃ opt range',
       core.iter.range.IteratorRange.next core.iter.range.StepUsize range
         = ok (opt, range') ∧
@@ -110,7 +79,6 @@ theorem next_spec (range : core.ops.range.Range Usize) :
     obtain ⟨opt, range', heq, h1, h2⟩ := h
     rw [heq]; simp only [WP.spec_ok]
     exact ⟨h1, h2⟩
-  -- Step 2: prove the existential / equational form.
   simp only [core.iter.range.IteratorRange.next]
   simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
   have h_lt_iff :
@@ -140,40 +108,6 @@ theorem next_spec (range : core.ops.range.Range Usize) :
   · rw [if_neg hlt]
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-
-natural language description:
-
-• Takes the `1..16` iterator state `iter` together with the current
-  `square` and `out` accumulators (each a `GF16` wrapping a `u16`
-  representing an element of GF(2¹⁶)).
-• Advances the iterator by one step.  If exhausted, the body returns
-  `ControlFlow.done out` (loop exit, accumulator unchanged).
-  Otherwise it delegates to:
-    `encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign out square`
-  for the in-place product `out *= square`, and to
-    `encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul square square`
-  for the new squared value `square = square²`, both performing
-  carry-less polynomial multiplication followed by reduction modulo
-  POLY = 0x1100b.
-• Returns `ControlFlow.cont (iter1, square1, out1)` carrying the
-  advanced iterator and the updated accumulators.
-
-natural language specs:
-
-• The function always succeeds (no panic) for any `(iter, square, out)`,
-  since the underlying iterator advance and `unaccelerated.mul` are
-  total.
-• On `done` the result accumulator coincides with the input `out`:
-    `(result.value.val.toGF216 : GF216) = out.value.val.toGF216`.
-• On `cont (_, square', out')` the new state satisfies the iterated-
-  squaring recurrence
-    `out'.value.val.toGF216 =
-        out.value.val.toGF216 * square.value.val.toGF216`,
-    `square'.value.val.toGF216 =
-        square.value.val.toGF216 * square.value.val.toGF216`,
-  where `*` denotes multiplication in `GF216 = GaloisField 2 16`.
--/
-
 /-- **Spec theorem for `Step<i32>::forward_checked` with step 1.**
 
 `I32.Insts.CoreIterRangeStep.forward_checked` is now defined concretely
@@ -197,28 +131,19 @@ private theorem I32_forward_checked_one
       (start.val + 1 ≤ I32.max →
           ∃ z, opt = some z ∧ z.val = start.val + 1) ∧
       (¬ start.val + 1 ≤ I32.max → opt = none) := by
-  -- Unfold the concrete definition of forward_checked.
   unfold I32.Insts.CoreIterRangeStep.forward_checked
-  -- The goal is now about IScalar.tryMkOpt .I32 (start.val + ↑(1#usize).val).
-  -- Use the specification lemma for tryMkOpt.
   have htry := IScalar.tryMkOpt_eq .I32 (start.val + ↑(1#usize).val)
-  -- Replace the tryMkOpt call with a fresh variable and case-split.
   generalize IScalar.tryMkOpt .I32 (start.val + ↑(1#usize).val) = opt at htry ⊢
   cases opt with
   | none =>
-    -- htry : ¬ IScalar.inBounds .I32 (start.val + ↑(1#usize).val)
     refine ⟨none, rfl, ?_, fun _ => rfl⟩
     intro hle; exfalso; apply htry
     constructor <;> scalar_tac
   | some z =>
-    -- htry : z.val = start.val + ↑(1#usize).val ∧
-    --        IScalar.inBounds .I32 (start.val + ↑(1#usize).val)
     refine ⟨some z, rfl, fun _ => ⟨z, rfl, ?_⟩, fun h => ?_⟩
-    · -- z.val = start.val + 1
-      have hv : (↑(1#usize).val : Int) = 1 := by scalar_tac
+    · have hv : (↑(1#usize).val : Int) = 1 := by scalar_tac
       rw [hv] at htry; exact htry.1
-    · -- contradiction: inBounds implies start.val + 1 ≤ I32.max
-      exfalso; apply h
+    · exfalso; apply h
       have hv : (↑(1#usize).val : Int) = 1 := by scalar_tac
       rw [hv] at htry
       have := htry.2; simp at this; scalar_tac
@@ -249,8 +174,6 @@ private theorem IteratorRange_next_I32_ok
   by_cases hlt : iter.start.val < iter.end.val
   · rw [if_pos hlt]
     obtain ⟨opt_fc, hfc, hsome, _⟩ := I32_forward_checked_one iter.start
-    -- We know `iter.start.val + 1 ≤ I32.max` because
-    -- `iter.start.val < iter.end.val ≤ I32.max`.
     have hbound : iter.start.val + 1 ≤ I32.max := by
       have := iter.end.hBounds; scalar_tac
     obtain ⟨z, hz_opt, _⟩ := hsome hbound
@@ -261,7 +184,21 @@ private theorem IteratorRange_next_I32_ok
   · rw [if_neg hlt]
     exact ⟨none, iter, rfl⟩
 
-/-- **Per-iteration postcondition for `encoding.gf.GF16.div_impl_loop.body`**:
+/-- **Spec theorem for `encoding.gf.GF16.div_impl_loop.body`**:
+
+• The function always succeeds (no panic) for any `(iter, square, out)`,
+  since the underlying iterator advance and `unaccelerated.mul` are
+  total.
+• On `done` the result accumulator coincides with the input `out`:
+    `(result.value.val.toGF216 : GF216) = out.value.val.toGF216`.
+• On `cont (_, square', out')` the new state satisfies the iterated-
+  squaring recurrence
+    `GF16toGF216 out' =
+        GF16toGF216 out * GF16toGF216 square`,
+    `GF16toGF216 square' =
+        GF16toGF216 square * GF16toGF216 square`.
+
+**Per-iteration postcondition for `encoding.gf.GF16.div_impl_loop.body`**:
 
 One iteration of the iterated-squaring loop driving `GF16::div_impl`.
 Both branches are characterised at the GF(2¹⁶) level via
@@ -269,33 +206,16 @@ Both branches are characterised at the GF(2¹⁶) level via
 
 * **`done`** — the `1..16` iterator is exhausted; the returned
   accumulator is the unchanged `out`:
-    `result.value.val.toGF216 = out.value.val.toGF216`.
+    `GF16toGF216 result = GF16toGF216 out`.
 
 * **`cont`** — the iterator yielded another index; the new state
   `(_, square', out')` satisfies the squaring recurrence (note that,
   unlike `const_div`, the `*=` precedes the squaring, so `out'`
   involves the *old* `square`):
-    `out'.value.val.toGF216 =
-        out.value.val.toGF216 * square.value.val.toGF216`,
-    `square'.value.val.toGF216 =
-        square.value.val.toGF216 * square.value.val.toGF216`.
-
-The proof unfolds `div_impl_loop.body` to expose the iterator advance
-and its two-arm `match`.  The advance
-`core.iter.range.IteratorRange.next I32.Insts.CoreIterRangeStep iter`
-delegates (through the `Step<i32>` trait instance) to
-`I32.Insts.CoreIterRangeStep.forward_checked`, so its result cannot
-be inspected by `step*` directly.  We use the helper theorem
-`IteratorRange_next_I32_ok` to extract a successful return
-`ok (o, iter1)` and case-split on the `Option`:
-
-* in the `none` branch the body returns `ok (ControlFlow.done out)`,
-  whose postcondition is reflexively true;
-* in the `some` branch `step*` discharges the two GF(2¹⁶)
-  multiplications through the registered specifications
-  `mul_assign_spec` (above) and
-  `CoreOpsArithMulGF16GF16.mul_spec` (the GF(2¹⁶) multiplication
-  kernel imported from `Spqr.Specs.Encoding.Gf.GF16.Mul`).
+    `GF16toGF216 out' =
+        GF16toGF216 out * GF16toGF216 square`,
+    `GF16toGF216 square' =
+        GF16toGF216 square * GF16toGF216 square`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
@@ -321,29 +241,13 @@ theorem div_impl_loop_body_spec
   | some _ => step*
 
 
-/-! # Spec Theorem for `GF16::div_impl_loop` (loop 0)
-
-Specification and proof for `encoding.gf.GF16.div_impl_loop`,
-the Aeneas-extracted `loop` fixed-point driving the
-`for _i in 1..16` loop of `encoding.gf.GF16.div_impl`.  This loop
-realises the iterated-squaring core of GF(2¹⁶) division, computing
-`self · other^(2¹⁶ − 2) = self / other` from the entry-point state
-`(iter = 1..16, square = other · other, out = self)`.
+/-! # Spec theorem for `encoding.gf.GF16.div_impl_loop` (closed-form postcondition)
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
 is polynomial multiplication modulo the irreducible polynomial
 POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
 represented as a polynomial of degree < 16 with coefficients in
 GF(2), stored as a 16-bit unsigned integer.
-
-Concretely, the Rust source is
-
-```rust
-for _i in 1..16 {
-    out *= square;
-    square = square * square;
-}
-```
 
 The loop performs the canonical iterated-squaring schedule: after
 `k` iterations starting from `(square, out)`, the accumulators carry
@@ -363,18 +267,6 @@ out = self)`, the loop runs for `n = 15` iterations, giving
 
 the Fermat-style inverse `other⁻¹ = other^(2¹⁶ − 2)` multiplied by
 `self`, i.e. the GF(2¹⁶) quotient `self / other`.
-
-The on-target Rust implementation may dispatch to hardware carry-less
-multiplication instructions (`PCLMULQDQ` / `PMULL`) on x86/x86_64 and
-aarch64 when the corresponding CPU feature is detected; the extracted
-Lean version contains only the unaccelerated fallback.
-
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
-`Spqr.Math.Gf`; the per-iteration body specification
-(`div_impl_loop_body_spec`, registered `@[step]`, together with the
-helper theorem `IteratorRange_next_I32_ok` for the `Range<i32>`
-iterator) is imported from `Spqr.Specs.Encoding.Gf.GF16.DivImplLoopBofy`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
@@ -413,24 +305,15 @@ private theorem IteratorRange_next_I32_post
           opt = some iter.start ∧
           iter1.start.val = iter.start.val + 1 ∧
           iter1.end = iter.end) := by
-  -- Step 1: unfold `next` and simplify the transparent Clone/PartialOrd
-  -- dispatches; this leaves only the opaque `forward_checked` call.
   simp only [core.iter.range.IteratorRange.next]
   simp only [liftFun2, liftFun1, core.clone.impls.CloneI32.clone, bind_tc_ok]
-  -- Step 2: rewrite the Bool-valued `PartialOrdI32.lt` comparison to the
-  -- matching `Prop`-level `<` so that `by_cases` / `if_pos` / `if_neg`
-  -- can resolve the branch.
   have h_lt_iff :
       (core.cmp.impls.PartialOrdI32.lt iter.start iter.end = true) =
       (iter.start.val < iter.end.val) := by
     simp [core.cmp.impls.PartialOrdI32.lt]
   simp only [h_lt_iff]
   by_cases hlt : iter.start.val < iter.end.val
-  · -- Positive branch: the iterator still has an element.
-    rw [if_pos hlt]
-    -- `forward_checked iter.start 1#usize` returns `ok (some z)` with
-    -- `z.val = iter.start.val + 1`, because the bounds of `iter.end : I32`
-    -- guarantee `iter.start.val + 1 ≤ I32.max`.
+  · rw [if_pos hlt]
     have hbound : iter.start.val + 1 ≤ I32.max := by
       have := iter.end.hBounds; scalar_tac
     obtain ⟨opt_fc, hfc, hsome, _⟩ := I32_forward_checked_one iter.start
@@ -443,8 +326,7 @@ private theorem IteratorRange_next_I32_post
            rfl,
            fun h => absurd hlt h,
            fun _ => ⟨rfl, hz_val, rfl⟩⟩
-  · -- Negative branch: the range is exhausted.
-    rw [if_neg hlt]
+  · rw [if_neg hlt]
     exact ⟨none, iter, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /-- **Closed-form postcondition for `encoding.gf.GF16.div_impl_loop`**:
@@ -452,58 +334,32 @@ private theorem IteratorRange_next_I32_post
 The iterated-squaring loop driving `GF16::div_impl`, specified at
 the GF(2¹⁶) level by the closed-form iterated-squaring identity:
 
-  `result.value.val.toGF216 =
-       out.value.val.toGF216 *
-       square.value.val.toGF216 ^ (2 ^ (iter.end.val − iter.start.val).toNat − 1)`.
+  `GF16toGF216 result =
+       GF16toGF216 out *
+       GF16toGF216 square ^
+            (2 ^ (iter.end.val - iter.start.val).toNat - 1)`.
 
 Specialised to the entry point `(iter, square, out) = (1..16,
 other², self)` this collapses to
 `self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`, i.e. division
 in GF(2¹⁶).
 
-The proof applies `loop.spec_decr_nat` with measure
-`(iter'.end.val − iter'.start.val).toNat` and the inductive invariant
-that, at any intermediate state `(iter', square', out')` with
-`iter.start.val ≤ iter'.start.val ≤ iter.end.val` and
-`iter'.end = iter.end`,
-
-  `square'.value.val.toGF216 =
-       square.value.val.toGF216 ^ (2 ^ (iter'.start.val − iter.start.val).toNat)`,
-  `out'.value.val.toGF216 =
-       out.value.val.toGF216 *
-       square.value.val.toGF216 ^ (2 ^ (iter'.start.val − iter.start.val).toNat − 1)`.
-
-The active step uses `IteratorRange_next_I32_post` to extract the
-relationship between `iter'` and the advanced iterator, then
-`CoreOpsArithMulAssignGF16_mul_assign_spec` and
-`CoreOpsArithMulGF16GF16.mul_spec` (registered `@[step]`) discharge
-the two GF(2¹⁶) multiplications.  The routine commutative-ring
-exponent identities
-
-  `(square^(2^k))² = square^(2^(k+1))`,
-  `square^(2^k − 1) · square^(2^k) = square^(2^(k+1) − 1)`,
-
-are settled by `omega` on the exponents (after `pow_succ` and
-`pow_add` rewriting).  The `done` branch forces
-`iter'.start.val = iter.end.val`, at which point the invariant
-already coincides with the postcondition.
-
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
 theorem div_impl_loop_spec
-    (iter : core.ops.range.Range Std.I32)
-    (square out : spqr.encoding.gf.GF16)
+    (iter : core.ops.range.Range I32)
+    (square out : GF16)
     (h_le : iter.start.val ≤ iter.end.val) :
-    div_impl_loop iter square out ⦃ result =>
-      (GF16toGF216 result : GF216) =
-       GF16toGF216 out *
-          GF16toGF216 square ^
+    div_impl_loop iter square out ⦃ (result : GF16) =>
+      GF16toGF216 result =
+        GF16toGF216 out *
+        GF16toGF216 square ^
             (2 ^ (iter.end.val - iter.start.val).toNat - 1) ⦄ := by
   unfold div_impl_loop
   apply loop.spec_decr_nat
-    (measure := fun p : core.ops.range.Range Std.I32 × GF16 × GF16 =>
+    (measure := fun p : core.ops.range.Range I32 × GF16 × GF16 =>
                   (p.1.end.val - p.1.start.val).toNat)
-    (inv := fun p : core.ops.range.Range Std.I32 × GF16 × GF16 =>
+    (inv := fun p : core.ops.range.Range I32 × GF16 × GF16 =>
         p.1.end = iter.end ∧
         iter.start.val ≤ p.1.start.val ∧
         p.1.start.val ≤ iter.end.val ∧
@@ -523,12 +379,10 @@ theorem div_impl_loop_spec
     rw [hnext]
     simp only [bind_tc_ok]
     by_cases h_lt : iter'.start.val < iter'.end.val
-    · -- `cont` branch: the iterator yielded another index.
-      obtain ⟨h_opt, h_start1, h_end1⟩ := h_cont h_lt
+    · obtain ⟨h_opt, h_start1, h_end1⟩ := h_cont h_lt
       rw [h_opt]
       simp only
       step*
-      -- Useful equality on the exponent index.
       have hk1 :
           (iter1.start.val - iter.start.val).toNat =
             (iter'.start.val - iter.start.val).toNat + 1 := by
@@ -540,20 +394,14 @@ theorem div_impl_loop_spec
         rw [Int.toNat_add (by omega) (by omega)]
         simp
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · -- `iter1.end = iter.end`
-        rw [h_end1]; exact h_end
-      · -- `iter.start.val ≤ iter1.start.val`
+      · rw [h_end1]; exact h_end
+      · rw [h_start1]; omega
+      · have : iter'.end.val = iter.end.val := by rw [← h_end]
         rw [h_start1]; omega
-      · -- `iter1.start.val ≤ iter.end.val`: from `iter'.start.val + 1 ≤ iter'.end.val`
-        --                                  and `iter'.end = iter.end`.
-        have : iter'.end.val = iter.end.val := by rw [← h_end]
-        rw [h_start1]; omega
-      · -- new square as a power of the original
-        simp only [GF16toGF216]at square1_post
+      · simp only [GF16toGF216]at square1_post
         rw [square1_post, h_sq, ← pow_add, hk1, pow_succ]
         ring_nf
-      · -- new out as a power of the original
-        simp only [GF16toGF216] at out1_post
+      · simp only [GF16toGF216] at out1_post
         rw [out1_post, h_sq, h_out, mul_assoc, ← pow_add]
         have h_2le :
             2 ≤ 2 ^ ((iter'.start.val - iter.start.val).toNat + 1) := by
@@ -566,8 +414,7 @@ theorem div_impl_loop_spec
             2 ^ (iter1.start.val - iter.start.val).toNat - 1 := by
           rw [hk1, pow_succ]; omega
         rw [h_eq]
-      · -- measure strictly decreases
-        rw [h_start1, h_end1]
+      · rw [h_start1, h_end1]
         have h_pos : 0 < iter'.end.val - iter'.start.val := by omega
         have h_eq : iter'.end.val - (iter'.start.val + 1) =
                       (iter'.end.val - iter'.start.val) - 1 := by ring
@@ -583,8 +430,7 @@ theorem div_impl_loop_spec
           have : (1 : Int) ≤ iter'.end.val - iter'.start.val := by omega
           omega
         omega
-    · -- `done` branch: the iterator is exhausted.
-      obtain ⟨h_opt, _⟩ := h_done h_lt
+    · obtain ⟨h_opt, _⟩ := h_done h_lt
       rw [h_opt]
       simp only [WP.spec_ok]
       have h_end' : iter'.end.val = iter.end.val := by rw [← h_end]
@@ -595,20 +441,14 @@ theorem div_impl_loop_spec
         rw [h_start_eq]
       rw [← h_k_eq]
       exact h_out
-  · -- initial invariant: `k = 0`
-    refine ⟨rfl, le_refl _, h_le, ?_, ?_⟩
+  · refine ⟨rfl, le_refl _, h_le, ?_, ?_⟩
     · simp only [Int.sub_self, Int.toNat_zero, pow_zero, pow_one]
     · simp only [Int.sub_self, Int.toNat_zero, pow_zero,
         Nat.sub_self, mul_one]
 
-/-! # Spec Theorem for `GF16::div_impl`
+/-! # Spec theorem for `encoding.gf.GF16.div_impl` (Fermat-style division via iterated squaring)
 
-Specification and proof for `encoding.gf.GF16.div_impl`,
-which implements GF(2¹⁶) division `self / other` on the `GF16`
-wrapper by Fermat-style iterated squaring, delegating its actual
-computation to the extracted `for`-loop driver `div_impl_loop`.
-
-In GF(2¹⁶) — the Galois field with 65 536 elements — every non-zero
+In GF(2¹⁶) — the Galois field with 65536 elements — every non-zero
 element `b` satisfies `b^(2¹⁶ − 1) = 1`, so the multiplicative
 inverse is `b⁻¹ = b^(2¹⁶ − 2)` and `a / b = a · b^(2¹⁶ − 2)`.  The
 exponent `2¹⁶ − 2 = 2 · (2¹⁵ − 1)` is computed by iterated
@@ -630,41 +470,11 @@ The function proceeds in two stages:
      squaring body for 15 rounds, returning the final accumulator
      `out = self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`.
 
-The on-target Rust implementation may dispatch to hardware carry-less
-multiplication instructions (`PCLMULQDQ` / `PMULL`) on x86/x86_64 and
-aarch64 when the corresponding CPU feature is detected; the extracted
-Lean version contains only the unaccelerated fallback.
-
-The shared polynomial-library facts (`natToGF2Poly`, `POLY_GF2`,
-`POLY_GF2_monic`, `Nat.toGF216`, `φ`, etc.) are imported from
-`Spqr.Math.Gf`; the underlying GF(2¹⁶) multiplication kernel
-(`CoreOpsArithMulGF16GF16.mul_spec`, registered `@[step]`) is
-imported from `Spqr.Specs.Encoding.Gf.GF16.Mul`; the closed-form
-loop specification (`div_impl_loop_spec`) is imported from
-`Spqr.Specs.Encoding.Gf.GF16.DivImplLoop0`.
-
 **Source**: spqr/src/encoding/gf.rs (lines 446:4-456:5)
 -/
 
 
-/-
-natural language description:
-
-• Takes two `GF16` field elements `self` and `other` (each wrapping a
-  `u16` value representing an element of GF(2¹⁶)) and computes the
-  GF(2¹⁶) quotient `self / other` by Fermat-style iterated squaring.
-• Initialises `square := other · other` by delegating to the
-  by-value `Mul<GF16> for GF16` instance
-    `encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul`,
-  which itself defers to the software carry-less multiplication
-  `encoding.gf.unaccelerated.mul`.
-• Drives the `for _i in 1..16` loop via
-    `encoding.gf.GF16.div_impl_loop {start := 1, end := 16} square self`,
-  which runs 15 iterations of `out := out · square; square := square²`.
-• Returns the final accumulator
-    `out = self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`.
-
-natural language specs:
+/-- **Spec theorem for `encoding.gf.GF16.div_impl`**:
 
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since the underlying `unaccelerated.mul` and the loop
@@ -672,70 +482,26 @@ natural language specs:
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 *
-        other.value.val.toGF216 ^ (2 ^ 16 − 2)`
+    `(GF16toGF216 result : GF216) =
+        GF16toGF216 self *
+        GF16toGF216 other ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
   `other^(2¹⁶ − 2) = other⁻¹` and the right-hand side is genuinely
   the field quotient `self / other`.
--/
-
-/-- **Spec and proof concerning `encoding.gf.GF16.div_impl`**:
-
-`div_impl` computes GF(2¹⁶) division `self / other` on the `GF16`
-wrapper by Fermat-style iterated squaring.  After initialising
-`square := other · other` and `out := self`, the loop
-`div_impl_loop {start := 1, end := 16} square self`
-runs 15 iterations of
-
-  `out := out · square;  square := square²`,
-
-producing `out = self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`.
-
-The result satisfies the GF(2¹⁶)-level postcondition:
-
-  `(result.value.val.toGF216 : GF216) =
-       self.value.val.toGF216 *
-       other.value.val.toGF216 ^ (2 ^ 16 − 2)`,
-
-i.e. the GF(2¹⁶) quotient `self · other^(2¹⁶ − 2)`.  When
-`other ≠ 0`, Fermat's little theorem in GF(2¹⁶) gives
-`other^(2¹⁶ − 1) = 1`, so `other^(2¹⁶ − 2) = other⁻¹` and the
-right-hand side is genuinely `self / other`.
-
-The proof unfolds `div_impl` to expose the initial squaring
-(handled by the registered `CoreOpsArithMulGF16GF16.mul_spec` via
-`step*`) and the subsequent loop call.  The closed-form
-`div_impl_loop_spec` is provided as a hypothesis (parametric in the
-intermediate `square` introduced by the prior `Mul<GF16>` step) so
-that `step*` can specialise it to the concrete loop entry-point
-`(iter, square, out) = ({start := 1, end := 16}, other², self)`.
-
-The remaining algebraic gap
-
-  `(other²)^(2¹⁵ − 1) = other^(2 · (2¹⁵ − 1)) = other^(2¹⁶ − 2)`
-
-is settled by rewriting `other · other` to `other^2`, applying
-`pow_mul` to merge the nested exponent, and discharging the
-resulting numeric identity `2 · (2¹⁵ − 1) = 2¹⁶ − 2` with `decide`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 446:4-456:5)
 -/
 @[step]
-theorem div_impl_spec (self other : spqr.encoding.gf.GF16) :
+theorem div_impl_spec (self other : GF16) :
     div_impl self other ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
+      GF16toGF216 result = GF16toGF216 self * GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
   unfold div_impl
   have h_loop := fun (square : spqr.encoding.gf.GF16) =>
     div_impl_loop_spec { start := 1#i32, «end» := 16#i32 } square self
       (by scalar_tac)
   step*
-  -- Close the algebraic gap:
-  --   `(other · other) ^ (2 ^ (16 - 1).toNat - 1) = other ^ (2 ^ 16 - 2)`.
   rw [result_post, square_post,
       show (GF16toGF216 other * GF16toGF216 other : GF216)
             = GF16toGF216 other ^ 2 from by ring,
