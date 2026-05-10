@@ -1123,7 +1123,7 @@ i-th Lagrange basis polynomial scaled to produce `pᵢ.y` at `pᵢ.x`.
 
 @[step]
 theorem lagrange_interpolate_complete_spec
-    (self : Poly) (pts : Slice Pt) (i : Std.Usize)
+    (self : Poly) (pts : Slice Pt) (i : Usize)
     (hi : i.val < pts.val.length)
     (hlen : 0 < self.coefficients.val.length)
     (heval : self.evalAt (pts.val.get ⟨i.val, hi⟩).x = 0) :
