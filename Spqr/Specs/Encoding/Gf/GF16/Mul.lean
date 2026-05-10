@@ -28,8 +28,7 @@ In the extracted Lean it reduces to a single call to
 **Source**: spqr/src/encoding/gf.rs (lines 515:4-519:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
+open Aeneas Aeneas.Std Result spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16
 
