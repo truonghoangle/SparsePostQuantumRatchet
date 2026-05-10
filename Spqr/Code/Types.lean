@@ -13,6 +13,9 @@ set_option linter.style.whitespace false
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
 
+/- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
+set_option maxRecDepth 2048
+
 namespace spqr
 
 /-- Trait declaration: [core::borrow::Borrow]
@@ -548,8 +551,7 @@ inductive proto.pq_ratchet.Version where
 
 /-- [spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::closure]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 49:41-49:55 -/
-def proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure (T0 : Type) :=
   Option proto.pq_ratchet.pq_ratchet_state.Inner × proto.pq_ratchet.V1State
 
 /-- [spqr::proto::pq_ratchet::Chunk]
@@ -581,38 +583,32 @@ structure proto.pq_ratchet.V1Msg where
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × proto.pq_ratchet.Chunk
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#1]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1 (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × proto.pq_ratchet.Chunk
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#2]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2 (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × proto.pq_ratchet.Chunk
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#3]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3 (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × Bool
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#4]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4 (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × proto.pq_ratchet.Chunk
 
 /-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#5]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
-def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5 (T0 : Type) :=
   Option proto.pq_ratchet.v1_msg.InnerMsg × proto.pq_ratchet.Chunk
 
 /-- [spqr::proto::pq_ratchet::v1_state::Unchunked]
@@ -638,78 +634,67 @@ def proto.pq_ratchet.v1_state.Chunked := Unit
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.KeysUnsampled
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#1]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_1 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_1 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.KeysSampled
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#2]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_2 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_2 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.HeaderSent
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#3]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_3 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_3 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.Ct1Received
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#4]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_4 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_4 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.EkSentCt1Received
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#5]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_5 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_5 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.NoHeaderReceived
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#6]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_6 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_6 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.HeaderReceived
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#7]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_7 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_7 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.Ct1Sampled
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#8]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_8 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_8 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.EkReceivedCt1Sampled
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#9]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_9 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_9 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.Ct1Acknowledged
 
 /-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#10]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
-def proto.pq_ratchet.v1_state.InnerState.merge.closure_10 {T0 : Type}
-  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :=
+def proto.pq_ratchet.v1_state.InnerState.merge.closure_10 (T0 : Type) :=
   Option proto.pq_ratchet.v1_state.InnerState ×
   proto.pq_ratchet.v1_state.chunked.Ct2Sampled
 
@@ -992,8 +977,7 @@ structure encoding.Encoder (Self : Type) where
     Visibility: public -/
 structure encoding.polynomial.PolyDecoder where
   pts_needed : Std.Usize
-  pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
-    16#usize
+  pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize
   is_complete : Bool
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure]

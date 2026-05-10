@@ -1,7 +1,7 @@
 # Aeneas extraction configuration
 
 aeneas:
-  commit: "1180be60" # pinned commit hash
+  commit: "1ca2a067" # pinned commit hash
   repo: "https://github.com/AeneasVerif/aeneas.git"
 
 # Upstream Rust crate we are verifying
@@ -176,7 +176,7 @@ tweaks:
       replace: "\n  take := sorry"
 
     # Sorry proto enum partial_cmp bodies (PartialCmpI32 doesn't exist in Aeneas stdlib)
-    - find: "ok (core.cmp.impls.PartialCmpI32.partial_cmp self1 other1)"
+    - find: "ok (core.cmp.impls.PartialOrdI32.partial_cmp self1 other1)"
       replace: "sorry"
 
     # Add missing fields to proto enum PartialOrd instances
@@ -186,6 +186,14 @@ tweaks:
     # Add missing fields to proto enum Ord instances
     - regex: "(cmp := proto\\.pq_ratchet\\.\\w+\\.Insts\\.CoreCmpOrd\\.cmp\\n)\\}"
       replace: "$1  max := sorry\n  min := sorry\n  clamp := sorry\n}"
+
+    # Replace all remaining SortedSet encoding.polynomial.Pt) with the Ord instance
+    # (substitution #16 above handles the struct field in Types.lean; this regex
+    # catches every other occurrence in Funs.lean where Pt is used as a bare type
+    # argument instead of the required Ord instance)
+    - regex: "SortedSet(\\s+)encoding\\.polynomial\\.Pt\\)"
+      replace: "SortedSet$1encoding.polynomial.Pt.Insts.CoreCmpOrd)"
+  
 
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
     - regex: "(def (?:encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
@@ -199,23 +207,9 @@ tweaks:
     - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
-    # Replace the auto-generated `GF16::Mul::mul` definition with a
-    # concrete `MulAssign::mul_assign` body that delegates to the
-    # unaccelerated multiplication routine. The `MulAssign` impl is marked
-    # opaque in the extraction config (because the Rust source dispatches
-    # to platform-specific SIMD code via `accelerated::mul`), but for
-    # verification we want a concrete, unaccelerated definition. We also
-    # re-emit the surrounding `Mul::mul` definition unchanged so the
-    # downstream call sites still type-check.
+    # Insert concrete MulAssign body before Mul::mul (opaque because Rust dispatches to SIMD)
     - find: |
         /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
-            Source: 'src/encoding/gf.rs', lines 515:4-519:5
-            Visibility: public -/
-        def encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul
-          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-          Result encoding.gf.GF16
-          := do
-          encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
       replace: |
         /-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
             Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
@@ -227,54 +221,13 @@ tweaks:
           ok { value := i }
 
         /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
-            Source: 'src/encoding/gf.rs', lines 515:4-519:5
-            Visibility: public -/
-        def encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul
-          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-          Result encoding.gf.GF16
-          := do
-          encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
 
-
-    # Replace the auto-generated `mul2_u16` axiom (declared opaque in the
-    # extraction config because the Rust source dispatches to platform-specific
-    # SIMD intrinsics via `accelerated::mul2`) with a concrete definition that
-    # delegates to the unaccelerated implementation, so downstream proofs can
-    # reduce calls to it.
-    #
-    # Additionally, patch the body of `parallel_mult_loop.body` that immediately
-    # follows: Aeneas extracts the second component returned by `mul2_u16` as
-    # `_` and writes `()` into the slice (because the original axiom returned
-    # `Result (U16 × U16)` whose second projection was unused upstream). With
-    # the concrete definition above, both lanes of the parallel multiplication
-    # are meaningful, so we rebind the second result to `v3` and store
-    # `{ value := v3 }` at index `i3` instead of `()`, matching the Rust
-    # semantics.
+    # Insert concrete mul2_u16 body before parallel_mult loop (opaque because Rust dispatches to SIMD)
     - find: |
         /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
-            Source: 'src/encoding/gf.rs', lines 570:4-575:5
-            Visibility: public -/
-        @[rust_loop_body]
-        def encoding.gf.parallel_mult_loop.body
-          (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
-          Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
-            × (Slice encoding.gf.GF16) × Std.Usize))
-          := do
-          let i1 ← i + 2#usize
-          let i2 := Slice.len into
-          if i1 <= i2
-          then
-            let g ← Slice.index_usize into i
-            let i3 ← i + 1#usize
-            let g1 ← Slice.index_usize into i3
-            let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value
-            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-            let s ← Slice.update into1 i3 ()
-            ok (cont (s, i1))
-          else ok (done (a, into, i))
       replace: |
         /-- [spqr::encoding::gf::mul2_u16]:
-            Source: 'src/encoding/gf.rs', lines 581:0-590:1 
+            Source: 'src/encoding/gf.rs', lines 581:0-590:1
             Visibility: public -/
         def encoding.gf.mul2_u16
           (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
@@ -282,23 +235,17 @@ tweaks:
           encoding.gf.unaccelerated.mul2 a b1 b2
 
         /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
-            Source: 'src/encoding/gf.rs', lines 570:4-575:5
-            Visibility: public -/
-        @[rust_loop_body]
-        def encoding.gf.parallel_mult_loop.body
-          (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
-          Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
-            × (Slice encoding.gf.GF16) × Std.Usize))
-          := do
-          let i1 ← i + 2#usize
-          let i2 := Slice.len into
-          if i1 <= i2
-          then
-            let g ← Slice.index_usize into i
-            let i3 ← i + 1#usize
-            let g1 ← Slice.index_usize into i3
-            let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value
-            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-            let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)  
-            ok (cont (s, i1))
-          else ok (done (a, into, i))
+
+    # Fix parallel_mult: bind both mul2_u16 results instead of discarding second
+    - find: "let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value"
+      replace: "let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value"
+
+    # Fix parallel_mult: store GF16 value instead of unit
+    - find: "let s ← Slice.update into1 i3 ()"
+      replace: "let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)"
+
+    - find: |
+        (sorted_vec.SortedSet T) := {
+      replace: |
+        (sorted_vec.SortedSet corecmpOrdInst) := {
+

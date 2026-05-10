@@ -14,6 +14,9 @@ set_option linter.style.whitespace false
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
 
+/- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
+set_option maxRecDepth 2048
+
 /- You can remove the following line by using the CLI option `-all-computable`: -/
 noncomputable section
 
@@ -214,7 +217,7 @@ def libcrux_ml_kem.ind_cca.incremental.types.Error.Insts.CoreFmtDebug :
   fmt := libcrux_ml_kem.ind_cca.incremental.types.Error.Insts.CoreFmtDebug.fmt
 }
 
-/-- Trait implementation: [sorted_vec::{core::clone::Clone for sorted_vec::SortedSet<T>[TraitClause@1]}]
+/-- Trait implementation: [sorted_vec::{core::clone::Clone for sorted_vec::SortedSet<T>}]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 38:9-38:14
     Name pattern: [core::clone::Clone<sorted_vec::SortedSet<@T>>] -/
 @[reducible, rust_trait_impl "core::clone::Clone<sorted_vec::SortedSet<@T>>"]
@@ -2443,28 +2446,25 @@ def proto.pq_ratchet.pq_ratchet_state.VersionNegotiation.set_min_version
   let i ← lift (IScalar.cast .I32 value1)
   ok { self with min_version := i }
 
-/-- [spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::closure<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::closure<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 49:41-49:55 -/
 def
   proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure T0) (_ : Unit) :
+  Result (proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure T0)
   := do
   let (_, vs) := c
   ok (some (proto.pq_ratchet.pq_ratchet_state.Inner.V1 vs), vs)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::closure<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::pq_ratchet_state::{spqr::proto::pq_ratchet::pq_ratchet_state::Inner}::merge::closure<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 49:41-49:55 -/
 @[reducible]
 def
   proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.pq_ratchet_state.Inner.merge.closure T0) Unit Unit := {
   call_once := sorry
 }
 
@@ -2840,147 +2840,135 @@ def proto.pq_ratchet.V1Msg.Insts.CoreDefaultDefault : core.default.Default
   default := proto.pq_ratchet.V1Msg.Insts.CoreDefaultDefault.default
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure bytesbufbuf_implBufInst)
-  (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure T0)
   := do
   let (_, c1) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.Hdr c1), c1)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
-  core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure
-  bytesbufbuf_implBufInst) Unit Unit := {
+  core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure T0)
+  Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#1<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#1<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1 T0)
   := do
   let (_, c1) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.Ek c1), c1)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#1<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#1<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_1
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#2<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#2<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2 T0)
   := do
   let (_, c1) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.EkCt1Ack c1), c1)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#2<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#2<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_2
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#3<0, 1, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#3<0, 1, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3 T0)
   := do
   let (_, b) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.Ct1Ack b), b)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#3<0, 1, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#3<0, 1, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_3
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#4<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#4<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4 T0)
   := do
   let (_, c1) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.Ct1 c1), c1)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#4<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#4<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_4
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#5<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#5<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5 T0)
   := do
   let (_, c1) := c
   ok (some (proto.pq_ratchet.v1_msg.InnerMsg.Ct2 c1), c1)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#5<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_msg::{spqr::proto::pq_ratchet::v1_msg::InnerMsg}::merge::closure#5<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 73:41-73:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_msg.InnerMsg.merge.closure_5
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
@@ -4357,278 +4345,246 @@ def proto.pq_ratchet.v1_state.chunked.Ct2Sampled.Insts.CoreDefaultDefault :
     proto.pq_ratchet.v1_state.chunked.Ct2Sampled.Insts.CoreDefaultDefault.default
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure T0)
   := do
   let (_, ku) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.KeysUnsampled ku), ku)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce (proto.pq_ratchet.v1_state.InnerState.merge.closure
-  bytesbufbuf_implBufInst) Unit Unit := {
+  T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#1<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#1<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_1.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_1
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_1
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_1 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_1 T0)
   := do
   let (_, ks) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.KeysSampled ks), ks)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#1<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#1<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_1.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_1
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_1 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#2<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#2<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_2.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_2
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_2
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_2 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_2 T0)
   := do
   let (_, hs) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.HeaderSent hs), hs)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#2<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#2<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_2.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_2
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_2 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#3<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#3<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_3.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_3
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_3
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_3 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_3 T0)
   := do
   let (_, cr) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.Ct1Received cr), cr)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#3<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#3<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_3.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_3
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_3 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#4<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#4<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_4.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_4
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_4
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_4 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_4 T0)
   := do
   let (_, escr) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.EkSentCt1Received escr), escr)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#4<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#4<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_4.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_4
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_4 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#5<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#5<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_5.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_5
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_5
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_5 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_5 T0)
   := do
   let (_, nhr) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.NoHeaderReceived nhr), nhr)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#5<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#5<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_5.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_5
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_5 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#6<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#6<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_6.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_6
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_6
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_6 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_6 T0)
   := do
   let (_, hr) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.HeaderReceived hr), hr)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#6<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#6<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_6.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_6
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_6 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#7<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#7<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_7.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_7
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_7
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_7 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_7 T0)
   := do
   let (_, cs) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.Ct1Sampled cs), cs)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#7<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#7<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_7.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_7
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_7 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#8<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#8<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_8.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_8
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_8
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_8 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_8 T0)
   := do
   let (_, ercs) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.EkReceivedCt1Sampled ercs),
     ercs)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#8<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#8<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_8.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_8
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_8 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#9<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#9<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_9.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_9
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_9
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_9 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_9 T0)
   := do
   let (_, ca) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.Ct1Acknowledged ca), ca)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#9<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#9<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_9.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_9
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_9 T0) Unit Unit := {
   call_once := sorry
 }
 
-/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#10<0, T0>[TraitClause@0]}::call_once]:
+/-- [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#10<0, T0>}::call_once]:
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_10.Insts.CoreOpsFunctionFnOnceTupleTupleTuple.call_once
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0)
-  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_10
-  bytesbufbuf_implBufInst) (_ : Unit) :
-  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_10
-    bytesbufbuf_implBufInst)
+  (c : proto.pq_ratchet.v1_state.InnerState.merge.closure_10 T0) (_ : Unit) :
+  Result (proto.pq_ratchet.v1_state.InnerState.merge.closure_10 T0)
   := do
   let (_, cs) := c
   ok (some (proto.pq_ratchet.v1_state.InnerState.Ct2Sampled cs), cs)
 
-/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#10<0, T0>[TraitClause@0]}]
+/-- Trait implementation: [spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::{core::ops::function::FnOnce<(()), ()> for spqr::proto::pq_ratchet::v1_state::{spqr::proto::pq_ratchet::v1_state::InnerState}::merge::closure#10<0, T0>}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 296:41-296:55 -/
 @[reducible]
 def
   proto.pq_ratchet.v1_state.InnerState.merge.closure_10.Insts.CoreOpsFunctionFnOnceTupleTupleTuple
   {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
   core.ops.function.FnOnce
-  (proto.pq_ratchet.v1_state.InnerState.merge.closure_10
-  bytesbufbuf_implBufInst) Unit Unit := {
+  (proto.pq_ratchet.v1_state.InnerState.merge.closure_10 T0) Unit Unit := {
   call_once := sorry
 }
 
@@ -5739,6 +5695,7 @@ def chain.KeyHistory.remove
   let (v, my_array_index1) ←
     if i1 < i2
     then
+      do
       let i3 := alloc.vec.Vec.len self.data
       let new_end ← i3 - i
       let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut self.data)
@@ -5888,20 +5845,18 @@ def chain.KeyHistory.get
   let i := alloc.vec.Vec.len self.data
   let i1 ← chain.KeyHistory.KEY_SIZE
   let left_val ← i % i1
-  if left_val = 0#usize
-  then
-    let i2 ← chain.ChainParams.max_ooo_keys_or_default params
-    let i3 ← at1 + i2
-    if i3 < current_ctr
-    then ok (core.result.Result.Err (Error.KeyTrimmed at1), self)
-    else
-      let want ← lift (core.num.U32.to_be_bytes at1)
-      let i4 := alloc.vec.Vec.len self.data
-      let iter ←
-        core.iter.range.IteratorRange.step_by core.iter.range.StepUsize
-          { start := 0#usize, «end» := i4 } i1
-      chain.KeyHistory.get_loop i1 iter self.data at1 params want
-  else fail panic
+  massert (left_val = 0#usize)
+  let i2 ← chain.ChainParams.max_ooo_keys_or_default params
+  let i3 ← at1 + i2
+  if i3 < current_ctr
+  then ok (core.result.Result.Err (Error.KeyTrimmed at1), self)
+  else
+    let want ← lift (core.num.U32.to_be_bytes at1)
+    let i4 := alloc.vec.Vec.len self.data
+    let iter ←
+      core.iter.range.IteratorRange.step_by core.iter.range.StepUsize
+        { start := 0#usize, «end» := i4 } i1
+    chain.KeyHistory.get_loop i1 iter self.data at1 params want
 
 /-- [spqr::chain::{spqr::chain::ChainEpochDirection}::new]:
     Source: 'src/chain.rs', lines 212:4-218:5 -/
@@ -6820,7 +6775,8 @@ def encoding.gf.unaccelerated.poly_mul_loop.body
     let i1 ← lift (b &&& i)
     let acc1 ←
       if 0#u16 != i1
-      then let i2 ← me <<< shift
+      then do
+           let i2 ← me <<< shift
            ok (acc ^^^ i2)
       else ok acc
     let shift1 ← shift + 1#u32
@@ -7224,7 +7180,7 @@ def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16 : core.ops.arith.Div
 }
 
 /-- [spqr::encoding::gf::mul2_u16]:
-    Source: 'src/encoding/gf.rs', lines 581:0-590:1 
+    Source: 'src/encoding/gf.rs', lines 581:0-590:1
     Visibility: public -/
 def encoding.gf.mul2_u16
   (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
@@ -7249,7 +7205,7 @@ def encoding.gf.parallel_mult_loop.body
     let g1 ← Slice.index_usize into i3
     let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value
     let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-    let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)  
+    let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)
     ok (cont (s, i1))
   else ok (done (a, into, i))
 
@@ -7774,9 +7730,8 @@ def encoding.polynomial.Poly.lagrange_interpolate_prepare
   let b ←
     encoding.gf.GF16.Insts.CoreCmpPartialEqGF16.eq left_val
       encoding.gf.GF16.ONE
-  if b
-  then ok p1
-  else fail panic
+  massert b
+  ok p1
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate]: loop body 1:
     Source: 'src/encoding/polynomial.rs', lines 131:12-134:13 -/
@@ -8129,6 +8084,7 @@ def encoding.polynomial.PolyConst.mult_xdiff_loop0.body
     let xp1 ←
       if i1 < i
       then
+        do
         let g ← Array.index_usize a i1
         let i2 ← i1 + 1#usize
         Array.update xp i2 g
@@ -9542,7 +9498,7 @@ def encoding.polynomial.PolyDecoder.necessary_points
   then points_per_poly + 1#usize
   else ok points_per_poly
 
-/-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnMut<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>[spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}]> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}::call_mut]:
+/-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnMut<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}::call_mut]:
     Source: 'src/encoding/polynomial.rs', lines 788:38-788:58 -/
 def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt.call_mut
@@ -9554,7 +9510,7 @@ def
   let ss ← sorted_vec.SortedSet.new encoding.polynomial.Pt.Insts.CoreCmpOrd
   ok (ss, c)
 
-/-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnOnce<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>[spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}]> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}::call_once]:
+/-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnOnce<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}::call_once]:
     Source: 'src/encoding/polynomial.rs', lines 788:38-788:58 -/
 def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt.call_once
@@ -9567,7 +9523,7 @@ def
       c i
   ok ss
 
-/-- Trait implementation: [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnOnce<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>[spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}]> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}]
+/-- Trait implementation: [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnOnce<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}]
     Source: 'src/encoding/polynomial.rs', lines 788:38-788:58 -/
 @[reducible]
 def
@@ -9579,7 +9535,7 @@ def
     encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt.call_once
 }
 
-/-- Trait implementation: [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnMut<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>[spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}]> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}]
+/-- Trait implementation: [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::{core::ops::function::FnMut<(usize), sorted_vec::SortedSet<spqr::encoding::polynomial::Pt>> for spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure}]
     Source: 'src/encoding/polynomial.rs', lines 788:38-788:58 -/
 @[reducible]
 def
@@ -9666,12 +9622,11 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
     Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.into_pb_loop0.body
-  (iter : core.slice.iter.Iter (sorted_vec.SortedSet
-  encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8)) :
   Result (ControlFlow ((core.slice.iter.Iter (sorted_vec.SortedSet
-    encoding.polynomial.Pt.Insts.CoreCmpOrd)) × (alloc.vec.Vec (alloc.vec.Vec
-    Std.U8))) (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
+    encoding.polynomial.Pt.Insts.CoreCmpOrd)) × (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
+    (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
   := do
   let (o, iter1) ← core.slice.iter.IteratorSliceIter.next iter
   match o with
@@ -9700,8 +9655,7 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0.body
     Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
 @[rust_loop]
 def encoding.polynomial.PolyDecoder.into_pb_loop0
-  (iter : core.slice.iter.Iter (sorted_vec.SortedSet
-  encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8)) :
   Result (alloc.vec.Vec (alloc.vec.Vec Std.U8))
   := do
@@ -9736,11 +9690,9 @@ def encoding.polynomial.PolyDecoder.into_pb
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0.body
   (pts : alloc.vec.Vec Std.U8)
-  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
-  (j : Std.Usize) :
-  Result (ControlFlow ((sorted_vec.SortedSet
-    encoding.polynomial.Pt.Insts.CoreCmpOrd) × Std.Usize)
-    (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) (j : Std.Usize) :
+  Result (ControlFlow ((sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) ×
+    Std.Usize) (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
   := do
   let i ← j + 4#usize
   let i1 := alloc.vec.Vec.len pts
@@ -9770,8 +9722,7 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0.body
 @[rust_loop]
 def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0
   (pts : alloc.vec.Vec Std.U8)
-  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
-  (j : Std.Usize) :
+  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) (j : Std.Usize) :
   Result (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
   := do
   loop
@@ -9785,12 +9736,10 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0
 def encoding.polynomial.PolyDecoder.from_pb_loop0.body
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
   (iter : core.ops.range.Range Std.Usize)
-  (out_pts : Array (sorted_vec.SortedSet
-  encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
+  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Array
+    (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize)) (Array
     (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize))
-    (Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
-    16#usize))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
@@ -9819,10 +9768,8 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0.body
 def encoding.polynomial.PolyDecoder.from_pb_loop0
   (iter : core.ops.range.Range Std.Usize)
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
-  (out_pts : Array (sorted_vec.SortedSet
-  encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
-  Result (Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
-    16#usize)
+  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
+  Result (Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize)
   := do
   loop
     (fun (iter1, out_pts1) =>
@@ -11779,22 +11726,19 @@ def v1.unchunked.send_ct.NoHeaderReceived.recv_header
   (hdr : alloc.vec.Vec Std.U8) (mac : alloc.vec.Vec Std.U8) :
   Result (core.result.Result v1.unchunked.send_ct.HeaderReceived Error)
   := do
-  if epoch = self.epoch
-  then
-    let s := alloc.vec.Vec.deref hdr
-    let s1 := alloc.vec.Vec.deref mac
-    let r ← authenticator.Authenticator.verify_hdr self.auth self.epoch s s1
-    let cf ←
-      core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
-    match cf with
-    | core.ops.control_flow.ControlFlow.Continue _ =>
-      ok (core.result.Result.Ok
-        { epoch := self.epoch, auth := self.auth, hdr })
-    | core.ops.control_flow.ControlFlow.Break residual =>
-      core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
-        v1.unchunked.send_ct.HeaderReceived Error.Insts.CoreConvertFromError
-        residual
-  else fail panic
+  massert (epoch = self.epoch)
+  let s := alloc.vec.Vec.deref hdr
+  let s1 := alloc.vec.Vec.deref mac
+  let r ← authenticator.Authenticator.verify_hdr self.auth self.epoch s s1
+  let cf ←
+    core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
+  match cf with
+  | core.ops.control_flow.ControlFlow.Continue _ =>
+    ok (core.result.Result.Ok { epoch := self.epoch, auth := self.auth, hdr })
+  | core.ops.control_flow.ControlFlow.Break residual =>
+    core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+      v1.unchunked.send_ct.HeaderReceived Error.Insts.CoreConvertFromError
+      residual
 
 /-- [spqr::v1::chunked::send_ct::{spqr::v1::chunked::send_ct::NoHeaderReceived}::recv_hdr_chunk]:
     Source: 'src/v1/chunked/send_ct.rs', lines 82:4-107:5
@@ -11805,45 +11749,41 @@ def v1.chunked.send_ct.NoHeaderReceived.recv_hdr_chunk
   Result (core.result.Result v1.chunked.send_ct.NoHeaderReceivedRecvChunk
     Error)
   := do
-  if epoch = self.uc.epoch
-  then
-    let receiving_hdr ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
-        self.receiving_hdr chunk
-    let o ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
-        receiving_hdr
-    match o with
-    | none =>
+  massert (epoch = self.uc.epoch)
+  let receiving_hdr ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
+      self.receiving_hdr chunk
+  let o ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
+      receiving_hdr
+  match o with
+  | none =>
+    ok (core.result.Result.Ok
+      (v1.chunked.send_ct.NoHeaderReceivedRecvChunk.StillReceiving
+      { self with receiving_hdr }))
+  | some hdr =>
+    let i ← incremental_mlkem768.HEADER_SIZE
+    let (mac, hdr1) ←
+      alloc.vec.Vec.split_off core.core.clone.CloneGlobal hdr i
+    let i1 ← incremental_mlkem768.ENCAPSULATION_KEY_SIZE
+    let receiving_ek ←
+      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i1
+    let r ←
+      v1.unchunked.send_ct.NoHeaderReceived.recv_header self.uc epoch hdr1 mac
+    let cf ←
+      core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let pd ←
+        core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
+          receiving_ek (toStr "should be able to decode EncapsulationKey size")
       ok (core.result.Result.Ok
-        (v1.chunked.send_ct.NoHeaderReceivedRecvChunk.StillReceiving
-        { self with receiving_hdr }))
-    | some hdr =>
-      let i ← incremental_mlkem768.HEADER_SIZE
-      let (mac, hdr1) ←
-        alloc.vec.Vec.split_off core.core.clone.CloneGlobal hdr i
-      let i1 ← incremental_mlkem768.ENCAPSULATION_KEY_SIZE
-      let receiving_ek ←
-        encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i1
-      let r ←
-        v1.unchunked.send_ct.NoHeaderReceived.recv_header self.uc epoch hdr1
-          mac
-      let cf ←
-        core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
-      match cf with
-      | core.ops.control_flow.ControlFlow.Continue val =>
-        let pd ←
-          core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
-            receiving_ek (toStr
-            "should be able to decode EncapsulationKey size")
-        ok (core.result.Result.Ok
-          (v1.chunked.send_ct.NoHeaderReceivedRecvChunk.Done
-          { uc := val, receiving_ek := pd }))
-      | core.ops.control_flow.ControlFlow.Break residual =>
-        core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
-          v1.chunked.send_ct.NoHeaderReceivedRecvChunk (core.convert.FromSame
-          Error) residual
-  else fail panic
+        (v1.chunked.send_ct.NoHeaderReceivedRecvChunk.Done
+        { uc := val, receiving_ek := pd }))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+        v1.chunked.send_ct.NoHeaderReceivedRecvChunk (core.convert.FromSame
+        Error) residual
 
 /-- [spqr::v1::chunked::send_ct::{spqr::v1::chunked::send_ct::NoHeaderReceived}::epoch]:
     Source: 'src/v1/chunked/send_ct.rs', lines 109:4-111:5
@@ -11960,21 +11900,19 @@ def v1.unchunked.send_ct.Ct1Sent.recv_ek
   (ek : alloc.vec.Vec Std.U8) :
   Result (core.result.Result v1.unchunked.send_ct.Ct1SentEkReceived Error)
   := do
-  if epoch = self.epoch
+  massert (epoch = self.epoch)
+  let b ← incremental_mlkem768.ek_matches_header ek self.hdr
+  if b
   then
-    let b ← incremental_mlkem768.ek_matches_header ek self.hdr
-    if b
-    then
-      ok (core.result.Result.Ok
-        {
-          epoch := self.epoch,
-          auth := self.auth,
-          es := self.es,
-          ek,
-          ct1 := self.ct1
-        })
-    else ok (core.result.Result.Err Error.ErroneousDataReceived)
-  else fail panic
+    ok (core.result.Result.Ok
+      {
+        epoch := self.epoch,
+        auth := self.auth,
+        es := self.es,
+        ek,
+        ct1 := self.ct1
+      })
+  else ok (core.result.Result.Err Error.ErroneousDataReceived)
 
 /-- [spqr::v1::chunked::send_ct::{spqr::v1::chunked::send_ct::Ct1Sampled}::recv_ek_chunk]:
     Source: 'src/v1/chunked/send_ct.rs', lines 165:4-197:5
@@ -12063,15 +12001,13 @@ def v1.chunked.send_ct.EkReceivedCt1Sampled.recv_ct1_ack
   (self : v1.chunked.send_ct.EkReceivedCt1Sampled) (epoch : Std.U64) :
   Result v1.chunked.send_ct.Ct2Sampled
   := do
-  if epoch = self.uc.epoch
-  then
-    let (uc, ct2, mac) ←
-      v1.unchunked.send_ct.Ct1SentEkReceived.send_ct2 self.uc
-    let s := alloc.vec.Vec.deref ct2
-    let s1 := alloc.vec.Vec.deref mac
-    let pe ← v1.chunked.send_ct.send_ct2_encoder s s1
-    ok { uc, sending_ct2 := pe }
-  else fail panic
+  massert (epoch = self.uc.epoch)
+  let (uc, ct2, mac) ←
+    v1.unchunked.send_ct.Ct1SentEkReceived.send_ct2 self.uc
+  let s := alloc.vec.Vec.deref ct2
+  let s1 := alloc.vec.Vec.deref mac
+  let pe ← v1.chunked.send_ct.send_ct2_encoder s s1
+  ok { uc, sending_ct2 := pe }
 
 /-- [spqr::v1::chunked::send_ct::{spqr::v1::chunked::send_ct::EkReceivedCt1Sampled}::epoch]:
     Source: 'src/v1/chunked/send_ct.rs', lines 242:4-244:5
@@ -12145,9 +12081,8 @@ def v1.unchunked.send_ct.Ct2Sent.recv_next_epoch
   Result v1.unchunked.send_ek.KeysUnsampled
   := do
   let left_val ← self.epoch + 1#u64
-  if left_val = next_epoch
-  then ok { epoch := left_val, auth := self.auth }
-  else fail panic
+  massert (left_val = next_epoch)
+  ok { epoch := left_val, auth := self.auth }
 
 /-- [spqr::v1::chunked::send_ct::{spqr::v1::chunked::send_ct::Ct2Sampled}::recv_next_epoch]:
     Source: 'src/v1/chunked/send_ct.rs', lines 295:4-298:5
@@ -12947,26 +12882,24 @@ def v1.chunked.send_ek.KeysSampled.recv_ct1_chunk
   (chunk : encoding.Chunk) :
   Result v1.chunked.send_ek.HeaderSent
   := do
-  if epoch = self.uc.epoch
-  then
-    let i ← incremental_mlkem768.CIPHERTEXT1_SIZE
-    let decoder ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i
-    let receiving_ct1 ←
-      core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
-        decoder (toStr "should be able to decode header size")
-    let receiving_ct11 ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
-        receiving_ct1 chunk
-    let (uc, ek) ← v1.unchunked.send_ek.HeaderSent.send_ek self.uc
-    let s := alloc.vec.Vec.deref ek
-    let encoder ←
-      encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes s
-    let sending_ek ←
-      core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
-        encoder (toStr "should be able to send ek")
-    ok { uc, sending_ek, receiving_ct1 := receiving_ct11 }
-  else fail panic
+  massert (epoch = self.uc.epoch)
+  let i ← incremental_mlkem768.CIPHERTEXT1_SIZE
+  let decoder ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i
+  let receiving_ct1 ←
+    core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug decoder
+      (toStr "should be able to decode header size")
+  let receiving_ct11 ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
+      receiving_ct1 chunk
+  let (uc, ek) ← v1.unchunked.send_ek.HeaderSent.send_ek self.uc
+  let s := alloc.vec.Vec.deref ek
+  let encoder ←
+    encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes s
+  let sending_ek ←
+    core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug encoder
+      (toStr "should be able to send ek")
+  ok { uc, sending_ek, receiving_ct1 := receiving_ct11 }
 
 /-- [spqr::v1::chunked::send_ek::{spqr::v1::chunked::send_ek::KeysSampled}::epoch]:
     Source: 'src/v1/chunked/send_ek.rs', lines 99:4-101:5
@@ -12995,9 +12928,8 @@ def v1.unchunked.send_ek.EkSent.recv_ct1
   (ct1 : alloc.vec.Vec Std.U8) :
   Result v1.unchunked.send_ek.EkSentCt1Received
   := do
-  if epoch = self.epoch
-  then ok { epoch := self.epoch, auth := self.auth, dk := self.dk, ct1 }
-  else fail panic
+  massert (epoch = self.epoch)
+  ok { epoch := self.epoch, auth := self.auth, dk := self.dk, ct1 }
 
 /-- [spqr::v1::chunked::send_ek::{spqr::v1::chunked::send_ek::HeaderSent}::recv_ct1_chunk]:
     Source: 'src/v1/chunked/send_ek.rs', lines 130:4-148:5
@@ -13007,23 +12939,21 @@ def v1.chunked.send_ek.HeaderSent.recv_ct1_chunk
   (chunk : encoding.Chunk) :
   Result v1.chunked.send_ek.HeaderSentRecvChunk
   := do
-  if epoch = self.uc.epoch
-  then
-    let receiving_ct1 ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
-        self.receiving_ct1 chunk
-    let o ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
-        receiving_ct1
-    match o with
-    | none =>
-      ok (v1.chunked.send_ek.HeaderSentRecvChunk.StillReceiving
-        { self with receiving_ct1 })
-    | some decoded =>
-      let uc ← v1.unchunked.send_ek.EkSent.recv_ct1 self.uc epoch decoded
-      ok (v1.chunked.send_ek.HeaderSentRecvChunk.Done
-        { uc, sending_ek := self.sending_ek })
-  else fail panic
+  massert (epoch = self.uc.epoch)
+  let receiving_ct1 ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
+      self.receiving_ct1 chunk
+  let o ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
+      receiving_ct1
+  match o with
+  | none =>
+    ok (v1.chunked.send_ek.HeaderSentRecvChunk.StillReceiving
+      { self with receiving_ct1 })
+  | some decoded =>
+    let uc ← v1.unchunked.send_ek.EkSent.recv_ct1 self.uc epoch decoded
+    ok (v1.chunked.send_ek.HeaderSentRecvChunk.Done
+      { uc, sending_ek := self.sending_ek })
 
 /-- [spqr::v1::chunked::send_ek::{spqr::v1::chunked::send_ek::HeaderSent}::epoch]:
     Source: 'src/v1/chunked/send_ek.rs', lines 150:4-152:5
@@ -13052,23 +12982,21 @@ def v1.chunked.send_ek.Ct1Received.recv_ct2_chunk
   (chunk : encoding.Chunk) :
   Result v1.chunked.send_ek.EkSentCt1Received
   := do
-  if epoch = self.uc.epoch
-  then
-    let i ← incremental_mlkem768.CIPHERTEXT2_SIZE
-    let i1 ← i + authenticator.Authenticator.MACSIZE
-    let i2 ← i1 % 2#usize
-    massert (i2 = 0#usize)
-    let i3 ← i + authenticator.Authenticator.MACSIZE
-    let decoder ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i3
-    let receiving_ct2 ←
-      core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
-        decoder (toStr "should be able to decode ct2+mac size")
-    let receiving_ct21 ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
-        receiving_ct2 chunk
-    ok { uc := self.uc, receiving_ct2 := receiving_ct21 }
-  else fail panic
+  massert (epoch = self.uc.epoch)
+  let i ← incremental_mlkem768.CIPHERTEXT2_SIZE
+  let i1 ← i + authenticator.Authenticator.MACSIZE
+  let i2 ← i1 % 2#usize
+  massert (i2 = 0#usize)
+  let i3 ← i + authenticator.Authenticator.MACSIZE
+  let decoder ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i3
+  let receiving_ct2 ←
+    core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug decoder
+      (toStr "should be able to decode ct2+mac size")
+  let receiving_ct21 ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
+      receiving_ct2 chunk
+  ok { uc := self.uc, receiving_ct2 := receiving_ct21 }
 
 /-- [spqr::v1::chunked::send_ek::{spqr::v1::chunked::send_ek::Ct1Received}::epoch]:
     Source: 'src/v1/chunked/send_ek.rs', lines 181:4-183:5
@@ -13136,45 +13064,42 @@ def v1.chunked.send_ek.EkSentCt1Received.recv_ct2_chunk
   Result (core.result.Result v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk
     Error)
   := do
-  if epoch = self.uc.epoch
-  then
-    let receiving_ct2 ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
-        self.receiving_ct2 chunk
-    let o ←
-      encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
-        receiving_ct2
-    match o with
-    | none =>
+  massert (epoch = self.uc.epoch)
+  let receiving_ct2 ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk
+      self.receiving_ct2 chunk
+  let o ←
+    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
+      receiving_ct2
+  match o with
+  | none =>
+    ok (core.result.Result.Ok
+      (v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.StillReceiving
+      { self with receiving_ct2 }))
+  | some ct2 =>
+    let i ← incremental_mlkem768.CIPHERTEXT2_SIZE
+    let (mac, ct21) ←
+      alloc.vec.Vec.split_off core.core.clone.CloneGlobal ct2 i
+    let r ← v1.unchunked.send_ek.EkSentCt1Received.recv_ct2 self.uc ct21 mac
+    let cf ←
+      core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
+    match cf with
+    | core.ops.control_flow.ControlFlow.Continue val =>
+      let (uc, sec) := val
+      let i1 ← incremental_mlkem768.HEADER_SIZE
+      let i2 ← i1 + authenticator.Authenticator.MACSIZE
+      let decoder ←
+        encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i2
+      let pd ←
+        core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
+          decoder (toStr "should be able to decode header size")
       ok (core.result.Result.Ok
-        (v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.StillReceiving
-        { self with receiving_ct2 }))
-    | some ct2 =>
-      let i ← incremental_mlkem768.CIPHERTEXT2_SIZE
-      let (mac, ct21) ←
-        alloc.vec.Vec.split_off core.core.clone.CloneGlobal ct2 i
-      let r ←
-        v1.unchunked.send_ek.EkSentCt1Received.recv_ct2 self.uc ct21 mac
-      let cf ←
-        core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r
-      match cf with
-      | core.ops.control_flow.ControlFlow.Continue val =>
-        let (uc, sec) := val
-        let i1 ← incremental_mlkem768.HEADER_SIZE
-        let i2 ← i1 + authenticator.Authenticator.MACSIZE
-        let decoder ←
-          encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new i2
-        let pd ←
-          core.result.Result.expect encoding.EncodingError.Insts.CoreFmtDebug
-            decoder (toStr "should be able to decode header size")
-        ok (core.result.Result.Ok
-          (v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.Done
-          ({ uc, receiving_hdr := pd }, sec)))
-      | core.ops.control_flow.ControlFlow.Break residual =>
-        core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
-          v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk (core.convert.FromSame
-          Error) residual
-  else fail panic
+        (v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk.Done
+        ({ uc, receiving_hdr := pd }, sec)))
+    | core.ops.control_flow.ControlFlow.Break residual =>
+      core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+        v1.chunked.send_ek.EkSentCt1ReceivedRecvChunk (core.convert.FromSame
+        Error) residual
 
 /-- [spqr::v1::chunked::send_ek::{spqr::v1::chunked::send_ek::EkSentCt1Received}::epoch]:
     Source: 'src/v1/chunked/send_ek.rs', lines 225:4-227:5
