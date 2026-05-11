@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 /-! # Spec theorem for `spqr::encoding::gf::GF16::ZERO`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — the zero element
@@ -27,7 +27,7 @@ to the additive identity `0 : GF216`.  This follows because:
 -/
 
 open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf
+open Polynomial spqr.encoding.gf spqr.math.gf
 namespace spqr.encoding.gf.GF16
 
 /-- **Spec theorem for `encoding.gf.GF16.ZERO`**:

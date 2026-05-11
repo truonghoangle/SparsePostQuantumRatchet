@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 
 /-! # Spec theorem for `spqr::encoding::gf::unaccelerated::poly_mul`
 
@@ -34,6 +34,7 @@ re-proving them.
 
 open Aeneas Aeneas.Std Result
 open Polynomial
+open spqr.math.gf
 namespace spqr.encoding.gf.unaccelerated
 
 /-- Spec-level carry-less (XOR-based) polynomial multiplication.

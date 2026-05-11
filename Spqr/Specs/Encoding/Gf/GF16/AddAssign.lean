@@ -5,7 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Mathlib.Data.Nat.Bitwise
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 /-!
 # Spec theorem for `spqr::encoding::gf::{impl ops::AddAssign<&GF16> for GF16}::add_assign`
 
@@ -28,8 +28,7 @@ since every element is its own additive inverse (`a + a = 0`).
 **Source**: spqr/src/encoding/gf.rs (lines 28:4-31:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.gf
+open Aeneas Aeneas.Std Result spqr.math.gf spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16
 

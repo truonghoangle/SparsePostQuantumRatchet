@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul2
 
 /-! # Spec theorem for `encoding::gf::mul2_u16`
@@ -27,6 +27,7 @@ so the postcondition is inherited verbatim from `mul2_spec'` /
 open Aeneas Aeneas.Std Result
 open Polynomial
 open spqr.encoding.gf.unaccelerated
+open spqr.math.gf
 
 namespace spqr.encoding.gf
 

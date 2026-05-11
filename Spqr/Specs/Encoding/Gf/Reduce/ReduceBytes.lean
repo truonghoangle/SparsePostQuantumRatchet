@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 import Mathlib.RingTheory.Polynomial.Basic
@@ -13,7 +13,7 @@ import Mathlib.RingTheory.Polynomial.Basic
 -/
 
 open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf.unaccelerated
+open Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
 
 namespace spqr.encoding.gf.reduce
 

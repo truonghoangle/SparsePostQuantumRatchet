@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Mathlib.RingTheory.Polynomial.Basic
 
 /-! # GF(2¹⁶)[X] Polynomial Library
@@ -49,7 +49,7 @@ Conventions:
 
 open Aeneas Aeneas.Std Result
 open Polynomial
-open spqr.encoding.gf
+open spqr.encoding.gf spqr.math.gf
 
 abbrev GF216Poly := GF216[X]
 

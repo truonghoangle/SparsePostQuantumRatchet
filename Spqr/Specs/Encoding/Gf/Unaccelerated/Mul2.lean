@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
 
 /-! # Spec theorem for `spqr::encoding::gf::unaccelerated::mul2`
@@ -32,6 +32,7 @@ representative of the polynomial product, obtained by composing
 -/
 
 open Aeneas Aeneas.Std Result Polynomial
+open spqr.math.gf
 
 namespace spqr.encoding.gf.unaccelerated
 

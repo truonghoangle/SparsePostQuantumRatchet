@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Gf.GF16.Sub
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
@@ -45,7 +45,7 @@ addition:
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
 -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
+open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.math.gf
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 

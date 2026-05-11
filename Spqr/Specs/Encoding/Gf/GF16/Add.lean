@@ -24,8 +24,7 @@ since every element is its own additive inverse (`a + a = 0`).
 **Source**: spqr/src/encoding/gf.rs (lines 53:4-57:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.gf
+open Aeneas Aeneas.Std Result spqr.math.gf spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithAddGF16GF16
 

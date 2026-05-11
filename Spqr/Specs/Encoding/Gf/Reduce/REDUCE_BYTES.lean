@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
 /-! # Spec theorem for `spqr::encoding::gf::reduce::REDUCE_BYTES`
 
@@ -32,7 +32,7 @@ fails and never depends on any input.
 **Source**: spqr/src/encoding/gf.rs (lines 435:4-435:52)
 -/
 
-open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
 
 namespace spqr.encoding.gf.reduce
 

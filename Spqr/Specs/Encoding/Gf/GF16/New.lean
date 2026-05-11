@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 /-! # Spec theorem for `spqr::encoding::gf::GF16::new`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — every element

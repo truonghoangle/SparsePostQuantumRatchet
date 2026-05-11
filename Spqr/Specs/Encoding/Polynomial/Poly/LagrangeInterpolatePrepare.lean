@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Gf.GF16.Eq
@@ -249,6 +249,25 @@ After the loop completes with range `iter.start..iter.end`:
      `result.coefficients.length = p.coefficients.length`.
 2. The leading coefficient (position `offset`) is unchanged:
      `result.coefficients[offset]? = p.coefficients[offset]?`.
+3. The leading coefficient at position `offset` is preserved
+   under `GF16toGF216` (the map from the implementation type
+   `GF16` to the mathematical field `GF216 = GF(2¹⁶)`):
+     `GF16toGF216 result.coefficients[offset] =
+        GF16toGF216 p.coefficients[offset]`.
+4. All positions outside the modified range
+   `[offset − iter.end, offset − 1]` are unchanged:
+     `result.coefficients[j]? = p.coefficients[j]?`
+   for `j` not in `{k | offset − iter.end ≤ k ∧ k < offset}`.
+5. **Trailing polynomial identity** (NEW): For each position
+   `m` in the trailing sub-polynomial range
+   `[offset − (iter.end − iter.start), offset]`, the coefficient
+   at that position in the result matches the `m`-th coefficient
+   of the expected trailing polynomial
+   `expectedTrailingPoly p.coefficients pts offset iter.start k`,
+   which is defined by the recurrence:
+     `S₀ = C(GF16toGF216 p[offset])`
+     `S_{k+1} = C(GF16toGF216 p[offset−(k+1)]) +
+                (X − C(GF16toGF216 pts[iter.start+k].x)) · Sₖ`
 
 The correctness of each step relies on the body specification
 (`LagrangeInterpolatePrepareLoopBoby0.body_spec`), which guarantees
@@ -262,6 +281,210 @@ position `offset` is never in the carry range `j + 1 < len`).
 -/
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
+
+open Polynomial
+
+private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
+    {k : Nat}
+    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
+    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
+  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
+  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
+  rw [h1, h2] at h
+  exact Option.some_injective _ h
+
+/-! ## Mathematical specification functions
+
+The following definitions capture the mathematical content of the
+loop: `prodLinearFactors` is the target product polynomial, and
+`expectedTrailingPoly` tracks the evolving trailing sub-polynomial
+through each iteration of the loop, accounting for the initial
+coefficients of `p`. -/
+
+/-- **Product of linear factors**
+`∏_{j=start}^{stop−1} (X − C(GF16toGF216 pts[j].x))`.
+
+This is the target polynomial that `lagrange_interpolate_prepare`
+constructs.  It returns `1` when `start ≥ stop` or
+`start ≥ pts.length` (empty product). -/
+noncomputable def prodLinearFactors
+    (pts : List Pt) (start stop : Nat) : GF216Poly :=
+  if h : start < stop ∧ start < pts.length then
+    (X - C (GF16toGF216 (pts.get ⟨start, h.2⟩).x)) *
+      prodLinearFactors pts (start + 1) stop
+  else 1
+termination_by stop - start
+
+/-- When `start ≥ stop` or `start ≥ pts.length`, the product is `1`
+(empty product). -/
+@[simp]
+lemma prodLinearFactors_base (pts : List Pt) (start stop : Nat)
+    (h : ¬(start < stop ∧ start < pts.length)) :
+    prodLinearFactors pts start stop = 1 := by
+  unfold prodLinearFactors; rw [dif_neg h]
+
+/-- One-step unfolding of `prodLinearFactors` from the left. -/
+lemma prodLinearFactors_step (pts : List Pt) (start stop : Nat)
+    (h1 : start < stop) (h2 : start < pts.length) :
+    prodLinearFactors pts start stop =
+      (X - C (GF16toGF216 (pts.get ⟨start, h2⟩).x)) *
+        prodLinearFactors pts (start + 1) stop := by
+  conv_lhs => unfold prodLinearFactors
+  rw [dif_pos ⟨h1, h2⟩]
+
+/-- One-step unfolding of `prodLinearFactors` from the right
+(snoc form).  Uses commutativity of polynomial multiplication. -/
+private lemma prodLinearFactors_snoc_aux (pts : List Pt) (stop : Nat)
+    (h2 : stop < pts.length) :
+    ∀ d s, s + d = stop → s ≤ stop →
+      prodLinearFactors pts s (stop + 1) =
+        prodLinearFactors pts s stop *
+          (X - C (GF16toGF216 (pts.get ⟨stop, h2⟩).x)) := by
+  intro d
+  induction d with
+  | zero =>
+    intro s hs hle
+    have hseq : stop = s := by omega
+    subst hseq
+    rw [prodLinearFactors_step pts stop (stop + 1) (by omega) h2,
+        prodLinearFactors_base pts (stop + 1) (stop + 1) (by omega),
+        prodLinearFactors_base pts stop stop (by omega)]
+    ring
+  | succ n ih =>
+    intro s hs hle
+    rw [prodLinearFactors_step pts s (stop + 1) (by omega) (by omega),
+        prodLinearFactors_step pts s stop (by omega) (by omega)]
+    rw [ih (s + 1) (by omega) (by omega)]
+    ring
+
+lemma prodLinearFactors_snoc (pts : List Pt) (start stop : Nat)
+    (h1 : start ≤ stop) (h2 : stop < pts.length) :
+    prodLinearFactors pts start (stop + 1) =
+      prodLinearFactors pts start stop *
+        (X - C (GF16toGF216 (pts.get ⟨stop, h2⟩).x)) :=
+  prodLinearFactors_snoc_aux pts stop h2 (stop - start) start (by omega) h1
+
+/-- Evaluation of `prodLinearFactors` at a root is zero. -/
+lemma prodLinearFactors_eval_root (pts : List Pt) (start stop : Nat)
+    (j : Nat) (hj1 : start ≤ j) (hj2 : j < stop) (hj3 : j < pts.length) :
+    (prodLinearFactors pts start stop).eval
+      (GF16toGF216 (pts.get ⟨j, hj3⟩).x) = 0 := by
+  -- Induction on the number of linear factors (stop - start)
+  suffices h : ∀ (d : Nat) (start : Nat), stop - start = d → start ≤ j →
+      (prodLinearFactors pts start stop).eval
+        (GF16toGF216 (pts.get ⟨j, hj3⟩).x) = 0 from
+    h (stop - start) start rfl hj1
+  intro d
+  induction d with
+  | zero => intro start hd; omega
+  | succ n ih =>
+    intro start hd hj1'
+    rw [prodLinearFactors_step pts start stop (by omega) (by omega)]
+    simp only [eval_mul]
+    by_cases hjs : j = start
+    · subst hjs; simp [eval_sub, eval_X, eval_C]
+    · have := ih (start + 1) (by omega) (by omega)
+      rw [this]; ring
+
+/-- **Expected trailing sub-polynomial** after `k` iterations.
+
+Defined by the recurrence:
+  `S₀ = C(GF16toGF216 p_coeffs[offset]!)`
+  `S_{k+1} = C(GF16toGF216 p_coeffs[offset − (k + 1)]!) +
+             (X − C(GF16toGF216 pts[iter_start + k]!.x)) · Sₖ`
+
+This tracks the compound effect of `k` calls to
+`mult_xdiff_assign_trailing` on the trailing sub-polynomial
+rooted at position `offset`.  After `k` iterations, the
+sub-polynomial at positions `[offset − k, …, offset]` equals
+`expectedTrailingPoly p_coeffs pts offset iter_start k`. -/
+noncomputable def expectedTrailingPoly
+    (p_coeffs : List GF16) (pts : List Pt)
+    (offset iter_start : Nat) : Nat → GF216Poly
+  | 0 => C (GF16toGF216 p_coeffs[offset]!)
+  | k + 1 =>
+    C (GF16toGF216 p_coeffs[offset - (k + 1)]!) +
+    (X - C (GF16toGF216 pts[iter_start + k]!.x)) *
+      expectedTrailingPoly p_coeffs pts offset iter_start k
+
+/-- Base case: the expected trailing polynomial after 0 iterations
+is just the constant `C(GF16toGF216 p[offset]!)`. -/
+@[simp]
+lemma expectedTrailingPoly_zero (p_coeffs : List GF16) (pts : List Pt)
+    (offset iter_start : Nat) :
+    expectedTrailingPoly p_coeffs pts offset iter_start 0 =
+      C (GF16toGF216 p_coeffs[offset]!) := rfl
+
+/-- Step case: one-step unfolding of `expectedTrailingPoly`. -/
+lemma expectedTrailingPoly_succ (p_coeffs : List GF16) (pts : List Pt)
+    (offset iter_start k : Nat) :
+    expectedTrailingPoly p_coeffs pts offset iter_start (k + 1) =
+      C (GF16toGF216 p_coeffs[offset - (k + 1)]!) +
+      (X - C (GF16toGF216 pts[iter_start + k]!.x)) *
+        expectedTrailingPoly p_coeffs pts offset iter_start k := rfl
+
+/-- **Bridge lemma**: When the initial polynomial has `p[offset] = ONE`
+and `p[j] = ZERO` for `j < offset`, the expected trailing polynomial
+collapses to `prodLinearFactors`. -/
+lemma expectedTrailingPoly_eq_prodLinearFactors
+    (p_coeffs : List GF16) (pts : List Pt) (offset : Nat)
+    (h_leading : GF16toGF216 p_coeffs[offset]! = 1)
+    (h_zeros : ∀ j, j < offset → GF16toGF216 p_coeffs[j]! = 0)
+    (h_pts : offset ≤ pts.length) :
+    ∀ k, k ≤ offset →
+      expectedTrailingPoly p_coeffs pts offset 0 k =
+        prodLinearFactors pts 0 k := by
+  intro k hk
+  induction k with
+  | zero =>
+    rw [expectedTrailingPoly_zero, prodLinearFactors_base pts 0 0 (by omega),
+        h_leading, map_one]
+  | succ n ih =>
+    rw [expectedTrailingPoly_succ]
+    have hn_le : n ≤ offset := by omega
+    rw [ih hn_le]
+    have h_zero : GF16toGF216 p_coeffs[offset - (n + 1)]! = 0 := by
+      apply h_zeros; omega
+    rw [h_zero, map_zero, zero_add]
+    have h_n_lt : n < pts.length := by omega
+    rw [prodLinearFactors_snoc pts 0 n (by omega) h_n_lt]
+    conv_lhs =>
+      rw [show GF16toGF216 pts[0 + n]!.x = GF16toGF216 (pts.get ⟨n, h_n_lt⟩).x from by
+        congr 1; congr 1; rw [Nat.zero_add]; exact getElem!_pos pts n h_n_lt]
+    ring
+
+/-- Coefficient 0 of `C a + (X - C b) * P` equals `a - b * P.coeff 0`. -/
+private lemma coeff_zero_C_add_X_sub_C_mul {R : Type*} [CommRing R]
+    (a b : R) (P : R[X]) :
+    (C a + (X - C b) * P).coeff 0 = a - b * P.coeff 0 := by
+  rw [sub_mul, coeff_add, coeff_sub, coeff_C_zero, coeff_X_mul_zero, coeff_C_mul]
+  ring
+
+/-- For any `n`, coefficient `n + 1` of `C a + (X - C b) * P` equals
+    `P.coeff n - b * P.coeff (n + 1)`. -/
+private lemma coeff_succ_C_add_X_sub_C_mul {R : Type*} [CommRing R]
+    (a b : R) (P : R[X]) (n : ℕ) :
+    (C a + (X - C b) * P).coeff (n + 1) = P.coeff n - b * P.coeff (n + 1) := by
+  rw [sub_mul, coeff_add, coeff_sub, coeff_X_mul, coeff_C_mul]
+  have : (C a).coeff (n + 1) = 0 := by rw [coeff_C]; exact if_neg (by omega)
+  rw [this]; ring
+
+/-- Coefficients of `expectedTrailingPoly` beyond degree `k` are zero. -/
+private lemma expectedTrailingPoly_coeff_eq_zero
+    (p_coeffs : List GF16) (pts : List Pt)
+    (offset iter_start k n : Nat) (hn : k < n) :
+    (expectedTrailingPoly p_coeffs pts offset iter_start k).coeff n = 0 := by
+  induction k generalizing n with
+  | zero =>
+    simp only [expectedTrailingPoly_zero, coeff_C]
+    exact if_neg (by omega)
+  | succ k ih =>
+    cases n with
+    | zero => omega
+    | succ n' =>
+      rw [expectedTrailingPoly_succ, coeff_succ_C_add_X_sub_C_mul,
+          ih n' (by omega), ih (n' + 1) (by omega)]
+      ring
 
 /-- **Closed-form postcondition for
 `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`**:
@@ -277,6 +500,25 @@ each step calling `mult_xdiff_assign_trailing(offset − i, pts[i].x)`
 • **Length preserved**: `result.coefficients.length = p.coefficients.length`.
 • **Leading coefficient unchanged**:
     `result.coefficients[offset]? = p.coefficients[offset]?`.
+• **GF16toGF216 leading coefficient preserved**:
+    `GF16toGF216 result.coefficients[offset] =
+       GF16toGF216 p.coefficients[offset]`
+  (the leading coefficient is unchanged under the map
+   `GF16toGF216 : GF16 → GF(2¹⁶)` from the implementation type
+   to the mathematical field).
+• **Frame for unmodified positions**:
+    `result.coefficients[j]? = p.coefficients[j]?`
+  for all positions `j` not in the modified range
+  `{k | offset − iter.end ≤ k ∧ k < offset}`.
+• **Trailing polynomial identity** (property 5):
+    For each `m ≤ iter.end − iter.start` and valid position
+    `offset − (iter.end − iter.start) + m`, the coefficient at
+    that position matches the `m`-th coefficient of
+    `expectedTrailingPoly p.coefficients pts offset iter.start
+      (iter.end − iter.start)`.
+    This characterises the modified positions by expressing the
+    compound effect of all iterations as a single polynomial
+    recurrence.
 
 The loop invariant tracks which iterations have been processed:
 after iterating indices `iter.start, …, k−1`, the sub-polynomial
@@ -284,25 +526,43 @@ after iterating indices `iter.start, …, k−1`, the sub-polynomial
 `∏_{j=iter.start}^{k−1} (x − pts[j].x)`, the leading coefficient
 at position `offset` remains unchanged (as
 `mult_xdiff_assign_trailing` never writes past position
-`len − 2 = offset − 1`), and the vector length is unchanged.
+`len − 2 = offset − 1`), the vector length is unchanged, and all
+positions below `offset − k` retain their original values.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 155:8-159:9)
 -/
 @[step]
 theorem loop_spec
-    (pts : Slice encoding.polynomial.Pt)
-    (offset : Std.Usize)
-    (iter : core.ops.range.Range Std.Usize)
-    (p : encoding.polynomial.Poly)
+    (pts : Slice Pt)
+    (offset : Usize)
+    (iter : core.ops.range.Range Usize)
+    (p : Poly)
     (h_end_le_pts : iter.«end».val ≤ pts.val.length)
     (h_end_le_offset : iter.«end».val ≤ offset.val)
     (h_len_eq : p.coefficients.val.length = offset.val + 1)
-    (h_le : iter.start.val ≤ iter.«end».val) :
-    spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
-      iter pts p offset ⦃ result =>
+    (h_le : iter.start.val ≤ iter.«end».val)
+    (h_start_zero : iter.start.val = 0) :
+    lagrange_interpolate_prepare_loop
+      iter pts p offset ⦃ (result : Poly) =>
       result.coefficients.val.length = p.coefficients.val.length ∧
       result.coefficients.val[offset.val]? =
-        p.coefficients.val[offset.val]? ⦄ := by
+        p.coefficients.val[offset.val]? ∧
+      (∀ (hoff : offset.val < result.coefficients.val.length),
+        GF16toGF216 (result.coefficients.val.get ⟨offset.val, hoff⟩) =
+          GF16toGF216 (p.coefficients.val[offset.val]!)) ∧
+      (∀ (j : Nat),
+        ¬(offset.val - iter.«end».val ≤ j ∧ j < offset.val) →
+        result.coefficients.val[j]? = p.coefficients.val[j]?) ∧
+      -- Property 5: trailing polynomial identity
+      (∀ (m : Nat),
+        m ≤ iter.«end».val - iter.start.val →
+        ∀ (hpos : offset.val - (iter.«end».val - iter.start.val) + m <
+                    result.coefficients.val.length),
+          GF16toGF216
+            (result.coefficients.val.get
+              ⟨offset.val - (iter.«end».val - iter.start.val) + m, hpos⟩) =
+            (expectedTrailingPoly p.coefficients.val pts.val offset.val
+              iter.start.val (iter.«end».val - iter.start.val)).coeff m) ⦄ := by
   unfold spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
   apply loop.spec_decr_nat
     (measure := fun (st : core.ops.range.Range Std.Usize ×
@@ -315,32 +575,249 @@ theorem loop_spec
         st.1.start.val ≤ iter.«end».val ∧
         st.2.coefficients.val.length = p.coefficients.val.length ∧
         st.2.coefficients.val[offset.val]? =
-          p.coefficients.val[offset.val]?)
-  · rintro ⟨iter', p'⟩ ⟨h_end', h_ge', h_le', h_len', h_off'⟩
-    simp only [] at h_end' h_ge' h_le' h_len' h_off' ⊢
+          p.coefficients.val[offset.val]? ∧
+        (∀ (hoff : offset.val < st.2.coefficients.val.length),
+          GF16toGF216 (st.2.coefficients.val.get ⟨offset.val, hoff⟩) =
+            GF16toGF216 (p.coefficients.val[offset.val]!)) ∧
+        (∀ (j : Nat),
+          ¬(offset.val - st.1.start.val ≤ j ∧ j < offset.val) →
+          st.2.coefficients.val[j]? = p.coefficients.val[j]?) ∧
+        -- Invariant for trailing polynomial identity
+        (∀ (m : Nat),
+          m ≤ st.1.start.val - iter.start.val →
+          ∀ (hpos : offset.val - (st.1.start.val - iter.start.val) + m <
+                      st.2.coefficients.val.length),
+            GF16toGF216
+              (st.2.coefficients.val.get
+                ⟨offset.val - (st.1.start.val - iter.start.val) + m, hpos⟩) =
+              (expectedTrailingPoly p.coefficients.val pts.val offset.val
+                iter.start.val (st.1.start.val - iter.start.val)).coeff m))
+  · rintro ⟨iter', p'⟩ ⟨h_end', h_ge', h_le', h_len', h_off', h_gf16_off', h_frame', h_trail'⟩
+    simp only [] at h_end' h_ge' h_le' h_len' h_off' h_gf16_off' h_frame' h_trail' ⊢
     have h_end_le_pts' : iter'.«end».val ≤ pts.val.length := by grind
     have h_end_le_offset' : iter'.«end».val ≤ offset.val := by grind
     have h_offset_lt_len' : offset.val < p'.coefficients.val.length := by omega
     step*
     split
-    · rename_i r_post
+    · -- done: iterator exhausted, result = current polynomial
+      rename_i r_post
       simp only [] at r_post
       obtain ⟨h_eq, h_nlt⟩ := r_post
       subst h_eq
-      exact ⟨h_len', h_off'⟩
-    · rename_i r_post
+      have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
+      refine ⟨h_len', h_off', h_gf16_off', fun j hj => ?_, fun m hm hpos => ?_⟩
+      · apply h_frame'
+        intro ⟨h1, h2⟩
+        exact hj ⟨by omega, h2⟩
+      · have h_iters_eq : iter'.start.val - iter.start.val =
+            iter.«end».val - iter.start.val := by omega
+        rw [h_iters_eq] at h_trail'
+        exact h_trail' m hm hpos
+    · -- cont: one iteration processed
+      rename_i r_post
       simp only [] at r_post
       obtain ⟨h_lt, h_start1, h_end1, h_v1len, h_modified, h_frame⟩ := r_post
-      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · rw [h_end1]; exact h_end'
-      · omega
-      · grind
-      · omega
-      · have h_off_frame := h_frame offset.val (by
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · -- end preserved
+        rw [h_end1]; exact h_end'
+      · -- start lower bound
+        omega
+      · -- start upper bound
+        grind
+      · -- length preserved
+        omega
+      · -- [offset]? preserved via body frame
+        have h_off_frame := h_frame offset.val (by
           push_neg; intro _; omega)
         rw [h_off_frame, h_off']
-      · grind
-  · exact ⟨rfl, le_refl _, h_le, rfl, rfl⟩
+      · -- GF16toGF216 leading coefficient preserved
+        intro hoff
+        have h_off_frame := h_frame offset.val (by
+          push_neg; intro _; omega)
+        have hoff_p' : offset.val < p'.coefficients.val.length := by omega
+        have h_get_eq := list_get_of_getElem?_eq h_off_frame hoff hoff_p'
+        simp only [List.get_eq_getElem] at h_get_eq ⊢
+        rw [h_get_eq]
+        exact h_gf16_off' hoff_p'
+      · -- Frame: positions outside modified range unchanged
+        intro j hj
+        have h_body_fr : (Prod.snd r_post).coefficients.val[j]? =
+            p'.coefficients.val[j]? := by
+          apply h_frame
+          intro ⟨ha, hb⟩
+          exact hj ⟨by omega, by omega⟩
+        have h_inv_fr : p'.coefficients.val[j]? =
+            p.coefficients.val[j]? := by
+          apply h_frame'
+          intro ⟨ha, hb⟩
+          exact hj ⟨by omega, hb⟩
+        rw [h_body_fr, h_inv_fr]
+      · -- Trailing polynomial identity maintenance
+        intro m hm hpos
+        set k := iter'.start.val - iter.start.val with hk_def
+        -- k+1 = new number of iterations
+        have hk1 : (Prod.fst r_post).start.val - iter.start.val = k + 1 := by omega
+        have hpos' : offset.val - (k + 1) + m <
+            (Prod.snd r_post).coefficients.val.length := by omega
+        have hget_eq : (Prod.snd r_post).coefficients.val.get
+            ⟨offset.val - ((Prod.fst r_post).start.val - iter.start.val) + m, hpos⟩ =
+            (Prod.snd r_post).coefficients.val.get
+            ⟨offset.val - (k + 1) + m, hpos'⟩ := by
+          congr 1; exact Fin.ext (by grind)
+        rw [hget_eq, hk1]
+        rw [expectedTrailingPoly_succ]
+        -- Position index: offset - (k+1) + m
+        set pos := offset.val - (k + 1) + m with hpos_def
+        by_cases hm0 : m = 0
+        · -- m = 0: new position entering the trailing range
+          subst hm0
+          -- pos = offset.val - (k + 1) + 0; keep it as-is for now
+          rw [coeff_zero_C_add_X_sub_C_mul]
+          -- Body spec: result[pos] = p'[pos]! - p'[pos+1]! * pts[iter'.start]!.x
+          have hmod := h_modified pos (by omega) (by omega) hpos'
+          rw [hmod]
+          -- Simplify: pos + 1 = offset.val - k
+          have hidx : pos + 1 = offset.val - k := by omega
+          rw [hidx]
+          -- Frame: p'[pos] is unchanged from original p
+          have hfr := h_frame' pos (by
+            intro ⟨h1, _⟩
+            have hiter_eq : iter'.start.val = k := by
+              rw [h_start_zero] at hk_def; omega
+            rw [hiter_eq] at h1; omega)
+          have hfr_val : p'.coefficients.val[pos]! =
+              p.coefficients.val[pos]! := by
+            have hp' : pos < p'.coefficients.val.length := by omega
+            have hp : pos < p.coefficients.val.length := by omega
+            rw [getElem!_pos p'.coefficients.val pos hp',
+                getElem!_pos p.coefficients.val pos hp]
+            exact list_get_of_getElem?_eq hfr hp' hp
+          rw [hfr_val]
+          -- Trailing identity at m=0: GF16toGF216 p'[offset-k] = S_k.coeff 0
+          have htr := h_trail' 0 (by omega)
+            (show offset.val - k + 0 < p'.coefficients.val.length by omega)
+          simp only [Nat.add_zero] at htr
+          have htr_val : GF16toGF216 p'.coefficients.val[offset.val - k]! =
+              (expectedTrailingPoly p.coefficients.val pts.val
+                offset.val iter.start.val k).coeff 0 := by
+            rw [getElem!_pos p'.coefficients.val (offset.val - k)
+              (show offset.val - k < p'.coefficients.val.length by omega)]
+            exact htr
+          rw [htr_val]
+          -- Align pts index: iter'.start.val = iter.start.val + k
+          have hiter : iter'.start.val = iter.start.val + k := by omega
+          rw [hiter]
+          -- pos = offset - (k+1) + 0 needs to match offset - (k+1)
+          have : pos = offset.val - (k + 1) := by omega
+          rw [this]
+          ring
+        · -- m ≥ 1: existing positions in the trailing range
+          obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
+          rw [coeff_succ_C_add_X_sub_C_mul]
+          -- pos = offset - (k+1) + (m'+1) = offset - k + m'
+          have hpos_simp : pos = offset.val - k + m' := by omega
+          by_cases hm'k : m' + 1 ≤ k
+          · -- m' + 1 ≤ k: position in body's modified range
+            -- Body spec at j = offset - k + m'
+            have hj_len : offset.val - k + m' <
+                (Prod.snd r_post).coefficients.val.length := by omega
+            have hmod := h_modified (offset.val - k + m')
+              (by omega) (by omega) hj_len
+            -- Convert get index from pos to offset - k + m'
+            have hget_conv : (Prod.snd r_post).coefficients.val.get ⟨pos, hpos'⟩ =
+                (Prod.snd r_post).coefficients.val.get
+                  ⟨offset.val - k + m', hj_len⟩ := by
+              congr 1; exact Fin.ext (by omega)
+            rw [hget_conv, hmod]
+            -- Trail at m': p'[offset - k + m'] = S_k.coeff m'
+            have hlen_m' : offset.val - k + m' < p'.coefficients.val.length := by omega
+            have htr_m' := h_trail' m' (by omega) hlen_m'
+            have htr_m'_val : GF16toGF216 p'.coefficients.val[offset.val - k + m']! =
+                (expectedTrailingPoly p.coefficients.val pts.val
+                  offset.val iter.start.val k).coeff m' := by
+              rw [getElem!_pos p'.coefficients.val (offset.val - k + m') hlen_m']
+              exact htr_m'
+            -- Trail at m'+1: p'[offset - k + (m'+1)] = S_k.coeff (m'+1)
+            have hlen_m1 : offset.val - k + (m' + 1) < p'.coefficients.val.length := by omega
+            have htr_m1 := h_trail' (m' + 1) (by omega) hlen_m1
+            have htr_m1_val : GF16toGF216 p'.coefficients.val[offset.val - k + m' + 1]! =
+                (expectedTrailingPoly p.coefficients.val pts.val
+                  offset.val iter.start.val k).coeff (m' + 1) := by
+              rw [getElem!_pos p'.coefficients.val (offset.val - k + m' + 1)
+                (show offset.val - k + m' + 1 < p'.coefficients.val.length by omega)]
+              have hconv : p'.coefficients.val.get
+                  ⟨offset.val - k + m' + 1,
+                   show offset.val - k + m' + 1 < p'.coefficients.val.length by omega⟩ =
+                  p'.coefficients.val.get ⟨offset.val - k + (m' + 1), hlen_m1⟩ := by
+                congr 1
+              grind
+            rw [htr_m'_val, htr_m1_val]
+            -- Align pts index
+            have hiter : iter'.start.val = iter.start.val + k := by omega
+            rw [hiter]
+            ring
+          · -- m' = k: position is offset (not in body's modified range)
+            have hm'_eq : m' = k := by omega
+            subst hm'_eq
+            -- pos = offset
+            have hpos_off : pos = offset.val := by omega
+            -- Body frame: result[offset]? = p'[offset]?
+            have hfr := h_frame offset.val (by push_neg; intro _; omega)
+            -- Convert get index from pos to offset
+            have hoff_len : offset.val <
+                (Prod.snd r_post).coefficients.val.length := by omega
+            have hget_conv : (Prod.snd r_post).coefficients.val.get ⟨pos, hpos'⟩ =
+                (Prod.snd r_post).coefficients.val.get
+                  ⟨offset.val, hoff_len⟩ := by
+              congr 1; exact Fin.ext (by omega)
+            rw [hget_conv]
+            -- result[offset] = p'[offset] via body frame
+            have hoff_len_r : offset.val <
+                (Prod.snd r_post).coefficients.val.length := by omega
+            have hoff_len_p : offset.val < p'.coefficients.val.length := by omega
+            have hoff_eq : (Prod.snd r_post).coefficients.val[offset.val]! =
+                p'.coefficients.val[offset.val]! := by
+              rw [getElem!_pos (Prod.snd r_post).coefficients.val offset.val hoff_len_r,
+                  getElem!_pos p'.coefficients.val offset.val hoff_len_p]
+              exact list_get_of_getElem?_eq hfr hoff_len_r hoff_len_p
+            have hget_to_bang : GF16toGF216 ((Prod.snd r_post).coefficients.val.get
+                ⟨offset.val, hoff_len⟩) =
+                GF16toGF216 (Prod.snd r_post).coefficients.val[offset.val]! := by
+              congr 1
+              exact (getElem!_pos (Prod.snd r_post).coefficients.val offset.val hoff_len).symm
+            rw [hget_to_bang, hoff_eq]
+            -- Trail at k: p'[offset] = S_k.coeff k
+            have htr_k := h_trail' k (by omega)
+              (show offset.val - k + k < p'.coefficients.val.length by omega)
+            have htr_k_val : GF16toGF216 p'.coefficients.val[offset.val]! =
+                (expectedTrailingPoly p.coefficients.val pts.val
+                  offset.val iter.start.val k).coeff k := by
+              rw [getElem!_pos p'.coefficients.val offset.val hoff_len_p]
+              have hconv : p'.coefficients.val.get ⟨offset.val, hoff_len_p⟩ =
+                  p'.coefficients.val.get
+                    ⟨offset.val - k + k,
+                     show offset.val - k + k < p'.coefficients.val.length by omega⟩ := by
+                congr 1; exact Fin.ext (by grind)
+              grind
+            rw [htr_k_val]
+            -- S_k.coeff (k + 1) = 0 since degree ≤ k
+            rw [expectedTrailingPoly_coeff_eq_zero _ _ _ _ _ _ (by omega : k < k + 1)]
+            ring
+      · -- measure decreases
+        grind
+  · refine ⟨rfl, le_refl _, h_le, rfl, rfl, ?_, ?_, ?_⟩
+    · intro hoff
+      congr 1
+      exact (getElem!_pos p.coefficients.val offset.val hoff).symm
+    · intro _ _; rfl
+    · -- Initial trailing polynomial: k = 0, only m = 0
+      intro m hm hpos
+      have hm0 : m = 0 := by grind
+      subst hm0
+      simp only [Nat.sub_self,  expectedTrailingPoly_zero,
+                 coeff_C_zero]
+      congr 1
+      exact (getElem!_pos p.coefficients.val offset.val (by omega)).symm
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
@@ -378,6 +855,11 @@ The key postconditions of the function are:
 
 • **Length**: `result.coefficients.length = pts.length + 1`.
 • **Leading coefficient**: `result.coefficients[pts.length] = GF16::ONE`.
+• **Polynomial identity**:
+    `result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length`
+  i.e. the result represents `∏_{j=0}^{pts.length−1} (X − C(GF16toGF216 pts[j].x))`.
+• **Root property**: The result polynomial evaluates to zero
+  at each `pts[j].x`.
 
 The leading-coefficient invariant is maintained by the loop (as proved
 in `LagrangeInterpolatePrepareLoop0.loop_spec`): the loop body calls
@@ -396,6 +878,59 @@ Lean version contains only the unaccelerated fallback.
 
 namespace spqr.encoding.polynomial.Poly
 
+open encoding.gf.GF16
+open lagrange_interpolate_prepare_loop (prodLinearFactors expectedTrailingPoly
+  prodLinearFactors_eval_root expectedTrailingPoly_eq_prodLinearFactors
+  prodLinearFactors_base prodLinearFactors_step
+  expectedTrailingPoly_coeff_eq_zero)
+
+open Polynomial in
+/-- Coefficients of `prodLinearFactors` beyond degree `stop − start`
+are zero.  This is the degree bound for the product of linear
+factors, proved by induction on the number of factors. -/
+private lemma prodLinearFactors_coeff_eq_zero_high
+    (pts : List Pt) (start stop m : Nat) (hm : stop - start < m) :
+    (prodLinearFactors pts start stop).coeff m = 0 := by
+  suffices h : ∀ d start stop, stop - start = d → d < m →
+      (prodLinearFactors pts start stop).coeff m = 0 from
+    h (stop - start) start stop rfl hm
+  intro d
+  induction d with
+  | zero =>
+    intro start stop hd hm'
+    have : ¬(start < stop ∧ start < pts.length) := by omega
+    rw [prodLinearFactors_base _ _ _ this, coeff_one]
+    exact if_neg (by omega)
+  | succ n ih =>
+    intro start stop hd hm'
+    by_cases h : start < stop ∧ start < pts.length
+    · rw [prodLinearFactors_step _ _ _ h.1 h.2]
+      cases m with
+      | zero => omega
+      | succ m' =>
+        rw [sub_mul, coeff_sub, coeff_X_mul, coeff_C_mul,
+            ih (start + 1) stop (by omega) (by omega)]
+        simp    
+        ring
+    · rw [prodLinearFactors_base _ _ _ h, coeff_one]
+      exact if_neg (by omega)
+
+/-- If all coefficients of a list, interpreted via `GF16toGF216`,
+match those of a polynomial `q` at in-range positions, and `q`
+has zero coefficients beyond the list length, then
+`coeffsToGF216Poly cs = q`. -/
+private lemma coeffsToGF216Poly_eq_of_coeffs
+    (cs : List GF16) (q : GF216Poly)
+    (h_in : ∀ (m : Nat) (hm : m < cs.length),
+      GF16toGF216 (cs.get ⟨m, hm⟩) = q.coeff m)
+    (h_out : ∀ m, cs.length ≤ m → q.coeff m = 0) :
+    coeffsToGF216Poly cs = q := by
+  ext m
+  rw [coeffsToGF216Poly_coeff]
+  split
+  · rename_i hm; exact h_in m hm
+  · rename_i hm; push_neg at hm; exact (h_out m hm).symm
+
 /-- **Spec theorem for
 `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate_prepare`**:
 
@@ -410,20 +945,58 @@ namespace spqr.encoding.polynomial.Poly
     `result.coefficients[pts.length]? = some GF16.ONE`.
   This is the `debug_assert_eq!` that the Rust source checks at
   line 161.
+• The leading coefficient maps to the multiplicative identity
+  in `GF216 = GF(2¹⁶)` under `GF16toGF216`:
+    `GF16toGF216 result.coefficients[pts.length] = 1`.
+  This follows from the loop preserving the leading coefficient
+  (proved in `loop_spec`) and the fact that `GF16toGF216 ONE = 1`
+  (proved in `Spqr.Specs.Encoding.Gf.GF16.ONE`).
+• For each position `m ≤ pts.length`, the coefficient at position
+  `m` in the result matches the `m`-th coefficient of
+  `prodLinearFactors pts.val 0 pts.val.length` under `GF16toGF216`.
+  This is the coefficient-level polynomial identity, derived from
+  the loop's trailing polynomial identity (property 5 of
+  `loop_spec`) and the bridge lemma
+  `expectedTrailingPoly_eq_prodLinearFactors`.
+• The mathematical interpretation of the result polynomial equals
+  the product of linear factors:
+    `result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length`
+  i.e. the result represents
+  `∏_{j=0}^{pts.length−1} (X − C(GF16toGF216 pts[j].x))`.
+  This follows from the coefficient-level identity at all positions
+  within the vector, combined with the degree bound showing that
+  `prodLinearFactors` has no coefficients beyond degree
+  `pts.length`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 144:4-163:5)
 -/
 @[step]
 theorem lagrange_interpolate_prepare_spec
-    (pts : Slice encoding.polynomial.Pt)
+    (pts : Slice Pt)
     (h_len : pts.val.length + 1 ≤ Std.Usize.max) :
-    encoding.polynomial.Poly.lagrange_interpolate_prepare pts
-      ⦃ (result : encoding.polynomial.Poly) =>
+    lagrange_interpolate_prepare pts
+      ⦃ (result : Poly) =>
       result.coefficients.val.length = pts.val.length + 1 ∧
       result.coefficients.val[pts.val.length]? =
-        some encoding.gf.GF16.ONE ⦄ := by
-  unfold encoding.polynomial.Poly.lagrange_interpolate_prepare
+        some ONE ∧
+      (∀ (hoff : pts.val.length < result.coefficients.val.length),
+        GF16toGF216 (result.coefficients.val.get ⟨pts.val.length, hoff⟩) = 1) ∧
+      -- Property 4: coefficient-level polynomial identity
+      (∀ (m : Nat),
+        m ≤ pts.val.length →
+        ∀ (hpos : m < result.coefficients.val.length),
+          GF16toGF216 (result.coefficients.val.get ⟨m, hpos⟩) =
+            (prodLinearFactors pts.val 0 pts.val.length).coeff m) ∧
+      -- Property 5: mathematical polynomial identity
+      result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length ⦄ := by
+  unfold lagrange_interpolate_prepare
   step*
   all_goals simp_all [encoding.gf.GF16.Insts.CoreCloneClone.clone]
+  constructor
+  · intro m hm 
+    have := p1_post5 m hm
+    rw [← this]
+    
+  · sorry
 
 end spqr.encoding.polynomial.Poly

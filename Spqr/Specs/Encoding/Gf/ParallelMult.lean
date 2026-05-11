@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Mul2U16
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
 /-! # Spec Theorem for `encoding::gf::parallel_mult` — loop body 0
@@ -31,7 +31,7 @@ counter advances by two, and all other slice positions are untouched.
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
 
-open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf spqr.math.gf
 
 namespace spqr.encoding.gf
 

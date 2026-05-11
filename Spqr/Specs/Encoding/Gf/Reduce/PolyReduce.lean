@@ -3,7 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Gf
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
 /-! # Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`
 
@@ -30,7 +30,7 @@ shifting) for the first pass.
 **Source** "spqr/src/encoding/gf.rs" (lines 489:4-498:5)
 -/
 
-open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
 
 namespace spqr.encoding.gf.reduce
 
