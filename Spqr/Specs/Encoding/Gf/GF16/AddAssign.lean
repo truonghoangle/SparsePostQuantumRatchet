@@ -54,15 +54,15 @@ The result satisfies the GF(2¹⁶)-level postcondition:
   `result.value.val.toGF216 =
        self.value.val.toGF216 + other.value.val.toGF216`
 
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
+ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`.
 
 The proof reduces `result.value` to `self.value ^^^ other.value`,
 applies `UScalar.val_xor` to push `.val` through `^^^`, and then
-uses `natToGF2Poly_xor` together with the additivity of the ring
-homomorphism `φ` (`map_add`).
+uses `natToBinaryPoly_xor` together with the additivity of the ring
+homomorphism `BinaryPoly.toGF216` (`map_add`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 28:4-31:5)
 -/
@@ -72,7 +72,7 @@ theorem add_assign_spec (self other : GF16) :
       GF16toGF216 result = GF16toGF216 self + GF16toGF216 other ⦄ := by
   unfold add_assign
   step*
-  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToGF2Poly_xor, map_add]
+  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToBinaryPoly_xor, map_add]
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16
 
@@ -108,7 +108,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignGF16
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since XOR is a total operation on bounded integers.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) sum of the
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) sum of the
   similarly-lifted inputs:
     `(result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 + other.value.val.toGF216`
@@ -120,10 +120,10 @@ The result satisfies the GF(2¹⁶)-level postcondition:
   `(result.value.val.toGF216 : GF216) =
        self.value.val.toGF216 + other.value.val.toGF216`
 
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
+ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`.
 
 The proof unfolds `add_assign` (by-value) to expose the underlying
 by-reference `add_assign` call and discharges the resulting goal

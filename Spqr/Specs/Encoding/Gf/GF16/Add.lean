@@ -51,10 +51,10 @@ The result satisfies the GF(2¹⁶)-level postcondition:
   `result.value.val.toGF216 =
        self.value.val.toGF216 + other.value.val.toGF216`
 
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
+ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`.
 
 The proof unfolds `add` to expose the underlying `add_assign` call
 and discharges the resulting goal with `step*`, which applies the
@@ -103,7 +103,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithAddShared0GF16GF16
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since XOR is a total operation on bounded integers.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) sum of the
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) sum of the
   similarly-lifted inputs:
     `(result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 + other.value.val.toGF216`
@@ -115,10 +115,10 @@ The result satisfies the GF(2¹⁶)-level postcondition:
   `(result.value.val.toGF216 : GF216) =
        self.value.val.toGF216 + other.value.val.toGF216`
 
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
+ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`.
 
 The proof unfolds `add` to expose the underlying `add_assign` call
 and discharges the resulting goal with `step*`, which applies the

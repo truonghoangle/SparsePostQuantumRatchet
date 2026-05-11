@@ -713,7 +713,7 @@ theorem into_iter_spec (pts : Slice Pt) :
   simp [WP.spec_ok]
 
 private lemma GF216_add_self_eq_zero (x : GF216) : x + x = 0 := by
-  have h2 : (2 : GF216) = 0 := GF216_two_eq_zero
+  have h2 : (2 : GF216) = 0 := GF216.two_eq_zero
   have : x + x = 2 * x := by ring
   rw [this, h2, zero_mul]
 
@@ -754,33 +754,33 @@ private lemma poly_identity_from_loop1
         GF16toGF216 (v.get ⟨k, hk⟩) =
           s * lagrange_interpolate_complete_loop1.hornerAccum
             g coeffs k) :
-    coeffsToGF216Poly v * (X - C (GF16toGF216 g)) =
-      X * C s * coeffsToGF216Poly coeffs := by
-  rw [GF216Poly_sub_eq_add, mul_add, mul_comm (coeffsToGF216Poly v) (C (GF16toGF216 g)),
-      show X * C s * coeffsToGF216Poly coeffs =
-        C s * (X * coeffsToGF216Poly coeffs) from by ring]
+    listToGF216Poly v * (X - C (GF16toGF216 g)) =
+      X * C s * listToGF216Poly coeffs := by
+  rw [GF216Poly.sub_eq_add, mul_add, mul_comm (listToGF216Poly v) (C (GF16toGF216 g)),
+      show X * C s * listToGF216Poly coeffs =
+        C s * (X * listToGF216Poly coeffs) from by ring]
   ext m
   simp only [coeff_add, coeff_C_mul]
   set α := GF16toGF216 g
   by_cases hm0 : m = 0
   · subst hm0
     rw [coeff_mul_X_zero, coeff_X_mul_zero, zero_add, mul_zero]
-    simp only [coeffsToGF216Poly_coeff]
+    simp only [listToGF216Poly_coeff]
     split
     · rename_i h0v
       rw [hv0_zero h0v, mul_zero]
     · rename_i h0v; push_neg at h0v; omega
   · have hm_pos : 0 < m := Nat.pos_of_ne_zero hm0
-    have hcoeff_v_X : (coeffsToGF216Poly v * X).coeff m =
-        (coeffsToGF216Poly v).coeff (m - 1) := by
+    have hcoeff_v_X : (listToGF216Poly v * X).coeff m =
+        (listToGF216Poly v).coeff (m - 1) := by
       conv_lhs => rw [show m = m - 1 + 1 from by omega]
       rw [coeff_mul_X]
-    have hcoeff_X_c : (X * coeffsToGF216Poly coeffs).coeff m =
-        (coeffsToGF216Poly coeffs).coeff (m - 1) := by
+    have hcoeff_X_c : (X * listToGF216Poly coeffs).coeff m =
+        (listToGF216Poly coeffs).coeff (m - 1) := by
       conv_lhs => rw [show m = m - 1 + 1 from by omega]
       rw [coeff_X_mul]
     rw [hcoeff_v_X, hcoeff_X_c]
-    simp only [coeffsToGF216Poly_coeff]
+    simp only [listToGF216Poly_coeff]
     by_cases hm_lt : m < coeffs.length
     · have hm1_lt_c : m - 1 < coeffs.length := by omega
       have hm1_lt_v : m - 1 < v.length := by omega
@@ -880,22 +880,22 @@ private lemma hornerAccum_cons
 termination_by cs.length - pos
 decreasing_by omega
 
-/-- Decomposition: `coeffsToGF216Poly (c :: cs) = C(GF16toGF216 c) + X · coeffsToGF216Poly cs`. -/
-private lemma coeffsToGF216Poly_cons
+/-- Decomposition: `listToGF216Poly (c :: cs) = C(GF16toGF216 c) + X · listToGF216Poly cs`. -/
+private lemma listToGF216Poly_cons
     (c : GF16)
     (cs : List GF16) :
-    coeffsToGF216Poly (c :: cs) =
-      C (GF16toGF216 c) + X * coeffsToGF216Poly cs := by
+    listToGF216Poly (c :: cs) =
+      C (GF16toGF216 c) + X * listToGF216Poly cs := by
   ext m
   cases m with
   | zero =>
-    simp only [coeff_add, coeffsToGF216Poly_coeff,
+    simp only [coeff_add, listToGF216Poly_coeff,
                dif_pos (show 0 < (c :: cs).length from by simp)]
     simp only [List.get_eq_getElem, List.getElem_cons_zero,
                coeff_C_zero, coeff_X_mul_zero, add_zero]
   | succ n =>
     simp only [coeff_add, coeff_C_succ, zero_add, coeff_X_mul,
-               coeffsToGF216Poly_coeff]
+               listToGF216Poly_coeff]
     by_cases hlt : n + 1 < (c :: cs).length
     · rw [dif_pos hlt, dif_pos (show n < cs.length from by simp at hlt; omega)]
       congr 1
@@ -903,12 +903,12 @@ private lemma coeffsToGF216Poly_cons
 
 /-- **`hornerAccum` at position 0 equals polynomial evaluation.**
     This connects the Horner-scheme computation `hornerAccum g coeffs 0`
-    to the Mathlib `Polynomial.eval` of `coeffsToGF216Poly coeffs`. -/
+    to the Mathlib `Polynomial.eval` of `listToGF216Poly coeffs`. -/
 private lemma hornerAccum_zero_eq_eval
     (g : GF16)
     (coeffs : List GF16) :
     lagrange_interpolate_complete_loop1.hornerAccum g coeffs 0 =
-      (coeffsToGF216Poly coeffs).eval (GF16toGF216 g) := by
+      (listToGF216Poly coeffs).eval (GF16toGF216 g) := by
   induction coeffs with
   | nil =>
     rw [lagrange_interpolate_complete_loop1.hornerAccum_ge g [] 0 (by simp)]
@@ -916,52 +916,55 @@ private lemma hornerAccum_zero_eq_eval
   | cons c cs ih =>
     rw [lagrange_interpolate_complete_loop1.hornerAccum_unfold g (c :: cs) 0 (by simp)]
     simp only [List.get_eq_getElem, List.getElem_cons_zero]
-    rw [hornerAccum_cons g c cs 0, ih, coeffsToGF216Poly_cons]
+    rw [hornerAccum_cons g c cs 0, ih, listToGF216Poly_cons]
     simp [eval_add, eval_mul, eval_C, eval_X]
 
 /-! ## GF16toGF216 injectivity at zero -/
 
 /- If `n.toGF216 = 0` and `n < 2^16`, then `n = 0`.
-    Uses the kernel characterization of the ring homomorphism `φ`:
-    since `POLY_GF2` is irreducible in the PID `GF2Poly`, the ideal
-    `(POLY_GF2)` is maximal, and `ker φ = (POLY_GF2)`.  Any element
-    of `ker φ` with degree `< 16` must therefore be zero. -/
+    Uses the kernel characterization of the ring homomorphism
+    `BinaryPoly.toGF216`: since `polyGF2` is irreducible in the PID
+    `BinaryPoly`, the ideal `(polyGF2)` is maximal, and
+    `ker BinaryPoly.toGF216 = (polyGF2)`.  Any element of
+    `ker BinaryPoly.toGF216` with degree `< 16` must therefore be
+    zero. -/
 open spqr.encoding.gf.unaccelerated in
 private lemma Nat_toGF216_eq_zero
     {n : Nat} (hn : n < 2 ^ 16) (h : n.toGF216 = 0) : n = 0 := by
   unfold Nat.toGF216 at h
   by_contra hn0
-  have hne : natToGF2Poly n ≠ 0 := fun h0 =>
-    hn0 (natToGF2Poly_inj n 0 (by rw [h0, natToGF2Poly_zero]))
-  have hcoeff_zero : ∀ m, 16 ≤ m → (natToGF2Poly n).coeff m = 0 := by
+  have hne : natToBinaryPoly n ≠ 0 := fun h0 =>
+    hn0 (natToBinaryPoly_inj n 0 (by rw [h0, natToBinaryPoly_zero]))
+  have hcoeff_zero : ∀ m, 16 ≤ m → (natToBinaryPoly n).coeff m = 0 := by
     intro m hm
-    rw [natToGF2Poly_coeff]
+    rw [natToBinaryPoly_coeff]
     simp [Nat.testBit_eq_false_of_lt
       (lt_of_lt_of_le hn (Nat.pow_le_pow_right (by norm_num : 0 < 2) hm))]
-  have hnd : (natToGF2Poly n).natDegree < 16 := by
+  have hnd : (natToBinaryPoly n).natDegree < 16 := by
     by_contra h_not
     push_neg at h_not
-    have h_lc : (natToGF2Poly n).coeff (natToGF2Poly n).natDegree ≠ 0 := by
+    have h_lc : (natToBinaryPoly n).coeff (natToBinaryPoly n).natDegree ≠ 0 := by
       intro h0; exact hne (Polynomial.leadingCoeff_eq_zero.mp h0)
     exact h_lc (hcoeff_zero _ h_not)
-  have hprime : Prime POLY_GF2 :=
-    (UniqueFactorizationMonoid.irreducible_iff_prime).mp POLY_GF2_irreducible
-  have hprime_ideal : (Ideal.span {POLY_GF2}).IsPrime :=
-    (Ideal.span_singleton_prime POLY_GF2_monic.ne_zero).mpr hprime
-  have hne_bot : Ideal.span ({POLY_GF2} : Set GF2Poly) ≠ ⊥ := by
-    rw [Ne, Ideal.span_singleton_eq_bot]; exact POLY_GF2_monic.ne_zero
-  have hmax : (Ideal.span {POLY_GF2}).IsMaximal :=
+  have hprime : Prime polyGF2 :=
+    (UniqueFactorizationMonoid.irreducible_iff_prime).mp polyGF2_irreducible
+  have hprime_ideal : (Ideal.span {polyGF2}).IsPrime :=
+    (Ideal.span_singleton_prime polyGF2_monic.ne_zero).mpr hprime
+  have hne_bot : Ideal.span ({polyGF2} : Set BinaryPoly) ≠ ⊥ := by
+    rw [Ne, Ideal.span_singleton_eq_bot]; exact polyGF2_monic.ne_zero
+  have hmax : (Ideal.span {polyGF2}).IsMaximal :=
     Ideal.IsPrime.isMaximal hprime_ideal hne_bot
-  have hle : Ideal.span {POLY_GF2} ≤ RingHom.ker φ :=
-    Ideal.span_le.mpr (Set.singleton_subset_iff.mpr (RingHom.mem_ker.mpr hφ))
-  have hker_eq : RingHom.ker φ = Ideal.span {POLY_GF2} := by
+  have hle : Ideal.span {polyGF2} ≤ RingHom.ker BinaryPoly.toGF216 :=
+    Ideal.span_le.mpr (Set.singleton_subset_iff.mpr
+      (RingHom.mem_ker.mpr BinaryPoly.toGF216_polyGF2))
+  have hker_eq : RingHom.ker BinaryPoly.toGF216 = Ideal.span {polyGF2} := by
     rcases eq_or_lt_of_le hle with heq | hlt
     · exact heq.symm
-    · exact absurd (hmax.out.2 _ hlt) (RingHom.ker_ne_top φ)
-  have hmem : POLY_GF2 ∣ natToGF2Poly n := by
+    · exact absurd (hmax.out.2 _ hlt) (RingHom.ker_ne_top BinaryPoly.toGF216)
+  have hmem : polyGF2 ∣ natToBinaryPoly n := by
     rwa [← Ideal.mem_span_singleton, ← hker_eq, RingHom.mem_ker]
   have := Polynomial.natDegree_le_of_dvd hmem hne
-  rw [POLY_GF2_natDegree] at this
+  rw [polyGF2_natDegree] at this
   omega
 
 /-- If `GF16toGF216 g = 0`, then `g.value.val = 0`.

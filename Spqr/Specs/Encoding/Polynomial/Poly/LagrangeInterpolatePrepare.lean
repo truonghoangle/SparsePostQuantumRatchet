@@ -927,15 +927,15 @@ private lemma list_getElem_bang_set_self {α : Type*} [Inhabited α]
 /-- If all coefficients of a list, interpreted via `GF16toGF216`,
 match those of a polynomial `q` at in-range positions, and `q`
 has zero coefficients beyond the list length, then
-`coeffsToGF216Poly cs = q`. -/
-private lemma coeffsToGF216Poly_eq_of_coeffs
+`listToGF216Poly cs = q`. -/
+private lemma listToGF216Poly_eq_of_coeffs
     (cs : List GF16) (q : GF216Poly)
     (h_in : ∀ (m : Nat) (hm : m < cs.length),
       GF16toGF216 (cs.get ⟨m, hm⟩) = q.coeff m)
     (h_out : ∀ m, cs.length ≤ m → q.coeff m = 0) :
-    coeffsToGF216Poly cs = q := by
+    listToGF216Poly cs = q := by
   ext m
-  rw [coeffsToGF216Poly_coeff]
+  rw [listToGF216Poly_coeff]
   split
   · rename_i hm; exact h_in m hm
   · rename_i hm; push_neg at hm; exact (h_out m hm).symm
@@ -1028,7 +1028,7 @@ theorem lagrange_interpolate_prepare_spec
             GF16toGF216 (p.coefficients.val.get ⟨k, hk⟩) = 0 := by
           intro k hk
           have h0 : (p.toGF216Poly).coeff k = 0 := by rw [p_post]; simp
-          simp only [Poly.toGF216Poly, coeffsToGF216Poly_coeff, hk, ↓reduceDIte] at h0
+          simp only [Poly.toGF216Poly, listToGF216Poly_coeff, hk, ↓reduceDIte] at h0
           exact h0
         unfold List.resize at hj_lt ⊢
         simp only [Nat.zero_le, ge_iff_le, ↓reduceIte] at hj_lt ⊢
@@ -1057,9 +1057,9 @@ theorem lagrange_interpolate_prepare_spec
     constructor
     · intro m hm
       rw [h_bridge]
-    · change coeffsToGF216Poly p1.coefficients.val =
+    · change listToGF216Poly p1.coefficients.val =
         prodLinearFactors pts.val 0 pts.val.length
-      apply coeffsToGF216Poly_eq_of_coeffs
+      apply listToGF216Poly_eq_of_coeffs
       · intro m hm
         simp only [List.get_eq_getElem]
         have hm_le : m ≤ pts.val.length := by omega

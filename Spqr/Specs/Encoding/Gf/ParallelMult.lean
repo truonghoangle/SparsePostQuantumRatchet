@@ -42,7 +42,7 @@ local instance : Inhabited encoding.gf.GF16 := ⟨{ value := 0#u16 }⟩
 
 One iteration of the multiply-by-`a` loop driving
 `encoding::gf::parallel_mult`.  Both branches are characterised at the
-GF(2)[X] level via `natToGF2Poly`:
+GF(2)[X] level via `natToBinaryPoly`:
 
 * **`done`** — the loop guard `i + 2 ≤ into.len()` failed; the state
   is returned unchanged: `result = (a, into, i)`.
@@ -53,12 +53,12 @@ GF(2)[X] level via `natToGF2Poly`:
   and there exist `u16` values `v1, v2` such that
   `s = (into.set i ⟨v1⟩).set ⟨i.val + 1, _⟩ ⟨v2⟩` and at the polynomial
   level
-    `natToGF2Poly v1.val =
-       (natToGF2Poly a.value.val *
-        natToGF2Poly g.value.val) %ₘ POLY_GF2`,
-    `natToGF2Poly v2.val =
-       (natToGF2Poly a.value.val *
-        natToGF2Poly g1.value.val) %ₘ POLY_GF2`,
+    `natToBinaryPoly v1.val =
+       (natToBinaryPoly a.value.val *
+        natToBinaryPoly g.value.val) %ₘ polyGF2`,
+    `natToBinaryPoly v2.val =
+       (natToBinaryPoly a.value.val *
+        natToBinaryPoly g1.value.val) %ₘ polyGF2`,
   where `g, g1` are the values originally stored at positions `i`,
   `i + 1` of `into` (so each updated position holds the GF(2¹⁶)
   product of `a` with the previous content).
@@ -80,12 +80,12 @@ theorem parallel_mult_loop_body_spec'
           i.val + 2 ≤ into.length ∧
           i'.val = i.val + 2 ∧
           s.length = into.length ∧
-          natToGF2Poly (s.val[i.val]!).value.val =
-            (natToGF2Poly a.value.val *
-             natToGF2Poly (into.val[i.val]!).value.val) %ₘ POLY_GF2 ∧
-           natToGF2Poly (s.val[i.val + 1]!).value.val =
-            (natToGF2Poly a.value.val *
-             natToGF2Poly (into.val[i.val + 1]!).value.val) %ₘ POLY_GF2 ⦄ := by
+          natToBinaryPoly (s.val[i.val]!).value.val =
+            (natToBinaryPoly a.value.val *
+             natToBinaryPoly (into.val[i.val]!).value.val) %ₘ polyGF2 ∧
+           natToBinaryPoly (s.val[i.val + 1]!).value.val =
+            (natToBinaryPoly a.value.val *
+             natToBinaryPoly (into.val[i.val + 1]!).value.val) %ₘ polyGF2 ⦄ := by
   unfold parallel_mult_loop.body
   have h := mul2_u16_spec' a.value
   step*
@@ -103,8 +103,8 @@ theorem parallel_mult_loop_body_spec'
 /-- **GF(2¹⁶)-level postcondition for
 `encoding.gf.parallel_mult_loop.body`** (provable, parametric):
 
-For any ring-homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`, the body of `parallel_mult` either leaves the state
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`, the body of `parallel_mult` either leaves the state
 unchanged (`done` branch, when `i + 2 > into.len()`) or advances `i`
 by two while preserving the slice length, with the two written
 entries equal — in GF(2¹⁶) — to the shared-left-operand products
@@ -114,8 +114,8 @@ Additionally, the **frame condition** asserts that all slice elements
 outside `{i, i+1}` are left unchanged by the body, which is critical
 for the value-level loop invariant in `parallel_mult_loop_spec`.
 
-Specialising `φ` to the canonical isomorphism (whose construction
-requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
+Specialising `BinaryPoly.toGF216` to the canonical isomorphism (whose construction
+requires irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite-
 field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 @[step]

@@ -16,11 +16,11 @@ represented by the `u16` value `0`:
 
 The underlying `u16` value `0` has natural-number value `0`, and lifts
 into `GF216 = GaloisField 2 16` via the canonical chain
-`Nat → GF2Poly → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
+`Nat → BinaryPoly → GF216` (i.e. `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`)
 to the additive identity `0 : GF216`.  This follows because:
-  * `natToGF2Poly 0 = 0` (the empty bit pattern represents the zero
-    polynomial in `GF2Poly`); and
-  * the ring homomorphism `φ : GF2Poly →+* GF216` chosen in
+  * `natToBinaryPoly 0 = 0` (the empty bit pattern represents the zero
+    polynomial in `BinaryPoly`); and
+  * the ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` chosen in
     `Spqr.Math.Gf` preserves zero (`map_zero`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 541:4-541:45)
@@ -37,7 +37,7 @@ namespace spqr.encoding.gf.GF16
   and equivalently as a natural number:
     `ZERO.value.val = 0`.
 • Lifting `ZERO.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the additive identity of
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the additive identity of
   `GF216 = GaloisField 2 16`:
     `(ZERO.value.val.toGF216 : GF216) = 0`.
 • `ZERO` is a left- and right-identity for `GF16` addition (which is
@@ -58,12 +58,12 @@ theorem ZERO_value_val : (ZERO).value.val = 0 := by
 
 @[simp]
 theorem ZERO_toGF216 : (GF16toGF216 ZERO : GF216) = 0 := by
-  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_zero]
+  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_zero]
 
 @[step]
 theorem zero_spec :
     ok ZERO ⦃ (result : GF16) =>
       (GF16toGF216 result : GF216) = 0 ⦄ := by
-  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_zero]
+  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_zero]
 
 end spqr.encoding.gf.GF16

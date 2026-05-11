@@ -22,7 +22,7 @@ Unlike `unaccelerated::mul`, no reduction modulo the irreducible
 polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 is required: XOR of two
 `u16` values is itself representable in 16 bits, so the resulting
 GF(2) polynomial already has degree `< 16` and is the canonical
-representative of its class in `GF2Poly / (POLY_GF2)`.
+representative of its class in `BinaryPoly / (polyGF2)`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 566:4-570:5)
 -/
@@ -38,23 +38,23 @@ Bitwise XOR of two `u16` values in GF(2¹⁶), wrapped into a `GF16`.
 At the GF(2)-polynomial level, XOR corresponds to polynomial
 addition: each bit of the inputs is a coefficient in `ZMod 2`, and
 XOR is exactly coefficient-wise addition modulo 2.  Since
-`GF2Poly` has characteristic 2, polynomial subtraction
+`BinaryPoly` has characteristic 2, polynomial subtraction
 coincides with polynomial addition, so XOR equally encodes
 polynomial subtraction.
 
 The result satisfies the polynomial-level specification:
-  `natToGF2Poly result.value.val =
-       natToGF2Poly self.value.val - natToGF2Poly other.value.val`
+  `natToBinaryPoly result.value.val =
+       natToBinaryPoly self.value.val - natToBinaryPoly other.value.val`
 
 This follows from composing:
   1. `UScalar.val_xor`:        `(a ^^^ b).val = a.val ^^^ b.val`
-  2. `natToGF2Poly_xor`:        XOR of naturals = addition of polys
-  3. `zmod2_poly_sub_eq_add`:   in `GF2Poly`, `a - b = a + b`
+  2. `natToBinaryPoly_xor`:        XOR of naturals = addition of polys
+  3. `BinaryPoly.sub_eq_add`:   in `BinaryPoly`, `a - b = a + b`
 
 This establishes that `const_sub` computes subtraction in the
 quotient ring
-  GF(2¹⁶) ≅ GF(2)[X] / (POLY_GF2)
-already at the polynomial level — no reduction modulo `POLY_GF2`
+  GF(2¹⁶) ≅ GF(2)[X] / (polyGF2)
+already at the polynomial level — no reduction modulo `polyGF2`
 is necessary, since XOR of two `u16` values stays within 16 bits
 and therefore corresponds to a polynomial of degree `< 16`.
 
@@ -62,21 +62,21 @@ and therefore corresponds to a polynomial of degree `< 16`.
 -/
 theorem const_sub_spec' (self other : GF16) :
     const_sub self other ⦃ (result : GF16) =>
-      natToGF2Poly result.value.val =
-        natToGF2Poly self.value.val - natToGF2Poly other.value.val ⦄ := by
+      natToBinaryPoly result.value.val =
+        natToBinaryPoly self.value.val - natToBinaryPoly other.value.val ⦄ := by
   unfold const_sub
   step*
-  simp_all only [UScalar.val_xor, natToGF2Poly_xor, zmod2_poly_sub_eq_add]
+  simp_all only [UScalar.val_xor, natToBinaryPoly_xor, BinaryPoly.sub_eq_add]
 
 /-- **Spec theorem for `spqr.encoding.gf.GF16.const_sub`**:
 
-For the chosen ring-homomorphism `φ : GF2Poly →+* GF216` (which
-vanishes on `POLY_GF2`), the result of `const_sub self other`
-corresponds — via `φ ∘ natToGF2Poly = Nat.toGF216` — to the
+For the chosen ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` (which
+vanishes on `polyGF2`), the result of `const_sub self other`
+corresponds — via `BinaryPoly.toGF216 ∘ natToBinaryPoly = Nat.toGF216` — to the
 difference of `self.value.val` and `other.value.val` in `GF216`.
 
-Specializing `φ` to the canonical isomorphism (whose construction
-requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. the
+Specializing `BinaryPoly.toGF216` to the canonical isomorphism (whose construction
+requires irreducibility of `polyGF2` over `ZMod 2`, i.e. the
 finite-field development we omit here) recovers the GF(2¹⁶)
 interpretation of the result.
 
@@ -91,7 +91,7 @@ theorem const_sub_spec
       GF16toGF216 result = GF16toGF216 self - GF16toGF216 other ⦄ := by
   unfold const_sub
   step*
-  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToGF2Poly_xor,
-    ← zmod2_poly_sub_eq_add, map_sub]
+  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToBinaryPoly_xor,
+    ← BinaryPoly.sub_eq_add, map_sub]
 
 end spqr.encoding.gf.GF16

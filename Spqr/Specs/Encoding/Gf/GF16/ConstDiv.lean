@@ -41,7 +41,7 @@ namespace spqr.encoding.gf.GF16
 
 One iteration of the iterated-squaring loop driving `GF16::const_div`.
 Both branches are characterised at the GF(2¹⁶) level via
-`Nat.toGF216 = φ ∘ natToGF2Poly`:
+`Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`:
 
 * **`done`** — the loop guard `i < 16#usize` failed; the returned
   accumulator is the unchanged `out`:

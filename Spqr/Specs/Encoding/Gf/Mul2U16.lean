@@ -37,10 +37,10 @@ namespace spqr.encoding.gf
 that share the left operand `a`.  Each component of the returned pair
 satisfies the polynomial-level specification of `mul`:
 
-  `natToGF2Poly result.1.val =
-     (natToGF2Poly a.val * natToGF2Poly b1.val) %ₘ POLY_GF2`
-  `natToGF2Poly result.2.val =
-     (natToGF2Poly a.val * natToGF2Poly b2.val) %ₘ POLY_GF2`
+  `natToBinaryPoly result.1.val =
+     (natToBinaryPoly a.val * natToBinaryPoly b1.val) %ₘ polyGF2`
+  `natToBinaryPoly result.2.val =
+     (natToBinaryPoly a.val * natToBinaryPoly b2.val) %ₘ polyGF2`
 
 After extraction, `mul2_u16` reduces definitionally to
 `unaccelerated.mul2`, so the claim follows immediately from
@@ -50,23 +50,23 @@ After extraction, `mul2_u16` reduces definitionally to
 -/
 theorem mul2_u16_spec' (a b1 b2 : U16) :
     mul2_u16 a b1 b2 ⦃ result =>
-      natToGF2Poly result.1.val =
-        (natToGF2Poly a.val * natToGF2Poly b1.val) %ₘ POLY_GF2 ∧
-      natToGF2Poly result.2.val =
-        (natToGF2Poly a.val * natToGF2Poly b2.val) %ₘ POLY_GF2 ⦄ := by
+      natToBinaryPoly result.1.val =
+        (natToBinaryPoly a.val * natToBinaryPoly b1.val) %ₘ polyGF2 ∧
+      natToBinaryPoly result.2.val =
+        (natToBinaryPoly a.val * natToBinaryPoly b2.val) %ₘ polyGF2 ⦄ := by
   unfold mul2_u16
   have h := unaccelerated.mul2_spec' a b1 b2
   step*
 
 /-- **GF216-level postcondition (provable, parametric)**:
 
-For any ring-homomorphism `φ : GF2Poly →+* GF216` that vanishes
-on `POLY_GF2`, both components of `mul2_u16 a b1 b2` correspond — via
-`φ ∘ natToGF2Poly` — to the products `a · b1` and `a · b2`
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes
+on `polyGF2`, both components of `mul2_u16 a b1 b2` correspond — via
+`BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the products `a · b1` and `a · b2`
 in `GF216`.
 
-Specialising `φ` to the canonical isomorphism (whose construction
-requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
+Specialising `BinaryPoly.toGF216` to the canonical isomorphism (whose construction
+requires irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite-
 field development we omit here) recovers the GF(2¹⁶) interpretation
 of the result. -/
 @[step]

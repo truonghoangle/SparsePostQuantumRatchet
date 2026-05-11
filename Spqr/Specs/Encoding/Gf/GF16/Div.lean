@@ -56,7 +56,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
   inputs, since the underlying `unaccelerated.mul` and the loop
   driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
     `(GF16toGF216 result : GF216) =
         GF16toGF216 self *
@@ -110,7 +110,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
   inputs, since the underlying `unaccelerated.mul` and the loop
   driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
     `(GF16toGF216 result : GF216) =
         GF16toGF216 self *

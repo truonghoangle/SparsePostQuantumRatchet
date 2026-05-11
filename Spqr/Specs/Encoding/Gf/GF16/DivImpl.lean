@@ -202,7 +202,7 @@ private theorem IteratorRange_next_I32_ok
 
 One iteration of the iterated-squaring loop driving `GF16::div_impl`.
 Both branches are characterised at the GF(2¹⁶) level via
-`Nat.toGF216 = φ ∘ natToGF2Poly`:
+`Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`:
 
 * **`done`** — the `1..16` iterator is exhausted; the returned
   accumulator is the unchanged `out`:
@@ -480,7 +480,7 @@ The function proceeds in two stages:
   inputs, since the underlying `unaccelerated.mul` and the loop
   driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) Fermat-style
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
     `(GF16toGF216 result : GF216) =
         GF16toGF216 self *

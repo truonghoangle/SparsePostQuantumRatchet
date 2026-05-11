@@ -17,11 +17,11 @@ That is, `REDUCE_BYTES` is simply the result of evaluating
 (for `0 ≤ k < 256`) stores the 16-bit XOR mask obtained by reducing
 the polynomial `k · x¹⁶` modulo POLY:
 
-  `REDUCE_BYTES[k] = (k · X¹⁶) mod POLY_GF2`
+  `REDUCE_BYTES[k] = (k · X¹⁶) mod polyGF2`
 
 Concretely, `REDUCE_BYTES[k]` is the canonical 16-bit representative
 of the remainder of the degree-< 24 polynomial `k · X¹⁶` when divided
-by POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1 (a monic polynomial of
+by polyGF2 = X¹⁶ + X¹² + X³ + X + 1 (a monic polynomial of
 degree 16).  The table is used by `poly_reduce` to fold the high
 bytes of a 32-bit carry-less product back into the low 16 bits,
 implementing GF(2¹⁶) reduction in two byte-level passes.
@@ -43,11 +43,11 @@ namespace spqr.encoding.gf.reduce
     `∃ v : Std.U16, result[j] = ok v ∧ v.val = reduceByteTable j.val`
   where `reduceByteTable k` is the spec-level function computing the
   low 16 bits of the high-to-low reduction loop for byte `k`.
-• Lifting each table entry into `GF(2)[X]` via `natToGF2Poly`, the
+• Lifting each table entry into `GF(2)[X]` via `natToBinaryPoly`, the
   polynomial correctness property holds:
-    `natToGF2Poly v.val = (natToGF2Poly j.val * X ^ 16) %ₘ POLY_GF2`
+    `natToBinaryPoly v.val = (natToBinaryPoly j.val * X ^ 16) %ₘ polyGF2`
   confirming that each entry is the canonical remainder of `k · X¹⁶`
-  modulo the irreducible polynomial POLY_GF2.
+  modulo the irreducible polynomial polyGF2.
 
 **`REDUCE_BYTES` is definitionally `reduce_bytes`**. -/
 @[simp]
@@ -87,11 +87,11 @@ theorem REDUCE_BYTES_spec :
 GF(2)[X] polynomial correctness: for every index `j < 256`,
 the table entry satisfies
 
-  `natToGF2Poly result[j].val = (natToGF2Poly j.val * X ^ 16) %ₘ POLY_GF2`
+  `natToBinaryPoly result[j].val = (natToBinaryPoly j.val * X ^ 16) %ₘ polyGF2`
 
 confirming that each entry is the canonical remainder of the
 polynomial `j · X¹⁶` modulo the irreducible polynomial
-POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1.
+polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
 
 The proof unfolds `REDUCE_BYTES` to `reduce_bytes` and delegates
 to `reduce_byte_poly_spec`, which combines the loop specification
@@ -105,8 +105,8 @@ theorem REDUCE_BYTES_poly_spec :
       ∀ j : Std.Usize, j.val < 256 →
         ∃ v : Std.U16,
           Array.index_usize result j = ok v ∧
-            natToGF2Poly v.val =
-              (natToGF2Poly j.val * X ^ 16) %ₘ POLY_GF2 ⦄ := by
+            natToBinaryPoly v.val =
+              (natToBinaryPoly j.val * X ^ 16) %ₘ polyGF2 ⦄ := by
   simp only [REDUCE_BYTES]
   exact reduce_byte_poly_spec
 

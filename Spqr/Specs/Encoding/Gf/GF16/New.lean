@@ -19,8 +19,8 @@ the canonical bijection between the raw representation `u16` and
 the abstract type `GF16`, and so its semantic interpretation in
 `GF216 = GaloisField 2 16` is exactly the lift of the input `u16`
 under the canonical map
-`Nat.toGF216 = φ ∘ natToGF2Poly` (with
-`φ : GF2Poly →+* GF216`).
+`Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` (with
+`BinaryPoly.toGF216 : BinaryPoly →+* GF216`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 544:4-546:5)
 -/
@@ -36,7 +36,7 @@ namespace spqr.encoding.gf.GF16
 • The underlying `u16` value of the wrapped `GF16` is `value`, and
   equivalently as a natural number it is `value.val`.
 • Lifting `value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) element
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) element
   represented by the raw input `value`:
     `(value.val.toGF216 : GF216) = value.val.toGF216`.
   In Hoare-triple form, calling `new value` produces a `GF16`

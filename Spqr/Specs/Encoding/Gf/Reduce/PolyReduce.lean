@@ -83,26 +83,26 @@ private lemma index_usize_ok_eq {α : Type _} [Inhabited α] {n : Std.Usize}
   split at h <;> simp_all [List.getElem!_eq_getElem?_getD]
 
 theorem xor_table_shift_dvd (k n : Nat)
-    (htable : natToGF2Poly (reduceByteTable k) =
-      (natToGF2Poly k * X ^ 16) %ₘ POLY_GF2) :
-    POLY_GF2 ∣ (natToGF2Poly k * X ^ (n + 16) +
-      natToGF2Poly (reduceByteTable k) * X ^ n) := by
-  have hchar2 : natToGF2Poly k * X ^ (n + 16) +
-      natToGF2Poly (reduceByteTable k) * X ^ n =
-    (natToGF2Poly k * X ^ 16 - natToGF2Poly (reduceByteTable k)) * X ^ n := by
-    rw [zmod2_poly_sub_eq_add]; ring
+    (htable : natToBinaryPoly (reduceByteTable k) =
+      (natToBinaryPoly k * X ^ 16) %ₘ polyGF2) :
+    polyGF2 ∣ (natToBinaryPoly k * X ^ (n + 16) +
+      natToBinaryPoly (reduceByteTable k) * X ^ n) := by
+  have hchar2 : natToBinaryPoly k * X ^ (n + 16) +
+      natToBinaryPoly (reduceByteTable k) * X ^ n =
+    (natToBinaryPoly k * X ^ 16 - natToBinaryPoly (reduceByteTable k)) * X ^ n := by
+    rw [BinaryPoly.sub_eq_add]; ring
   rw [hchar2]
   apply dvd_mul_of_dvd_left
   rw [htable]
-  set p := natToGF2Poly k * X ^ 16
-  have h := Polynomial.modByMonic_add_div p POLY_GF2_monic
-  refine ⟨p /ₘ POLY_GF2, ?_⟩
+  set p := natToBinaryPoly k * X ^ 16
+  have h := Polynomial.modByMonic_add_div p polyGF2_monic
+  refine ⟨p /ₘ polyGF2, ?_⟩
   grind
 
 theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
-    (htable : ∀ k, k < 256 → natToGF2Poly (reduceByteTable k) =
-      (natToGF2Poly k * X ^ 16) %ₘ POLY_GF2) :
-    natToGF2Poly (polyReduceSpec v) = (natToGF2Poly v) %ₘ POLY_GF2 := by
+    (htable : ∀ k, k < 256 → natToBinaryPoly (reduceByteTable k) =
+      (natToBinaryPoly k * X ^ 16) %ₘ polyGF2) :
+    natToBinaryPoly (polyReduceSpec v) = (natToBinaryPoly v) %ₘ polyGF2 := by
   have hk1_lt : v >>> 24 < 256 := by
     rw [Nat.shiftRight_eq_div_pow]
     have h2 : (0 : Nat) < 2 ^ 24 := by positivity
@@ -180,57 +180,57 @@ theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
           simp only [decide_eq_true_eq]; omega
         simp only [hv_eq, ht1_eq, hk1_eq, h255i, h_ile, h_ile_i,
                    Bool.and_false, Bool.xor_false]
-  have hhigh_poly : natToGF2Poly ((v1 ^^^ t2) >>> 16) =
-      natToGF2Poly k2 + natToGF2Poly k1 * X ^ 8 := by
-    rw [hhigh, natToGF2Poly_xor, natToGF2Poly_shiftLeft]
-  have hd1 : POLY_GF2 ∣ (natToGF2Poly k1 * X ^ (8 + 16) +
-      natToGF2Poly t1 * X ^ 8) := xor_table_shift_dvd k1 8 (htable k1 hk1_lt)
-  have hd2 : POLY_GF2 ∣ (natToGF2Poly k2 * X ^ (0 + 16) +
-      natToGF2Poly t2 * X ^ 0) := xor_table_shift_dvd k2 0 (htable k2 hk2_lt)
-  have hxor_eq : natToGF2Poly (v1 ^^^ t2) =
-      natToGF2Poly v + natToGF2Poly t1 * X ^ 8 + natToGF2Poly t2 := by
-    rw [natToGF2Poly_xor, hv1_def, natToGF2Poly_xor, natToGF2Poly_shiftLeft]
-  have hsplit : natToGF2Poly (v1 ^^^ t2) =
-      natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) +
-        natToGF2Poly ((v1 ^^^ t2) >>> 16) * X ^ 16 :=
-    natToGF2Poly_split (v1 ^^^ t2) 16
-  have hkey : natToGF2Poly v - natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) =
-      (natToGF2Poly k1 * X ^ (8 + 16) + natToGF2Poly t1 * X ^ 8) +
-      (natToGF2Poly k2 * X ^ (0 + 16) + natToGF2Poly t2 * X ^ 0) := by
-    have h1 : natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) =
-        natToGF2Poly v + natToGF2Poly t1 * X ^ 8 + natToGF2Poly t2 -
-          natToGF2Poly ((v1 ^^^ t2) >>> 16) * X ^ 16 := by
+  have hhigh_poly : natToBinaryPoly ((v1 ^^^ t2) >>> 16) =
+      natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8 := by
+    rw [hhigh, natToBinaryPoly_xor, natToBinaryPoly_shiftLeft]
+  have hd1 : polyGF2 ∣ (natToBinaryPoly k1 * X ^ (8 + 16) +
+      natToBinaryPoly t1 * X ^ 8) := xor_table_shift_dvd k1 8 (htable k1 hk1_lt)
+  have hd2 : polyGF2 ∣ (natToBinaryPoly k2 * X ^ (0 + 16) +
+      natToBinaryPoly t2 * X ^ 0) := xor_table_shift_dvd k2 0 (htable k2 hk2_lt)
+  have hxor_eq : natToBinaryPoly (v1 ^^^ t2) =
+      natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2 := by
+    rw [natToBinaryPoly_xor, hv1_def, natToBinaryPoly_xor, natToBinaryPoly_shiftLeft]
+  have hsplit : natToBinaryPoly (v1 ^^^ t2) =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) +
+        natToBinaryPoly ((v1 ^^^ t2) >>> 16) * X ^ 16 :=
+    natToBinaryPoly_split (v1 ^^^ t2) 16
+  have hkey : natToBinaryPoly v - natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) =
+      (natToBinaryPoly k1 * X ^ (8 + 16) + natToBinaryPoly t1 * X ^ 8) +
+      (natToBinaryPoly k2 * X ^ (0 + 16) + natToBinaryPoly t2 * X ^ 0) := by
+    have h1 : natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) =
+        natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2 -
+          natToBinaryPoly ((v1 ^^^ t2) >>> 16) * X ^ 16 := by
       have hh := hsplit
       rw [hxor_eq] at hh
       linear_combination -hh
     rw [h1, hhigh_poly]
-    rw [show natToGF2Poly v - (natToGF2Poly v + natToGF2Poly t1 * X ^ 8 +
-            natToGF2Poly t2 - (natToGF2Poly k2 + natToGF2Poly k1 * X ^ 8) * X ^ 16) =
-          (natToGF2Poly k2 + natToGF2Poly k1 * X ^ 8) * X ^ 16 +
-            -(natToGF2Poly t1 * X ^ 8 + natToGF2Poly t2) from by ring,
-        zmod2_poly_neg_eq]
+    rw [show natToBinaryPoly v - (natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 +
+            natToBinaryPoly t2 - (natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8) * X ^ 16) =
+          (natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8) * X ^ 16 +
+            -(natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2) from by ring,
+        BinaryPoly.neg_eq]
     ring
-  have hdvd : POLY_GF2 ∣ (natToGF2Poly v - natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16)) := by
+  have hdvd : polyGF2 ∣ (natToBinaryPoly v - natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)) := by
     rw [hkey]; exact dvd_add hd1 hd2
-  have hmod_eq : natToGF2Poly v %ₘ POLY_GF2 =
-      natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) %ₘ POLY_GF2 :=
-    Polynomial.modByMonic_eq_of_dvd_sub POLY_GF2_monic hdvd
+  have hmod_eq : natToBinaryPoly v %ₘ polyGF2 =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) %ₘ polyGF2 :=
+    Polynomial.modByMonic_eq_of_dvd_sub polyGF2_monic hdvd
   have ha_lt : (v1 ^^^ t2) % 2 ^ 16 < 2 ^ 16 := Nat.mod_lt _ (by norm_num)
-  have ha_deg : (natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16)).degree < POLY_GF2.degree := by
-    rw [Polynomial.degree_eq_natDegree POLY_GF2_monic.ne_zero, POLY_GF2_natDegree]
-    rcases eq_or_ne (natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16)) 0 with heq | hne
+  have ha_deg : (natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)).degree < polyGF2.degree := by
+    rw [Polynomial.degree_eq_natDegree polyGF2_monic.ne_zero, polyGF2_natDegree]
+    rcases eq_or_ne (natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)) 0 with heq | hne
     · rw [heq, Polynomial.degree_zero]; exact WithBot.bot_lt_coe _
     · rw [Polynomial.degree_lt_iff_coeff_zero]
       intro m hm
       have hm' : 16 ≤ m := by exact_mod_cast hm
-      rw [natToGF2Poly_coeff]
+      rw [natToBinaryPoly_coeff]
       have hbnd : (v1 ^^^ t2) % 2 ^ 16 < 2 ^ m := lt_of_lt_of_le ha_lt
         (Nat.pow_le_pow_right (by norm_num) hm')
       rw [Nat.testBit_eq_false_of_lt hbnd]
       simp
-  have ha_self : natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) %ₘ POLY_GF2 =
-      natToGF2Poly ((v1 ^^^ t2) % 2 ^ 16) :=
-    (Polynomial.modByMonic_eq_self_iff POLY_GF2_monic).mpr ha_deg
+  have ha_self : natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) %ₘ polyGF2 =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) :=
+    (Polynomial.modByMonic_eq_self_iff polyGF2_monic).mpr ha_deg
   rw [hmod_eq, ha_self]
 
 /-- **Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`**:
@@ -246,19 +246,19 @@ process the input byte-by-byte from high to low:
   3. Return the remaining 16 bits.
 
 The result satisfies the algebraic specification:
-  `natToGF2Poly result.val = (natToGF2Poly v.val) %ₘ POLY_GF2`
+  `natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2`
 
 This connects the bitwise table-lookup implementation to
 polynomial reduction in GF(2)[X], confirming that `poly_reduce`
 computes the canonical degree-< 16 representative of `v` modulo
-POLY_GF2 = X¹⁶ + X¹² + X³ + X + 1.
+polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
 
 **Source**: spqr/src/encoding/gf.rs (lines 489:4-498:5)
 -/
 @[step]
 theorem poly_reduce_spec (v : Std.U32) :
     poly_reduce v ⦃ result =>
-      natToGF2Poly result.val = (natToGF2Poly v.val) %ₘ POLY_GF2 ⦄ := by
+      natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2 ⦄ := by
   unfold poly_reduce spqr.encoding.gf.reduce.REDUCE_BYTES
   step*
   · simp only [Array.length_eq]
@@ -282,9 +282,9 @@ theorem poly_reduce_spec (v : Std.U32) :
         have hw_idx' := index_usize_ok_eq a i1 w hw_idx
         simp_all
       have hi2_poly :
-          natToGF2Poly i2.val = natToGF2Poly i1.val * X ^ 16 %ₘ POLY_GF2 := by
+          natToBinaryPoly i2.val = natToBinaryPoly i1.val * X ^ 16 %ₘ polyGF2 := by
         rw [← hw_eq]; exact hw_poly
-      exact natToGF2Poly_inj _ _
+      exact natToBinaryPoly_inj _ _
         (hi2_poly.trans (reduceByteTable_eq_poly_full i1.val hi1_lt).symm)
     have hi3_val : i3.val = i2.val := by
       rw [i3_post, U16.cast_U32_val_eq]
@@ -315,9 +315,9 @@ theorem poly_reduce_spec (v : Std.U32) :
         have hw_idx' := index_usize_ok_eq a i21 w hw_idx
         rw [i6_post, hw_idx']
       have hi6_poly :
-          natToGF2Poly i6.val = natToGF2Poly i21.val * X ^ 16 %ₘ POLY_GF2 := by
+          natToBinaryPoly i6.val = natToBinaryPoly i21.val * X ^ 16 %ₘ polyGF2 := by
         rw [← hw_eq]; exact hw_poly
-      exact natToGF2Poly_inj _ _
+      exact natToBinaryPoly_inj _ _
         (hi6_poly.trans (reduceByteTable_eq_poly_full i21.val hi21_lt).symm)
     have hi7_val : i7.val = i6.val := by
       rw [i7_post, U16.cast_U32_val_eq]

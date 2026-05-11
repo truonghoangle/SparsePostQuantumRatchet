@@ -41,54 +41,57 @@ producing a 32-bit intermediate) with `poly_reduce` (table-based
 reduction modulo POLY).
 
 The result satisfies the polynomial-level specification:
-  `natToGF2Poly result.val =
-     (natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2`
+  `natToBinaryPoly result.val =
+     (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2`
 
 This follows from composing:
-  1. `poly_mul_spec`:    `natToGF2Poly (poly_mul a b).val = natToGF2Poly a.val * natToGF2Poly b.val`
-  2. `poly_reduce_spec`: `natToGF2Poly (poly_reduce v).val = (natToGF2Poly v.val) %ₘ POLY_GF2`
+  1. `poly_mul_spec`:    `natToBinaryPoly (poly_mul a b).val = natToBinaryPoly a.val * natToBinaryPoly b.val`
+  2. `poly_reduce_spec`: `natToBinaryPoly (poly_reduce v).val = (natToBinaryPoly v.val) %ₘ polyGF2`
 
 This establishes that `mul` computes multiplication in the quotient ring
-  GF(2¹⁶) ≅ GF(2)[X] / (POLY_GF2)
+  GF(2¹⁶) ≅ GF(2)[X] / (polyGF2)
 at the polynomial level.
 
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
 theorem mul_spec' (a b : U16) :
     mul a b ⦃ result =>
-      natToGF2Poly result.val =
-        (natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2 ⦄ := by
+      natToBinaryPoly result.val =
+        (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 ⦄ := by
   unfold mul
   step*
 
 /-- **GF216-level postcondition (provable, parametric)**:
 
-For any ring-homomorphism `φ : GF2Poly →+* GF216` that vanishes
-on `POLY_GF2`, the result of `mul a b` corresponds — via `φ ∘
-natToGF2Poly` — to the product of `a` and `b` in `GF216`.
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216`
+that vanishes on `polyGF2`, the result of `mul a b` corresponds — via
+`BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the product of `a` and `b`
+in `GF216`.
 
-Specializing `φ` to the canonical isomorphism (whose construction
-requires irreducibility of `POLY_GF2` over `ZMod 2`, i.e. a finite-
-field development we omit here) recovers the GF(2¹⁶) interpretation
-of the result. -/
+Specializing `BinaryPoly.toGF216` to the canonical isomorphism (whose
+construction requires irreducibility of `polyGF2` over `ZMod 2`, i.e.
+a finite-field development we omit here) recovers the GF(2¹⁶)
+interpretation of the result. -/
 @[step]
 theorem mul_spec
     (a b : U16) :
     mul a b ⦃ (result : U16) =>
       result.val.toGF216 = a.val.toGF216 * b.val.toGF216 ⦄ := by
-  have hMonic : POLY_GF2.Monic := POLY_GF2_monic
+  have hMonic : polyGF2.Monic := polyGF2_monic
   have h := mul_spec' a b
   unfold mul
   step*
   simp only [Nat.toGF216]
   have key :
-      φ (natToGF2Poly result.val) =
-        φ ((natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2) := by
+      BinaryPoly.toGF216 (natToBinaryPoly result.val) =
+        BinaryPoly.toGF216
+          ((natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2) := by
     have hPoly :
-        natToGF2Poly result.val =
-          (natToGF2Poly a.val * natToGF2Poly b.val) %ₘ POLY_GF2 := by
+        natToBinaryPoly result.val =
+          (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 := by
       simp_all
     rw [hPoly]
-  rw [key, ringHom_modByMonic φ POLY_GF2 hMonic hφ, map_mul]
+  rw [key, ringHom_modByMonic BinaryPoly.toGF216 polyGF2 hMonic
+    BinaryPoly.toGF216_polyGF2, map_mul]
 
 end spqr.encoding.gf.unaccelerated

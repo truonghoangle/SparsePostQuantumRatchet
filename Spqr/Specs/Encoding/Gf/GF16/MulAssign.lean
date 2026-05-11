@@ -35,7 +35,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 • The function always succeeds (no panic) for any pair of `GF16`
   inputs, since `unaccelerated.mul` is total on `Std.U16 × Std.U16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) product of the
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
     `(GF16toGF216 result : GF216) =
         GF16toGF216 self * GF16toGF216 other`
@@ -84,7 +84,7 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16
 • The by-value `MulAssign<GF16>::mul_assign` delegates to the
   by-reference variant and is observationally identical.
 • Lifting `result.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the GF(2¹⁶) product of the
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
     `(result.value.val.toGF216 : GF216) =
         self.value.val.toGF216 * other.value.val.toGF216`

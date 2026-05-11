@@ -42,10 +42,10 @@ The result satisfies the GF(2¹⁶)-level postcondition:
   `(GF16toGF216 result : GF216) =
        GF16toGF216 self * GF16toGF216 other`
 
-where `Nat.toGF216 n = φ (natToGF2Poly n)` interprets a natural
+where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
-ring homomorphism `φ : GF2Poly →+* GF216` that vanishes on
-`POLY_GF2`.
+ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
+`polyGF2`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 560:4-564:5)
 -/

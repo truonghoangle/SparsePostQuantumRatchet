@@ -15,11 +15,11 @@ around `u16`, the one element is represented by the `u16` value `1`:
 
 The underlying `u16` value `1` has natural-number value `1`, and lifts
 into `GF216 = GaloisField 2 16` via the canonical chain
-`Nat → GF2Poly → GF216` (i.e. `Nat.toGF216 = φ ∘ natToGF2Poly`)
+`Nat → BinaryPoly → GF216` (i.e. `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`)
 to the multiplicative identity `1 : GF216`.  This follows because:
-  * `natToGF2Poly 1 = 1` (the bit pattern `0b1` represents the
-    constant polynomial `1` in `GF2Poly`); and
-  * the ring homomorphism `φ : GF2Poly →+* GF216` chosen in
+  * `natToBinaryPoly 1 = 1` (the bit pattern `0b1` represents the
+    constant polynomial `1` in `BinaryPoly`); and
+  * the ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` chosen in
     `Spqr.Math.Gf` preserves one (`map_one`).
 
 **Source**: spqr/src/encoding/gf.rs (lines 542:4-542:44)
@@ -35,7 +35,7 @@ namespace spqr.encoding.gf.GF16
   and equivalently as a natural number:
     `ONE.value.val = 1`.
 • Lifting `ONE.value.val` into `GF216` via the canonical map
-  `Nat.toGF216 = φ ∘ natToGF2Poly` yields the multiplicative identity
+  `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the multiplicative identity
   of `GF216 = GaloisField 2 16`:
     `(ONE.value.val.toGF216 : GF216) = 1`.
 • `ONE` is a left- and right-identity for `GF16` multiplication: for
@@ -55,12 +55,12 @@ theorem ONE_value_val : (ONE).value.val = 1 := by
 
 @[simp]
 theorem ONE_toGF216 : (GF16toGF216 ONE : GF216) = 1 := by
-  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_one]
+  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_one]
 
 @[step]
 theorem one_spec :
     ok ONE ⦃ (result : GF16) =>
       (GF16toGF216 result : GF216) = 1 ⦄ := by
-  simp [GF16toGF216, Nat.toGF216, natToGF2Poly_one]
+  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_one]
 
 end spqr.encoding.gf.GF16

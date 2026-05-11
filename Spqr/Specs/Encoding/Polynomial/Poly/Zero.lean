@@ -77,8 +77,8 @@ polynomial ring GF(2¹⁶)[x].
 
 The proof unfolds `zero` to expose the underlying
 `Vec.with_capacity` call, which produces an empty vector, then
-unfolds `Poly.toGF216Poly` to reduce to `coeffsToGF216Poly []`,
-which simplifies to `0` by `coeffsToGF216Poly_empty`.
+unfolds `Poly.toGF216Poly` to reduce to `listToGF216Poly []`,
+which simplifies to `0` by `listToGF216Poly_empty`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 94:4-98:5)
 -/
@@ -87,6 +87,6 @@ theorem zero_spec (capacity : Std.Usize) :
     zero capacity ⦃ (result : spqr.encoding.polynomial.Poly) =>
       result.toGF216Poly = 0 ⦄ := by
   unfold zero
-  simp [alloc.vec.Vec.with_capacity, Poly.toGF216Poly, spqr.encoding.polynomial.coeffsToGF216Poly]
+  simp [alloc.vec.Vec.with_capacity, Poly.toGF216Poly, spqr.encoding.polynomial.listToGF216Poly]
 
 end spqr.encoding.polynomial.Poly
