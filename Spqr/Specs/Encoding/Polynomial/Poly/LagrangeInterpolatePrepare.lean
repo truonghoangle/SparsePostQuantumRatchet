@@ -891,29 +891,38 @@ factors, proved by induction on the number of factors. -/
 private lemma prodLinearFactors_coeff_eq_zero_high
     (pts : List Pt) (start stop m : Nat) (hm : stop - start < m) :
     (prodLinearFactors pts start stop).coeff m = 0 := by
-  suffices h : ∀ d start stop, stop - start = d → d < m →
+  suffices h : ∀ d start stop m, stop - start = d → d < m →
       (prodLinearFactors pts start stop).coeff m = 0 from
-    h (stop - start) start stop rfl hm
+    h (stop - start) start stop m rfl hm
   intro d
   induction d with
   | zero =>
-    intro start stop hd hm'
+    intro start stop m hd hm'
     have : ¬(start < stop ∧ start < pts.length) := by omega
     rw [prodLinearFactors_base _ _ _ this, coeff_one]
     exact if_neg (by omega)
   | succ n ih =>
-    intro start stop hd hm'
+    intro start stop m hd hm'
     by_cases h : start < stop ∧ start < pts.length
     · rw [prodLinearFactors_step _ _ _ h.1 h.2]
       cases m with
       | zero => omega
       | succ m' =>
         rw [sub_mul, coeff_sub, coeff_X_mul, coeff_C_mul,
-            ih (start + 1) stop (by omega) (by omega)]
-        simp    
+            ih (start + 1) stop (m' + 1) (by omega) (by omega),
+            ih (start + 1) stop m' (by omega) (by omega)]
         ring
     · rw [prodLinearFactors_base _ _ _ h, coeff_one]
       exact if_neg (by omega)
+
+/-- **Indexed read after `List.set` at the same index** (using `[·]!`).
+If `n < l.length`, then `(l.set n x)[n]! = x`.  This is a local
+replacement for `List.getElem!_set_self` (which we do not use). -/
+private lemma list_getElem_bang_set_self {α : Type*} [Inhabited α]
+    (l : List α) (n : Nat) (x : α) (hn : n < l.length) :
+    (l.set n x)[n]! = x := by
+  have h : n < (l.set n x).length := by rw [List.length_set]; exact hn
+  rw [getElem!_pos (l.set n x) n h, List.getElem_set_self]
 
 /-- If all coefficients of a list, interpreted via `GF16toGF216`,
 match those of a polynomial `q` at in-range positions, and `q`
@@ -991,12 +1000,71 @@ theorem lagrange_interpolate_prepare_spec
       result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length ⦄ := by
   unfold lagrange_interpolate_prepare
   step*
-  all_goals simp_all [encoding.gf.GF16.Insts.CoreCloneClone.clone]
-  constructor
-  · intro m hm 
-    have := p1_post5 m hm
-    rw [← this]
-    
-  · sorry
+  · simp_all [encoding.gf.GF16.Insts.CoreCloneClone.clone]
+  -- Bridge: connect expectedTrailingPoly to prodLinearFactors
+  · simp_all
+  · simp_all
+  · simp_all
+  · simp_all only [Order.add_one_le_iff, Usize.ofNatCore_val_eq, List.resize_length,
+    lt_add_iff_pos_right, zero_lt_one, getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set,
+    getElem?_pos, List.getElem_set_self, Option.some.injEq, List.get_eq_getElem, ONE_toGF216,
+    imp_self, tsub_self, zero_le, true_and, not_lt, tsub_zero, zero_add, Order.lt_add_one_iff,
+    forall_true_left, ONE_value, iff_true, forall_const]
+    have h_bridge : expectedTrailingPoly
+        ((p.coefficients.val.resize (pts.val.length + 1) ZERO).set pts.val.length ONE)
+        pts.val pts.val.length 0 pts.val.length =
+      prodLinearFactors pts.val 0 pts.val.length := by
+      apply expectedTrailingPoly_eq_prodLinearFactors
+      · have hlen : pts.val.length <
+          (p.coefficients.val.resize (pts.val.length + 1) ZERO).length := by
+          unfold List.resize
+          simp
+          grind
+        rw [list_getElem_bang_set_self _ _ _ hlen, ONE_toGF216]
+      · intro j hj
+        have hj_lt : j < (p.coefficients.val.resize (pts.val.length + 1) ZERO).length := by
+          unfold List.resize; simp; omega
+        have h_p_coeff_zero : ∀ k (hk : k < p.coefficients.val.length),
+            GF16toGF216 (p.coefficients.val.get ⟨k, hk⟩) = 0 := by
+          intro k hk
+          have h0 : (p.toGF216Poly).coeff k = 0 := by rw [p_post]; simp
+          simp only [Poly.toGF216Poly, coeffsToGF216Poly_coeff, hk, ↓reduceDIte] at h0
+          exact h0
+        unfold List.resize at hj_lt ⊢
+        simp only [Nat.zero_le, ge_iff_le, ↓reduceIte] at hj_lt ⊢
+        by_cases hk : j < p.coefficients.val.length
+        · -- j within original: in the take part
+          have hj_take : j < (p.coefficients.val.take (pts.val.length + 1)).length := by
+            simp; omega
+          grind
+        · -- j in padded range: in the replicate part
+          push_neg at hk
+          have htake_len_le : (p.coefficients.val.take (pts.val.length + 1)).length ≤ j := by
+            rw [List.length_take]; omega
+          have hrepl_bnd : j - (p.coefficients.val.take (pts.val.length + 1)).length <
+              pts.val.length + 1 - p.coefficients.val.length := by
+            rw [List.length_take]; omega
+          have hj_ne : Nat.not_eq pts.val.length j := by
+            simp [Nat.not_eq]; omega
+          rw [List.getElem!_set_ne _ pts.val.length j ONE hj_ne,
+              List.getElem!_append_right
+                (p.coefficients.val.take (pts.val.length + 1))
+                (List.replicate (pts.val.length + 1 - p.coefficients.val.length) ZERO)
+                j htake_len_le,
+              List.getElem!_replicate ZERO hrepl_bnd, ZERO_toGF216]
+      · exact le_refl _
+      · exact le_refl _
+    constructor
+    · intro m hm
+      rw [h_bridge]
+    · change coeffsToGF216Poly p1.coefficients.val =
+        prodLinearFactors pts.val 0 pts.val.length
+      apply coeffsToGF216Poly_eq_of_coeffs
+      · intro m hm
+        simp only [List.get_eq_getElem]
+        have hm_le : m ≤ pts.val.length := by omega
+        rw [p1_post5 m hm_le, h_bridge]
+      · intro m hm
+        exact prodLinearFactors_coeff_eq_zero_high _ _ _ _ (by omega)
 
 end spqr.encoding.polynomial.Poly
