@@ -82,16 +82,16 @@ interpretation of the result.
 
 Note that in GF(2¹⁶) addition and subtraction coincide, so this is
 equivalently
-  `GF16toGF216 result =
-       GF16toGF216 self + GF16toGF216 other`. -/
+  `result.toGF216 =
+       self.toGF216 + other.toGF216`. -/
 @[step]
 theorem const_sub_spec
     (self other : GF16) :
     const_sub self other ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 self - GF16toGF216 other ⦄ := by
+      result.toGF216 = self.toGF216 - other.toGF216 ⦄ := by
   unfold const_sub
   step*
-  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToBinaryPoly_xor,
+  simp_all only [UScalar.val_xor, GF16.toGF216, Nat.toGF216, natToBinaryPoly_xor,
     ← BinaryPoly.sub_eq_add, map_sub]
 
 end spqr.encoding.gf.GF16

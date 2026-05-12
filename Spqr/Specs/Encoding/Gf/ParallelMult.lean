@@ -130,12 +130,12 @@ theorem parallel_mult_loop_body_spec
           i.val + 2 ≤ into.length ∧
           i'.val = i.val + 2 ∧
           s.length = into.length ∧
-          GF16toGF216 (s.val[i.val]!) =
-            GF16toGF216 a *
-              GF16toGF216 (into.val[i.val]!) ∧
-          GF16toGF216 (s.val[i.val + 1]!) =
-            GF16toGF216 a *
-              GF16toGF216 (into.val[i.val + 1]!) ∧
+          (s.val[i.val]!).toGF216 =
+            a.toGF216 *
+              (into.val[i.val]!).toGF216 ∧
+          (s.val[i.val + 1]!).toGF216 =
+            a.toGF216 *
+              (into.val[i.val + 1]!).toGF216 ∧
           (∀ j : Nat, j ≠ i.val → j ≠ i.val + 1 →
             s.val[j]! = into.val[j]!) ⦄ := by
   unfold parallel_mult_loop.body
@@ -149,9 +149,9 @@ theorem parallel_mult_loop_body_spec
       | (rw [Slice.set_val_eq,
              List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
       | scalar_tac)
-  · simp_all[GF16toGF216]
+  · simp_all[GF16.toGF216]
     grind
-  · simp_all[GF16toGF216]
+  · simp_all[GF16.toGF216]
     grind
 
 
@@ -234,7 +234,7 @@ theorem parallel_mult_loop_spec
       i.val ≤ i'.val ∧
       i'.val ≤ into'.length ∧
       (∀ j : Nat, i.val ≤ j → j < i'.val →
-        GF16toGF216 (into'.val[j]!) = GF16toGF216 a * GF16toGF216 (into.val[j]!)) ∧
+        (into'.val[j]!).toGF216 = a.toGF216 * (into.val[j]!).toGF216) ∧
       (∀ j : Nat, i'.val ≤ j → j < into'.length →
         (into'.val[j]!) = (into.val[j]!)) ∧
       (∀ j : Nat, j < i.val →
@@ -248,7 +248,7 @@ theorem parallel_mult_loop_spec
       i.val ≤ p.2.val ∧
       p.2.val ≤ p.1.length ∧
       (∀ j : Nat, i.val ≤ j → j < p.2.val →
-        GF16toGF216 (p.1.val[j]!) = GF16toGF216 a * GF16toGF216 (into.val[j]!)) ∧
+        (p.1.val[j]!).toGF216 = a.toGF216 * (into.val[j]!).toGF216) ∧
       (∀ j : Nat, p.2.val ≤ j → j < p.1.length →
         (p.1.val[j]!) = (into.val[j]!)) ∧
       (∀ j : Nat, j < i.val →
@@ -258,7 +258,7 @@ theorem parallel_mult_loop_spec
     have hi' : i'.val + 2 ≤ Std.Usize.max := by omega
     step*
     split
-    · simp_all[GF16toGF216]
+    · simp_all[GF16.toGF216]
     · refine ⟨?measure, ?len, ?lo, ?proc, ?unproc, ?before, ?decr⟩
       case measure => simp_all
       case len => simp_all; grind
@@ -357,8 +357,8 @@ theorem parallel_mult_spec
     parallel_mult a into ⦃ (result : Slice encoding.gf.GF16) =>
       result.length = into.length ∧
       (∀ j : Nat, j < result.length →
-        (GF16toGF216 (result.val[j]!) : GF216) =
-          GF16toGF216 a * (GF16toGF216 (into.val[j]!) : GF216)) ⦄ := by
+        ((result.val[j]!).toGF216 : GF216) =
+          a.toGF216 * ((into.val[j]!).toGF216 : GF216)) ⦄ := by
   unfold parallel_mult
   step*
   rename_i ha1 hlen1 hterm hi_hi hval_proc hval_unproc hval_before

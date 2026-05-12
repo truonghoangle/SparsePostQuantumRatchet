@@ -46,7 +46,7 @@ The bridge from the implementation to the mathematics is:
   Implementation Layer          Mathematical Layer
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   GF16 (value : U16)    ──────► GF216 = GF(2¹⁶)
-          │    GF16toGF216         │
+          │    GF16.toGF216         │
           │                        │
   Vec<GF16>             ──────► GF216[X]
           │    listToGF216Poly     │
@@ -58,7 +58,7 @@ The bridge from the implementation to the mathematics is:
 Conventions:
 - `GF216`  = `GaloisField 2 16` (the finite field, from `Spqr.Math.Gf`).
 - `GF216Poly` = `GF216[X]` (the univariate polynomial ring over GF(2¹⁶)).
-- `GF16toGF216` maps a `spqr.encoding.gf.GF16` element (U16 value)
+- `GF16.toGF216` maps a `spqr.encoding.gf.GF16` element (U16 value)
   to `GF216` via the `Nat.toGF216` bridge from `Spqr.Math.Gf`.
 - `listToGF216Poly` interprets a `List GF16` as a polynomial in
   `GF216[X]`.
@@ -86,20 +86,20 @@ as a polynomial in `GF(2¹⁶)[X]`.
 
 Given `cs = [a₀, a₁, …, aₙ]`, this produces:
 
-  `C(GF16toGF216 a₀) + C(GF16toGF216 a₁)·X + … + C(GF16toGF216 aₙ)·Xⁿ`
+  `C(a₀.toGF216) + C(a₁.toGF216)·X + … + C(aₙ.toGF216)·Xⁿ`
 
 where `C : GF216 →+* GF216[X]` is the constant-polynomial embedding.
 The sum is indexed by `Fin cs.length`, ensuring well-typed access
 to each coefficient. -/
 noncomputable def listToGF216Poly (cs : List spqr.encoding.gf.GF16) : GF216Poly :=
-  ∑ i : Fin cs.length, C (GF16toGF216 (cs.get i)) * X ^ i.val
+  ∑ i : Fin cs.length, C ((cs.get i).toGF216) * X ^ i.val
 
 /-- Interpret a `Poly` as a mathematical polynomial in `GF(2¹⁶)[X]`.
 
 This is the canonical bridge between the Aeneas-extracted
 implementation type `spqr.encoding.polynomial.Poly` and the Mathlib
 polynomial ring `GF216[X]`.  It reads the coefficient vector from
-the `Poly` and maps each `GF16` coefficient through `GF16toGF216`.
+the `Poly` and maps each `GF16` coefficient through `GF16.toGF216`.
 
 This definition enables stating mathematical specifications for
 functions like `Poly.zero`, `Poly.add_assign`, `Poly.compute_at`,
@@ -147,7 +147,7 @@ theorem Poly.toGF216Poly_eq_zero (p : Poly)
 /-! ## Coefficient characterization and basic lemmas of `listToGF216Poly` -/
 
 /-- The coefficient of `listToGF216Poly cs` at position `m` is
-`GF16toGF216 cs[m]` when `m < cs.length`, and `0` otherwise.
+`cs[m].toGF216` when `m < cs.length`, and `0` otherwise.
 
 This parallels `natToBinaryPoly_coeff` from `Spqr.Math.Gf`, lifting
 the coefficient characterization from the bit level (GF(2)
@@ -157,7 +157,7 @@ field elements). -/
 lemma listToGF216Poly_coeff (cs : List spqr.encoding.gf.GF16) (m : Nat) :
     (listToGF216Poly cs).coeff m =
       if hm : m < cs.length
-      then GF16toGF216 (cs.get ⟨m, hm⟩)
+      then (cs.get ⟨m, hm⟩).toGF216
       else 0 := by
   unfold listToGF216Poly
   simp only [finset_sum_coeff, coeff_C_mul, coeff_X_pow]
@@ -194,33 +194,33 @@ lemma listToGF216Poly_empty :
 /-! ## Singleton polynomial (degree-0 constant) -/
 
 /-- A single-coefficient list `[a]` produces the constant polynomial
-`C (GF16toGF216 a)` in `GF(2¹⁶)[X]`. -/
+`C (a.toGF216)` in `GF(2¹⁶)[X]`. -/
 lemma listToGF216Poly_singleton (a : spqr.encoding.gf.GF16) :
-    listToGF216Poly [a] = C (GF16toGF216 a) := by
+    listToGF216Poly [a] = C (a.toGF216) := by
   simp [listToGF216Poly, Finset.univ_unique]
 
-/-! ## Properties of `GF16toGF216` -/
+/-! ## Properties of `GF16.toGF216` -/
 
-/-- **`GF16toGF216` maps the zero GF16 element to `0 : GF216`.**
+/-- **`GF16.toGF216` maps the zero GF16 element to `0 : GF216`.**
 
 The zero element has `value.val = 0`, which encodes the natural
 number `0`.  By `natToBinaryPoly_zero` from `Spqr.Math.Gf`,
 `natToBinaryPoly 0 = 0`, and the ring homomorphism
 `BinaryPoly.toGF216` preserves zero: `BinaryPoly.toGF216 0 = 0`. -/
-lemma GF16toGF216_zero_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 0) :
-    GF16toGF216 g = 0 := by
-  unfold GF16toGF216 Nat.toGF216
+lemma GF16.toGF216_zero_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 0) :
+    g.toGF216 = 0 := by
+  unfold GF16.toGF216 Nat.toGF216
   rw [h]
   simp [natToBinaryPoly_zero, map_zero]
 
-/-- **`GF16toGF216` preserves the one element.**
+/-- **`GF16.toGF216` preserves the one element.**
 
 The element with `value.val = 1` encodes the natural number `1`,
 which corresponds to the constant polynomial `1` in GF(2)[X], and
 maps to `1 : GF216` via `BinaryPoly.toGF216`. -/
-lemma GF16toGF216_one_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 1) :
-    GF16toGF216 g = 1 := by
-  unfold GF16toGF216 Nat.toGF216
+lemma GF16.toGF216_one_val (g : spqr.encoding.gf.GF16) (h : g.value.val = 1) :
+    g.toGF216 = 1 := by
+  unfold GF16.toGF216 Nat.toGF216
   rw [h]
   simp [natToBinaryPoly_one, map_one]
 
@@ -266,13 +266,13 @@ This connects `Poly.compute_at` (which evaluates using Horner's
 method in the implementation) to the mathematical `Polynomial.eval`
 function from Mathlib.  The correspondence is:
 
-  `Poly.evalAt p x = Polynomial.eval (GF16toGF216 x) (p.toGF216Poly)`
+  `Poly.evalAt p x = Polynomial.eval (x.toGF216) (p.toGF216Poly)`
 
 which says "evaluating the Poly at GF16 point x in the
 implementation equals evaluating the corresponding GF216[X]
 polynomial at the corresponding GF216 point". -/
 noncomputable def Poly.evalAt (p : Poly) (x : spqr.encoding.gf.GF16) : GF216 :=
-  (p.toGF216Poly).eval (GF16toGF216 x)
+  (p.toGF216Poly).eval (x.toGF216)
 
 /-- **Evaluating the zero polynomial at any point gives `0 : GF216`.**
 
@@ -289,7 +289,7 @@ lemma Poly.evalAt_zero_poly (p : Poly) (x : spqr.encoding.gf.GF16)
 /-- **Evaluation of `listToGF216Poly` equals the coefficient sum.**
 
 Evaluating `listToGF216Poly cs` at point `a` yields the sum
-`∑ᵢ GF16toGF216(csᵢ) · a ^ i`, connecting the Mathlib `eval`
+`∑ᵢ GF16.toGF216(csᵢ) · a ^ i`, connecting the Mathlib `eval`
 function to the explicit coefficient-power-sum computation used in
 the implementation's `Poly.compute_at`.
 
@@ -299,7 +299,7 @@ the sum-of-powers formula that the Rust function computes. -/
 lemma listToGF216Poly_eval (cs : List spqr.encoding.gf.GF16) (a : GF216) :
     (listToGF216Poly cs).eval a =
       ∑ i : Fin cs.length,
-        GF16toGF216 (cs.get i) * a ^ i.val := by
+        (cs.get i).toGF216 * a ^ i.val := by
   unfold listToGF216Poly
   simp [eval_finset_sum, eval_mul, eval_C, eval_pow, eval_X]
 
@@ -310,7 +310,7 @@ adding a new highest-degree term.**
 
 If `cs ++ [a]` is the extended list, then
 `listToGF216Poly (cs ++ [a]) =
-  listToGF216Poly cs + C(GF16toGF216 a) · X^(cs.length)`.
+  listToGF216Poly cs + C(a.toGF216) · X^(cs.length)`.
 
 This is the algebraic content of `Vec::push` on the coefficient vector:
 appending a new coefficient extends the polynomial by one degree.
@@ -320,7 +320,7 @@ by successively pushing coefficients. -/
 lemma listToGF216Poly_append_singleton
     (cs : List spqr.encoding.gf.GF16) (a : spqr.encoding.gf.GF16) :
     listToGF216Poly (cs ++ [a]) =
-      listToGF216Poly cs + C (GF16toGF216 a) * X ^ cs.length := by
+      listToGF216Poly cs + C (a.toGF216) * X ^ cs.length := by
   ext m
   simp only [listToGF216Poly_coeff, coeff_add, coeff_C_mul, coeff_X_pow]
   by_cases hm1 : m < cs.length
@@ -362,9 +362,9 @@ lemma listToGF216Poly_add (cs ds : List spqr.encoding.gf.GF16)
     (rs : List spqr.encoding.gf.GF16)
     (hrs : rs.length = cs.length)
     (hcoeff : ∀ i (hi : i < cs.length),
-      GF16toGF216 (rs.get ⟨i, by omega⟩) =
-        GF16toGF216 (cs.get ⟨i, hi⟩) +
-        GF16toGF216 (ds.get ⟨i, by omega⟩)) :
+      (rs.get ⟨i, by omega⟩).toGF216 =
+        (cs.get ⟨i, hi⟩).toGF216 +
+        (ds.get ⟨i, by omega⟩).toGF216) :
     listToGF216Poly rs =
       listToGF216Poly cs + listToGF216Poly ds := by
   ext m

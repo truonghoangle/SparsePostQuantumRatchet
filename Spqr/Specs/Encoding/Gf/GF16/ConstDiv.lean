@@ -62,12 +62,12 @@ theorem const_div_loop_body_spec
     const_div_loop.body square out i ⦃ (cf : ControlFlow (GF16 × GF16 × Usize) GF16) =>
       match cf with
       | ControlFlow.done result =>
-          (GF16toGF216 result : GF216) = GF16toGF216 out
+          (result.toGF216 : GF216) = out.toGF216
       | ControlFlow.cont (square', out', _) =>
-          (GF16toGF216 square' : GF216) =
-            GF16toGF216 square * GF16toGF216 square ∧
-          (GF16toGF216 out' : GF216) =
-            GF16toGF216 out * GF16toGF216 square' ⦄ := by
+          (square'.toGF216 : GF216) =
+            square.toGF216 * square.toGF216 ∧
+          (out'.toGF216 : GF216) =
+            out.toGF216 * square'.toGF216 ⦄ := by
   unfold const_div_loop.body
   step*
 
@@ -112,17 +112,17 @@ theorem const_div_loop_spec
     (square out : GF16) (i : Usize)
     (hi : i.val ≤ 16) :
     const_div_loop square out i ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 out * GF16toGF216 square ^ (2 ^ (17 - i.val) - 2) ⦄ := by
+      result.toGF216 = out.toGF216 * square.toGF216 ^ (2 ^ (17 - i.val) - 2) ⦄ := by
   unfold const_div_loop
   apply loop.spec_decr_nat
     (measure := fun (p : GF16 × GF16 × Usize) => 16 - p.2.2.val)
     (inv := fun (p : GF16 × GF16 × Usize) =>
       p.2.2.val ≤ 16 ∧ i.val ≤ p.2.2.val ∧
-      (GF16toGF216 p.1 : GF216) =
-        GF16toGF216 square ^ (2 ^ (p.2.2.val - i.val)) ∧
-      (GF16toGF216 p.2.1 : GF216) =
-        GF16toGF216 out *
-          GF16toGF216 square ^ (2 ^ (p.2.2.val - i.val + 1) - 2))
+      (p.1.toGF216 : GF216) =
+        square.toGF216 ^ (2 ^ (p.2.2.val - i.val)) ∧
+      (p.2.1.toGF216 : GF216) =
+        out.toGF216 *
+          square.toGF216 ^ (2 ^ (p.2.2.val - i.val + 1) - 2))
   · rintro ⟨s', o', i'⟩ ⟨hi'_le, hi'_ge, h_sq, h_out⟩
     simp only []
     unfold const_div_loop.body
@@ -191,7 +191,7 @@ closed-form exponent collapses to `2¹⁶ − 2`.
 @[step]
 theorem const_div_spec (self other : GF16) :
     const_div self other ⦃ (result : GF16) =>
-      GF16toGF216 result  = GF16toGF216 self * GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
+      result.toGF216  = self.toGF216 * other.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
   unfold const_div
   have h := const_div_loop_spec other self 1#usize (by scalar_tac)
   step*

@@ -58,9 +58,9 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-        GF16toGF216 other ^ (2 ^ 16 − 2)`
+    `(result.toGF216 : GF216) =
+        self.toGF216 *
+        other.toGF216 ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
@@ -72,9 +72,9 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 @[step]
 theorem div_spec (self other : spqr.encoding.gf.GF16) :
     div self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 *
+          other.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
   unfold div
   step*
 
@@ -112,9 +112,9 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-        GF16toGF216 other ^ (2 ^ 16 − 2)`
+    `(result.toGF216 : GF216) =
+        self.toGF216 *
+        other.toGF216 ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
@@ -126,9 +126,9 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
 @[step]
 theorem div_spec (self other : spqr.encoding.gf.GF16) :
     div self other ⦃ result =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-          GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 *
+          other.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
   unfold div
   step*
 

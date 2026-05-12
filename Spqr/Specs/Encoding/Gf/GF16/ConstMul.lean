@@ -39,8 +39,8 @@ POLY = 0x1100b) and wrapping the resulting `u16` back into a `GF16`.
 
 The result satisfies the GF(2¹⁶)-level postcondition:
 
-  `(GF16toGF216 result : GF216) =
-       GF16toGF216 self * GF16toGF216 other`
+  `(result.toGF216 : GF216) =
+       self.toGF216 * other.toGF216`
 
 where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural
 number as an element of `GF216 = GaloisField 2 16` via the chosen
@@ -52,10 +52,10 @@ ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
 @[step]
 theorem const_mul_spec (self other : GF16) :
     const_mul self other ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 self * GF16toGF216 other ⦄ := by
+      result.toGF216 = self.toGF216 * other.toGF216 ⦄ := by
   unfold const_mul
   step*
-  simp[GF16toGF216]
+  simp[GF16.toGF216]
   simp_all
 
 end spqr.encoding.gf.GF16

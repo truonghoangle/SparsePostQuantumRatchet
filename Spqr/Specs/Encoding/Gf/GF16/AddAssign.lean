@@ -69,10 +69,10 @@ homomorphism `BinaryPoly.toGF216` (`map_add`).
 @[step]
 theorem add_assign_spec (self other : GF16) :
     add_assign self other ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 self + GF16toGF216 other ⦄ := by
+      result.toGF216 =  self.toGF216 + other.toGF216 ⦄ := by
   unfold add_assign
   step*
-  simp_all only [UScalar.val_xor, GF16toGF216, Nat.toGF216, natToBinaryPoly_xor, map_add]
+  simp_all only [UScalar.val_xor, toGF216, Nat.toGF216, natToBinaryPoly_xor, map_add]
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithAddAssignShared0GF16
 
@@ -135,7 +135,7 @@ with `step*`, which applies the already-registered
 @[step]
 theorem add_assign_spec (self other : GF16) :
     add_assign self other ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 self + GF16toGF216 other ⦄ := by
+      result.toGF216 = self.toGF216 + other.toGF216 ⦄ := by
   unfold add_assign
   step*
 

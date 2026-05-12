@@ -193,10 +193,10 @@ private theorem IteratorRange_next_I32_ok
     `(result.value.val.toGF216 : GF216) = out.value.val.toGF216`.
 • On `cont (_, square', out')` the new state satisfies the iterated-
   squaring recurrence
-    `GF16toGF216 out' =
-        GF16toGF216 out * GF16toGF216 square`,
-    `GF16toGF216 square' =
-        GF16toGF216 square * GF16toGF216 square`.
+    `out'.toGF216 =
+        out.toGF216 * square.toGF216`,
+    `square'.toGF216 =
+        square.toGF216 * square.toGF216`.
 
 **Per-iteration postcondition for `encoding.gf.GF16.div_impl_loop.body`**:
 
@@ -206,16 +206,16 @@ Both branches are characterised at the GF(2¹⁶) level via
 
 * **`done`** — the `1..16` iterator is exhausted; the returned
   accumulator is the unchanged `out`:
-    `GF16toGF216 result = GF16toGF216 out`.
+    `result.toGF216 = out.toGF216`.
 
 * **`cont`** — the iterator yielded another index; the new state
   `(_, square', out')` satisfies the squaring recurrence (note that,
   unlike `const_div`, the `*=` precedes the squaring, so `out'`
   involves the *old* `square`):
-    `GF16toGF216 out' =
-        GF16toGF216 out * GF16toGF216 square`,
-    `GF16toGF216 square' =
-        GF16toGF216 square * GF16toGF216 square`.
+    `out'.toGF216 =
+        out.toGF216 * square.toGF216`,
+    `square'.toGF216 =
+        square.toGF216 * square.toGF216`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
@@ -226,12 +226,12 @@ theorem div_impl_loop_body_spec
     div_impl_loop.body iter square out ⦃ cf =>
       match cf with
       | ControlFlow.done result =>
-          (GF16toGF216 result : GF216) = GF16toGF216 out
+          (result.toGF216 : GF216) = out.toGF216
       | ControlFlow.cont (_, square', out') =>
-          (GF16toGF216 out' : GF216) =
-            GF16toGF216 out * GF16toGF216 square ∧
-          (GF16toGF216 square' : GF216) =
-            GF16toGF216 square * GF16toGF216 square ⦄ := by
+          (out'.toGF216 : GF216) =
+            out.toGF216 * square.toGF216 ∧
+          (square'.toGF216 : GF216) =
+            square.toGF216 * square.toGF216 ⦄ := by
   unfold div_impl_loop.body
   obtain ⟨o, iter1, hnext⟩ := IteratorRange_next_I32_ok iter
   rw [hnext]
@@ -334,9 +334,9 @@ private theorem IteratorRange_next_I32_post
 The iterated-squaring loop driving `GF16::div_impl`, specified at
 the GF(2¹⁶) level by the closed-form iterated-squaring identity:
 
-  `GF16toGF216 result =
-       GF16toGF216 out *
-       GF16toGF216 square ^
+  `result.toGF216 =
+       out.toGF216 *
+       square.toGF216 ^
             (2 ^ (iter.end.val - iter.start.val).toNat - 1)`.
 
 Specialised to the entry point `(iter, square, out) = (1..16,
@@ -351,9 +351,9 @@ theorem div_impl_loop_spec
     (square out : GF16)
     (h_le : iter.start.val ≤ iter.end.val) :
     div_impl_loop iter square out ⦃ (result : GF16) =>
-      GF16toGF216 result =
-        GF16toGF216 out *
-        GF16toGF216 square ^
+      result.toGF216 =
+        out.toGF216 *
+        square.toGF216 ^
             (2 ^ (iter.end.val - iter.start.val).toNat - 1) ⦄ := by
   unfold div_impl_loop
   apply loop.spec_decr_nat
@@ -398,10 +398,10 @@ theorem div_impl_loop_spec
       · rw [h_start1]; omega
       · have : iter'.end.val = iter.end.val := by rw [← h_end]
         rw [h_start1]; omega
-      · simp only [GF16toGF216]at square1_post
+      · simp only [GF16.toGF216]at square1_post
         rw [square1_post, h_sq, ← pow_add, hk1, pow_succ]
         ring_nf
-      · simp only [GF16toGF216] at out1_post
+      · simp only [GF16.toGF216] at out1_post
         rw [out1_post, h_sq, h_out, mul_assoc, ← pow_add]
         have h_2le :
             2 ≤ 2 ^ ((iter'.start.val - iter.start.val).toNat + 1) := by
@@ -482,9 +482,9 @@ The function proceeds in two stages:
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
-    `(GF16toGF216 result : GF216) =
-        GF16toGF216 self *
-        GF16toGF216 other ^ (2 ^ 16 − 2)`
+    `(result.toGF216 : GF216) =
+        self.toGF216 *
+        other.toGF216 ^ (2 ^ 16 − 2)`
   where the operations on the right-hand side are performed in
   `GF216 = GaloisField 2 16`.  When `other ≠ 0` Fermat's little
   theorem in GF(2¹⁶) gives `other^(2¹⁶ − 1) = 1`, so
@@ -496,15 +496,15 @@ The function proceeds in two stages:
 @[step]
 theorem div_impl_spec (self other : GF16) :
     div_impl self other ⦃ (result : GF16) =>
-      GF16toGF216 result = GF16toGF216 self * GF16toGF216 other ^ (2 ^ 16 - 2) ⦄ := by
+      result.toGF216 = self.toGF216 * other.toGF216 ^ (2 ^ 16 - 2) ⦄ := by
   unfold div_impl
   have h_loop := fun (square : spqr.encoding.gf.GF16) =>
     div_impl_loop_spec { start := 1#i32, «end» := 16#i32 } square self
       (by scalar_tac)
   step*
   rw [result_post, square_post,
-      show (GF16toGF216 other * GF16toGF216 other : GF216)
-            = GF16toGF216 other ^ 2 from by ring,
+      show (other.toGF216 * other.toGF216 : GF216)
+            = other.toGF216 ^ 2 from by ring,
       ← pow_mul]
   congr 1
 

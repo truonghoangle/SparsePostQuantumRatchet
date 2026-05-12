@@ -60,7 +60,7 @@ theorem mk_value_toGF216 (value : Std.U16) :
 @[step]
 theorem new_spec (value : U16) :
     new value ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) = value.val.toGF216 ⦄ := by
-  simp [GF16toGF216, new]
+      (result.toGF216 : GF216) = value.val.toGF216 ⦄ := by
+  simp [GF16.toGF216, new]
 
 end spqr.encoding.gf.GF16

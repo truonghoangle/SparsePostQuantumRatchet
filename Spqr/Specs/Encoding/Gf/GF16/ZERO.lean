@@ -57,13 +57,13 @@ theorem ZERO_value_val : (ZERO).value.val = 0 := by
 
 
 @[simp]
-theorem ZERO_toGF216 : (GF16toGF216 ZERO : GF216) = 0 := by
-  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_zero]
+theorem ZERO_toGF216 : (ZERO.toGF216 : GF216) = 0 := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero]
 
 @[step]
 theorem zero_spec :
     ok ZERO ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) = 0 ⦄ := by
-  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_zero]
+      (result.toGF216 : GF216) = 0 ⦄ := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero]
 
 end spqr.encoding.gf.GF16

@@ -56,8 +56,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubGF16GF16
 @[step]
 theorem sub_spec (self other : GF16) :
     sub self other ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self - GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 - other.toGF216 ⦄ := by
   unfold sub
   step*
 
@@ -92,8 +92,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubShared0GF16GF16
 @[step]
 theorem sub_spec (self other : GF16) :
     sub self other ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self - GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 - other.toGF216 ⦄ := by
   unfold sub
   step*
 

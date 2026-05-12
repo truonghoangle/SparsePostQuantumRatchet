@@ -116,9 +116,9 @@ iterator:
     - The iterator has advanced by one: `iter'.start = iter.start + 1`.
     - The vector length is preserved: `v'.length = v.length`.
     - Position `i − 1` has been updated:
-        `GF16toGF216 v'[i−1] =
-            GF16toGF216 v[i−1] −
-            GF16toGF216 v[i] * GF16toGF216 difference`
+        `v'[i−1].toGF216 =
+            v[i−1].toGF216 −
+            v[i].toGF216 * difference.toGF216`
       where the subtraction on the right-hand side is in
       `GF216 = GaloisField 2 16` (which, in characteristic 2,
       coincides with addition).
@@ -144,10 +144,10 @@ theorem body_spec
           iter1.«end» = iter.«end» ∧
           v1.val.length = v.val.length ∧
           (∀ (h_idx : iter.start.val - 1 < v1.val.length),
-            GF16toGF216 (v1.val.get ⟨iter.start.val - 1, h_idx⟩) =
-              GF16toGF216 (v.val[iter.start.val - 1]!) -
-              GF16toGF216 (v.val[iter.start.val]!) *
-                GF16toGF216 difference) ∧
+            (v1.val.get ⟨iter.start.val - 1, h_idx⟩).toGF216 =
+              (v.val[iter.start.val - 1]!).toGF216 -
+              (v.val[iter.start.val]!).toGF216 *
+                difference.toGF216) ∧
           (∀ (j : Nat),
             j ≠ iter.start.val - 1 →
             v1.val[j]? = v.val[j]?) ⦄ := by
@@ -205,9 +205,9 @@ After the loop completes with range `start..l`:
 1. The vector length is preserved: `result.length = v.length`.
 2. For each position `j` with `start ≤ j + 1` and `j + 1 < l`
    (the "carry-propagated" positions):
-     `GF16toGF216 result[j] =
-         GF16toGF216 v[j] −
-         GF16toGF216 v[j + 1] * GF16toGF216 difference`
+     `result[j].toGF216 =
+         v[j].toGF216 −
+         v[j + 1].toGF216 * difference.toGF216`
    where the subtraction on the right-hand side is in
    `GF216 = GaloisField 2 16` (which, in characteristic 2,
    coincides with addition).
@@ -254,9 +254,9 @@ vector `result` of the same length satisfying:
 
 • **Length preserved**: `result.length = v.length`.
 • **Carry-propagated positions** (`start ≤ j + 1 ∧ j + 1 < l`):
-    `GF16toGF216 result[j] =
-        GF16toGF216 v[j] −
-        GF16toGF216 v[j+1] * GF16toGF216 difference`
+    `result[j].toGF216 =
+        v[j].toGF216 −
+        v[j+1].toGF216 * difference.toGF216`
   where the subtraction is in `GF216 = GaloisField 2 16`
   (equivalently, addition in characteristic 2).
 • **Unchanged positions** (all other `j`):
@@ -289,10 +289,10 @@ theorem loop_spec
         iter.start.val ≤ j + 1 →
         j + 1 < iter.«end».val →
         ∀ (hj : j < result.val.length),
-          GF16toGF216 (result.val.get ⟨j, hj⟩) =
-            GF16toGF216 (v.val[j]!) -
-            GF16toGF216 (v.val[j + 1]!) *
-              GF16toGF216 difference) ∧
+          (result.val.get ⟨j, hj⟩).toGF216 =
+            (v.val[j]!).toGF216 -
+            (v.val[j + 1]!).toGF216 *
+              difference.toGF216) ∧
       (∀ (j : Nat),
         ¬(iter.start.val ≤ j + 1 ∧ j + 1 < iter.«end».val) →
         result.val[j]? = v.val[j]?) ⦄ := by
@@ -311,10 +311,10 @@ theorem loop_spec
           iter.start.val ≤ j + 1 →
           j + 1 < p.1.start.val →
           ∀ (hj : j < p.2.val.length),
-            GF16toGF216 (p.2.val.get ⟨j, hj⟩) =
-              GF16toGF216 (v.val[j]!) -
-              GF16toGF216 (v.val[j + 1]!) *
-                GF16toGF216 difference) ∧
+            (p.2.val.get ⟨j, hj⟩).toGF216 =
+              (v.val[j]!).toGF216 -
+              (v.val[j + 1]!).toGF216 *
+                difference.toGF216) ∧
         (∀ (j : Nat),
           ¬(iter.start.val ≤ j + 1 ∧ j + 1 < p.1.start.val) →
           p.2.val[j]? = v.val[j]?))
@@ -421,9 +421,9 @@ specification in
      `result.coefficients.length = self.coefficients.length`.
 2. For each carry-propagated position `j` with
    `start ≤ j + 1` and `j + 1 < l`:
-     `GF16toGF216 result.coefficients[j] =
-         GF16toGF216 self.coefficients[j] −
-         GF16toGF216 self.coefficients[j + 1] * GF16toGF216 difference`
+     `result.toGF216.coefficients[j] =
+         self.toGF216.coefficients[j] −
+         self.toGF216.coefficients[j + 1] * difference.toGF216`
    where the subtraction is in `GF216 = GaloisField 2 16`
    (equivalently, addition in characteristic 2).
 3. All other positions are unchanged:
@@ -447,9 +447,9 @@ instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 • The coefficient vector length is preserved:
     `result.coefficients.length = self.coefficients.length`.
 • For carry-propagated positions (`start ≤ j + 1 ∧ j + 1 < l`):
-    `GF16toGF216 result.coefficients[j] =
-        GF16toGF216 self.coefficients[j] −
-        GF16toGF216 self.coefficients[j+1] * GF16toGF216 difference`
+    `result.toGF216.coefficients[j] =
+        self.toGF216.coefficients[j] −
+        self.toGF216.coefficients[j+1] * difference.toGF216`
   where the subtraction is in `GF216 = GaloisField 2 16`
   (equivalently, addition in characteristic 2).
 • All other positions are unchanged:
@@ -471,10 +471,10 @@ theorem mult_xdiff_assign_trailing_spec
         start.val ≤ j + 1 →
         j + 1 < self.coefficients.val.length →
         ∀ (hj : j < result.coefficients.val.length),
-          GF16toGF216 (result.coefficients.val.get ⟨j, hj⟩) =
-            GF16toGF216 (self.coefficients.val[j]!) -
-            GF16toGF216 (self.coefficients.val[j + 1]!) *
-              GF16toGF216 difference) ∧
+          (result.coefficients.val.get ⟨j, hj⟩).toGF216 =
+            (self.coefficients.val[j]!).toGF216 -
+            (self.coefficients.val[j + 1]!).toGF216 *
+              difference.toGF216) ∧
       (∀ (j : Nat),
         ¬(start.val ≤ j + 1 ∧ j + 1 < self.coefficients.val.length) →
         result.coefficients.val[j]? = self.coefficients.val[j]?) ⦄ := by

@@ -48,8 +48,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16
 @[step]
 theorem mul_spec (self other : spqr.encoding.gf.GF16) :
     mul self other ⦃ result =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self * GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 * other.toGF216 ⦄ := by
   unfold mul
   step*
 
@@ -84,8 +84,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulShared0GF16GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
-    `(GF16toGF216 result : GF216) =
-        GF16toGF216 self * GF16toGF216 other`
+    `(result.toGF216 : GF216) =
+        self.toGF216 * other.toGF216`
   where the `*` on the right-hand side is multiplication in
   `GF216 = GaloisField 2 16`.
 
@@ -94,8 +94,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulShared0GF16GF16
 @[step]
 theorem mul_spec (self other : spqr.encoding.gf.GF16) :
     mul self other ⦃ (result : spqr.encoding.gf.GF16) =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self* GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216* other.toGF216 ⦄ := by
   unfold mul
   step*
 

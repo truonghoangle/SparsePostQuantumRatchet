@@ -54,13 +54,13 @@ theorem ONE_value_val : (ONE).value.val = 1 := by
 
 
 @[simp]
-theorem ONE_toGF216 : (GF16toGF216 ONE : GF216) = 1 := by
-  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_one]
+theorem ONE_toGF216 : (ONE.toGF216 : GF216) = 1 := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_one]
 
 @[step]
 theorem one_spec :
     ok ONE ⦃ (result : GF16) =>
-      (GF16toGF216 result : GF216) = 1 ⦄ := by
-  simp [GF16toGF216, Nat.toGF216, natToBinaryPoly_one]
+      (result.toGF216 : GF216) = 1 ⦄ := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_one]
 
 end spqr.encoding.gf.GF16

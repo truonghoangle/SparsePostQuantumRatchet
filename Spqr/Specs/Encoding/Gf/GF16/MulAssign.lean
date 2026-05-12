@@ -37,8 +37,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
-    `(GF16toGF216 result : GF216) =
-        GF16toGF216 self * GF16toGF216 other`
+    `(result.toGF216 : GF216) =
+        self.toGF216 * other.toGF216`
   where the `*` on the right-hand side is multiplication in
   `GF216 = GaloisField 2 16`.
 
@@ -47,11 +47,11 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 @[step]
 theorem mul_assign_spec (self other : GF16) :
     mul_assign self other ⦃ result =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self * GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 * other.toGF216 ⦄ := by
   unfold mul_assign
   step*
-  simp[GF16toGF216]
+  simp[GF16.toGF216]
   simp_all
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
@@ -96,8 +96,8 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16
 @[step]
 theorem mul_assign_spec (self other : GF16) :
     mul_assign self other ⦃ result =>
-      (GF16toGF216 result : GF216) =
-        GF16toGF216 self * GF16toGF216 other ⦄ := by
+      (result.toGF216 : GF216) =
+        self.toGF216 * other.toGF216 ⦄ := by
   unfold mul_assign
   step*
 
