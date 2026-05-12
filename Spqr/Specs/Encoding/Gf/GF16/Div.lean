@@ -7,20 +7,17 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.DivImpl
 
-/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div`
+/-!
+# Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — every non-zero
-element `b` satisfies `b^(2¹⁶ − 1) = 1`, so the multiplicative
-inverse is `b⁻¹ = b^(2¹⁶ − 2)` and `a / b = a · b^(2¹⁶ − 2)`.  Field
-multiplication is polynomial multiplication modulo the irreducible
-polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b); each field
-element is represented as a polynomial of degree < 16 with
-coefficients in GF(2), stored as a 16-bit unsigned integer, and the
-`GF16` Rust type is the `u16` wrapper providing the field
-operations.
+In GF(2¹⁶) — the Galois field with 65 536 elements — every non-zero element `b` satisfies `b^(2¹⁶ −
+1) = 1`, so the multiplicative inverse is `b⁻¹ = b^(2¹⁶ − 2)` and `a / b = a · b^(2¹⁶ − 2)`.  Field
+multiplication is polynomial multiplication modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³
++ x + 1 (0x1100b); each field element is represented as a polynomial of degree < 16 with
+coefficients in GF(2), stored as a 16-bit unsigned integer, and the `GF16` Rust type is the `u16`
+wrapper providing the field operations.
 
-Concretely, `div self other` calls
-`encoding.gf.GF16.div_impl self other`, which:
+Concretely, `div self other` calls `encoding.gf.GF16.div_impl self other`, which:
   1. Initialises `square := other · other` via the by-value
      `Mul<GF16> for GF16` instance, ultimately delegating to the
      software (unaccelerated) carry-less multiplication
@@ -30,17 +27,14 @@ Concretely, `div self other` calls
      `out := out · square; square := square²` to obtain
      `out = self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`.
 
-The on-target Rust implementation may dispatch to hardware carry-less
-multiplication instructions (`PCLMULQDQ` / `PMULL`) on x86/x86_64 and
-aarch64 when the corresponding CPU feature is detected; the extracted
-Lean version contains only the unaccelerated fallback.
+The on-target Rust implementation may dispatch to hardware carry-less multiplication instructions
+(`PCLMULQDQ` / `PMULL`) on x86/x86_64 and aarch64 when the corresponding CPU feature is detected;
+the extracted Lean version contains only the unaccelerated fallback.
 
-The by-value `Div` introduces no additional logic beyond the
-delegation, so its postcondition is inherited from the underlying
-`div_impl` specification: lifting the `u16` of the result into
-`GF216 = GaloisField 2 16` via `Nat.toGF216` yields the GF(2¹⁶)
-Fermat-style quotient `self · other^(2¹⁶ − 2)` of the lifts of
-`self.value` and `other.value`.
+The by-value `Div` introduces no additional logic beyond the delegation, so its postcondition is
+inherited from the underlying `div_impl` specification: lifting the `u16` of the result into `GF216
+= GaloisField 2 16` via `Nat.toGF216` yields the GF(2¹⁶) Fermat-style quotient `self · other^(2¹⁶ −
+2)` of the lifts of `self.value` and `other.value`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 550:4-552:5)
 -/
@@ -50,11 +44,11 @@ open spqr.encoding.gf.GF16
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 
-/-- **Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div`**:
+/--
+**Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div`**:
 
-• The function always succeeds (no panic) for any pair of `GF16`
-  inputs, since the underlying `unaccelerated.mul` and the loop
-  driver are total on `GF16 × GF16`.
+• The function always succeeds (no panic) for any pair of `GF16` inputs, since the underlying
+  `unaccelerated.mul` and the loop driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
@@ -80,14 +74,13 @@ theorem div_spec (self other : spqr.encoding.gf.GF16) :
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
 
-/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div<&GF16> for GF16}::div`
-• Takes two `GF16` field elements `self` (by value) and `other` (by
-  reference), each wrapping a `u16` value representing an element of
-  GF(2¹⁶), and computes the GF(2¹⁶) quotient `self / other` by
-  Fermat-style iterated squaring.
-  In the original Rust source `other` is passed by reference
-  (`&GF16`); after Aeneas extraction the reference is erased and
-  both arguments are plain `GF16` values.
+/-!
+# Spec theorem for `spqr::encoding::gf::{impl ops::Div<&GF16> for GF16}::div`
+• Takes two `GF16` field elements `self` (by value) and `other` (by reference), each wrapping a
+  `u16` value representing an element of GF(2¹⁶), and computes the GF(2¹⁶) quotient `self / other`
+  by Fermat-style iterated squaring. In the original Rust source `other` is passed by reference
+  (`&GF16`); after Aeneas extraction the reference is erased and both arguments are plain `GF16`
+  values.
 • Delegates to
     `encoding.gf.GF16.div_impl self other`,
   which initialises `square := other · other` via the by-value
@@ -96,19 +89,18 @@ end spqr.encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16
   runs the `for _i in 1..16` loop driver
   `encoding.gf.GF16.div_impl_loop` for 15 iterations of
   `out := out · square; square := square²`.
-• Returns a fresh `GF16` whose `value` is the GF(2¹⁶) quotient
-  `self · other^(2¹⁶ − 2)`.
+• Returns a fresh `GF16` whose `value` is the GF(2¹⁶) quotient `self · other^(2¹⁶ − 2)`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 558:4-560:5)
 -/
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
 
-/-- **Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div`**:
+/--
+**Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div`**:
 
-• The function always succeeds (no panic) for any pair of `GF16`
-  inputs, since the underlying `unaccelerated.mul` and the loop
-  driver are total on `GF16 × GF16`.
+• The function always succeeds (no panic) for any pair of `GF16` inputs, since the underlying
+  `unaccelerated.mul` and the loop driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:

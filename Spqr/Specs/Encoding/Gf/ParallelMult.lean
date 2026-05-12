@@ -7,10 +7,10 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Mul2U16
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
-/-! # Spec Theorem for `encoding::gf::parallel_mult` — loop body 0
+/-!
+# Spec Theorem for `encoding::gf::parallel_mult` — loop body 0
 
-One call to the body with state `(a, into, i)` performs the following
-computation:
+One call to the body with state `(a, into, i)` performs the following computation:
 
   1. **Termination guard** — if `i + 2 > into.len()`, the loop is
      exhausted: return `done (a, into, i)` (the state is unchanged
@@ -24,9 +24,9 @@ computation:
                      `into[i + 1] := { value := v3 }`.
        d. Return `cont (s, i + 2)` with the doubly-updated slice `s`.
 
-Mathematically, each pair of consecutive entries `into[i]`, `into[i+1]`
-is replaced by `a · into[i]`, `a · into[i+1]` in GF(2¹⁶); the index
-counter advances by two, and all other slice positions are untouched.
+Mathematically, each pair of consecutive entries `into[i]`, `into[i+1]` is replaced by `a ·
+into[i]`, `a · into[i+1]` in GF(2¹⁶); the index counter advances by two, and all other slice
+positions are untouched.
 
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
@@ -37,15 +37,14 @@ namespace spqr.encoding.gf
 
 local instance : Inhabited encoding.gf.GF16 := ⟨{ value := 0#u16 }⟩
 
-/-- **Polynomial-level postcondition for
-`encoding.gf.parallel_mult_loop.body`**:
+/--
+**Polynomial-level postcondition for `encoding.gf.parallel_mult_loop.body`**:
 
-One iteration of the multiply-by-`a` loop driving
-`encoding::gf::parallel_mult`.  Both branches are characterised at the
-GF(2)[X] level via `natToBinaryPoly`:
+One iteration of the multiply-by-`a` loop driving `encoding::gf::parallel_mult`.  Both branches are
+characterised at the GF(2)[X] level via `natToBinaryPoly`:
 
-* **`done`** — the loop guard `i + 2 ≤ into.len()` failed; the state
-  is returned unchanged: `result = (a, into, i)`.
+* **`done`** — the loop guard `i + 2 ≤ into.len()` failed; the state is returned unchanged: `result
+  = (a, into, i)`.
 
 * **`cont`** — the loop guard held; the new state `(s, i')` satisfies
     `i'.val = i.val + 2`,
@@ -63,9 +62,9 @@ GF(2)[X] level via `natToBinaryPoly`:
   `i + 1` of `into` (so each updated position holds the GF(2¹⁶)
   product of `a` with the previous content).
 
-This is an immediate consequence of `mul2_u16_spec'` applied to the
-shared `do`-block in the extracted Lean source, combined with the
-register/forget structure of two consecutive `Slice.update` calls.
+This is an immediate consequence of `mul2_u16_spec'` applied to the shared `do`-block in the
+extracted Lean source, combined with the register/forget structure of two consecutive `Slice.update`
+calls.
 
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
@@ -100,24 +99,22 @@ theorem parallel_mult_loop_body_spec'
   · grind
   · grind
 
-/-- **GF(2¹⁶)-level postcondition for
-`encoding.gf.parallel_mult_loop.body`** (provable, parametric):
+/--
+**GF(2¹⁶)-level postcondition for `encoding.gf.parallel_mult_loop.body`** (provable, parametric):
 
-For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on
-`polyGF2`, the body of `parallel_mult` either leaves the state
-unchanged (`done` branch, when `i + 2 > into.len()`) or advances `i`
-by two while preserving the slice length, with the two written
-entries equal — in GF(2¹⁶) — to the shared-left-operand products
-`a · into[i]`, `a · into[i + 1]`.
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on `polyGF2`,
+the body of `parallel_mult` either leaves the state unchanged (`done` branch, when `i + 2 >
+into.len()`) or advances `i` by two while preserving the slice length, with the two written entries
+equal — in GF(2¹⁶) — to the shared-left-operand products `a · into[i]`, `a · into[i + 1]`.
 
-Additionally, the **frame condition** asserts that all slice elements
-outside `{i, i+1}` are left unchanged by the body, which is critical
-for the value-level loop invariant in `parallel_mult_loop_spec`.
+Additionally, the **frame condition** asserts that all slice elements outside `{i, i+1}` are left
+unchanged by the body, which is critical for the value-level loop invariant in
+`parallel_mult_loop_spec`.
 
-Specialising `BinaryPoly.toGF216` to the canonical isomorphism (whose construction
-requires irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite-
-field development we omit here) recovers the GF(2¹⁶) interpretation
-of the result. -/
+Specialising `BinaryPoly.toGF216` to the canonical isomorphism (whose construction requires
+irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite- field development we omit here) recovers
+the GF(2¹⁶) interpretation of the result.
+-/
 @[step]
 theorem parallel_mult_loop_body_spec
     (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize)
@@ -155,28 +152,25 @@ theorem parallel_mult_loop_body_spec
     grind
 
 
-/-! # Spec theorem for `spqr::encoding::gf::parallel_mult` — loop 0
+/-!
+# Spec theorem for `spqr::encoding::gf::parallel_mult` — loop 0
 
-The `while i + 2 <= into.len()` loop in the Rust source
-(lines 570–575) processes the slice in strides of two, computing
+The `while i + 2 <= into.len()` loop in the Rust source (lines 570–575) processes the slice in
+strides of two, computing
 
   `(into[i], into[i+1]) :=
        mul2_u16(a.value, into[i].value, into[i+1].value)`
 
-and advancing `i += 2`.  When the loop terminates
-(`i + 2 > into.len()`), any trailing odd element is handled
-separately by `parallel_mult` itself (outside this loop).
+and advancing `i += 2`.  When the loop terminates (`i + 2 > into.len()`), any trailing odd element
+is handled separately by `parallel_mult` itself (outside this loop).
 
-The loop is proved terminating with the natural-number measure
-`into.length − i.val`, which strictly decreases by (at least) 2
-every active iteration while the guard `i + 2 ≤ into.length`
-holds.  The proof proceeds by `loop.spec_decr_nat`, appealing
-to the per-iteration step lemma `parallel_mult_loop_body_spec`
-(registered `@[step]` in
+The loop is proved terminating with the natural-number measure `into.length − i.val`, which strictly
+decreases by (at least) 2 every active iteration while the guard `i + 2 ≤ into.length` holds.  The
+proof proceeds by `loop.spec_decr_nat`, appealing to the per-iteration step lemma
+`parallel_mult_loop_body_spec` (registered `@[step]` in
 `Spqr.Specs.Encoding.Gf.ParallelMultLoopBody`).
 
-The postcondition characterises the three components of the
-returned triple `(a', into', i')`:
+The postcondition characterises the three components of the returned triple `(a', into', i')`:
 
   * `a' = a` — the multiplier is threaded through unchanged.
   * `into'.length = into.length` — the slice length is preserved.
@@ -192,34 +186,30 @@ returned triple `(a', into', i')`:
   * For every index `j` in `[0, i.val)`, the element is unchanged
     from the original slice.
 
-These structural and value invariants, together with the per-step
-mathematical content of `parallel_mult_loop_body_spec`, are
-sufficient for the caller (`parallel_mult_spec`) to derive the
-full GF(2¹⁶)-level postcondition: every element of the returned
-slice is the product `a · original` in GF(2¹⁶).
+These structural and value invariants, together with the per-step mathematical content of
+`parallel_mult_loop_body_spec`, are sufficient for the caller (`parallel_mult_spec`) to derive the
+full GF(2¹⁶)-level postcondition: every element of the returned slice is the product `a · original`
+in GF(2¹⁶).
 
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
 
-/-- **Spec theorem for `encoding.gf.parallel_mult_loop`**:
+/--
+**Spec theorem for `encoding.gf.parallel_mult_loop`**:
 
-• The function always succeeds (no panic / overflow) provided
-  `into.length + 2 ≤ Std.Usize.max` (mirrors the Rust
-  `#[requires(into.len() <= usize::MAX - 2)]`) and
-  `i.val ≤ into.length`.
-• The returned multiplier `a'` equals the original `a` (the
-  multiplier is never mutated by the loop).
+• The function always succeeds (no panic / overflow) provided `into.length + 2 ≤ Std.Usize.max`
+  (mirrors the Rust `#[requires(into.len() <= usize::MAX - 2)]`) and `i.val ≤ into.length`.
+• The returned multiplier `a'` equals the original `a` (the multiplier is never mutated by the
+  loop).
 • The returned slice has the same length as the input slice.
-• On exit, `into.length < i'.val + 2`, meaning no further
-  pair of elements can be processed.
+• On exit, `into.length < i'.val + 2`, meaning no further pair of elements can be processed.
 • The final index satisfies `i.val ≤ i'.val ≤ into'.length`.
 • Every element at index `j ∈ [i.val, i'.val)` in the returned
   slice satisfies the GF(2¹⁶) product relation:
     `into'[j].value.val.toGF216 = a.value.val.toGF216 * into[j].value.val.toGF216`
-• Every element at index `j ∈ [i'.val, into'.length)` is
-  unchanged from the original:  `into'[j] = into[j]`.
-• Every element at index `j < i.val` is unchanged from the
-  original:  `into'[j] = into[j]`.
+• Every element at index `j ∈ [i'.val, into'.length)` is unchanged from the original:  `into'[j] =
+  into[j]`.
+• Every element at index `j < i.val` is unchanged from the original:  `into'[j] = into[j]`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
@@ -296,7 +286,8 @@ theorem parallel_mult_loop_spec
            fun j h1 h2 => rfl,
            fun j hj => rfl⟩
 
-/-! # Spec theorem for `spqr::encoding::gf::parallel_mult`
+/-!
+# Spec theorem for `spqr::encoding::gf::parallel_mult`
 
 The function processes the slice in two phases:
 
@@ -327,18 +318,18 @@ The postconditions are:
          result[j].value.val.toGF216 =
            a.value.val.toGF216 * into[j].value.val.toGF216`
 
-In the Rust source, `mul2_u16` may dispatch to hardware-accelerated
-carry-less multiplication (CLMUL/PMULL) on supported architectures;
-the extracted Lean version contains only the software fallback.
+In the Rust source, `mul2_u16` may dispatch to hardware-accelerated carry-less multiplication
+(CLMUL/PMULL) on supported architectures; the extracted Lean version contains only the software
+fallback.
 
 **Source**: spqr/src/encoding/gf.rs (lines 566:0-579:1)
 -/
 
-/-- **Spec theorem for `encoding.gf.parallel_mult`**:
+/--
+**Spec theorem for `encoding.gf.parallel_mult`**:
 
-• The function always succeeds (no panic / overflow) provided
-  `into.length + 2 ≤ Std.Usize.max` (mirrors the Rust
-  `#[requires(into.len() <= usize::MAX - 2)]`).
+• The function always succeeds (no panic / overflow) provided `into.length + 2 ≤ Std.Usize.max`
+  (mirrors the Rust `#[requires(into.len() <= usize::MAX - 2)]`).
 • The returned slice has the same length as the input:
     `result.length = into.length`
   matching the Rust `#[ensures]` annotation.

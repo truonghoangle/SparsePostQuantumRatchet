@@ -8,8 +8,8 @@ import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 import Mathlib.RingTheory.Polynomial.Basic
-/-! # Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`
-
+/-!
+# Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`
 -/
 
 open Aeneas Aeneas.Std Result
@@ -40,11 +40,12 @@ private lemma index_usize_set_eq_of_val_eq
   rw [show i.val = j.val from hji.symm]
   rw [List.getElem?_set_self hlen]
 
-/-- **Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes` (loop)**
+/--
+**Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes` (loop)**
 
-The loop maintains the invariant that all entries `out[j]` for
-`j < i` equal `reduceByteTable j`, and upon completion (`i = 256`)
-the entire output array is correctly populated. -/
+The loop maintains the invariant that all entries `out[j]` for `j < i` equal `reduceByteTable j`,
+and upon completion (`i = 256`) the entire output array is correctly populated.
+-/
 @[step]
 theorem reduce_bytes_loop_spec
     (out : Array Std.U16 256#usize) (i : Std.Usize)
@@ -90,10 +91,12 @@ theorem reduce_bytes_loop_spec
       exact h_inv' j (by scalar_tac)
   · exact ⟨hi, h_inv⟩
 
-/-- **Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`**
+/--
+**Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`**
 
-Builds the 256-entry reduction lookup table: for every index
-`j < 256`, `result[j].val = reduceByteTable j`. -/
+Builds the 256-entry reduction lookup table: for every index `j < 256`, `result[j].val =
+reduceByteTable j`.
+-/
 @[step]
 theorem reduce_bytes_spec :
     reduce_bytes ⦃ result =>
@@ -217,10 +220,12 @@ private lemma reduceByteLoopFull_carry_zero (k : Nat) (hk : k < 256) :
   have h : ∀ k' : Fin 256, (reduceByteLoopFull k'.val 0 8).1 = 0 := by decide
   exact h ⟨k, hk⟩
 
-/-- **(a) Full-range table polynomial correctness (spec-level).**
+/--
+**(a) Full-range table polynomial correctness (spec-level).**
 
 For any byte value `k < 256`:
-  `natToBinaryPoly (reduceByteTable k) = (natToBinaryPoly k * X ^ 16) %ₘ polyGF2` -/
+  `natToBinaryPoly (reduceByteTable k) = (natToBinaryPoly k * X ^ 16) %ₘ polyGF2`
+-/
 theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
     natToBinaryPoly (reduceByteTable k) =
       (natToBinaryPoly k * X ^ 16) %ₘ polyGF2 := by
@@ -275,12 +280,12 @@ theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
   rw [hA_self] at hinv
   exact hinv
 
-/-- **Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes`
-(polynomial)**
+/--
+**Spec theorem for `spqr::encoding::gf::reduce::reduce_bytes` (polynomial)**
 
-GF(2)[X] polynomial correctness: for every index `j < 256`,
-the table entry satisfies
-`natToBinaryPoly result[j].val = (natToBinaryPoly j * X^16) %ₘ polyGF2`. -/
+GF(2)[X] polynomial correctness: for every index `j < 256`, the table entry satisfies
+`natToBinaryPoly result[j].val = (natToBinaryPoly j * X^16) %ₘ polyGF2`.
+-/
 @[step]
 theorem reduce_byte_poly_spec :
     reduce_bytes ⦃ result =>

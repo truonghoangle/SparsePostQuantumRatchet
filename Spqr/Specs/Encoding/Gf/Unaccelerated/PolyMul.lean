@@ -6,12 +6,12 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 
-/-! # Spec theorem for `spqr::encoding::gf::unaccelerated::poly_mul`
+/-!
+# Spec theorem for `spqr::encoding::gf::unaccelerated::poly_mul`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
-begins with carry-less polynomial multiplication: given two polynomials
-of degree < 16 (represented as 16-bit integers), their product is a
-polynomial of degree ≤ 30, which fits in a 32-bit integer.
+In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication begins with carry-less
+polynomial multiplication: given two polynomials of degree < 16 (represented as 16-bit integers),
+their product is a polynomial of degree ≤ 30, which fits in a 32-bit integer.
 
 The function proceeds by long multiplication over GF(2):
   1. Cast `a` to `u32` (`me`).
@@ -20,14 +20,12 @@ The function proceeds by long multiplication over GF(2):
      `me << shift` into `acc`.
   4. Return `acc` — the unreduced 32-bit polynomial product.
 
-The result is an unreduced 32-bit product; to obtain a GF(2¹⁶) element,
-it must subsequently be reduced modulo the irreducible polynomial
-POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b) via `poly_reduce`.
+The result is an unreduced 32-bit product; to obtain a GF(2¹⁶) element, it must subsequently be
+reduced modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b) via `poly_reduce`.
 
-The core polynomial-library definitions and lemmas (`natToBinaryPoly`,
-`polyGF2`, and the basic coefficient/XOR/shift identities) are now
-gathered once in `Spqr.Math.Gf`; this file imports them rather than
-re-proving them.
+The core polynomial-library definitions and lemmas (`natToBinaryPoly`, `polyGF2`, and the basic
+coefficient/XOR/shift identities) are now gathered once in `Spqr.Math.Gf`; this file imports them
+rather than re-proving them.
 
 **Source**: spqr/src/encoding/gf.rs (lines 381:4-427:5)
 -/
@@ -37,12 +35,13 @@ open Polynomial
 open spqr.math.gf
 namespace spqr.encoding.gf.unaccelerated
 
-/-- Spec-level carry-less (XOR-based) polynomial multiplication.
+/--
+Spec-level carry-less (XOR-based) polynomial multiplication.
 
-Computes the GF(2) polynomial product of `a` and `b` by iterating
-over the first `n` bit positions of `b`, accumulating `a <<< i`
-(XOR'd) for each set bit `i < n`.  This is the pure recursive
-definition corresponding to the loop in `poly_mul`. -/
+Computes the GF(2) polynomial product of `a` and `b` by iterating over the first `n` bit positions
+of `b`, accumulating `a <<< i` (XOR'd) for each set bit `i < n`.  This is the pure recursive
+definition corresponding to the loop in `poly_mul`.
+-/
 def clmul (a b : Nat) : (n : Nat) → Nat
   | 0     => 0
   | n + 1 =>
@@ -52,32 +51,35 @@ def clmul (a b : Nat) : (n : Nat) → Nat
 /-!
 ## Algebraic (GF(2)[X]) formulation of carry-less multiplication
 
-The following definition expresses `clmul` in terms of the polynomial
-ring GF(2)[X] = BinaryPoly, making the algebraic structure explicit:
+The following definition expresses `clmul` in terms of the polynomial ring GF(2)[X] = BinaryPoly,
+making the algebraic structure explicit:
 - XOR (`^^^`) becomes polynomial addition (`+`) over GF(2)
 - Shift-left by n (`<<< n`) becomes multiplication by `X ^ n`
 - `Nat.testBit n` becomes checking if the n-th coefficient is nonzero
 
-The final GF(2¹⁶) product is obtained by reducing the polynomial
-product modulo the irreducible polynomial
+The final GF(2¹⁶) product is obtained by reducing the polynomial product modulo the irreducible
+polynomial
   POLY = X¹⁶ + X¹² + X³ + X + 1   (0x1100b).
 -/
 
-/-- Carry-less multiplication in the polynomial ring BinaryPoly.
+/--
+Carry-less multiplication in the polynomial ring BinaryPoly.
 
     This is the algebraic equivalent of `clmul` on `Nat`:
     - XOR becomes polynomial addition over GF(2)
     - Left-shift by `n` becomes multiplication by `X ^ n`
     - `testBit n` becomes checking if `coeff b n ≠ 0`
 
-    Morally, `clmul_poly a b n = a * (b mod X^n)` in BinaryPoly. -/
+    Morally, `clmul_poly a b n = a * (b mod X^n)` in BinaryPoly.
+-/
 noncomputable def clmul_poly (a b : BinaryPoly) : (n : Nat) → BinaryPoly
   | 0     => 0
   | n + 1 =>
     let acc := clmul_poly a b n
     if b.coeff n ≠ 0 then acc + a * X ^ n else acc
 
-/-- **Correspondence between `clmul` on `Nat` and `clmul_poly` on GF(2)[X]**:
+/--
+**Correspondence between `clmul` on `Nat` and `clmul_poly` on GF(2)[X]**:
 
     Interpreting the natural-number inputs as GF(2) polynomials via
     `natToBinaryPoly`, the `Nat`-level `clmul` and the algebraic
@@ -86,7 +88,8 @@ noncomputable def clmul_poly (a b : BinaryPoly) : (n : Nat) → BinaryPoly
       `natToBinaryPoly (clmul a b n) = clmul_poly (natToBinaryPoly a) (natToBinaryPoly b) n`
 
     This justifies reasoning about the XOR/shift implementation in
-    terms of polynomial algebra over GF(2). -/
+    terms of polynomial algebra over GF(2).
+-/
 theorem clmul_eq_clmul_poly (a b n : Nat) :
     natToBinaryPoly (clmul a b n) =
       clmul_poly (natToBinaryPoly a) (natToBinaryPoly b) n := by
@@ -121,7 +124,8 @@ private lemma clmul_poly_coeff_eq (a b c : BinaryPoly) :
       dsimp [clmul_poly]
       rw [clmul_poly_coeff_eq a b c n (fun i hi => h i (by omega)), h n (by omega)]
 
-/-- **`clmul_poly` computes polynomial multiplication**:
+/--
+**`clmul_poly` computes polynomial multiplication**:
 
     For any polynomials `a, b ∈ GF(2)[X]` with `natDegree b < n`,
     iterating `clmul_poly` for `n` steps yields the full product:
@@ -129,7 +133,8 @@ private lemma clmul_poly_coeff_eq (a b c : BinaryPoly) :
       `clmul_poly a b n = a * b`   (when `natDegree b < n`)
 
     In particular, for 16-bit inputs (degree < 16):
-      `clmul_poly a b 16 = a * b` -/
+      `clmul_poly a b 16 = a * b`
+-/
 theorem clmul_poly_eq_mul (a b : BinaryPoly) (n : Nat)
     (hb : b.natDegree < n) :
     clmul_poly a b n = a * b := by
@@ -223,22 +228,21 @@ private theorem not_testBit_of_and_one_shiftLeft_eq_zero {n k : Nat}
     simp at this
 
 
-/-- **Postcondition theorem for `encoding.gf.unaccelerated.poly_mul_loop`**:
+/--
+**Postcondition theorem for `encoding.gf.unaccelerated.poly_mul_loop`**:
 
-Carry-less (XOR-based) polynomial multiplication loop, the inner loop
-of `poly_mul`.  Starting from accumulator `acc` at bit position `shift`,
-the loop iterates through bit positions `shift` to 15 of `b`, XOR-ing
-`me <<< i` into the accumulator for each set bit `i`.
+Carry-less (XOR-based) polynomial multiplication loop, the inner loop of `poly_mul`.  Starting from
+accumulator `acc` at bit position `shift`, the loop iterates through bit positions `shift` to 15 of
+`b`, XOR-ing `me <<< i` into the accumulator for each set bit `i`.
 
 The loop body (extracted from Rust source lines 394:8-425:9) performs:
   1. If `shift < 16`: test bit `shift` of `b` via `b & (1 << shift)`;
      if set, XOR `me << shift` into `acc`; increment `shift`; continue.
   2. If `shift ≥ 16`: return `acc` (loop terminates).
 
-Given the loop invariant preconditions — `shift ≤ 16`,
-`acc = clmul me b shift`, and `me < 2^16` (since `me` is a cast of
-a `u16`) — the loop always succeeds and returns a `u32` whose value
-equals the full spec-level carry-less product `clmul me.val b.val 16`.
+Given the loop invariant preconditions — `shift ≤ 16`, `acc = clmul me b shift`, and `me < 2^16`
+(since `me` is a cast of a `u16`) — the loop always succeeds and returns a `u32` whose value equals
+the full spec-level carry-less product `clmul me.val b.val 16`.
 
 
 **Source**: spqr/src/encoding/gf.rs (lines 394:8-425:9)
@@ -308,16 +312,15 @@ theorem poly_mul_loop_spec (b : Std.U16) (acc : Std.U32) (me : Std.U32)
       simp_all
   · exact ⟨h_shift, h_inv, h_me⟩
 
-/-- **Postcondition theorem for `encoding.gf.unaccelerated.poly_mul`**:
+/--
+**Postcondition theorem for `encoding.gf.unaccelerated.poly_mul`**:
 
-Carry-less (XOR-based) polynomial multiplication of two `u16` values,
-producing a `u32` result representing the unreduced GF(2) polynomial
-product.
+Carry-less (XOR-based) polynomial multiplication of two `u16` values, producing a `u32` result
+representing the unreduced GF(2) polynomial product.
 
-The function casts `a` to `u32`, then delegates to `poly_mul_loop`
-with initial accumulator `acc = 0` and shift counter `shift = 0`.
-The result equals the spec-level carry-less product
-`clmul a.val b.val 16`.
+The function casts `a` to `u32`, then delegates to `poly_mul_loop` with initial accumulator `acc =
+0` and shift counter `shift = 0`. The result equals the spec-level carry-less product `clmul a.val
+b.val 16`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 381:4-427:5)
 -/

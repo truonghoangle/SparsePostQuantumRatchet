@@ -9,12 +9,12 @@ import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Encoding.Gf.Reduce.PolyReduce
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
 
-/-! # Spec theorem for `spqr::encoding::gf::unaccelerated::mul`
+/-!
+# Spec theorem for `spqr::encoding::gf::unaccelerated::mul`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
-is polynomial multiplication modulo the irreducible polynomial POLY.
-Each field element is represented as a polynomial of degree < 16 with
-coefficients in GF(2), stored as a 16-bit unsigned integer.
+In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication is polynomial multiplication
+modulo the irreducible polynomial POLY. Each field element is represented as a polynomial of degree
+< 16 with coefficients in GF(2), stored as a 16-bit unsigned integer.
 
 The function proceeds in two stages:
   1. `poly_mul(a, b)` — carry-less (XOR-based) long multiplication of
@@ -30,22 +30,22 @@ open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.reduce spqr.math.gf
 
 namespace spqr.encoding.gf.unaccelerated
 
-/-- **Polynomial-level postcondition for `encoding.gf.unaccelerated.mul`**:
+/--
+**Polynomial-level postcondition for `encoding.gf.unaccelerated.mul`**:
 
-Carry-less polynomial multiplication of two `u16` values in GF(2¹⁶),
-followed by reduction modulo the irreducible polynomial
-POLY = 0x1100b.
+Carry-less polynomial multiplication of two `u16` values in GF(2¹⁶), followed by reduction modulo
+the irreducible polynomial POLY = 0x1100b.
 
-The function composes `poly_mul` (carry-less long multiplication
-producing a 32-bit intermediate) with `poly_reduce` (table-based
-reduction modulo POLY).
+The function composes `poly_mul` (carry-less long multiplication producing a 32-bit intermediate)
+with `poly_reduce` (table-based reduction modulo POLY).
 
 The result satisfies the polynomial-level specification:
   `natToBinaryPoly result.val =
      (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2`
 
 This follows from composing:
-  1. `poly_mul_spec`:    `natToBinaryPoly (poly_mul a b).val = natToBinaryPoly a.val * natToBinaryPoly b.val`
+  1. `poly_mul_spec`:
+       `natToBinaryPoly (poly_mul a b).val = natToBinaryPoly a.val * natToBinaryPoly b.val`
   2. `poly_reduce_spec`: `natToBinaryPoly (poly_reduce v).val = (natToBinaryPoly v.val) %ₘ polyGF2`
 
 This establishes that `mul` computes multiplication in the quotient ring
@@ -61,17 +61,17 @@ theorem mul_spec' (a b : U16) :
   unfold mul
   step*
 
-/-- **GF216-level postcondition (provable, parametric)**:
+/--
+**GF216-level postcondition (provable, parametric)**:
 
-For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216`
-that vanishes on `polyGF2`, the result of `mul a b` corresponds — via
-`BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the product of `a` and `b`
-in `GF216`.
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on `polyGF2`,
+the result of `mul a b` corresponds — via `BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the product of
+`a` and `b` in `GF216`.
 
-Specializing `BinaryPoly.toGF216` to the canonical isomorphism (whose
-construction requires irreducibility of `polyGF2` over `ZMod 2`, i.e.
-a finite-field development we omit here) recovers the GF(2¹⁶)
-interpretation of the result. -/
+Specializing `BinaryPoly.toGF216` to the canonical isomorphism (whose construction requires
+irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite-field development we omit here) recovers
+the GF(2¹⁶) interpretation of the result.
+-/
 @[step]
 theorem mul_spec
     (a b : U16) :

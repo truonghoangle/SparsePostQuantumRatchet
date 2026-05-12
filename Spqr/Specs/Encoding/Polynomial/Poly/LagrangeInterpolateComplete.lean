@@ -13,33 +13,29 @@ import Spqr.Specs.Encoding.Gf.GF16.Eq
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Mathlib.RingTheory.DedekindDomain.Basic
-/-! # Spec Theorem for `lagrange_interpolate_complete`: loop body 0
+/-!
+# Spec Theorem for `lagrange_interpolate_complete`: loop body 0
 
-Given a distinguished point `pi = pts[i]` and a running accumulator
-`denominator`, the full loop 0 computes the product
+Given a distinguished point `pi = pts[i]` and a running accumulator `denominator`, the full loop 0
+computes the product
   `denominator_final = ∏_{j : pts[j].x ≠ pi.x} (pi.x - pts[j].x)`
-by iterating over all points `pj` in `pts`.  This denominator is
-then used to form the Lagrange scaling factor
+by iterating over all points `pj` in `pts`.  This denominator is then used to form the Lagrange
+scaling factor
   `scale = pi.y / denominator_final`
-which ensures that the interpolating polynomial `f` satisfies
-`f(pi.x) = pi.y` for the distinguished point and `f(pj.x) = 0`
-for all other points.
+which ensures that the interpolating polynomial `f` satisfies `f(pi.x) = pi.y` for the distinguished
+point and `f(pj.x) = 0` for all other points.
 
 Each step of the loop body:
 
 1. Retrieves the next point `pj` from the slice iterator.
-2. If the iterator is exhausted (`none`), returns `done` with
-   the current `(pi, denominator)` pair — the accumulation is
-   complete.
-3. If `pi.x = pj.x`, returns `cont` with the denominator
-   unchanged — this is the `i = j` case where the point is
-   skipped.
-4. If `pi.x ≠ pj.x`, computes `g = pi.x - pj.x` and updates
-   `denominator ← denominator * g`, then returns `cont` with
-   the updated denominator.
+2. If the iterator is exhausted (`none`), returns `done` with the current `(pi, denominator)` pair —
+   the accumulation is complete.
+3. If `pi.x = pj.x`, returns `cont` with the denominator unchanged — this is the `i = j` case where
+   the point is skipped.
+4. If `pi.x ≠ pj.x`, computes `g = pi.x - pj.x` and updates `denominator ← denominator * g`, then
+   returns `cont` with the updated denominator.
 
-In GF(2¹⁶) (characteristic 2), subtraction coincides with
-addition:
+In GF(2¹⁶) (characteristic 2), subtraction coincides with addition:
   `pi.x - pj.x = pi.x + pj.x = pi.x ⊕ pj.x`
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
@@ -49,16 +45,15 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.mat
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
 
-• The function always succeeds (no panic) for any valid inputs,
-  since `PartialEq<GF16>`, `Sub<GF16>`, and `MulAssign<GF16>`
-  are total operations on bounded integers.
-• In the `done` case, the point `pi` and the denominator are
-  returned unchanged — the loop exits with the final accumulator.
-• In the `cont` case, the denominator is either unchanged
-  (when `pi.x = pj.x`, i.e. the self-point skip) or has been
-  multiplied by `(pi.x - pj.x)` in GF(2¹⁶).
+• The function always succeeds (no panic) for any valid inputs, since `PartialEq<GF16>`,
+  `Sub<GF16>`, and `MulAssign<GF16>` are total operations on bounded integers.
+• In the `done` case, the point `pi` and the denominator are returned unchanged — the loop exits
+  with the final accumulator.
+• In the `cont` case, the denominator is either unchanged (when `pi.x = pj.x`, i.e. the self-point
+  skip) or has been multiplied by `(pi.x - pj.x)` in GF(2¹⁶).
 • The loop body preserves the invariant that `denominator`
   equals the running product
     `∏_{k ∈ visited, pts[k].x ≠ pi.x} (pi.x - pts[k].x)`
@@ -66,17 +61,14 @@ namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 ## Spec for `core.slice.iter.IteratorSliceIter.next`
 
-The slice iterator `next` method is a concrete (non-axiomatic)
-definition in the Aeneas standard library.  It advances the internal
-index `i` by one and returns the element at that position, or `none`
-if the iterator is exhausted.
+The slice iterator `next` method is a concrete (non-axiomatic) definition in the Aeneas standard
+library.  It advances the internal index `i` by one and returns the element at that position, or
+`none` if the iterator is exhausted.
 
 The postcondition captures both branches:
-- If `iter.i ≥ iter.slice.len` (exhausted), returns `(none, iter)`
-  with the iterator unchanged.
-- If `iter.i < iter.slice.len` (has element), returns
-  `(some x, iter')` where `x` is the element at position `iter.i`
-  and `iter'.i = iter.i + 1`, `iter'.slice = iter.slice`.
+- If `iter.i ≥ iter.slice.len` (exhausted), returns `(none, iter)` with the iterator unchanged.
+- If `iter.i < iter.slice.len` (has element), returns `(some x, iter')` where `x` is the element at
+  position `iter.i` and `iter'.i = iter.i + 1`, `iter'.slice = iter.slice`.
 
 This function is always total — it never panics.
 -/
@@ -114,10 +106,11 @@ theorem IteratorSliceIter_next_spec {T : Type}
            fun _ => ⟨rfl, rfl⟩,
            fun h => absurd h hlt⟩
 
-/-- `core.slice.iter.IteratorSliceIter.next` always succeeds:
-returns `ok (o, iter')` for some option `o` and iterator `iter'`.
-This is used in the body proof to extract the result and case-split
-on the option (following the pattern from `DivImpl.lean`). -/
+/--
+`core.slice.iter.IteratorSliceIter.next` always succeeds: returns `ok (o, iter')` for some option
+`o` and iterator `iter'`. This is used in the body proof to extract the result and case-split on the
+option (following the pattern from `DivImpl.lean`).
+-/
 private lemma IteratorSliceIter_next_ok {T : Type}
     (iter : core.slice.iter.Iter T) :
     ∃ o iter1,
@@ -126,19 +119,18 @@ private lemma IteratorSliceIter_next_ok {T : Type}
   split <;> exact ⟨_, _, rfl⟩
 
 
-/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0.body`**:
 
-One step of the denominator accumulation for Lagrange interpolation.
-Given a distinguished point `pi`, an iterator over the point set,
-and the current denominator accumulator, the body processes the next
-point from the iterator:
+One step of the denominator accumulation for Lagrange interpolation. Given a distinguished point
+`pi`, an iterator over the point set, and the current denominator accumulator, the body processes
+the next point from the iterator:
 
-• If the iterator is exhausted, returns `done` with the unchanged
-  `(pi, denominator)` pair.
-• If the next point `pj` has `pi.x = pj.x` (self-point), returns
-  `cont` with the denominator unchanged.
-• If `pi.x ≠ pj.x`, returns `cont` with the denominator updated to
-  `denominator * (pi.x - pj.x)` in GF(2¹⁶).
+• If the iterator is exhausted, returns `done` with the unchanged `(pi, denominator)` pair.
+• If the next point `pj` has `pi.x = pj.x` (self-point), returns `cont` with the denominator
+  unchanged.
+• If `pi.x ≠ pj.x`, returns `cont` with the denominator updated to `denominator * (pi.x - pj.x)` in
+  GF(2¹⁶).
 
 The postcondition captures the mathematical invariant:
 
@@ -186,43 +178,34 @@ theorem body_spec (pi : Pt)
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-/-! # Spec Theorem for `lagrange_interpolate_complete`: loop 0
+/-!
+# Spec Theorem for `lagrange_interpolate_complete`: loop 0
 
-Given a distinguished point `pi = pts[i]`, an iterator over the full
-point set, and an initial `denominator` (typically `GF16::ONE`), the
-loop computes the product
+Given a distinguished point `pi = pts[i]`, an iterator over the full point set, and an initial
+`denominator` (typically `GF16::ONE`), the loop computes the product
   `denominator_final = denominator_init *
       ∏_{j ∈ remaining, pts[j].x ≠ pi.x} (pi.x - pts[j].x)`
-by repeatedly invoking
-`lagrange_interpolate_complete_loop0.body`, which processes one
-point per iteration.  This denominator is then used to form the
-Lagrange scaling factor
+by repeatedly invoking `lagrange_interpolate_complete_loop0.body`, which processes one point per
+iteration.  This denominator is then used to form the Lagrange scaling factor
   `scale = pi.y / denominator_final`
-which ensures that the interpolating polynomial `f` satisfies
-`f(pi.x) = pi.y` for the distinguished point and `f(pj.x) = 0`
-for all other points.
+which ensures that the interpolating polynomial `f` satisfies `f(pi.x) = pi.y` for the distinguished
+point and `f(pj.x) = 0` for all other points.
 
-The loop is an Aeneas-extracted `loop` fixed-point: it calls the
-body function `body pi iter₁ denominator₁` at each step, threading
-the `(iter, denominator)` state through the `cont` control-flow arm
-until the iterator is exhausted (`done`).
+The loop is an Aeneas-extracted `loop` fixed-point: it calls the body function `body pi iter₁
+denominator₁` at each step, threading the `(iter, denominator)` state through the `cont`
+control-flow arm until the iterator is exhausted (`done`).
 
-Each iteration (handled by the body spec in
-`LagrangeInterpolateCompleteLoopBody0.lean`):
+Each iteration (handled by the body spec in `LagrangeInterpolateCompleteLoopBody0.lean`):
 
 1. Retrieves the next point `pj` from the slice iterator.
-2. If the iterator is exhausted (`none`), returns `done` with
-   the current `(pi, denominator)` pair — the accumulation is
-   complete.
-3. If `pi.x = pj.x`, returns `cont` with the denominator
-   unchanged — this is the `i = j` case where the point is
-   skipped.
-4. If `pi.x ≠ pj.x`, computes `g = pi.x - pj.x` and updates
-   `denominator ← denominator * g`, then returns `cont` with
-   the updated denominator.
+2. If the iterator is exhausted (`none`), returns `done` with the current `(pi, denominator)` pair —
+   the accumulation is complete.
+3. If `pi.x = pj.x`, returns `cont` with the denominator unchanged — this is the `i = j` case where
+   the point is skipped.
+4. If `pi.x ≠ pj.x`, computes `g = pi.x - pj.x` and updates `denominator ← denominator * g`, then
+   returns `cont` with the updated denominator.
 
-In GF(2¹⁶) (characteristic 2), subtraction coincides with
-addition:
+In GF(2¹⁶) (characteristic 2), subtraction coincides with addition:
   `pi.x - pj.x = pi.x + pj.x = pi.x ⊕ pj.x`
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 202:8-207:9)
@@ -230,29 +213,31 @@ addition:
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-/-! ## Mathematical helper: Lagrange denominator product
+/-!
+## Mathematical helper: Lagrange denominator product
 
-The mathematical specification of the loop requires a function that
-computes the partial product of `(pi.x - pts[j].x)` over all
-remaining points in the slice (from position `start` onwards) where
-`pts[j].x ≠ pi.x`.  This is the "Lagrange denominator product",
-which captures what the loop accumulates.
+The mathematical specification of the loop requires a function that computes the partial product of
+`(pi.x - pts[j].x)` over all remaining points in the slice (from position `start` onwards) where
+`pts[j].x ≠ pi.x`.  This is the "Lagrange denominator product", which captures what the loop
+accumulates.
 -/
 
-/-- **Lagrange denominator product over a suffix of the point list.**
+/--
+**Lagrange denominator product over a suffix of the point list.**
 
-Given a distinguished x-coordinate `pi_x : GF16`, a list of points
-`pts`, and a starting index `start`, compute the product
+Given a distinguished x-coordinate `pi_x : GF16`, a list of points `pts`, and a starting index
+`start`, compute the product
 
   `∏_{j = start}^{pts.length - 1}
       (if pi_x.value = pts[j].x.value then 1
        else pi_x.toGF216 - pts[j].x.toGF216)`
 
-over the remaining points in the list.  The product is `1` when
-`start ≥ pts.length` (no remaining points).
+over the remaining points in the list.  The product is `1` when `start ≥ pts.length` (no remaining
+points).
 
-This function is used only in specifications and proofs — it is
-`noncomputable` because `GF216` arithmetic is noncomputable. -/
+This function is used only in specifications and proofs — it is `noncomputable` because `GF216`
+arithmetic is noncomputable.
+-/
 noncomputable def lagrangeDenomProd (pi_x : spqr.encoding.gf.GF16)
     (pts : List spqr.encoding.polynomial.Pt) (start : Nat) : GF216 :=
   if h : start < pts.length then
@@ -302,12 +287,12 @@ private lemma slice_get_eq_of_eq {T : Type} {s₁ s₂ : Slice T} (h : s₁ = s�
     s₁.val.get ⟨i, h₁⟩ = s₂.val.get ⟨i, h₂⟩ := by
   subst h; rfl
 
-/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_complete_loop0`**:
 
-• The function always succeeds (no panic) for any valid inputs,
-  since the underlying operations (`PartialEq<GF16>`,
-  `Sub<GF16>`, `MulAssign<GF16>`, and iterator `next`) are all
-  total on bounded integers.
+• The function always succeeds (no panic) for any valid inputs, since the underlying operations
+  (`PartialEq<GF16>`, `Sub<GF16>`, `MulAssign<GF16>`, and iterator `next`) are all total on bounded
+  integers.
 • The returned point is unchanged: `pi' = pi`.
 • The returned denominator satisfies the GF(2¹⁶)-level identity:
     `denominator'.toGF216 =
@@ -858,8 +843,10 @@ private lemma poly_identity_from_loop1
 
 /-! ## Bridge: hornerAccum at position 0 equals polynomial evaluation -/
 
-/-- Shifting lemma: evaluating `hornerAccum` on `c :: cs` at position
-    `pos + 1` is the same as evaluating on `cs` at position `pos`. -/
+/--
+Shifting lemma: evaluating `hornerAccum` on `c :: cs` at position
+    `pos + 1` is the same as evaluating on `cs` at position `pos`.
+-/
 private lemma hornerAccum_cons
     (g c : GF16)
     (cs : List GF16)
@@ -901,9 +888,11 @@ private lemma listToGF216Poly_cons
       congr 1
     · rw [dif_neg hlt, dif_neg (show ¬(n < cs.length) from by simp at hlt ⊢; omega)]
 
-/-- **`hornerAccum` at position 0 equals polynomial evaluation.**
+/--
+**`hornerAccum` at position 0 equals polynomial evaluation.**
     This connects the Horner-scheme computation `hornerAccum g coeffs 0`
-    to the Mathlib `Polynomial.eval` of `listToGF216Poly coeffs`. -/
+    to the Mathlib `Polynomial.eval` of `listToGF216Poly coeffs`.
+-/
 private lemma hornerAccum_zero_eq_eval
     (g : GF16)
     (coeffs : List GF16) :
@@ -934,7 +923,8 @@ private lemma Nat_toGF216_eq_zero
   unfold Nat.toGF216 at h
   by_contra hn0
   have hne : natToBinaryPoly n ≠ 0 := fun h0 =>
-    hn0 (natToBinaryPoly_inj n 0 (by rw [h0, natToBinaryPoly_zero]))
+    hn0 (natToBinaryPoly_inj
+      (by rw [h0, natToBinaryPoly_zero] : natToBinaryPoly n = natToBinaryPoly 0))
   have hcoeff_zero : ∀ m, 16 ≤ m → (natToBinaryPoly n).coeff m = 0 := by
     intro m hm
     rw [natToBinaryPoly_coeff]
@@ -967,8 +957,10 @@ private lemma Nat_toGF216_eq_zero
   rw [polyGF2_natDegree] at this
   omega
 
-/-- If `g.toGF216 = 0`, then `g.value.val = 0`.
-    This is the reverse direction of `GF16.toGF216_zero_val`. -/
+/--
+If `g.toGF216 = 0`, then `g.value.val = 0`.
+    This is the reverse direction of `GF16.toGF216_zero_val`.
+-/
 private lemma GF16.toGF216_eq_zero_imp
     (g : GF16) (h : g.toGF216 = 0) :
     g.value.val = 0 := by
@@ -977,106 +969,95 @@ private lemma GF16.toGF216_eq_zero_imp
 
 /-! ## Spec for core.fmt.Arguments.from_str -/
 
-/-- The `from_str` function always succeeds (returns `ok`).  This is the
+/--
+The `from_str` function always succeeds (returns `ok`).  This is the
     Lean model for `core::fmt::Arguments::from_str` which builds a format
     argument from a string literal.  `step*` unfolds `from_str` directly
-    and can discharge the `fail panic` branch automatically. -/
+    and can discharge the `fail panic` branch automatically.
+-/
 lemma core_fmt_Arguments_from_str_spec (s : Str) :
     core.fmt.Arguments.from_str s
       ⦃ (_ : core.fmt.Arguments) => True ⦄ := by
   unfold core.fmt.Arguments.from_str
   simp [WP.spec_ok]
 
-/-! ## Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_complete`
+/-!
+## Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_complete`
 
-The theorem `lagrange_interpolate_complete_spec` is the top-level correctness
-specification for the Rust function `Poly::lagrange_interpolate_complete`
-(`src/encoding/polynomial.rs`, lines 197–223).
+The theorem `lagrange_interpolate_complete_spec` is the top-level correctness specification for the
+Rust function `Poly::lagrange_interpolate_complete` (`src/encoding/polynomial.rs`, lines 197–223).
 
 **What the Rust function does:**
 
-Given a polynomial `self` (whose coefficients represent the product
-`∏ⱼ (X − pⱼ.x)` over all points), a point slice `pts`, and an index `i`,
-the function:
+Given a polynomial `self` (whose coefficients represent the product `∏ⱼ (X − pⱼ.x)` over all
+points), a point slice `pts`, and an index `i`, the function:
 
-1. **Loop 0 (denominator accumulation):** Iterates over `pts` to compute
-   `denominator = ∏_{j ≠ i} (pᵢ.x − pⱼ.x)`,
-   the Lagrange basis denominator for the i-th point.
+1. **Loop 0 (denominator accumulation):** Iterates over `pts` to compute `denominator = ∏_{j ≠ i}
+   (pᵢ.x − pⱼ.x)`, the Lagrange basis denominator for the i-th point.
 
-2. **Scaling:** Computes `scale = pᵢ.y / denominator`. In GF(2¹⁶),
-   division by `d` is multiplication by `d^(2¹⁶ − 2)` (Fermat's little
-   theorem), so `scale = pᵢ.y · denominator^(2¹⁶ − 2)`.
+2. **Scaling:** Computes `scale = pᵢ.y / denominator`. In GF(2¹⁶), division by `d` is multiplication
+   by `d^(2¹⁶ − 2)` (Fermat's little theorem), so `scale = pᵢ.y · denominator^(2¹⁶ − 2)`.
 
-3. **Loop 1 (polynomial long division + scaling):** Divides out the
-   factor `(X − pᵢ.x)` from `self` using synthetic/Horner-style
-   long division (processing coefficients from high to low degree),
-   and simultaneously scales each coefficient by `scale`. Due to the
-   little-endian coefficient representation, the result is implicitly
-   multiplied by `X` (the leading zero coefficient is left in place).
+3. **Loop 1 (polynomial long division + scaling):** Divides out the factor `(X − pᵢ.x)` from `self`
+   using synthetic/Horner-style long division (processing coefficients from high to low degree), and
+   simultaneously scales each coefficient by `scale`. Due to the little-endian coefficient
+   representation, the result is implicitly multiplied by `X` (the leading zero coefficient is left
+   in place).
 
-4. **Debug assertion:** Asserts `self.coefficients[0] == GF16::ZERO`,
-   confirming the division was exact (i.e., `pᵢ.x` was indeed a root).
+4. **Debug assertion:** Asserts `self.coefficients[0] == GF16::ZERO`, confirming the division was
+   exact (i.e., `pᵢ.x` was indeed a root).
 
 The net effect is to produce a new polynomial `result` such that:
   `result(X) · (X − pᵢ.x) = X · scale · self(X)`
 
 **Parameters:**
-- `self : Poly` — The input polynomial, stored as a `Vec<GF16>` of
-  coefficients in ascending degree order. Typically this is the product
-  polynomial `∏ⱼ (X − pⱼ.x)` over all interpolation points.
-- `pts : Slice Pt` — A slice of `Pt` values, where each `Pt` has
-  fields `x : GF16` (evaluation point) and `y : GF16` (desired value).
-- `i : Std.Usize` — Index of the distinguished point `pᵢ = pts[i]` for
-  which we are building the Lagrange basis polynomial.
+- `self : Poly` — The input polynomial, stored as a `Vec<GF16>` of coefficients in ascending degree
+  order. Typically this is the product polynomial `∏ⱼ (X − pⱼ.x)` over all interpolation points.
+- `pts : Slice Pt` — A slice of `Pt` values, where each `Pt` has fields `x : GF16` (evaluation
+  point) and `y : GF16` (desired value).
+- `i : Std.Usize` — Index of the distinguished point `pᵢ = pts[i]` for which we are building the
+  Lagrange basis polynomial.
 
 ```
     (hi : i.val < pts.val.length)
 ```
 
-**Precondition 1 — Index in bounds:**
-`i` is a valid index into the points slice. This mirrors the Rust
-`#[hax_lib::requires(i < pts.len())]` annotation.
+**Precondition 1 — Index in bounds:** `i` is a valid index into the points slice. This mirrors the
+Rust `#[hax_lib::requires(i < pts.len())]` annotation.
 
 ```
     (hlen : 0 < self.coefficients.val.length)
 ```
 
-**Precondition 2 — Non-empty polynomial:**
-The polynomial has at least one coefficient. This ensures that the
-long-division loop (loop 1, which iterates `1..coefficients.len()`) and
-the debug assertion (`coefficients[0]`) are well-defined.
+**Precondition 2 — Non-empty polynomial:** The polynomial has at least one coefficient. This ensures
+that the long-division loop (loop 1, which iterates `1..coefficients.len()`) and the debug assertion
+(`coefficients[0]`) are well-defined.
 
 ```
     (heval : self.evalAt (pts.val.get ⟨i.val, hi⟩).x = 0)
 ```
 
-**Precondition 3 — Root condition:**
-The polynomial `self` evaluates to zero at `pᵢ.x`. Mathematically,
-`self.toGF216Poly.eval(GF16.toGF216(pᵢ.x)) = 0`, meaning `(X − pᵢ.x)`
-divides `self` in `GF(2¹⁶)[X]`. This is the crucial algebraic
-precondition that guarantees the long division in loop 1 is exact
-(no remainder), which is what the `debug_assert_eq!` checks at runtime.
+**Precondition 3 — Root condition:** The polynomial `self` evaluates to zero at `pᵢ.x`.
+Mathematically, `self.toGF216Poly.eval(GF16.toGF216(pᵢ.x)) = 0`, meaning `(X − pᵢ.x)` divides `self`
+in `GF(2¹⁶)[X]`. This is the crucial algebraic precondition that guarantees the long division in
+loop 1 is exact (no remainder), which is what the `debug_assert_eq!` checks at runtime.
 
-Without this precondition, the division would leave a non-zero
-remainder in `coefficients[0]`, and the polynomial identity in the
-postcondition would not hold.
+Without this precondition, the division would leave a non-zero remainder in `coefficients[0]`, and
+the polynomial identity in the postcondition would not hold.
 
 
-**Postcondition — a weakest-precondition (WP) spec:**
-The function succeeds (no panic) and produces a `result : Poly` satisfying
-two properties:
+**Postcondition — a weakest-precondition (WP) spec:** The function succeeds (no panic) and produces
+a `result : Poly` satisfying two properties:
 
 ```
         result.coefficients.val.length =
           self.coefficients.val.length ∧
 ```
 
-**Postcondition Part 1 — Length preservation:**
-The output polynomial has the same number of coefficients as the input.
-This is because the function modifies coefficients in-place (synthetic
-division + scaling) without adding or removing entries. The `X`-scaling
-artifact means `result` has an extra leading zero at position 0, but the
-vector length is unchanged.
+**Postcondition Part 1 — Length preservation:** The output polynomial has the same number of
+coefficients as the input. This is because the function modifies coefficients in-place (synthetic
+division + scaling) without adding or removing entries. The `X`-scaling artifact means `result` has
+an extra leading zero at position 0, but the vector length is unchanged.
 
 ```
         result.toGF216Poly *
@@ -1087,16 +1068,14 @@ vector length is unchanged.
             self.toGF216Poly ⦄
 ```
 
-**Postcondition Part 2 — Polynomial identity:**
-The core mathematical content. In `GF(2¹⁶)[X]`:
+**Postcondition Part 2 — Polynomial identity:** The core mathematical content. In `GF(2¹⁶)[X]`:
 
   `result(X) · (X − pᵢ.x) = X · lagrangeScale(pᵢ, pts) · self(X)`
 
 where:
-- `result.toGF216Poly` is the mathematical polynomial corresponding to
-  the output coefficient vector.
-- `(X − C(GF16.toGF216(pᵢ.x)))` is the linear factor that was divided
-  out by the long-division loop.
+- `result.toGF216Poly` is the mathematical polynomial corresponding to the output coefficient
+  vector.
+- `(X − C(GF16.toGF216(pᵢ.x)))` is the linear factor that was divided out by the long-division loop.
 - `lagrangeScaleGF216(pᵢ, pts)` is the Lagrange scaling factor defined as:
   ```
   lagrangeScaleGF216(pᵢ, pts) =
@@ -1104,24 +1083,21 @@ where:
   ```
   This equals `pᵢ.y / ∏_{j≠i}(pᵢ.x − pⱼ.x)` using Fermat inversion in
   GF(2¹⁶).
-- `X · C(scale) · self.toGF216Poly` captures the `X`-scaling artifact:
-  the result is the quotient `self / (X − pᵢ.x)` scaled by
-  `lagrangeScale`, but shifted up by one degree (multiplied by `X`).
+- `X · C(scale) · self.toGF216Poly` captures the `X`-scaling artifact: the result is the quotient
+  `self / (X − pᵢ.x)` scaled by `lagrangeScale`, but shifted up by one degree (multiplied by `X`).
 
-**Why the `X` factor?**  The Rust code processes coefficients in-place
-starting from the high end, and the quotient naturally lands one position
-higher than expected in the little-endian vector. Rather than shifting
-all coefficients down (which would be O(n) extra work), the function
-leaves the zero at `coefficients[0]` and lets the caller remove it via
-`coefficients.remove(0)` (see `lagrange_interpolate_pt`).
+**Why the `X` factor?**  The Rust code processes coefficients in-place starting from the high end,
+and the quotient naturally lands one position higher than expected in the little-endian vector.
+Rather than shifting all coefficients down (which would be O(n) extra work), the function leaves the
+zero at `coefficients[0]` and lets the caller remove it via `coefficients.remove(0)` (see
+`lagrange_interpolate_pt`).
 
-**Algebraic meaning:**  If we define `Q(X) = self(X) / (X − pᵢ.x)` (the
-exact polynomial quotient, which exists by the root precondition), then
-the identity says:
+**Algebraic meaning:**  If we define `Q(X) = self(X) / (X − pᵢ.x)` (the exact polynomial quotient,
+which exists by the root precondition), then the identity says:
   `result(X) = X · lagrangeScale(pᵢ, pts) · Q(X)`
-After the caller strips the leading zero (divides by `X`), the final
-polynomial is `lagrangeScale(pᵢ, pts) · Q(X)`, which is exactly the
-i-th Lagrange basis polynomial scaled to produce `pᵢ.y` at `pᵢ.x`.
+After the caller strips the leading zero (divides by `X`), the final polynomial is
+`lagrangeScale(pᵢ, pts) · Q(X)`, which is exactly the i-th Lagrange basis polynomial scaled to
+produce `pᵢ.y` at `pᵢ.x`.
 -/
 
 @[step]

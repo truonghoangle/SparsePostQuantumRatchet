@@ -5,27 +5,23 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
-/-! # Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`
+/-!
+# Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — after
-carry-less polynomial multiplication (`poly_mul`) produces a
-32-bit unreduced product (degree ≤ 30), reduction modulo the
-irreducible polynomial POLY is needed to obtain the canonical
-16-bit representative.
+In GF(2¹⁶) — the Galois field with 65 536 elements — after carry-less polynomial multiplication
+(`poly_mul`) produces a 32-bit unreduced product (degree ≤ 30), reduction modulo the irreducible
+polynomial POLY is needed to obtain the canonical 16-bit representative.
 
-The reduction proceeds in two byte-by-byte passes using the
-precomputed table `REDUCE_BYTES`:
+The reduction proceeds in two byte-by-byte passes using the precomputed table `REDUCE_BYTES`:
   1. Extract the high byte `i1 = v >> 24` and XOR
      `REDUCE_BYTES[i1] << 8` into `v`, clearing bits 24–31.
   2. Extract the next byte `i2 = (v >> 16) & 0xFF` and XOR
      `REDUCE_BYTES[i2]` into `v`, clearing bits 16–23.
   3. Return the low 16 bits of `v` as the reduced result.
 
-Each `REDUCE_BYTES[k]` entry stores the precomputed 16-bit XOR
-mask that results from reducing all set bits in byte `k` against
-POLY.  This is equivalent to computing `(k · x¹⁶) mod POLY`
-for the second pass, and `(k · x²⁴) mod POLY` (after appropriate
-shifting) for the first pass.
+Each `REDUCE_BYTES[k]` entry stores the precomputed 16-bit XOR mask that results from reducing all
+set bits in byte `k` against POLY.  This is equivalent to computing `(k · x¹⁶) mod POLY` for the
+second pass, and `(k · x²⁴) mod POLY` (after appropriate shifting) for the first pass.
 
 **Source** "spqr/src/encoding/gf.rs" (lines 489:4-498:5)
 -/
@@ -34,11 +30,11 @@ open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.mat
 
 namespace spqr.encoding.gf.reduce
 
-/-- Spec-level two-pass table-based polynomial reduction.
+/--
+Spec-level two-pass table-based polynomial reduction.
 
-Given a 32-bit value `v`, reduces modulo POLY = 0x1100b via two
-byte-level table lookups (processing from the high byte down)
-and returns the low 16 bits as the canonical GF(2¹⁶) representative.
+Given a 32-bit value `v`, reduces modulo POLY = 0x1100b via two byte-level table lookups (processing
+from the high byte down) and returns the low 16 bits as the canonical GF(2¹⁶) representative.
 
   1. Look up `reduceByteTable[v >>> 24]` and XOR it (shifted left by 8)
      into `v`, folding bits 24–31 into bits 8–23.
@@ -46,9 +42,9 @@ and returns the low 16 bits as the canonical GF(2¹⁶) representative.
      folding bits 16–23 into bits 0–15.
   3. Return the low 16 bits.
 
-This is the correct specification for `poly_reduce`, matching the
-high-to-low byte processing order of the Rust implementation.
-The result is the canonical fully-reduced representative (< 2¹⁶). -/
+This is the correct specification for `poly_reduce`, matching the high-to-low byte processing order
+of the Rust implementation. The result is the canonical fully-reduced representative (< 2¹⁶).
+-/
 def polyReduceSpec (v : Nat) : Nat :=
   let t1 := reduceByteTable (v >>> 24)
   let v1 := v ^^^ (t1 <<< 8)
@@ -233,14 +229,14 @@ theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
     (Polynomial.modByMonic_eq_self_iff polyGF2_monic).mpr ha_deg
   rw [hmod_eq, ha_self]
 
-/-- **Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`**:
+/--
+**Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`**:
 
-Table-based polynomial reduction of a 32-bit carry-less product
-modulo the irreducible polynomial POLY = 0x1100b, yielding a
-16-bit GF(2¹⁶) element.
+Table-based polynomial reduction of a 32-bit carry-less product modulo the irreducible polynomial
+POLY = 0x1100b, yielding a 16-bit GF(2¹⁶) element.
 
-The function uses the precomputed `REDUCE_BYTES` table to
-process the input byte-by-byte from high to low:
+The function uses the precomputed `REDUCE_BYTES` table to process the input byte-by-byte from high
+to low:
   1. Clear bits 24–31 using `REDUCE_BYTES[v >> 24] << 8`.
   2. Clear bits 16–23 using `REDUCE_BYTES[(v >> 16) & 0xFF]`.
   3. Return the remaining 16 bits.
@@ -248,9 +244,8 @@ process the input byte-by-byte from high to low:
 The result satisfies the algebraic specification:
   `natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2`
 
-This connects the bitwise table-lookup implementation to
-polynomial reduction in GF(2)[X], confirming that `poly_reduce`
-computes the canonical degree-< 16 representative of `v` modulo
+This connects the bitwise table-lookup implementation to polynomial reduction in GF(2)[X],
+confirming that `poly_reduce` computes the canonical degree-< 16 representative of `v` modulo
 polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
 
 **Source**: spqr/src/encoding/gf.rs (lines 489:4-498:5)
@@ -284,7 +279,7 @@ theorem poly_reduce_spec (v : Std.U32) :
       have hi2_poly :
           natToBinaryPoly i2.val = natToBinaryPoly i1.val * X ^ 16 %ₘ polyGF2 := by
         rw [← hw_eq]; exact hw_poly
-      exact natToBinaryPoly_inj _ _
+      exact natToBinaryPoly_inj
         (hi2_poly.trans (reduceByteTable_eq_poly_full i1.val hi1_lt).symm)
     have hi3_val : i3.val = i2.val := by
       rw [i3_post, U16.cast_U32_val_eq]
@@ -317,7 +312,7 @@ theorem poly_reduce_spec (v : Std.U32) :
       have hi6_poly :
           natToBinaryPoly i6.val = natToBinaryPoly i21.val * X ^ 16 %ₘ polyGF2 := by
         rw [← hw_eq]; exact hw_poly
-      exact natToBinaryPoly_inj _ _
+      exact natToBinaryPoly_inj
         (hi6_poly.trans (reduceByteTable_eq_poly_full i21.val hi21_lt).symm)
     have hi7_val : i7.val = i6.val := by
       rw [i7_post, U16.cast_U32_val_eq]

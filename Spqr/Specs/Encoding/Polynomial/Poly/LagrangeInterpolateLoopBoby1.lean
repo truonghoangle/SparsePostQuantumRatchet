@@ -7,16 +7,14 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 
-/-! # Spec theorem for `lagrange_interpolate`: loop body 1
+/-!
+# Spec theorem for `lagrange_interpolate`: loop body 1
 
-The outer Rust function `Poly::lagrange_interpolate` (in
-`src/encoding/polynomial.rs`, lines 106:4-137:5) computes the unique
-polynomial of degree `< pts.len()` that interpolates a set of points
-`pts : &[Pt]` with distinct x-coordinates.  After preparing the
-"product" polynomial
+The outer Rust function `Poly::lagrange_interpolate` (in `src/encoding/polynomial.rs`, lines
+106:4-137:5) computes the unique polynomial of degree `< pts.len()` that interpolates a set of
+points `pts : &[Pt]` with distinct x-coordinates.  After preparing the "product" polynomial
   `template = ∏_j (x − pts[j].x)`
-and unrolling the first iteration, the function maintains two
-parallel coefficient vectors:
+and unrolling the first iteration, the function maintains two parallel coefficient vectors:
 
   * `out : Poly` — the running interpolant of degree `< pts.len()`,
     whose coefficient vector has length `pts.len() − 1 + 1 = pts.len()`;
@@ -26,22 +24,18 @@ parallel coefficient vectors:
     `x · <the polynomial we need>`), so its coefficient vector has
     length `pts.len() + 1`.
 
-To add the `i`-th contribution to `out` *and* divide by `x`
-simultaneously, the inner `for j in 0..out.coefficients.len()` loop
-(lines 131:12-134:13) executes
+To add the `i`-th contribution to `out` *and* divide by `x` simultaneously, the inner `for j in
+0..out.coefficients.len()` loop (lines 131:12-134:13) executes
 
   `out.coefficients[j] += working.coefficients[j + 1]`
 
-for each `j` in `0..out.coefficients.len()`.  Reading from index
-`j + 1` rather than `j` is exactly the "divide by x" trick that the
-source-level comment describes: it shifts `working` down by one
+for each `j` in `0..out.coefficients.len()`.  Reading from index `j + 1` rather than `j` is exactly
+the "divide by x" trick that the source-level comment describes: it shifts `working` down by one
 position without performing a `memmove`.
 
-Concretely, the extracted Lean body
-`encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`
-performs one step of this inner loop.  Given the (fixed) polynomial
-`working`, the range iterator `iter : 0..out.coefficients.len()`,
-and the current coefficient vector `v` of `out`, it:
+Concretely, the extracted Lean body `encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`
+performs one step of this inner loop.  Given the (fixed) polynomial `working`, the range iterator
+`iter : 0..out.coefficients.len()`, and the current coefficient vector `v` of `out`, it:
 
   1. Retrieves the next index `j` from the range iterator.
   2. If the iterator is exhausted (`none`), returns `done (v, working)`
@@ -56,11 +50,10 @@ and the current coefficient vector `v` of `out`, it:
      writes back `v[j] := g2`, and returns `cont (iter1, v1)` with
      the iterator advanced and the updated vector.
 
-In GF(2¹⁶) (characteristic 2), addition coincides with subtraction
-and is bitwise XOR of the 16-bit encodings:
+In GF(2¹⁶) (characteristic 2), addition coincides with subtraction and is bitwise XOR of the 16-bit
+encodings:
   `a + b = a − b = a ⊕ b`
-so `add_assign` is the same as the in-place addition used by the
-Rust `+=` operator on `GF16`.
+so `add_assign` is the same as the in-place addition used by the Rust `+=` operator on `GF16`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 131:12-134:13)
 -/
@@ -71,11 +64,11 @@ namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
-/-- The range iterator `next` always returns `ok` and either provides
-the current `start` value (when `start < end`) or `none` (when
-`start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust
-`for j in 0..out.coefficients.len()` loop. -/
+/--
+The range iterator `next` always returns `ok` and either provides the current `start` value (when
+`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
+`core.ops.range.Range<usize>` iterator used in the Rust `for j in 0..out.coefficients.len()` loop.
+-/
 private lemma IteratorRange_next_Usize_post
     (range : core.ops.range.Range Std.Usize) :
     ∃ opt range',
@@ -116,21 +109,17 @@ private lemma IteratorRange_next_Usize_post
   · rw [if_neg hlt]
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-- **Spec theorem for
-`encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`**:
 
-One step of the inner Lagrange-interpolation accumulation
-`out.coefficients[j] += working.coefficients[j + 1]`.  Given a fixed
-polynomial `working` (the shifted per-iteration contribution), a
-range iterator over `0..out.coefficients.len()`, and the current
-coefficient vector `v` of `out`, the body processes the next index
-from the iterator:
+One step of the inner Lagrange-interpolation accumulation `out.coefficients[j] +=
+working.coefficients[j + 1]`.  Given a fixed polynomial `working` (the shifted per-iteration
+contribution), a range iterator over `0..out.coefficients.len()`, and the current coefficient vector
+`v` of `out`, the body processes the next index from the iterator:
 
-• The function always succeeds (no panic) for any valid inputs
-  satisfying the preconditions, since `Vec.index_mut`, `Usize`
-  addition (within bounds), `Vec.index`, and the by-value
-  `AddAssign<GF16>::add_assign` are all total on bounded integers
-  within range.
+• The function always succeeds (no panic) for any valid inputs satisfying the preconditions, since
+  `Vec.index_mut`, `Usize` addition (within bounds), `Vec.index`, and the by-value
+  `AddAssign<GF16>::add_assign` are all total on bounded integers within range.
 • In the `done` case (iterator exhausted):
     both the coefficient vector `v` and the polynomial `working` are
     returned unchanged, and the iterator condition is negated:
@@ -152,16 +141,15 @@ from the iterator:
     - All other positions are unchanged:
         `v1.val[k]? = v.val[k]?`  for `k ≠ j`.
 
-The two preconditions `iter.«end».val ≤ v.val.length` and
-`iter.«end».val < working.coefficients.val.length` are exactly the
-invariants maintained by the surrounding outer loop:
+The two preconditions `iter.«end».val ≤ v.val.length` and `iter.«end».val <
+working.coefficients.val.length` are exactly the invariants maintained by the surrounding outer
+loop:
 
   `out.coefficients.len() == _w_l - 1`  and
   `working.coefficients.len() == _w_l`,
 
-which together guarantee that for every `j < iter.«end».val ≤
-out.coefficients.len()` both `v[j]` and `working.coefficients[j + 1]`
-are valid reads.
+which together guarantee that for every `j < iter.«end».val ≤ out.coefficients.len()` both `v[j]`
+and `working.coefficients[j + 1]` are valid reads.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 131:12-134:13)
 -/

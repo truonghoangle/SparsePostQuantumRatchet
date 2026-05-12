@@ -8,41 +8,34 @@ import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.SubAssign
-/-! # Spec theorem for `mult_xdiff_assign_trailing`: loop body 0
+/-!
+# Spec theorem for `mult_xdiff_assign_trailing`: loop body 0
 
-Given a polynomial represented as a vector of GF(2¹⁶) coefficients
-`v = [c₀, c₁, …, cₙ₋₁]` in ascending degree order and a field
-element `difference : GF16`, the function
-`Poly.mult_xdiff_assign_trailing(start, difference)` computes in
-place the product `self[start..] *= (x − difference)` of the
-trailing sub-polynomial (from index `start` to the end) by the
-linear factor `(x − difference)`.
+Given a polynomial represented as a vector of GF(2¹⁶) coefficients `v = [c₀, c₁, …, cₙ₋₁]` in
+ascending degree order and a field element `difference : GF16`, the function
+`Poly.mult_xdiff_assign_trailing(start, difference)` computes in place the product `self[start..] *=
+(x − difference)` of the trailing sub-polynomial (from index `start` to the end) by the linear
+factor `(x − difference)`.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition, so `(x − difference) = (x + difference)`.  The
-multiplication is performed by the recurrence:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition, so `(x − difference) = (x +
+difference)`.  The multiplication is performed by the recurrence:
 
   `v[i − 1] −= v[i] * difference`    for `i` in `start..l`
 
-where `l = self.coefficients.len()`.  Distributing `(x − d)` over
-the polynomial `p(x) = ∑ᵢ cᵢ xⁱ` gives:
+where `l = self.coefficients.len()`.  Distributing `(x − d)` over the polynomial `p(x) = ∑ᵢ cᵢ xⁱ`
+gives:
   `x · p(x) − d · p(x)`
-The `x · p(x)` part shifts every coefficient up by one position
-(implicit in the indexing), while the `−d · p(x)` part subtracts
-`cᵢ · d` from position `i − 1`.  The loop traverses from `start`
-to `l − 1`, performing this carry propagation in place.
+The `x · p(x)` part shifts every coefficient up by one position (implicit in the indexing), while
+the `−d · p(x)` part subtracts `cᵢ · d` from position `i − 1`.  The loop traverses from `start` to
+`l − 1`, performing this carry propagation in place.
 
 Each step of the loop body (this function):
 
-1. Retrieves the next index `i` from the range iterator
-   `start..l`.
-2. If the iterator is exhausted (`none`), returns `done` with
-   the current coefficient vector — the multiplication is
-   complete.
-3. Otherwise, reads `v[i]`, computes
-   `delta = v[i] * difference` in GF(2¹⁶), then updates
-   `v[i − 1] −= delta`, and returns `cont` with the updated
-   vector and the advanced iterator.
+1. Retrieves the next index `i` from the range iterator `start..l`.
+2. If the iterator is exhausted (`none`), returns `done` with the current coefficient vector — the
+   multiplication is complete.
+3. Otherwise, reads `v[i]`, computes `delta = v[i] * difference` in GF(2¹⁶), then updates `v[i − 1]
+   −= delta`, and returns `cont` with the updated vector and the advanced iterator.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 176:8-180:9)
 -/
@@ -53,11 +46,11 @@ namespace spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
-/-- The range iterator `next` always returns `ok` and either provides
-the current `start` value (when `start < end`) or `none` (when
-`start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in
-start..l` loop. -/
+/--
+The range iterator `next` always returns `ok` and either provides the current `start` value (when
+`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
+`core.ops.range.Range<usize>` iterator used in the Rust `for i in start..l` loop.
+-/
 private lemma IteratorRange_next_Usize_post
     (range : core.ops.range.Range Std.Usize) :
     ∃ opt range',
@@ -98,18 +91,15 @@ private lemma IteratorRange_next_Usize_post
   · rw [if_neg hlt]
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-- **Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop.body`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop.body`**:
 
-One step of the in-place multiplication
-`self[start..] *= (x − difference)`.  Given a GF(2¹⁶) field element
-`difference`, a range iterator over `start..l`, and the current
-coefficient vector `v`, the body processes the next index from the
-iterator:
+One step of the in-place multiplication `self[start..] *= (x − difference)`.  Given a GF(2¹⁶) field
+element `difference`, a range iterator over `start..l`, and the current coefficient vector `v`, the
+body processes the next index from the iterator:
 
-• The function always succeeds (no panic) for any valid inputs
-  satisfying the preconditions, since `Mul<GF16>`,
-  `SubAssign<GF16>`, and vector indexing are total on bounded
-  integers within range.
+• The function always succeeds (no panic) for any valid inputs satisfying the preconditions, since
+  `Mul<GF16>`, `SubAssign<GF16>`, and vector indexing are total on bounded integers within range.
 • In the `done` case (iterator exhausted):
     `result = v` (vector unchanged).
 • In the `cont` case (index `i` processed):
@@ -167,34 +157,29 @@ theorem body_spec
 
 end spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
-/-! # Spec theorem for `mult_xdiff_assign_trailing`: loop 0
+/-!
+# Spec theorem for `mult_xdiff_assign_trailing`: loop 0
 
-Given a polynomial represented as a vector of GF(2¹⁶) coefficients
-`v = [c₀, c₁, …, cₙ₋₁]` in ascending degree order and a field
-element `difference : GF16`, the loop
-`Poly.mult_xdiff_assign_trailing_loop` iterates over the range
-`start..l` (where `l = v.length`) and computes in place the product
-`self[start..] *= (x − difference)` of the trailing sub-polynomial
-(from index `start` to the end) by the linear factor
-`(x − difference)`.
+Given a polynomial represented as a vector of GF(2¹⁶) coefficients `v = [c₀, c₁, …, cₙ₋₁]` in
+ascending degree order and a field element `difference : GF16`, the loop
+`Poly.mult_xdiff_assign_trailing_loop` iterates over the range `start..l` (where `l = v.length`) and
+computes in place the product `self[start..] *= (x − difference)` of the trailing sub-polynomial
+(from index `start` to the end) by the linear factor `(x − difference)`.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition, so `(x − difference) = (x + difference)`.  The
-multiplication is performed by the recurrence:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition, so `(x − difference) = (x +
+difference)`.  The multiplication is performed by the recurrence:
 
   `v[i − 1] −= v[i] * difference`    for `i` in `start..l`
 
-where `l = self.coefficients.len()`.  Distributing `(x − d)` over
-the polynomial `p(x) = ∑ᵢ cᵢ xⁱ` gives:
+where `l = self.coefficients.len()`.  Distributing `(x − d)` over the polynomial `p(x) = ∑ᵢ cᵢ xⁱ`
+gives:
   `x · p(x) − d · p(x)`
-The `x · p(x)` part shifts every coefficient up by one position
-(implicit in the indexing), while the `−d · p(x)` part subtracts
-`cᵢ · d` from position `i − 1`.  The loop traverses from `start`
-to `l − 1`, performing this carry propagation in place.
+The `x · p(x)` part shifts every coefficient up by one position (implicit in the indexing), while
+the `−d · p(x)` part subtracts `cᵢ · d` from position `i − 1`.  The loop traverses from `start` to
+`l − 1`, performing this carry propagation in place.
 
-This file specifies the full loop (the `loop` fixed-point wrapper
-around the body), providing a closed-form postcondition that
-characterises the entire output vector after all iterations.  The
+This file specifies the full loop (the `loop` fixed-point wrapper around the body), providing a
+closed-form postcondition that characterises the entire output vector after all iterations.  The
 per-iteration specification is in
 `Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailingLoopBody0`.
 
@@ -214,11 +199,9 @@ After the loop completes with range `start..l`:
 3. All other positions are unchanged:
      `result[j]? = v[j]?`  for `j` outside the carry range.
 
-The correctness of each step relies on the fact that when
-processing index `i`, positions `i, i+1, …, l−1` in the current
-vector still hold their original values (only positions
-`start−1, …, i−2` have been modified so far), so reading
-`v_current[i]` yields the original `v[i]`.
+The correctness of each step relies on the fact that when processing index `i`, positions `i, i+1,
+…, l−1` in the current vector still hold their original values (only positions `start−1, …, i−2`
+have been modified so far), so reading `v_current[i]` yields the original `v[i]`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 176:8-180:9)
 -/
@@ -243,14 +226,12 @@ private lemma getElem_bang_eq {T : Type} [Inhabited T] {xs ys : List T} {k : Nat
   rw [getElem!_pos xs k hx, getElem!_pos ys k hy]
   exact list_get_of_getElem?_eq h hx hy
 
-/-- **Closed-form postcondition for
-`encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop`**:
+/--
+**Closed-form postcondition for `encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop`**:
 
-The full in-place multiplication loop
-`self[start..] *= (x − difference)`.  Starting from a range
-`start..l` and a coefficient vector `v` of length `l`, the loop
-processes indices `i = start, start+1, …, l−1` and returns a
-vector `result` of the same length satisfying:
+The full in-place multiplication loop `self[start..] *= (x − difference)`.  Starting from a range
+`start..l` and a coefficient vector `v` of length `l`, the loop processes indices `i = start,
+start+1, …, l−1` and returns a vector `result` of the same length satisfying:
 
 • **Length preserved**: `result.length = v.length`.
 • **Carry-propagated positions** (`start ≤ j + 1 ∧ j + 1 < l`):
@@ -262,15 +243,11 @@ vector `result` of the same length satisfying:
 • **Unchanged positions** (all other `j`):
     `result[j]? = v[j]?`.
 
-The loop invariant tracks which positions have been processed:
-after iterating indices `start, …, k−1`, positions
-`start−1, …, k−2` carry their final values and all other
-positions still hold their original values.  The body spec
-(`MultXdiffAssignTrailingLoopBody0.body_spec`) guarantees that
-each step modifies exactly one position (`i−1`) and leaves all
-others unchanged, and the key correctness observation is that
-the read position (`i`) has not yet been modified when step `i`
-executes.
+The loop invariant tracks which positions have been processed: after iterating indices `start, …,
+k−1`, positions `start−1, …, k−2` carry their final values and all other positions still hold their
+original values.  The body spec (`MultXdiffAssignTrailingLoopBody0.body_spec`) guarantees that each
+step modifies exactly one position (`i−1`) and leaves all others unchanged, and the key correctness
+observation is that the read position (`i`) has not yet been modified when step `i` executes.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 176:8-180:9)
 -/
@@ -382,39 +359,34 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
-/-! # Spec theorem for `mult_xdiff_assign_trailing`
+/-!
+# Spec theorem for `mult_xdiff_assign_trailing`
 
-Given a polynomial represented as a vector of GF(2¹⁶) coefficients
-`v = [c₀, c₁, …, cₙ₋₁]` in ascending degree order and a field
-element `difference : GF16`, the function
-`Poly.mult_xdiff_assign_trailing(start, difference)` computes in
-place the product `self[start..] *= (x − difference)` of the
-trailing sub-polynomial (from index `start` to the end) by the
-linear factor `(x − difference)`.
+Given a polynomial represented as a vector of GF(2¹⁶) coefficients `v = [c₀, c₁, …, cₙ₋₁]` in
+ascending degree order and a field element `difference : GF16`, the function
+`Poly.mult_xdiff_assign_trailing(start, difference)` computes in place the product `self[start..] *=
+(x − difference)` of the trailing sub-polynomial (from index `start` to the end) by the linear
+factor `(x − difference)`.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition, so `(x − difference) = (x + difference)`.  The
-multiplication is performed by the recurrence:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition, so `(x − difference) = (x +
+difference)`.  The multiplication is performed by the recurrence:
 
   `v[i − 1] −= v[i] * difference`    for `i` in `start..l`
 
-where `l = self.coefficients.len()`.  Distributing `(x − d)` over
-the polynomial `p(x) = ∑ᵢ cᵢ xⁱ` gives:
+where `l = self.coefficients.len()`.  Distributing `(x − d)` over the polynomial `p(x) = ∑ᵢ cᵢ xⁱ`
+gives:
   `x · p(x) − d · p(x)`
-The `x · p(x)` part shifts every coefficient up by one position
-(implicit in the indexing), while the `−d · p(x)` part subtracts
-`cᵢ · d` from position `i − 1`.  The loop traverses from `start`
-to `l − 1`, performing this carry propagation in place.
+The `x · p(x)` part shifts every coefficient up by one position (implicit in the indexing), while
+the `−d · p(x)` part subtracts `cᵢ · d` from position `i − 1`.  The loop traverses from `start` to
+`l − 1`, performing this carry propagation in place.
 
-This file specifies the top-level wrapper
-`Poly.mult_xdiff_assign_trailing`, which:
+This file specifies the top-level wrapper `Poly.mult_xdiff_assign_trailing`, which:
   1. Reads `l := self.coefficients.len()`.
   2. Calls the loop `mult_xdiff_assign_trailing_loop` with the
      range `start..l` on the coefficient vector.
   3. Wraps the resulting vector back into a `Poly`.
 
-The postcondition is inherited directly from the loop
-specification in
+The postcondition is inherited directly from the loop specification in
 `Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailingLoop0`:
 
 1. The coefficient vector length is preserved:
@@ -436,14 +408,13 @@ namespace spqr.encoding.polynomial.Poly
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
-/-- **Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing`**:
 
-• The function always succeeds (no panic) for any `Poly`, `start`,
-  and `difference` satisfying the preconditions `1 ≤ start` and
-  `start ≤ self.coefficients.length`, since the underlying loop
-  `mult_xdiff_assign_trailing_loop` is total on bounded indices
-  within range, and the `Mul<GF16>` and `SubAssign<GF16>` field
-  operations are total.
+• The function always succeeds (no panic) for any `Poly`, `start`, and `difference` satisfying the
+  preconditions `1 ≤ start` and `start ≤ self.coefficients.length`, since the underlying loop
+  `mult_xdiff_assign_trailing_loop` is total on bounded indices within range, and the `Mul<GF16>`
+  and `SubAssign<GF16>` field operations are total.
 • The coefficient vector length is preserved:
     `result.coefficients.length = self.coefficients.length`.
 • For carry-propagated positions (`start ≤ j + 1 ∧ j + 1 < l`):

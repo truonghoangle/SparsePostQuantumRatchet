@@ -12,48 +12,41 @@ import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
 
-/-! # Spec theorem for `lagrange_interpolate_prepare`: loop body 0
+/-!
+# Spec theorem for `lagrange_interpolate_prepare`: loop body 0
 
-Given a slice of points `pts` and an offset (= `pts.len()`), the
-function `Poly::lagrange_interpolate_prepare` builds the polynomial
+Given a slice of points `pts` and an offset (= `pts.len()`), the function
+`Poly::lagrange_interpolate_prepare` builds the polynomial
   `∏_{j=0}^{offset−1} (x − pts[j].x)`
-by starting with the constant `1` at position `offset` in the
-coefficient vector and successively multiplying the trailing
-sub-polynomial by `(x − pts[i].x)` for `i = 0, 1, …, offset − 1`.
+by starting with the constant `1` at position `offset` in the coefficient vector and successively
+multiplying the trailing sub-polynomial by `(x − pts[i].x)` for `i = 0, 1, …, offset − 1`.
 
-Concretely, `lagrange_interpolate_prepare(pts)` calls
-`Poly::zero(pts.len() + 1)`, resizes the coefficient vector to
-`offset + 1` entries filled with `GF16::ZERO`, sets
-`p.coefficients[offset] = GF16::ONE`, and then runs the `for i in
-0..offset` loop driver
-`encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`,
-performing `offset` iterations of the body function specified below.
+Concretely, `lagrange_interpolate_prepare(pts)` calls `Poly::zero(pts.len() + 1)`, resizes the
+coefficient vector to `offset + 1` entries filled with `GF16::ZERO`, sets `p.coefficients[offset] =
+GF16::ONE`, and then runs the `for i in 0..offset` loop driver
+`encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`, performing `offset` iterations of the
+body function specified below.
 
 Each step of the loop body (this function):
 
-1. Retrieves the next index `i` from the range iterator
-   `0..offset`.
-2. If the iterator is exhausted (`none`), returns `done` with
-   the current polynomial — the construction is complete.
-3. Otherwise, looks up `pi = pts[i]`, computes the start position
-   `i1 = offset − i`, and calls
-   `mult_xdiff_assign_trailing(i1, pi.x)` to multiply the trailing
-   sub-polynomial `p[offset−i..]` by `(x − pi.x)`, then returns
-   `cont` with the updated iterator and polynomial.
+1. Retrieves the next index `i` from the range iterator `0..offset`.
+2. If the iterator is exhausted (`none`), returns `done` with the current polynomial — the
+   construction is complete.
+3. Otherwise, looks up `pi = pts[i]`, computes the start position `i1 = offset − i`, and calls
+   `mult_xdiff_assign_trailing(i1, pi.x)` to multiply the trailing sub-polynomial `p[offset−i..]` by
+   `(x − pi.x)`, then returns `cont` with the updated iterator and polynomial.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition:
   `(x − pts[i].x) = (x + pts[i].x) = (x ⊕ pts[i].x)`
 
-The multiplication `self[start..] *= (x − difference)` is performed
-by the recurrence:
+The multiplication `self[start..] *= (x − difference)` is performed by the recurrence:
   `v[j − 1] −= v[j] * difference`  for `j` in `start..l`
 where `l = self.coefficients.len()`.
 
 The key invariant maintained by the outer loop is:
 - `p.coefficients.len() = offset + 1` (vector length is preserved).
-- After `i` iterations, the trailing sub-polynomial
-  `p[offset−i..]` represents `∏_{j=0}^{i−1} (x − pts[j].x)`.
+- After `i` iterations, the trailing sub-polynomial `p[offset−i..]` represents `∏_{j=0}^{i−1} (x −
+  pts[j].x)`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 155:8-159:9)
 -/
@@ -68,11 +61,11 @@ instance : Inhabited spqr.encoding.polynomial.Pt where
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
 
-/-- The range iterator `next` always returns `ok` and either provides
-the current `start` value (when `start < end`) or `none` (when
-`start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in
-0..offset` loop. -/
+/--
+The range iterator `next` always returns `ok` and either provides the current `start` value (when
+`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
+`core.ops.range.Range<usize>` iterator used in the Rust `for i in 0..offset` loop.
+-/
 private lemma IteratorRange_next_Usize_post
     (range : core.ops.range.Range Std.Usize) :
     ∃ opt range',
@@ -113,18 +106,16 @@ private lemma IteratorRange_next_Usize_post
   · rw [if_neg hlt]
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop.body`**:
+/--
+**Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop.body`**:
 
-One step of the polynomial construction
-`∏_{j=0}^{offset−1} (x − pts[j].x)`.  Given a point slice `pts`,
-an offset value (= number of points), a range iterator over
-`0..offset`, and the current polynomial `p`, the body processes the
-next index from the iterator:
+One step of the polynomial construction `∏_{j=0}^{offset−1} (x − pts[j].x)`.  Given a point slice
+`pts`, an offset value (= number of points), a range iterator over `0..offset`, and the current
+polynomial `p`, the body processes the next index from the iterator:
 
-• The function always succeeds (no panic) for any valid inputs
-  satisfying the preconditions, since `Slice.index_usize`,
-  `Usize` subtraction, and `mult_xdiff_assign_trailing` are
-  total on bounded integers within range.
+• The function always succeeds (no panic) for any valid inputs satisfying the preconditions, since
+  `Slice.index_usize`, `Usize` subtraction, and `mult_xdiff_assign_trailing` are total on bounded
+  integers within range.
 • In the `done` case (iterator exhausted):
     `result = p` (polynomial unchanged) and the iterator is
     exhausted: `¬ (iter.start.val < iter.end.val)`.
@@ -146,12 +137,10 @@ next index from the iterator:
     - All other positions are unchanged:
         `p'.coefficients[j]? = p.coefficients[j]?`.
 
-The postcondition propagates the closed-form specification of
-`mult_xdiff_assign_trailing` (from
-`Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing`)
-through the body, substituting `start = offset − i` and
-`difference = pts[i].x`.  This forms the foundation for the
-full loop invariant proved at the loop level.
+The postcondition propagates the closed-form specification of `mult_xdiff_assign_trailing` (from
+`Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing`) through the body, substituting `start
+= offset − i` and `difference = pts[i].x`.  This forms the foundation for the full loop invariant
+proved at the loop level.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 155:8-159:9)
 -/
@@ -201,45 +190,39 @@ theorem body_spec
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
-/-! # Spec theorem for `lagrange_interpolate_prepare`: loop 0
+/-!
+# Spec theorem for `lagrange_interpolate_prepare`: loop 0
 
-Given a slice of points `pts` and an offset (= `pts.len()`), the
-function `Poly::lagrange_interpolate_prepare` builds the polynomial
+Given a slice of points `pts` and an offset (= `pts.len()`), the function
+`Poly::lagrange_interpolate_prepare` builds the polynomial
   `∏_{j=0}^{offset−1} (x − pts[j].x)`
-by starting with the constant `1` at position `offset` in the
-coefficient vector and successively multiplying the trailing
-sub-polynomial by `(x − pts[i].x)` for `i = 0, 1, …, offset − 1`.
+by starting with the constant `1` at position `offset` in the coefficient vector and successively
+multiplying the trailing sub-polynomial by `(x − pts[i].x)` for `i = 0, 1, …, offset − 1`.
 
-This file specifies the full loop (the `loop` fixed-point wrapper
-around the body), providing a closed-form postcondition that
-characterises the entire output polynomial after all iterations.  The
+This file specifies the full loop (the `loop` fixed-point wrapper around the body), providing a
+closed-form postcondition that characterises the entire output polynomial after all iterations.  The
 per-iteration specification is in
 `Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepareLoopBoby0`.
 
-Concretely, `lagrange_interpolate_prepare(pts)` calls
-`Poly::zero(pts.len() + 1)`, resizes the coefficient vector to
-`offset + 1` entries filled with `GF16::ZERO`, sets
-`p.coefficients[offset] = GF16::ONE`, and then runs the `for i in
-0..offset` loop driver
-`encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`,
-performing `offset` iterations of the body function.
+Concretely, `lagrange_interpolate_prepare(pts)` calls `Poly::zero(pts.len() + 1)`, resizes the
+coefficient vector to `offset + 1` entries filled with `GF16::ZERO`, sets `p.coefficients[offset] =
+GF16::ONE`, and then runs the `for i in 0..offset` loop driver
+`encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`, performing `offset` iterations of the
+body function.
 
-Each step of the loop body calls
-`mult_xdiff_assign_trailing(offset − i, pts[i].x)` to multiply the
-trailing sub-polynomial `p[offset−i..]` by `(x − pts[i].x)`, with
-the carry propagating into the next lower position.
+Each step of the loop body calls `mult_xdiff_assign_trailing(offset − i, pts[i].x)` to multiply the
+trailing sub-polynomial `p[offset−i..]` by `(x − pts[i].x)`, with the carry propagating into the
+next lower position.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition:
   `(x − pts[i].x) = (x + pts[i].x) = (x ⊕ pts[i].x)`
 
 The key invariant maintained by the outer loop is:
 - `p.coefficients.len() = offset + 1` (vector length is preserved).
-- `p.coefficients[offset] = GF16::ONE` (leading coefficient
-  unchanged, since `mult_xdiff_assign_trailing` never modifies the
-  last position when `len = offset + 1`).
-- After `i` iterations, the trailing sub-polynomial
-  `p[offset−i..]` represents `∏_{j=0}^{i−1} (x − pts[j].x)`.
+- `p.coefficients[offset] = GF16::ONE` (leading coefficient unchanged, since
+  `mult_xdiff_assign_trailing` never modifies the last position when `len = offset + 1`).
+- After `i` iterations, the trailing sub-polynomial `p[offset−i..]` represents `∏_{j=0}^{i−1} (x −
+  pts[j].x)`.
 
 **Closed-form postcondition**:
 
@@ -270,12 +253,10 @@ After the loop completes with range `iter.start..iter.end`:
                 (X − C(pts[iter.start+k].x.toGF216)) · Sₖ`
 
 The correctness of each step relies on the body specification
-(`LagrangeInterpolatePrepareLoopBoby0.body_spec`), which guarantees
-that each call to `mult_xdiff_assign_trailing` preserves the vector
-length and only modifies positions in the carry range
-`[offset − i − 1, offset − 1]`, leaving the leading coefficient
-at position `offset` unchanged (since `offset + 1 = len` means
-position `offset` is never in the carry range `j + 1 < len`).
+(`LagrangeInterpolatePrepareLoopBoby0.body_spec`), which guarantees that each call to
+`mult_xdiff_assign_trailing` preserves the vector length and only modifies positions in the carry
+range `[offset − i − 1, offset − 1]`, leaving the leading coefficient at position `offset` unchanged
+(since `offset + 1 = len` means position `offset` is never in the carry range `j + 1 < len`).
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 155:8-159:9)
 -/
@@ -293,20 +274,20 @@ private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
   rw [h1, h2] at h
   exact Option.some_injective _ h
 
-/-! ## Mathematical specification functions
+/-!
+## Mathematical specification functions
 
-The following definitions capture the mathematical content of the
-loop: `prodLinearFactors` is the target product polynomial, and
-`expectedTrailingPoly` tracks the evolving trailing sub-polynomial
-through each iteration of the loop, accounting for the initial
-coefficients of `p`. -/
+The following definitions capture the mathematical content of the loop: `prodLinearFactors` is the
+target product polynomial, and `expectedTrailingPoly` tracks the evolving trailing sub-polynomial
+through each iteration of the loop, accounting for the initial coefficients of `p`.
+-/
 
-/-- **Product of linear factors**
-`∏_{j=start}^{stop−1} (X − C(pts[j].x.toGF216))`.
+/--
+**Product of linear factors** `∏_{j=start}^{stop−1} (X − C(pts[j].x.toGF216))`.
 
-This is the target polynomial that `lagrange_interpolate_prepare`
-constructs.  It returns `1` when `start ≥ stop` or
-`start ≥ pts.length` (empty product). -/
+This is the target polynomial that `lagrange_interpolate_prepare` constructs.  It returns `1` when
+`start ≥ stop` or `start ≥ pts.length` (empty product).
+-/
 noncomputable def prodLinearFactors
     (pts : List Pt) (start stop : Nat) : GF216Poly :=
   if h : start < stop ∧ start < pts.length then
@@ -315,8 +296,9 @@ noncomputable def prodLinearFactors
   else 1
 termination_by stop - start
 
-/-- When `start ≥ stop` or `start ≥ pts.length`, the product is `1`
-(empty product). -/
+/--
+When `start ≥ stop` or `start ≥ pts.length`, the product is `1` (empty product).
+-/
 @[simp]
 lemma prodLinearFactors_base (pts : List Pt) (start stop : Nat)
     (h : ¬(start < stop ∧ start < pts.length)) :
@@ -332,8 +314,10 @@ lemma prodLinearFactors_step (pts : List Pt) (start stop : Nat)
   conv_lhs => unfold prodLinearFactors
   rw [dif_pos ⟨h1, h2⟩]
 
-/-- One-step unfolding of `prodLinearFactors` from the right
-(snoc form).  Uses commutativity of polynomial multiplication. -/
+/--
+One-step unfolding of `prodLinearFactors` from the right (snoc form).  Uses commutativity of
+polynomial multiplication.
+-/
 private lemma prodLinearFactors_snoc_aux (pts : List Pt) (stop : Nat)
     (h2 : stop < pts.length) :
     ∀ d s, s + d = stop → s ≤ stop →
@@ -386,18 +370,18 @@ lemma prodLinearFactors_eval_root (pts : List Pt) (start stop : Nat)
     · have := ih (start + 1) (by omega) (by omega)
       rw [this]; ring
 
-/-- **Expected trailing sub-polynomial** after `k` iterations.
+/--
+**Expected trailing sub-polynomial** after `k` iterations.
 
 Defined by the recurrence:
   `S₀ = C(p_coeffs[offset]!.toGF216)`
   `S_{k+1} = C(p_coeffs[offset − (k + 1)]!.toGF216) +
              (X − C(pts[iter_start + k]!.x.toGF216)) · Sₖ`
 
-This tracks the compound effect of `k` calls to
-`mult_xdiff_assign_trailing` on the trailing sub-polynomial
-rooted at position `offset`.  After `k` iterations, the
-sub-polynomial at positions `[offset − k, …, offset]` equals
-`expectedTrailingPoly p_coeffs pts offset iter_start k`. -/
+This tracks the compound effect of `k` calls to `mult_xdiff_assign_trailing` on the trailing
+sub-polynomial rooted at position `offset`.  After `k` iterations, the sub-polynomial at positions
+`[offset − k, …, offset]` equals `expectedTrailingPoly p_coeffs pts offset iter_start k`.
+-/
 noncomputable def expectedTrailingPoly
     (p_coeffs : List GF16) (pts : List Pt)
     (offset iter_start : Nat) : Nat → GF216Poly
@@ -407,8 +391,10 @@ noncomputable def expectedTrailingPoly
     (X - C (pts[iter_start + k]!.x.toGF216)) *
       expectedTrailingPoly p_coeffs pts offset iter_start k
 
-/-- Base case: the expected trailing polynomial after 0 iterations
-is just the constant `C(p[offset]!.toGF216)`. -/
+/--
+Base case: the expected trailing polynomial after 0 iterations is just the constant
+`C(p[offset]!.toGF216)`.
+-/
 @[simp]
 lemma expectedTrailingPoly_zero (p_coeffs : List GF16) (pts : List Pt)
     (offset iter_start : Nat) :
@@ -423,9 +409,10 @@ lemma expectedTrailingPoly_succ (p_coeffs : List GF16) (pts : List Pt)
       (X - C (pts[iter_start + k]!.x.toGF216)) *
         expectedTrailingPoly p_coeffs pts offset iter_start k := rfl
 
-/-- **Bridge lemma**: When the initial polynomial has `p[offset] = ONE`
-and `p[j] = ZERO` for `j < offset`, the expected trailing polynomial
-collapses to `prodLinearFactors`. -/
+/--
+**Bridge lemma**: When the initial polynomial has `p[offset] = ONE` and `p[j] = ZERO` for `j <
+offset`, the expected trailing polynomial collapses to `prodLinearFactors`.
+-/
 lemma expectedTrailingPoly_eq_prodLinearFactors
     (p_coeffs : List GF16) (pts : List Pt) (offset : Nat)
     (h_leading : p_coeffs[offset]!.toGF216 = 1)
@@ -460,8 +447,10 @@ private lemma coeff_zero_C_add_X_sub_C_mul {R : Type*} [CommRing R]
   rw [sub_mul, coeff_add, coeff_sub, coeff_C_zero, coeff_X_mul_zero, coeff_C_mul]
   ring
 
-/-- For any `n`, coefficient `n + 1` of `C a + (X - C b) * P` equals
-    `P.coeff n - b * P.coeff (n + 1)`. -/
+/--
+For any `n`, coefficient `n + 1` of `C a + (X - C b) * P` equals
+    `P.coeff n - b * P.coeff (n + 1)`.
+-/
 private lemma coeff_succ_C_add_X_sub_C_mul {R : Type*} [CommRing R]
     (a b : R) (P : R[X]) (n : ℕ) :
     (C a + (X - C b) * P).coeff (n + 1) = P.coeff n - b * P.coeff (n + 1) := by
@@ -486,16 +475,14 @@ private lemma expectedTrailingPoly_coeff_eq_zero
           ih n' (by omega), ih (n' + 1) (by omega)]
       ring
 
-/-- **Closed-form postcondition for
-`encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`**:
+/--
+**Closed-form postcondition for `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`**:
 
-The full loop constructing
-`∏_{j=0}^{offset−1} (x − pts[j].x)`.  Starting from a range
-`iter.start..iter.end`, a point slice `pts`, and a polynomial `p`
-with `p.coefficients.length = offset + 1`, the loop processes
-indices `i = iter.start, iter.start + 1, …, iter.end − 1` — at
-each step calling `mult_xdiff_assign_trailing(offset − i, pts[i].x)`
-— and returns a polynomial `result` satisfying:
+The full loop constructing `∏_{j=0}^{offset−1} (x − pts[j].x)`.  Starting from a range
+`iter.start..iter.end`, a point slice `pts`, and a polynomial `p` with `p.coefficients.length =
+offset + 1`, the loop processes indices `i = iter.start, iter.start + 1, …, iter.end − 1` — at each
+step calling `mult_xdiff_assign_trailing(offset − i, pts[i].x)` — and returns a polynomial `result`
+satisfying:
 
 • **Length preserved**: `result.coefficients.length = p.coefficients.length`.
 • **Leading coefficient unchanged**:
@@ -520,14 +507,11 @@ each step calling `mult_xdiff_assign_trailing(offset − i, pts[i].x)`
     compound effect of all iterations as a single polynomial
     recurrence.
 
-The loop invariant tracks which iterations have been processed:
-after iterating indices `iter.start, …, k−1`, the sub-polynomial
-`result[offset−(k−iter.start)..]` represents
-`∏_{j=iter.start}^{k−1} (x − pts[j].x)`, the leading coefficient
-at position `offset` remains unchanged (as
-`mult_xdiff_assign_trailing` never writes past position
-`len − 2 = offset − 1`), the vector length is unchanged, and all
-positions below `offset − k` retain their original values.
+The loop invariant tracks which iterations have been processed: after iterating indices `iter.start,
+…, k−1`, the sub-polynomial `result[offset−(k−iter.start)..]` represents `∏_{j=iter.start}^{k−1} (x
+− pts[j].x)`, the leading coefficient at position `offset` remains unchanged (as
+`mult_xdiff_assign_trailing` never writes past position `len − 2 = offset − 1`), the vector length
+is unchanged, and all positions below `offset − k` retain their original values.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 155:8-159:9)
 -/
@@ -821,34 +805,31 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
-/-! # Spec theorem for
+/-!
+# Spec theorem for
 `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate_prepare`
 
-Given a slice of evaluation points `pts`, the function
-`Poly::lagrange_interpolate_prepare` constructs the product polynomial
+Given a slice of evaluation points `pts`, the function `Poly::lagrange_interpolate_prepare`
+constructs the product polynomial
   `∏_{j=0}^{offset−1} (x − pts[j].x)`
-where `offset = pts.len()`, returning a `Poly` of degree `offset`
-with `offset + 1` coefficients.
+where `offset = pts.len()`, returning a `Poly` of degree `offset` with `offset + 1` coefficients.
 
 Concretely the function proceeds as follows:
 
-1. **Allocate**: `p = Poly::zero(pts.len() + 1)` creates an empty
-   coefficient vector with the given capacity hint.
-2. **Resize**: `p.coefficients.resize(pts.len() + 1, GF16::ZERO)`
-   fills the vector with `offset + 1` zero entries.
-3. **Set leading coefficient**: `p.coefficients[offset] = GF16::ONE`
-   places the leading `1` at position `offset` (the highest degree),
-   representing the monic polynomial `x^0 = 1` in the trailing
-   sub-polynomial view.
-4. **Loop** (`for i in 0..offset`): at each step calls
-   `p.mult_xdiff_assign_trailing(offset − i, pts[i].x)` to multiply
-   the trailing sub-polynomial by `(x − pts[i].x)`, propagating one
-   carry coefficient downward.
-5. **Assert**: `debug_assert_eq!(p.coefficients[pts.len()], GF16::ONE)`
-   — the loop preserves the leading coefficient at position `offset`.
+1. **Allocate**: `p = Poly::zero(pts.len() + 1)` creates an empty coefficient vector with the given
+   capacity hint.
+2. **Resize**: `p.coefficients.resize(pts.len() + 1, GF16::ZERO)` fills the vector with `offset + 1`
+   zero entries.
+3. **Set leading coefficient**: `p.coefficients[offset] = GF16::ONE` places the leading `1` at
+   position `offset` (the highest degree), representing the monic polynomial `x^0 = 1` in the
+   trailing sub-polynomial view.
+4. **Loop** (`for i in 0..offset`): at each step calls `p.mult_xdiff_assign_trailing(offset − i,
+   pts[i].x)` to multiply the trailing sub-polynomial by `(x − pts[i].x)`, propagating one carry
+   coefficient downward.
+5. **Assert**: `debug_assert_eq!(p.coefficients[pts.len()], GF16::ONE)` — the loop preserves the
+   leading coefficient at position `offset`.
 
-Since GF(2¹⁶) has characteristic 2, subtraction coincides with
-addition:
+Since GF(2¹⁶) has characteristic 2, subtraction coincides with addition:
   `(x − pts[i].x) = (x + pts[i].x) = (x ⊕ pts[i].x)`
 
 The key postconditions of the function are:
@@ -858,20 +839,16 @@ The key postconditions of the function are:
 • **Polynomial identity**:
     `result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length`
   i.e. the result represents `∏_{j=0}^{pts.length−1} (X − C(pts[j].x.toGF216))`.
-• **Root property**: The result polynomial evaluates to zero
-  at each `pts[j].x`.
+• **Root property**: The result polynomial evaluates to zero at each `pts[j].x`.
 
-The leading-coefficient invariant is maintained by the loop (as proved
-in `LagrangeInterpolatePrepareLoop0.loop_spec`): the loop body calls
-`mult_xdiff_assign_trailing` which never modifies position `offset`
-(the last position in the vector), so the `ONE` placed there before
-the loop is still present after the loop, and the `debug_assert_eq!`
-always passes.
+The leading-coefficient invariant is maintained by the loop (as proved in
+`LagrangeInterpolatePrepareLoop0.loop_spec`): the loop body calls `mult_xdiff_assign_trailing` which
+never modifies position `offset` (the last position in the vector), so the `ONE` placed there before
+the loop is still present after the loop, and the `debug_assert_eq!` always passes.
 
-The on-target Rust implementation may dispatch to hardware carry-less
-multiplication instructions (`PCLMULQDQ` / `PMULL`) on x86/x86_64 and
-aarch64 when the corresponding CPU feature is detected; the extracted
-Lean version contains only the unaccelerated fallback.
+The on-target Rust implementation may dispatch to hardware carry-less multiplication instructions
+(`PCLMULQDQ` / `PMULL`) on x86/x86_64 and aarch64 when the corresponding CPU feature is detected;
+the extracted Lean version contains only the unaccelerated fallback.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 144:4-163:5)
 -/
@@ -885,9 +862,10 @@ open lagrange_interpolate_prepare_loop (prodLinearFactors expectedTrailingPoly
   expectedTrailingPoly_coeff_eq_zero)
 
 open Polynomial in
-/-- Coefficients of `prodLinearFactors` beyond degree `stop − start`
-are zero.  This is the degree bound for the product of linear
-factors, proved by induction on the number of factors. -/
+/--
+Coefficients of `prodLinearFactors` beyond degree `stop − start` are zero.  This is the degree bound
+for the product of linear factors, proved by induction on the number of factors.
+-/
 private lemma prodLinearFactors_coeff_eq_zero_high
     (pts : List Pt) (start stop m : Nat) (hm : stop - start < m) :
     (prodLinearFactors pts start stop).coeff m = 0 := by
@@ -915,19 +893,21 @@ private lemma prodLinearFactors_coeff_eq_zero_high
     · rw [prodLinearFactors_base _ _ _ h, coeff_one]
       exact if_neg (by omega)
 
-/-- **Indexed read after `List.set` at the same index** (using `[·]!`).
-If `n < l.length`, then `(l.set n x)[n]! = x`.  This is a local
-replacement for `List.getElem!_set_self` (which we do not use). -/
+/--
+**Indexed read after `List.set` at the same index** (using `[·]!`). If `n < l.length`, then `(l.set
+n x)[n]! = x`.  This is a local replacement for `List.getElem!_set_self` (which we do not use).
+-/
 private lemma list_getElem_bang_set_self {α : Type*} [Inhabited α]
     (l : List α) (n : Nat) (x : α) (hn : n < l.length) :
     (l.set n x)[n]! = x := by
   have h : n < (l.set n x).length := by rw [List.length_set]; exact hn
   rw [getElem!_pos (l.set n x) n h, List.getElem_set_self]
 
-/-- If all coefficients of a list, interpreted via `GF16.toGF216`,
-match those of a polynomial `q` at in-range positions, and `q`
-has zero coefficients beyond the list length, then
-`listToGF216Poly cs = q`. -/
+/--
+If all coefficients of a list, interpreted via `GF16.toGF216`, match those of a polynomial `q` at
+in-range positions, and `q` has zero coefficients beyond the list length, then `listToGF216Poly cs =
+q`.
+-/
 private lemma listToGF216Poly_eq_of_coeffs
     (cs : List GF16) (q : GF216Poly)
     (h_in : ∀ (m : Nat) (hm : m < cs.length),
@@ -940,14 +920,13 @@ private lemma listToGF216Poly_eq_of_coeffs
   · rename_i hm; exact h_in m hm
   · rename_i hm; push_neg at hm; exact (h_out m hm).symm
 
-/-- **Spec theorem for
+/--
+**Spec theorem for
 `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate_prepare`**:
 
-• The function always succeeds (no panic) for any point slice `pts`
-  satisfying the precondition `pts.length + 1 ≤ Usize.max`, since
-  all arithmetic operations stay within bounds, `Vec.resize` is
-  total, and the loop driver
-  `lagrange_interpolate_prepare_loop` is total on bounded indices.
+• The function always succeeds (no panic) for any point slice `pts` satisfying the precondition
+  `pts.length + 1 ≤ Usize.max`, since all arithmetic operations stay within bounds, `Vec.resize` is
+  total, and the loop driver `lagrange_interpolate_prepare_loop` is total on bounded indices.
 • The resulting coefficient vector has length `pts.length + 1`:
     `result.coefficients.length = pts.length + 1`.
 • The leading coefficient at position `pts.length` is `GF16::ONE`:
@@ -960,13 +939,10 @@ private lemma listToGF216Poly_eq_of_coeffs
   This follows from the loop preserving the leading coefficient
   (proved in `loop_spec`) and the fact that `ONE.toGF216 = 1`
   (proved in `Spqr.Specs.Encoding.Gf.GF16.ONE`).
-• For each position `m ≤ pts.length`, the coefficient at position
-  `m` in the result matches the `m`-th coefficient of
-  `prodLinearFactors pts.val 0 pts.val.length` under `GF16.toGF216`.
-  This is the coefficient-level polynomial identity, derived from
-  the loop's trailing polynomial identity (property 5 of
-  `loop_spec`) and the bridge lemma
-  `expectedTrailingPoly_eq_prodLinearFactors`.
+• For each position `m ≤ pts.length`, the coefficient at position `m` in the result matches the
+  `m`-th coefficient of `prodLinearFactors pts.val 0 pts.val.length` under `GF16.toGF216`. This is
+  the coefficient-level polynomial identity, derived from the loop's trailing polynomial identity
+  (property 5 of `loop_spec`) and the bridge lemma `expectedTrailingPoly_eq_prodLinearFactors`.
 • The mathematical interpretation of the result polynomial equals
   the product of linear factors:
     `result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length`

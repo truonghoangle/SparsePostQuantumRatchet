@@ -5,19 +5,18 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
-/-! # Spec theorem for `spqr::encoding::gf::GF16::ZERO`
+/-!
+# Spec theorem for `spqr::encoding::gf::GF16::ZERO`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — the zero element
-is the unique element `0` satisfying `0 + a = a + 0 = a` for every
-`a ∈ GF(2¹⁶)`.  Concretely, since GF16 is a transparent newtype
-around `u16` whose addition is bitwise XOR, the zero element is
-represented by the `u16` value `0`:
+In GF(2¹⁶) — the Galois field with 65 536 elements — the zero element is the unique element `0`
+satisfying `0 + a = a + 0 = a` for every `a ∈ GF(2¹⁶)`.  Concretely, since GF16 is a transparent
+newtype around `u16` whose addition is bitwise XOR, the zero element is represented by the `u16`
+value `0`:
   `ZERO = GF16 { value := 0_u16 }`
 
-The underlying `u16` value `0` has natural-number value `0`, and lifts
-into `GF216 = GaloisField 2 16` via the canonical chain
-`Nat → BinaryPoly → GF216` (i.e. `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`)
-to the additive identity `0 : GF216`.  This follows because:
+The underlying `u16` value `0` has natural-number value `0`, and lifts into `GF216 = GaloisField 2
+16` via the canonical chain `Nat → BinaryPoly → GF216` (i.e. `Nat.toGF216 = BinaryPoly.toGF216 ∘
+natToBinaryPoly`) to the additive identity `0 : GF216`.  This follows because:
   * `natToBinaryPoly 0 = 0` (the empty bit pattern represents the zero
     polynomial in `BinaryPoly`); and
   * the ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` chosen in
@@ -30,7 +29,8 @@ open Aeneas Aeneas.Std Result
 open Polynomial spqr.encoding.gf spqr.math.gf
 namespace spqr.encoding.gf.GF16
 
-/-- **Spec theorem for `encoding.gf.GF16.ZERO`**:
+/--
+**Spec theorem for `encoding.gf.GF16.ZERO`**:
 
 • The underlying `u16` value of `ZERO` is `0`:
     `ZERO.value = 0#u16`
@@ -45,7 +45,8 @@ namespace spqr.encoding.gf.GF16
     `(a + ZERO).value.val.toGF216 = a.value.val.toGF216`,
   which follows from the GF(2¹⁶) identity `x + 0 = x`.
 
-**The underlying `u16` of `ZERO` is `0_u16`**. -/
+**The underlying `u16` of `ZERO` is `0_u16`**.
+-/
 @[simp]
 theorem ZERO_value : (ZERO).value = 0#u16 := by
   simp [ZERO]

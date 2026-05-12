@@ -6,7 +6,8 @@ Authors: Hoang Le Truong
 import Spqr.Math.Gf2Poly.Basic
 import Mathlib.Tactic.IntervalCases
 
-/-! # Computable Nat-level representation of `BinaryPoly`
+/-!
+# Computable Nat-level representation of `BinaryPoly`
 
 Bit-pattern arithmetic on `Nat` (`natBinaryPolyModAux`, `natBinaryPolyMod`,
 `natBinaryPolyNoDivisorOfDeg`) together with round-trip lemmas tying the `Nat` representation to
@@ -15,7 +16,6 @@ Bit-pattern arithmetic on `Nat` (`natBinaryPolyModAux`, `natBinaryPolyMod`,
 This module provides the computational backbone for verifying irreducibility of specific binary
 polynomials: the `decide`-friendly functions operate on natural numbers, and the bridge lemmas
 connect their results back to the abstract polynomial ring `BinaryPoly = (ZMod 2)[X]`.
-
 -/
 
 open Polynomial
@@ -24,8 +24,10 @@ namespace spqr.math.gf
 
 /-! ### Computable binary polynomial arithmetic on `Nat` -/
 
-/-- One step of binary polynomial long-division: if the leading term of `a` can be cancelled by a
-shift of `b`, XOR to cancel it. -/
+/--
+One step of binary polynomial long-division: if the leading term of `a` can be cancelled by a shift
+of `b`, XOR to cancel it.
+-/
 private def natBinaryPolyModAux (b : Nat) : Nat → Nat → Nat
   | a, 0       => a
   | a, fuel + 1 =>
@@ -33,8 +35,10 @@ private def natBinaryPolyModAux (b : Nat) : Nat → Nat → Nat
     else if a.log2 < b.log2 then a
     else natBinaryPolyModAux b (a ^^^ (b <<< (a.log2 - b.log2))) fuel
 
-/-- Binary polynomial remainder: `natBinaryPolyMod a b` computes `a mod b` where `a` and `b` are
-natural-number encodings of binary polynomials. -/
+/--
+Binary polynomial remainder: `natBinaryPolyMod a b` computes `a mod b` where `a` and `b` are
+natural-number encodings of binary polynomials.
+-/
 def natBinaryPolyMod (a b : Nat) : Nat := natBinaryPolyModAux b a (a + 1)
 
 private def natBinaryPolyNoDivisorOfDeg (n d : Nat) : Bool :=
@@ -174,8 +178,9 @@ lemma natBinaryPolyMod_ne_zero_of_not_dvd (a b : Nat) (hb : b ≥ 2)
   obtain ⟨s, hs⟩ := hdvd_r
   have hr_ne : natToBinaryPoly r ≠ 0 := by
     intro h
-    have := natToBinaryPoly_inj r 0 (by rw [h, natToBinaryPoly_zero])
-    exact hmod this
+    have heq : natToBinaryPoly r = natToBinaryPoly 0 := by
+      rw [h, natToBinaryPoly_zero]
+    exact hmod (natToBinaryPoly_inj heq)
   have hs_ne : s ≠ 0 := by
     rintro rfl
     simp only [mul_zero] at hs

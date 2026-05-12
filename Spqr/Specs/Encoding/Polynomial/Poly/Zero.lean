@@ -5,28 +5,25 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Poly
-/-! # Spec Theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::zero`
+/-!
+# Spec Theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::zero`
 
-Specification and proof for `spqr.encoding.polynomial.Poly.zero`,
-which constructs the zero polynomial — a `Poly` whose coefficient
-list is empty.
+Specification and proof for `spqr.encoding.polynomial.Poly.zero`, which constructs the zero
+polynomial — a `Poly` whose coefficient list is empty.
 
-A `Poly` represents a polynomial over GF(2¹⁶), where the list
-`coefficients` stores the coefficients in ascending degree order:
+A `Poly` represents a polynomial over GF(2¹⁶), where the list `coefficients` stores the coefficients
+in ascending degree order:
   `coefficients = [a₀, a₁, …, aₙ]`
-represents the polynomial `a₀ + a₁·x + … + aₙ·xⁿ`.  The zero
-polynomial is the unique polynomial with no terms, i.e. it evaluates
-to `0 : GF(2¹⁶)` at every point.
+represents the polynomial `a₀ + a₁·x + … + aₙ·xⁿ`.  The zero polynomial is the unique polynomial
+with no terms, i.e. it evaluates to `0 : GF(2¹⁶)` at every point.
 
-Concretely, `zero capacity` calls `Vec::with_capacity(capacity)` to
-allocate a vector with the given capacity hint and wraps it into a
-`Poly`.  The `capacity` parameter is a performance hint only — it
-does not affect the mathematical content.  The resulting vector has
-length 0 (it is empty), so the `Poly` represents the zero polynomial
-in GF(2¹⁶)[x].
+Concretely, `zero capacity` calls `Vec::with_capacity(capacity)` to allocate a vector with the given
+capacity hint and wraps it into a `Poly`.  The `capacity` parameter is a performance hint only — it
+does not affect the mathematical content.  The resulting vector has length 0 (it is empty), so the
+`Poly` represents the zero polynomial in GF(2¹⁶)[x].
 
-The function always succeeds (no panic) for any `capacity` value,
-since `Vec::with_capacity` is a total operation.
+The function always succeeds (no panic) for any `capacity` value, since `Vec::with_capacity` is a
+total operation.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 94:4-98:5)
 -/
@@ -60,25 +57,23 @@ natural language specs:
   influence the mathematical content of the result.
 -/
 
-/-- **Spec and proof concerning `spqr.encoding.polynomial.Poly.zero`**:
+/--
+**Spec and proof concerning `spqr.encoding.polynomial.Poly.zero`**:
 
-`zero capacity` constructs the zero polynomial over GF(2¹⁶) — a
-`Poly` whose coefficient vector is empty (length 0).  The `capacity`
-parameter is a performance hint for the vector allocation and does
+`zero capacity` constructs the zero polynomial over GF(2¹⁶) — a `Poly` whose coefficient vector is
+empty (length 0).  The `capacity` parameter is a performance hint for the vector allocation and does
 not affect the mathematical content.
 
 The result satisfies the mathematical postcondition:
 
   `result.toGF216Poly = 0`
 
-i.e. the canonical bridge `Poly.toGF216Poly` maps the result to
-the zero polynomial `0 : GF216[X]` — the additive identity in the
-polynomial ring GF(2¹⁶)[x].
+i.e. the canonical bridge `Poly.toGF216Poly` maps the result to the zero polynomial `0 : GF216[X]` —
+the additive identity in the polynomial ring GF(2¹⁶)[x].
 
-The proof unfolds `zero` to expose the underlying
-`Vec.with_capacity` call, which produces an empty vector, then
-unfolds `Poly.toGF216Poly` to reduce to `listToGF216Poly []`,
-which simplifies to `0` by `listToGF216Poly_empty`.
+The proof unfolds `zero` to expose the underlying `Vec.with_capacity` call, which produces an empty
+vector, then unfolds `Poly.toGF216Poly` to reduce to `listToGF216Poly []`, which simplifies to `0`
+by `listToGF216Poly_empty`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 94:4-98:5)
 -/

@@ -8,20 +8,18 @@ import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.MulAssign
 
-/-! # Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div_impl`
+/-!
+# Spec theorem for `spqr::encoding::gf::{impl ops::Div for GF16}::div_impl`
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
-is polynomial multiplication modulo the irreducible polynomial
-POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
-represented as a polynomial of degree < 16 with coefficients in
-GF(2), stored as a 16-bit unsigned integer; the `GF16` Rust type is
-the `u16` wrapper providing the field operations.
+In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication is polynomial multiplication
+modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
+represented as a polynomial of degree < 16 with coefficients in GF(2), stored as a 16-bit unsigned
+integer; the `GF16` Rust type is the `u16` wrapper providing the field operations.
 
 
-The extracted Lean body advances the `1..16` iterator by one step
-and, depending on whether the iterator is exhausted, either returns
-the accumulated `out` (loop exit) or computes the new `(square', out')`
-state for the next iteration:
+The extracted Lean body advances the `1..16` iterator by one step and, depending on whether the
+iterator is exhausted, either returns the accumulated `out` (loop exit) or computes the new
+`(square', out')` state for the next iteration:
   1. `out1 ← MulAssignGF16.mul_assign out square` — in-place
      `out *= square` delegating to the by-reference `MulAssign`
      instance, which itself delegates to the software (unaccelerated)
@@ -38,25 +36,22 @@ open spqr.encoding.gf
 
 namespace spqr.encoding.gf.GF16
 
-/-- **Spec and proof concerning
-`core.iter.range.IteratorRange.next core.iter.range.StepUsize`**:
+/--
+**Spec and proof concerning `core.iter.range.IteratorRange.next core.iter.range.StepUsize`**:
 
-The `next` method of the `Iterator` instance for `Range<usize>`,
-specified at the WP / postcondition level: on a `range : Range Usize`,
-`next` returns `(opt, range')` where:
+The `next` method of the `Iterator` instance for `Range<usize>`, specified at the WP / postcondition
+level: on a `range : Range Usize`, `next` returns `(opt, range')` where:
 
-* if `range.start.val ≥ range.end.val` (the range is exhausted), then
-  `opt = none` and `range' = range` (the iterator is unchanged);
-* if `range.start.val < range.end.val` (the range still has an element),
-  then `opt = some range.start`, `range'.start.val = range.start.val + 1`,
-  and `range'.end = range.end` (the upper bound is preserved).
+* if `range.start.val ≥ range.end.val` (the range is exhausted), then `opt = none` and `range' =
+  range` (the iterator is unchanged);
+* if `range.start.val < range.end.val` (the range still has an element), then `opt = some
+  range.start`, `range'.start.val = range.start.val + 1`, and `range'.end = range.end` (the upper
+  bound is preserved).
 
-Both branches are derived from the underlying definitions of
-`core.iter.range.IteratorRange.next`,
-`core.iter.range.StepUsize.forward_checked`,
-`core.cmp.impls.PartialOrdUsize.lt`, and
-`core.clone.impls.CloneUsize.clone`, which together implement
-`Range::next` for `usize` ranges in Rust.
+Both branches are derived from the underlying definitions of `core.iter.range.IteratorRange.next`,
+`core.iter.range.StepUsize.forward_checked`, `core.cmp.impls.PartialOrdUsize.lt`, and
+`core.clone.impls.CloneUsize.clone`, which together implement `Range::next` for `usize` ranges in
+Rust.
 -/
 @[step]
 theorem next_spec (range : core.ops.range.Range Usize) :
@@ -108,10 +103,11 @@ theorem next_spec (range : core.ops.range.Range Usize) :
   · rw [if_neg hlt]
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-- **Spec theorem for `Step<i32>::forward_checked` with step 1.**
+/--
+**Spec theorem for `Step<i32>::forward_checked` with step 1.**
 
-`I32.Insts.CoreIterRangeStep.forward_checked` is now defined concretely
-(see `Spqr/Code/FunsExternal.lean`) as
+`I32.Insts.CoreIterRangeStep.forward_checked` is now defined concretely (see
+`Spqr/Code/FunsExternal.lean`) as
   `fun start n => ok (IScalar.tryMkOpt .I32 (start.val + ↑n.val))`.
 
 This theorem specialises to `n = 1` and derives:
@@ -120,9 +116,8 @@ This theorem specialises to `n = 1` and derives:
     `z.val = start.val + 1`.
   * When `¬ start.val + 1 ≤ I32.max`, the result is `none`.
 
-The proof unfolds the definition, applies `IScalar.tryMkOpt_eq` to
-characterise the returned `Option`, and uses `scalar_tac` to discharge
-the I32 bounds arithmetic.
+The proof unfolds the definition, applies `IScalar.tryMkOpt_eq` to characterise the returned
+`Option`, and uses `scalar_tac` to discharge the I32 bounds arithmetic.
 -/
 private theorem I32_forward_checked_one
     (start : Std.I32) :
@@ -148,16 +143,14 @@ private theorem I32_forward_checked_one
       rw [hv] at htry
       have := htry.2; simp at this; scalar_tac
 
-/-- **Spec theorem for `Range<i32>` iterator `next` (totality)**:
+/--
+**Spec theorem for `Range<i32>` iterator `next` (totality)**:
 
-The `next` method of the `Iterator` instance for `Range<i32>` always
-succeeds (returns `ok`).  The proof unfolds
-`core.iter.range.IteratorRange.next`, simplifies the transparent
-`CloneI32.clone` and `PartialOrdI32.lt` dispatches, then case-splits
-on whether the range is exhausted.  In the positive branch, the
-`forward_checked` call is discharged by the helper theorem
-`I32_forward_checked_one`; in the negative branch, `next` returns
-`(none, iter)` directly.
+The `next` method of the `Iterator` instance for `Range<i32>` always succeeds (returns `ok`).  The
+proof unfolds `core.iter.range.IteratorRange.next`, simplifies the transparent `CloneI32.clone` and
+`PartialOrdI32.lt` dispatches, then case-splits on whether the range is exhausted.  In the positive
+branch, the `forward_checked` call is discharged by the helper theorem `I32_forward_checked_one`; in
+the negative branch, `next` returns `(none, iter)` directly.
 -/
 private theorem IteratorRange_next_I32_ok
     (iter : core.ops.range.Range Std.I32) :
@@ -184,11 +177,11 @@ private theorem IteratorRange_next_I32_ok
   · rw [if_neg hlt]
     exact ⟨none, iter, rfl⟩
 
-/-- **Spec theorem for `encoding.gf.GF16.div_impl_loop.body`**:
+/--
+**Spec theorem for `encoding.gf.GF16.div_impl_loop.body`**:
 
-• The function always succeeds (no panic) for any `(iter, square, out)`,
-  since the underlying iterator advance and `unaccelerated.mul` are
-  total.
+• The function always succeeds (no panic) for any `(iter, square, out)`, since the underlying
+  iterator advance and `unaccelerated.mul` are total.
 • On `done` the result accumulator coincides with the input `out`:
     `(result.value.val.toGF216 : GF216) = out.value.val.toGF216`.
 • On `cont (_, square', out')` the new state satisfies the iterated-
@@ -200,9 +193,8 @@ private theorem IteratorRange_next_I32_ok
 
 **Per-iteration postcondition for `encoding.gf.GF16.div_impl_loop.body`**:
 
-One iteration of the iterated-squaring loop driving `GF16::div_impl`.
-Both branches are characterised at the GF(2¹⁶) level via
-`Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`:
+One iteration of the iterated-squaring loop driving `GF16::div_impl`. Both branches are
+characterised at the GF(2¹⁶) level via `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly`:
 
 * **`done`** — the `1..16` iterator is exhausted; the returned
   accumulator is the unchanged `out`:
@@ -241,58 +233,55 @@ theorem div_impl_loop_body_spec
   | some _ => step*
 
 
-/-! # Spec theorem for `encoding.gf.GF16.div_impl_loop` (closed-form postcondition)
+/-!
+# Spec theorem for `encoding.gf.GF16.div_impl_loop` (closed-form postcondition)
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication
-is polynomial multiplication modulo the irreducible polynomial
-POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
-represented as a polynomial of degree < 16 with coefficients in
-GF(2), stored as a 16-bit unsigned integer.
+In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication is polynomial multiplication
+modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
+represented as a polynomial of degree < 16 with coefficients in GF(2), stored as a 16-bit unsigned
+integer.
 
-The loop performs the canonical iterated-squaring schedule: after
-`k` iterations starting from `(square, out)`, the accumulators carry
+The loop performs the canonical iterated-squaring schedule: after `k` iterations starting from
+`(square, out)`, the accumulators carry
 
   `square_k = square^(2^k)`,
   `out_k    = out · square^(2^k − 1)`,
 
-so that the geometric series `1 + 2 + 4 + ⋯ + 2^(k−1) = 2^k − 1`
-fully appears in the exponent of `out_k`.  For `n = end − start`
-iterations of an `n`-step iterator, the loop returns
-`out · square^(2^n − 1)`.
+so that the geometric series `1 + 2 + 4 + ⋯ + 2^(k−1) = 2^k − 1` fully appears in the exponent of
+`out_k`.  For `n = end − start` iterations of an `n`-step iterator, the loop returns `out ·
+square^(2^n − 1)`.
 
-Specialised to the entry point `(iter = 1..16, square = other²,
-out = self)`, the loop runs for `n = 15` iterations, giving
+Specialised to the entry point `(iter = 1..16, square = other², out = self)`, the loop runs for `n =
+15` iterations, giving
 
   `self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`,
 
-the Fermat-style inverse `other⁻¹ = other^(2¹⁶ − 2)` multiplied by
-`self`, i.e. the GF(2¹⁶) quotient `self / other`.
+the Fermat-style inverse `other⁻¹ = other^(2¹⁶ − 2)` multiplied by `self`, i.e. the GF(2¹⁶) quotient
+`self / other`.
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
 
 
-/-- **Spec theorem strengthening `IteratorRange_next_I32_ok`**:
+/--
+**Spec theorem strengthening `IteratorRange_next_I32_ok`**:
 
-The `next` method of the `Iterator` instance for `Range<i32>`,
-specified at the WP / postcondition level: on a `range : Range I32`,
-`next` returns `(opt, range')` where:
+The `next` method of the `Iterator` instance for `Range<i32>`, specified at the WP / postcondition
+level: on a `range : Range I32`, `next` returns `(opt, range')` where:
 
-* if `range.start.val ≥ range.end.val` (the range is exhausted), then
-  `opt = none` and `range' = range` (the iterator is unchanged);
-* if `range.start.val < range.end.val` (the range still has an element),
-  then `opt = some range.start`, `range'.start.val = range.start.val + 1`,
-  and `range'.end = range.end` (the upper bound is preserved).
+* if `range.start.val ≥ range.end.val` (the range is exhausted), then `opt = none` and `range' =
+  range` (the iterator is unchanged);
+* if `range.start.val < range.end.val` (the range still has an element), then `opt = some
+  range.start`, `range'.start.val = range.start.val + 1`, and `range'.end = range.end` (the upper
+  bound is preserved).
 
-The proof unfolds `core.iter.range.IteratorRange.next` and simplifies the
-transparent parts (`CloneI32.clone` is the identity, `PartialOrdI32.lt`
-reduces to value comparison).  The opaque `forward_checked` call is
-discharged by the helper theorem `I32_forward_checked_one`, which
-specifies `forward_checked start 1#usize` at the value level.  Since
-`iter.start.val < iter.end.val` implies `iter.start.val + 1 ≤ I32.max`
-(because `iter.end.val ≤ I32.max` from the `I32` bounds), the theorem yields
-a `some z` with `z.val = iter.start.val + 1`, matching the expected
-iterator-advance semantics.
+The proof unfolds `core.iter.range.IteratorRange.next` and simplifies the transparent parts
+(`CloneI32.clone` is the identity, `PartialOrdI32.lt` reduces to value comparison).  The opaque
+`forward_checked` call is discharged by the helper theorem `I32_forward_checked_one`, which
+specifies `forward_checked start 1#usize` at the value level.  Since `iter.start.val < iter.end.val`
+implies `iter.start.val + 1 ≤ I32.max` (because `iter.end.val ≤ I32.max` from the `I32` bounds), the
+theorem yields a `some z` with `z.val = iter.start.val + 1`, matching the expected iterator-advance
+semantics.
 -/
 private theorem IteratorRange_next_I32_post
     (iter : core.ops.range.Range Std.I32) :
@@ -329,20 +318,19 @@ private theorem IteratorRange_next_I32_post
   · rw [if_neg hlt]
     exact ⟨none, iter, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
-/-- **Closed-form postcondition for `encoding.gf.GF16.div_impl_loop`**:
+/--
+**Closed-form postcondition for `encoding.gf.GF16.div_impl_loop`**:
 
-The iterated-squaring loop driving `GF16::div_impl`, specified at
-the GF(2¹⁶) level by the closed-form iterated-squaring identity:
+The iterated-squaring loop driving `GF16::div_impl`, specified at the GF(2¹⁶) level by the
+closed-form iterated-squaring identity:
 
   `result.toGF216 =
        out.toGF216 *
        square.toGF216 ^
             (2 ^ (iter.end.val - iter.start.val).toNat - 1)`.
 
-Specialised to the entry point `(iter, square, out) = (1..16,
-other², self)` this collapses to
-`self · (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`, i.e. division
-in GF(2¹⁶).
+Specialised to the entry point `(iter, square, out) = (1..16, other², self)` this collapses to `self
+· (other²)^(2¹⁵ − 1) = self · other^(2¹⁶ − 2)`, i.e. division in GF(2¹⁶).
 
 **Source**: spqr/src/encoding/gf.rs (lines 451:8-454:9)
 -/
@@ -446,13 +434,13 @@ theorem div_impl_loop_spec
     · simp only [Int.sub_self, Int.toNat_zero, pow_zero,
         Nat.sub_self, mul_one]
 
-/-! # Spec theorem for `encoding.gf.GF16.div_impl` (Fermat-style division via iterated squaring)
+/-!
+# Spec theorem for `encoding.gf.GF16.div_impl` (Fermat-style division via iterated squaring)
 
-In GF(2¹⁶) — the Galois field with 65536 elements — every non-zero
-element `b` satisfies `b^(2¹⁶ − 1) = 1`, so the multiplicative
-inverse is `b⁻¹ = b^(2¹⁶ − 2)` and `a / b = a · b^(2¹⁶ − 2)`.  The
-exponent `2¹⁶ − 2 = 2 · (2¹⁵ − 1)` is computed by iterated
-squaring: starting from `square = b²` and `out = a`, one repeats
+In GF(2¹⁶) — the Galois field with 65536 elements — every non-zero element `b` satisfies `b^(2¹⁶ −
+1) = 1`, so the multiplicative inverse is `b⁻¹ = b^(2¹⁶ − 2)` and `a / b = a · b^(2¹⁶ − 2)`.  The
+exponent `2¹⁶ − 2 = 2 · (2¹⁵ − 1)` is computed by iterated squaring: starting from `square = b²` and
+`out = a`, one repeats
 
   `out = out · square;  square = square²`
 
@@ -474,11 +462,11 @@ The function proceeds in two stages:
 -/
 
 
-/-- **Spec theorem for `encoding.gf.GF16.div_impl`**:
+/--
+**Spec theorem for `encoding.gf.GF16.div_impl`**:
 
-• The function always succeeds (no panic) for any pair of `GF16`
-  inputs, since the underlying `unaccelerated.mul` and the loop
-  driver are total on `GF16 × GF16`.
+• The function always succeeds (no panic) for any pair of `GF16` inputs, since the underlying
+  `unaccelerated.mul` and the loop driver are total on `GF16 × GF16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) Fermat-style
   quotient of the similarly-lifted inputs:
