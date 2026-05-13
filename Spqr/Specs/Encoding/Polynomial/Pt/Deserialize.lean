@@ -6,7 +6,8 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 
 
-/-! # Spec Theorem for `Pt::deserialize`
+/-!
+# Spec Theorem for `Pt::deserialize`
 
 Specification and proof for `encoding.polynomial.Pt.deserialize`, which deserializes a 4-byte
 big-endian array into a GF(2¹⁶) cartesian point `Pt { x, y }`.
@@ -145,7 +146,8 @@ theorem try_from_spec {T : Type} (N : Usize) (copyInst : core.marker.Copy T)
   · next e heq => simp_all
   · next heq => simp_all
 
-/-- **Spec and proof concerning `encoding.polynomial.Pt.deserialize`**:
+/--
+**Spec and proof concerning `encoding.polynomial.Pt.deserialize`**:
 • The function always succeeds (no panic) for any valid `[u8; 4]` input.
 • The x-coordinate of the result is reconstructed from the first two bytes in big-endian:
   `result.x.value.val = s[0].val * 256 + s[1].val`

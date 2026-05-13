@@ -4,213 +4,326 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Math.Gf16.Field
-import Spqr.Code.Funs
-/-! # Spec Theorem for `spqr::encoding::gf::reduce::poly_reduce`
-
-Specification and proof for `spqr.encoding.gf.reduce.poly_reduce`, which implements table-based
-polynomial reduction of a 32-bit carry-less product modulo the irreducible polynomial
-POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b), yielding a 16-bit GF(2¹⁶) element.
+import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
+/-!
+# Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — after carry-less polynomial multiplication
 (`poly_mul`) produces a 32-bit unreduced product (degree ≤ 30), reduction modulo the irreducible
 polynomial POLY is needed to obtain the canonical 16-bit representative.
 
-The reduction proceeds in two byte-by-byte passes using the precomputed table `REDUCE_BYTES`:s
-  1. Extract the high byte `i1 = v >> 24` and XOR `REDUCE_BYTES[i1] << 8` into `v`, clearing
-     bits 24–31.
-  2. Extract the next byte `i2 = (v >> 16) & 0xFF` and XOR `REDUCE_BYTES[i2]` into `v`, clearing
-     bits 16–23.
+The reduction proceeds in two byte-by-byte passes using the precomputed table `REDUCE_BYTES`:
+  1. Extract the high byte `i1 = v >> 24` and XOR
+     `REDUCE_BYTES[i1] << 8` into `v`, clearing bits 24–31.
+  2. Extract the next byte `i2 = (v >> 16) & 0xFF` and XOR
+     `REDUCE_BYTES[i2]` into `v`, clearing bits 16–23.
   3. Return the low 16 bits of `v` as the reduced result.
 
-Each `REDUCE_BYTES[k]` entry stores the precomputed 16-bit XOR mask that results from reducing
-all set bits in byte `k` against POLY.  This is equivalent to computing `(k · x¹⁶) mod POLY` for
-the second pass, and `(k · x²⁴) mod POLY` (after appropriate shifting) for the first pass.
+Each `REDUCE_BYTES[k]` entry stores the precomputed 16-bit XOR mask that results from reducing all
+set bits in byte `k` against POLY.  This is equivalent to computing `(k · x¹⁶) mod POLY` for the
+second pass, and `(k · x²⁴) mod POLY` (after appropriate shifting) for the first pass.
 
-Source: "spqr/src/encoding/gf.rs" (lines 489:4-498:5)
+**Source** "spqr/src/encoding/gf.rs" (lines 489:4-498:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
+open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
 
 namespace spqr.encoding.gf.reduce
 
-/-- Spec-level bit-by-bit polynomial reduction modulo POLY over GF(2).
+/--
+Spec-level two-pass table-based polynomial reduction.
 
-Reduces a natural number `v` (interpreted as a GF(2) polynomial) modulo POLY = 0x1100b by
-iterating from bit position 16 up to bit `n + 15`, clearing each set high-order bit by XOR-ing
-with `POLY <<< (bit − 16)`.  After processing all bits above 15, the result fits in 16 bits and
-is the canonical GF(2¹⁶) representative.
+Given a 32-bit value `v`, reduces modulo POLY = 0x1100b via two byte-level table lookups (processing
+from the high byte down) and returns the low 16 bits as the canonical GF(2¹⁶) representative.
 
-This is the pure recursive definition corresponding to the mathematical operation `v mod POLY`
-in GF(2)[X]. -/
-def polyMod (v : Nat) : (n : Nat) → Nat
-  | 0     => v
-  | n + 1 =>
-    let v' := polyMod v n
-    if v'.testBit (n + 16)
-    then v' ^^^ (0x1100b <<< n)
-    else v'
+  1. Look up `reduceByteTable[v >>> 24]` and XOR it (shifted left by 8)
+     into `v`, folding bits 24–31 into bits 8–23.
+  2. Look up `reduceByteTable[(v' >>> 16) &&& 0xFF]` and XOR it into `v'`,
+     folding bits 16–23 into bits 0–15.
+  3. Return the low 16 bits.
 
-/-!
-## Algebraic (GF(2)[X]) formulation of polynomial reduction
-
-The following definitions express `polyMod` in terms of the polynomial ring
-GF(2)[X] = (ZMod 2)[X], making the algebraic structure explicit:
-- XOR (`^^^`) becomes polynomial addition (`+`) over GF(2)
-- Shift-left by n (`<<< n`) becomes multiplication by `X ^ n`
-- `Nat.testBit n` becomes checking if the n-th coefficient is nonzero
-
-The reduction computes `v mod polyGF2` where
-  polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
+This is the correct specification for `poly_reduce`, matching the high-to-low byte processing order
+of the Rust implementation. The result is the canonical fully-reduced representative (< 2¹⁶).
 -/
+def polyReduceSpec (v : Nat) : Nat :=
+  let t1 := reduceByteTable (v >>> 24)
+  let v1 := v ^^^ (t1 <<< 8)
+  let t2 := reduceByteTable ((v1 >>> 16) &&& 255)
+  (v1 ^^^ t2) % 2 ^ 16
 
-/-- Spec-level polynomial reduction modulo polyGF2 in (ZMod 2)[X].
+private lemma nat_and_255_lt_256 (n : Nat) : n &&& 255 < 256 := by
+  apply Nat.lt_of_testBit 8
+  · rw [Nat.testBit_and]
+    have : Nat.testBit 255 8 = false :=
+      Nat.testBit_eq_false_of_lt (by norm_num : 255 < 2 ^ 8)
+    simp [this]
+  · decide
+  · intro j hj
+    have h1 : Nat.testBit (n &&& 255) j = false := by
+      rw [Nat.testBit_and]
+      have : Nat.testBit 255 j = false :=
+        Nat.testBit_eq_false_of_lt (calc (255 : Nat) < 2 ^ 8 := by norm_num
+          _ ≤ 2 ^ j := Nat.pow_le_pow_right (by norm_num) (by omega))
+      simp [this]
+    have h2 : Nat.testBit 256 j = false := by
+      apply Nat.testBit_eq_false_of_lt
+      calc (256 : Nat) = 2 ^ 8 := by norm_num
+        _ < 2 ^ j := Nat.pow_lt_pow_right (by norm_num) (by omega)
+    rw [h1, h2]
 
-Given a polynomial `p ∈ GF(2)[X]`, reduces it modulo polyGF2 by iterating from degree `n + 15`
-down to degree 16, subtracting (= adding, in characteristic 2) `polyGF2 * X^k` for each nonzero
-coefficient at position `k + 16`.
+private lemma index_usize_ok_eq {α : Type _} [Inhabited α] {n : Std.Usize}
+    (a : Array α n) (j : Std.Usize) (w : α)
+    (h : a.index_usize j = ok w) :
+    w = a.val[j.val]! := by
+  simp only [Array.index_usize, Array.getElem?_Usize_eq] at h
+  split at h <;> simp_all [List.getElem!_eq_getElem?_getD]
 
-Morally, `polyMod_poly p n = p %ₘ polyGF2` when `natDegree p < n + 16`. -/
-noncomputable def polyMod_poly (p : (ZMod 2)[X]) :
-    (n : Nat) → (ZMod 2)[X]
-  | 0     => p
-  | n + 1 =>
-    let p' := polyMod_poly p n
-    if p'.coeff (n + 16) ≠ 0
-    then p' + polyGF2 * X ^ n
-    else p'
+theorem xor_table_shift_dvd (k n : Nat)
+    (htable : natToBinaryPoly (reduceByteTable k) =
+      (natToBinaryPoly k * X ^ 16) %ₘ polyGF2) :
+    polyGF2 ∣ (natToBinaryPoly k * X ^ (n + 16) +
+      natToBinaryPoly (reduceByteTable k) * X ^ n) := by
+  have hchar2 : natToBinaryPoly k * X ^ (n + 16) +
+      natToBinaryPoly (reduceByteTable k) * X ^ n =
+    (natToBinaryPoly k * X ^ 16 - natToBinaryPoly (reduceByteTable k)) * X ^ n := by
+    rw [BinaryPoly.sub_eq_add]; ring
+  rw [hchar2]
+  apply dvd_mul_of_dvd_left
+  rw [htable]
+  set p := natToBinaryPoly k * X ^ 16
+  have h := Polynomial.modByMonic_add_div p polyGF2_monic
+  refine ⟨p /ₘ polyGF2, ?_⟩
+  grind
 
-/-- **Correspondence between `polyMod` on `Nat` and `polyMod_poly` on GF(2)[X]**:
+theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
+    (htable : ∀ k, k < 256 → natToBinaryPoly (reduceByteTable k) =
+      (natToBinaryPoly k * X ^ 16) %ₘ polyGF2) :
+    natToBinaryPoly (polyReduceSpec v) = (natToBinaryPoly v) %ₘ polyGF2 := by
+  have hk1_lt : v >>> 24 < 256 := by
+    rw [Nat.shiftRight_eq_div_pow]
+    have h2 : (0 : Nat) < 2 ^ 24 := by positivity
+    rw [Nat.div_lt_iff_lt_mul h2]
+    have h32 : (256 : Nat) * 2 ^ 24 = 2 ^ 32 := by norm_num
+    omega
+  have ht1_lt : reduceByteTable (v >>> 24) < 2 ^ 16 := by
+    unfold reduceByteTable; exact Nat.mod_lt _ (by positivity)
+  unfold polyReduceSpec
+  set k1 := v >>> 24 with hk1_def
+  set t1 := reduceByteTable k1 with ht1_def
+  set v1 := v ^^^ (t1 <<< 8) with hv1_def
+  set k2 := (v1 >>> 16) &&& 255 with hk2_def
+  set t2 := reduceByteTable k2 with ht2_def
+  have hk2_lt : k2 < 256 := nat_and_255_lt_256 _
+  have ht2_lt : t2 < 2 ^ 16 := by
+    rw [ht2_def]; unfold reduceByteTable; exact Nat.mod_lt _ (by positivity)
+  have hhigh : (v1 ^^^ t2) >>> 16 = k2 ^^^ (k1 <<< 8) := by
+    apply Nat.eq_of_testBit_eq
+    intro i
+    have ht2_high : ∀ j, 16 ≤ j → t2.testBit j = false := fun j hj =>
+      Nat.testBit_eq_false_of_lt
+        (lt_of_lt_of_le ht2_lt (Nat.pow_le_pow_right (by norm_num) hj))
+    have ht1_high : ∀ j, 16 ≤ j → t1.testBit j = false := fun j hj =>
+      Nat.testBit_eq_false_of_lt
+        (lt_of_lt_of_le ht1_lt (Nat.pow_le_pow_right (by norm_num) hj))
+    have hv_high : ∀ j, 32 ≤ j → v.testBit j = false := fun j hj =>
+      Nat.testBit_eq_false_of_lt
+        (lt_of_lt_of_le hv (Nat.pow_le_pow_right (by norm_num) hj))
+    have hk1_high : ∀ j, 8 ≤ j → k1.testBit j = false := fun j hj =>
+      Nat.testBit_eq_false_of_lt
+        (lt_of_lt_of_le hk1_lt
+          (calc (256 : Nat) = 2 ^ 8 := by norm_num
+            _ ≤ 2 ^ j := Nat.pow_le_pow_right (by norm_num) hj))
+    rw [hv1_def, hk2_def]
+    simp only [Nat.testBit_shiftRight, Nat.testBit_xor, Nat.testBit_shiftLeft,
+               Nat.testBit_and]
+    rw [show 16 + i = i + 16 from by ring, ht2_high (i + 16) (by omega)]
+    have h255_lt : ∀ j, j < 8 → (255 : Nat).testBit j = true := by
+      intro j hj; interval_cases j <;> decide
+    have h255_ge : ∀ j, 8 ≤ j → (255 : Nat).testBit j = false := fun j hj =>
+      Nat.testBit_eq_false_of_lt
+        (lt_of_lt_of_le (by norm_num : (255 : Nat) < 2 ^ 8)
+          (Nat.pow_le_pow_right (by norm_num) hj))
+    rcases lt_or_ge i 8 with hi8 | hi8
+    · simp only [h255_lt i hi8, Bool.and_true]
+      have h8le : (8 : Nat) ≤ i + 16 := by omega
+      have hk1shift_i_false : (decide (8 ≤ i)) = false := by
+        simp only [decide_eq_false_iff_not, not_le]; omega
+      have h8le_i16 : decide ((8 : Nat) ≤ i + 16) = true := by
+        simp only [decide_eq_true_eq]; omega
+      simp only [hk1shift_i_false, Bool.false_and, Bool.xor_false,
+                 h8le_i16, Bool.true_and]
+      rw [hv1_def, Nat.testBit_xor, Nat.testBit_shiftLeft, h8le_i16,
+          Bool.true_and]
+    · rcases lt_or_ge i 16 with hi16 | hi16
+      · have h255i : (255 : Nat).testBit i = false := h255_ge i hi8
+        have h_ile : decide ((8 : Nat) ≤ i + 16) = true := by
+          simp only [decide_eq_true_eq]; omega
+        have h_ile_i : decide ((8 : Nat) ≤ i) = true := by
+          simp only [decide_eq_true_eq]; omega
+        simp only [h255i, Bool.and_false, Bool.false_xor, h_ile, Bool.true_and,
+                   h_ile_i]
+        rw [hk1_def, Nat.testBit_shiftRight]
+        have ht1_eq_false : t1.testBit (i + 16 - 8) = false := ht1_high _ (by omega)
+        rw [ht1_eq_false, Bool.xor_false]
+        grind
+      · have hv_eq : v.testBit (i + 16) = false := hv_high _ (by omega)
+        have ht1_eq : t1.testBit (i + 16 - 8) = false := ht1_high _ (by omega)
+        have hk1_eq : k1.testBit (i - 8) = false := hk1_high _ (by omega)
+        have h255i : (255 : Nat).testBit i = false := h255_ge i (by omega)
+        have h_ile : decide ((8 : Nat) ≤ i + 16) = true := by
+          simp only [decide_eq_true_eq]; omega
+        have h_ile_i : decide ((8 : Nat) ≤ i) = true := by
+          simp only [decide_eq_true_eq]; omega
+        simp only [hv_eq, ht1_eq, hk1_eq, h255i, h_ile, h_ile_i,
+                   Bool.and_false, Bool.xor_false]
+  have hhigh_poly : natToBinaryPoly ((v1 ^^^ t2) >>> 16) =
+      natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8 := by
+    rw [hhigh, natToBinaryPoly_xor, natToBinaryPoly_shiftLeft]
+  have hd1 : polyGF2 ∣ (natToBinaryPoly k1 * X ^ (8 + 16) +
+      natToBinaryPoly t1 * X ^ 8) := xor_table_shift_dvd k1 8 (htable k1 hk1_lt)
+  have hd2 : polyGF2 ∣ (natToBinaryPoly k2 * X ^ (0 + 16) +
+      natToBinaryPoly t2 * X ^ 0) := xor_table_shift_dvd k2 0 (htable k2 hk2_lt)
+  have hxor_eq : natToBinaryPoly (v1 ^^^ t2) =
+      natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2 := by
+    rw [natToBinaryPoly_xor, hv1_def, natToBinaryPoly_xor, natToBinaryPoly_shiftLeft]
+  have hsplit : natToBinaryPoly (v1 ^^^ t2) =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) +
+        natToBinaryPoly ((v1 ^^^ t2) >>> 16) * X ^ 16 :=
+    natToBinaryPoly_split (v1 ^^^ t2) 16
+  have hkey : natToBinaryPoly v - natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) =
+      (natToBinaryPoly k1 * X ^ (8 + 16) + natToBinaryPoly t1 * X ^ 8) +
+      (natToBinaryPoly k2 * X ^ (0 + 16) + natToBinaryPoly t2 * X ^ 0) := by
+    have h1 : natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) =
+        natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2 -
+          natToBinaryPoly ((v1 ^^^ t2) >>> 16) * X ^ 16 := by
+      have hh := hsplit
+      rw [hxor_eq] at hh
+      linear_combination -hh
+    rw [h1, hhigh_poly]
+    rw [show natToBinaryPoly v - (natToBinaryPoly v + natToBinaryPoly t1 * X ^ 8 +
+            natToBinaryPoly t2 - (natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8) * X ^ 16) =
+          (natToBinaryPoly k2 + natToBinaryPoly k1 * X ^ 8) * X ^ 16 +
+            -(natToBinaryPoly t1 * X ^ 8 + natToBinaryPoly t2) from by ring,
+        BinaryPoly.neg_eq]
+    ring
+  have hdvd : polyGF2 ∣ (natToBinaryPoly v - natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)) := by
+    rw [hkey]; exact dvd_add hd1 hd2
+  have hmod_eq : natToBinaryPoly v %ₘ polyGF2 =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) %ₘ polyGF2 :=
+    Polynomial.modByMonic_eq_of_dvd_sub polyGF2_monic hdvd
+  have ha_lt : (v1 ^^^ t2) % 2 ^ 16 < 2 ^ 16 := Nat.mod_lt _ (by norm_num)
+  have ha_deg : (natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)).degree < polyGF2.degree := by
+    rw [Polynomial.degree_eq_natDegree polyGF2_monic.ne_zero, polyGF2_natDegree]
+    rcases eq_or_ne (natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16)) 0 with heq | hne
+    · rw [heq, Polynomial.degree_zero]; exact WithBot.bot_lt_coe _
+    · rw [Polynomial.degree_lt_iff_coeff_zero]
+      intro m hm
+      have hm' : 16 ≤ m := by exact_mod_cast hm
+      rw [natToBinaryPoly_coeff]
+      have hbnd : (v1 ^^^ t2) % 2 ^ 16 < 2 ^ m := lt_of_lt_of_le ha_lt
+        (Nat.pow_le_pow_right (by norm_num) hm')
+      rw [Nat.testBit_eq_false_of_lt hbnd]
+      simp
+  have ha_self : natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) %ₘ polyGF2 =
+      natToBinaryPoly ((v1 ^^^ t2) % 2 ^ 16) :=
+    (Polynomial.modByMonic_eq_self_iff polyGF2_monic).mpr ha_deg
+  rw [hmod_eq, ha_self]
 
-Interpreting the natural-number input as a GF(2) polynomial via `natToBinaryPoly`, the
-`Nat`-level `polyMod` and the algebraic `polyMod_poly` agree:
+/--
+**Spec theorem for `spqr::encoding::gf::reduce::poly_reduce`**:
 
-  `natToBinaryPoly (polyMod v n) = polyMod_poly (natToBinaryPoly v) n`
+Table-based polynomial reduction of a 32-bit carry-less product modulo the irreducible polynomial
+POLY = 0x1100b, yielding a 16-bit GF(2¹⁶) element.
 
-This justifies reasoning about the XOR/shift implementation in terms of polynomial algebra over
-GF(2). -/
-theorem polyMod_eq_polyMod_poly (v n : Nat) :
-    natToBinaryPoly (polyMod v n) = polyMod_poly (natToBinaryPoly v) n := by
-  induction n with
-  | zero => simp [polyMod, polyMod_poly]
-  | succ n ih =>
-    cases htb : (polyMod v n).testBit (n + 16) with
-    | false =>
-      have hcoeff : (polyMod_poly (natToBinaryPoly v) n).coeff (n + 16) = 0 := by
-        rw [← ih, natToBinaryPoly_coeff]; simp [htb]
-      have h1 : polyMod v (n + 1) = polyMod v n := by
-        simp (config := { zeta := true }) [polyMod, htb]
-      rw [h1, ih]; symm
-      simp (config := { zeta := true }) [polyMod_poly, hcoeff]
-    | true =>
-      have hcoeff : (polyMod_poly (natToBinaryPoly v) n).coeff (n + 16) ≠ 0 := by
-        rw [← ih, natToBinaryPoly_coeff]; simp [htb]
-      have h1 : polyMod v (n + 1) = polyMod v n ^^^ (0x1100b <<< n) := by
-        simp (config := { zeta := true }) [polyMod, htb]
-      rw [h1, natToBinaryPoly_xor, natToBinaryPoly_shiftLeft, ih, natToBinaryPoly_polyGF2]; symm
-      simp (config := { zeta := true }) [polyMod_poly, hcoeff]
+The function uses the precomputed `REDUCE_BYTES` table to process the input byte-by-byte from high
+to low:
+  1. Clear bits 24–31 using `REDUCE_BYTES[v >> 24] << 8`.
+  2. Clear bits 16–23 using `REDUCE_BYTES[(v >> 16) & 0xFF]`.
+  3. Return the remaining 16 bits.
 
-/-- Each step of `polyMod_poly` adds a multiple of `polyGF2` to the accumulator, so the result
-    is always congruent to the original polynomial modulo `polyGF2`:
+The result satisfies the algebraic specification:
+  `natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2`
 
-      `polyGF2 ∣ (p − polyMod_poly p n)`
+This connects the bitwise table-lookup implementation to polynomial reduction in GF(2)[X],
+confirming that `poly_reduce` computes the canonical degree-< 16 representative of `v` modulo
+polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
 
-    Proof by induction: the base case is trivial (`p − p = 0`), and each successor step either
-    leaves the polynomial unchanged (divisibility preserved) or adds `polyGF2 * X ^ n`, which is
-    itself divisible by `polyGF2`. -/
-private lemma polyMod_poly_dvd_sub (p : (ZMod 2)[X]) (n : Nat) :
-    polyGF2 ∣ (p - polyMod_poly p n) := by
-  induction n with
-  | zero => simp [polyMod_poly]
-  | succ n ih =>
-    by_cases hc : (polyMod_poly p n).coeff (n + 16) = 0
-    · -- coefficient zero ⇒ polyMod_poly p (n+1) = polyMod_poly p n
-      have h1 : polyMod_poly p (n + 1) = polyMod_poly p n := by
-        simp (config := { zeta := true }) [polyMod_poly, hc]
-      rw [h1]; exact ih
-    · -- coefficient nonzero ⇒ polyMod_poly p (n+1) = polyMod_poly p n + polyGF2 * X^n
-      have hne : (polyMod_poly p n).coeff (n + 16) ≠ 0 := hc
-      have h1 : polyMod_poly p (n + 1) =
-          polyMod_poly p n + polyGF2 * X ^ n := by
-        simp (config := { zeta := true }) [polyMod_poly, hne]
-      rw [h1, show p - (polyMod_poly p n +
-          polyGF2 * X ^ n) =
-          (p - polyMod_poly p n) -
-          polyGF2 * X ^ n from by ring]
-      exact dvd_sub ih (dvd_mul_right _ _)
-
-/-- **`polyMod_poly` preserves congruence modulo polyGF2**:
-
-For any polynomial `p ∈ GF(2)[X]`, the result of `polyMod_poly p n` is congruent to `p` modulo
-polyGF2:
-
-  `(polyMod_poly p n) %ₘ polyGF2 = p %ₘ polyGF2`
-
-Note: `polyMod_poly` processes bit positions from low to high (16, 17, …, n+15).  Because
-polyGF2 has a sub-leading term X¹² (degree gap of only 4), reducing a coefficient at position
-k+16 (for k ≥ 4) re-introduces a coefficient at position k+12 ≥ 16 which has already been
-processed.  Hence `polyMod_poly p n` may not be fully reduced (i.e. may have degree ≥ 16), but
-it always preserves congruence modulo polyGF2. -/
-theorem polyMod_poly_eq_modByMonic (p : (ZMod 2)[X]) (n : Nat) :
-    (polyMod_poly p n) %ₘ polyGF2 =
-      p %ₘ polyGF2 := by
-  have hirr : polyGF2.Monic := polyGF2_monic
-  have h : polyGF2 ∣
-      (polyMod_poly p n - p) := by
-    have h₁ := polyMod_poly_dvd_sub p n
-    rwa [show p - polyMod_poly p n =
-        -(polyMod_poly p n - p) from by ring, dvd_neg] at h₁
-  exact Polynomial.modByMonic_eq_of_dvd_sub hirr h
-
-
-/-!
-## Connection to `poly_mul` for GF(2¹⁶) multiplication
-
-The combined specification for `mul(a, b) = poly_reduce(poly_mul(a, b))` follows from:
-
-  1. `poly_mul_spec` (from `PolyMul.lean`):
-     `natToBinaryPoly (poly_mul a b).val = natToBinaryPoly a.val * natToBinaryPoly b.val`
-
-  2. `poly_reduce_spec` (above):
-     `natToBinaryPoly (poly_reduce v).val = (natToBinaryPoly v.val) %ₘ polyGF2`
-
-Together:
-  `natToBinaryPoly (mul a b).val
-     = (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2`
-
-This is exactly multiplication in the quotient ring
-  GF(2¹⁶) ≅ GF(2)[X] / (polyGF2)
-
-The remaining bridge to `GaloisField 2 16` (Mathlib's abstract construction) requires:
-  - An explicit isomorphism `GaloisField 2 16 ≅ (ZMod 2)[X] / (polyGF2)`
-  - Showing that polyGF2 is irreducible over GF(2)
-  - Connecting the natural-number ↔ polynomial ↔ quotient-ring chain
-
-This algebraic bridge is stated below for use by `Mul.lean`.
+**Source**: spqr/src/encoding/gf.rs (lines 489:4-498:5)
 -/
-
-/-- **Polynomial-level combined specification for GF(2¹⁶) multiplication**:
-
-For `u16` values `a` and `b`, the composition `poly_reduce(poly_mul(a, b))` yields a `u16`
-result whose `natToBinaryPoly` encoding equals the product of the input polynomials reduced
-modulo polyGF2:
-
-  `natToBinaryPoly result.val =
-     (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2`
-
-This is the polynomial-level specification for `unaccelerated.mul`, composing `poly_mul_spec`
-and `poly_reduce_spec`.
-
-The proof unfolds `mul`, applies `step*` (which uses both `poly_mul_spec` and `poly_reduce_spec`
-from the `@[step]` database), and then substitutes the intermediate postconditions:
-  1. `poly_mul_spec`: `natToBinaryPoly i.val = natToBinaryPoly a.val * natToBinaryPoly b.val`
-  2. `poly_reduce_spec`: `natToBinaryPoly result.val = (natToBinaryPoly i.val) %ₘ polyGF2`
-
-Together these yield the combined result by rewriting. -/
-theorem poly_reduce_poly_mul_spec (a b : Std.U16) :
-    mul a b ⦃ result =>
-      natToBinaryPoly result.val =
-        (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 ⦄ := by
-  sorry
+@[step]
+theorem poly_reduce_spec (v : Std.U32) :
+    poly_reduce v ⦃ result =>
+      natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2 ⦄ := by
+  unfold poly_reduce spqr.encoding.gf.reduce.REDUCE_BYTES
+  step*
+  · simp only [Array.length_eq]
+    scalar_tac
+  · simp only [Array.length_eq]
+    rw [i21_post1, UScalar.val_and]
+    exact nat_and_255_lt_256 _
+  · have hv_lt : v.val < 2 ^ 32 := v.hBounds
+    have hi_val : i.val = v.val >>> 24 := i_post1
+    have hi1_val : i1.val = v.val >>> 24 := by
+      rw [i1_post, U32.cast_Usize_val_eq]; exact hi_val
+    have hi1_lt : i1.val < 256 := by
+      rw [hi1_val, Nat.shiftRight_eq_div_pow]
+      have hp : (0 : Nat) < 2 ^ 24 := by positivity
+      rw [Nat.div_lt_iff_lt_mul hp]
+      have h32 : (256 : Nat) * 2 ^ 24 = 2 ^ 32 := by norm_num
+      omega
+    have hi2_eq : i2.val = reduceByteTable i1.val := by
+      obtain ⟨w, hw_idx, hw_poly⟩ := a_post i1 hi1_lt
+      have hw_eq : w = i2 := by
+        have hw_idx' := index_usize_ok_eq a i1 w hw_idx
+        simp_all
+      have hi2_poly :
+          natToBinaryPoly i2.val = natToBinaryPoly i1.val * X ^ 16 %ₘ polyGF2 := by
+        rw [← hw_eq]; exact hw_poly
+      exact natToBinaryPoly_inj
+        (hi2_poly.trans (reduceByteTable_eq_poly_full i1.val hi1_lt).symm)
+    have hi3_val : i3.val = i2.val := by
+      rw [i3_post, U16.cast_U32_val_eq]
+    have hi2_lt : i2.val < 2 ^ 16 := i2.hBounds
+    have hi4_val : i4.val = i2.val <<< 8 := by
+      rw [i4_post1, hi3_val]
+      have hbnd : i2.val <<< 8 < U32.size := by
+        rw [Nat.shiftLeft_eq]
+        have hmul : i2.val * 2 ^ 8 < 2 ^ 16 * 2 ^ 8 :=
+          Nat.mul_lt_mul_of_pos_right hi2_lt (by norm_num)
+        have heq : (2 : Nat) ^ 16 * 2 ^ 8 = 2 ^ 24 := by norm_num
+        have hlt : (2 : Nat) ^ 24 < U32.size := by
+          scalar_tac
+        omega
+      exact Nat.mod_eq_of_lt hbnd
+    have hv1_val : v1.val = v.val ^^^ (i2.val <<< 8) := by
+      rw [v1_post1, UScalar.val_xor, hi4_val]
+    have hi5_val : i5.val = v1.val >>> 16 := i5_post1
+    have hsh_val : shifted_v.val = i5.val := by
+      rw [shifted_v_post, U32.cast_Usize_val_eq]
+    have hi21_val : i21.val = (v1.val >>> 16) &&& 255 := by
+      rw [i21_post1, UScalar.val_and, hsh_val, hi5_val]; rfl
+    have hi21_lt : i21.val < 256 := by
+      rw [hi21_val]; exact nat_and_255_lt_256 _
+    have hi6_eq : i6.val = reduceByteTable i21.val := by
+      obtain ⟨w, hw_idx, hw_poly⟩ := a_post i21 hi21_lt
+      have hw_eq : w = i6 := by
+        have hw_idx' := index_usize_ok_eq a i21 w hw_idx
+        rw [i6_post, hw_idx']
+      have hi6_poly :
+          natToBinaryPoly i6.val = natToBinaryPoly i21.val * X ^ 16 %ₘ polyGF2 := by
+        rw [← hw_eq]; exact hw_poly
+      exact natToBinaryPoly_inj
+        (hi6_poly.trans (reduceByteTable_eq_poly_full i21.val hi21_lt).symm)
+    have hi7_val : i7.val = i6.val := by
+      rw [i7_post, U16.cast_U32_val_eq]
+    have hv2_val : v2.val = v1.val ^^^ i6.val := by
+      rw [v2_post1, UScalar.val_xor, hi7_val]
+    have hbridge : (UScalar.cast UScalarTy.U16 v2).val = polyReduceSpec v.val := by
+      rw [UScalar.cast_val_eq]
+      change v2.val % 2 ^ 16 = polyReduceSpec v.val
+      rw [hv2_val, hi6_eq, hi21_val, hv1_val, hi2_eq, hi1_val]
+      simp only [polyReduceSpec]
+    rw [hbridge]
+    exact polyReduceSpec_correct v.val hv_lt reduceByteTable_eq_poly_full
 
 end spqr.encoding.gf.reduce

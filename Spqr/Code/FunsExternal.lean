@@ -177,11 +177,18 @@ axiom I32.Insts.CoreIterRangeStep.backward_checked
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::forward_checked]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 319:16-319:73
-    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::forward_checked] -/
+    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::forward_checked]
+
+    Concrete model of Rust's `Step::forward_checked` for `i32`:
+    given `start : i32` and `count : usize`, compute the integer sum
+    `start + count` and return `Some(result)` if it fits in `i32`,
+    `None` otherwise.  The outer `Result` is always `ok` (the call
+    never panics). -/
 @[rust_fun
   "core::iter::range::{core::iter::range::Step<i32>}::forward_checked"]
-axiom I32.Insts.CoreIterRangeStep.forward_checked
-  : Std.I32 → Std.Usize → Result (Option Std.I32)
+def I32.Insts.CoreIterRangeStep.forward_checked
+  : Std.I32 → Std.Usize → Result (Option Std.I32) :=
+  fun start n => ok (IScalar.tryMkOpt .I32 (start.val + ↑n.val))
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::steps_between]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 304:16-304:84
@@ -448,9 +455,10 @@ axiom core.slice.iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.map
     Name pattern: [core::slice::iter::{core::iter::traits::collect::IntoIterator<&'a [@T], &'a @T, core::slice::iter::Iter<'a, @T>>}::into_iter] -/
 @[rust_fun
   "core::slice::iter::{core::iter::traits::collect::IntoIterator<&'a [@T], &'a @T, core::slice::iter::Iter<'a, @T>>}::into_iter"]
-axiom
+def
   SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
-  {T : Type} : Slice T → Result (core.slice.iter.Iter T)
+  {T : Type} : Slice T → Result (core.slice.iter.Iter T) :=
+  fun s => ok ⟨s, 0⟩
 
 /-- [core::slice::iter::{core::iter::traits::iterator::Iterator<&'a ([T])> for core::slice::iter::ChunksExact<'a, T>}::collect]:
     Source: '/rustc/library/core/src/slice/iter.rs', lines 1892:0-1892:43
@@ -1995,16 +2003,6 @@ axiom kdf.hkdf_to_slice
   :
   Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Slice Std.U8 → Result
     (Slice Std.U8)
-
-/-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-    Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
-axiom encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
-  : encoding.gf.GF16 → encoding.gf.GF16 → Result encoding.gf.GF16
-
-/-- [spqr::encoding::gf::mul2_u16]:
-    Source: 'src/encoding/gf.rs', lines 216:0-225:1 -/
-axiom encoding.gf.mul2_u16
-  : Std.U16 → Std.U16 → Std.U16 → Result (Std.U16 × Std.U16)
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::Decoder for spqr::encoding::polynomial::PolyDecoder}::decoded_message]:
     Source: 'src/encoding/polynomial.rs', lines 909:4-961:5 -/

@@ -5,10 +5,11 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 
-/-! # Spec Theorem for `Pt::serialize`
+/-!
+# Spec Theorem for `Pt::serialize`
 
-Specification and proof for `encoding.polynomial.Pt.serialize`, which serializes a GF(2¹⁶)
-cartesian point `Pt { x, y }` into a 4-byte big-endian array.
+Specification and proof for `encoding.polynomial.Pt.serialize`, which serializes a GF(2¹⁶) cartesian
+point `Pt { x, y }` into a 4-byte big-endian array.
 
 The function creates a `[u8; 4]` output array and fills it as follows:
   - `out[0..2] ← self.x.value.to_be_bytes()`
@@ -75,8 +76,10 @@ private theorem array_index_rangeFull_ok {T : Type} {N : Usize}
     ok a.to_slice :=
   rangeFull_index_eq () a.to_slice
 
-/-- `clone_from_slice` for `u8` copies the source slice into the destination, returning a slice
-    whose contents and length equal those of the source. -/
+/--
+`clone_from_slice` for `u8` copies the source slice into the destination,
+    returning a slice whose contents and length equal those of the source.
+-/
 @[step]
 private lemma clone_from_slice_U8_spec
     (dst src : Slice Std.U8) :
@@ -108,12 +111,13 @@ theorem to_be_bytes_spec (x : U16) :
   grind
 
 
-/-- **Spec and proof concerning `encoding.polynomial.Pt.serialize`**:
+/--
+**Spec and proof concerning `encoding.polynomial.Pt.serialize`**:
 • The function always succeeds (no panic) for any valid `Pt` input.
-• The first two bytes of the result encode `self.x.value` in big-endian:
-    `result[0].val * 256 + result[1].val = self.x.value.val`
-• The last two bytes of the result encode `self.y.value` in big-endian:
-    `result[2].val * 256 + result[3].val = self.y.value.val`
+• The first two bytes of the result encode `self.x.value` in big-endian: `result[0].val * 256 +
+  result[1].val = self.x.value.val`
+• The last two bytes of the result encode `self.y.value` in big-endian: `result[2].val * 256 +
+  result[3].val = self.y.value.val`
 -/
 @[step]
 theorem serialize_spec (self : spqr.encoding.polynomial.Pt) :
