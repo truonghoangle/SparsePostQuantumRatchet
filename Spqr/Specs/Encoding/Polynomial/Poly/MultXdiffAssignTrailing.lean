@@ -408,6 +408,93 @@ namespace spqr.encoding.polynomial.Poly
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
+open Polynomial
+
+private lemma list_get_of_getElem?_eq' {T : Type} {xs ys : List T}
+    {k : Nat}
+    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
+    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
+  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
+  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
+  rw [h1, h2] at h
+  exact Option.some_injective _ h
+
+/-- Drop indexing: `(l.drop n).get ⟨k, hk⟩ = l.get ⟨n + k, _⟩`. -/
+private lemma list_get_drop_eq {α : Type*} (l : List α) (n k : Nat)
+    (hk : k < (l.drop n).length) :
+    (l.drop n).get ⟨k, hk⟩ =
+      l.get ⟨n + k, by rw [List.length_drop] at hk; omega⟩ := by
+  simp only [List.get_eq_getElem, List.getElem_drop]
+
+/--
+**Mathematical polynomial identity for `mult_xdiff_assign_trailing`.**
+
+Given a coefficient list `cs`, a result list `rs` of the same length, a starting index `s ≥ 1` with
+`s ≤ cs.length`, and a field element `d : GF16` such that:
+• For carry-propagated positions (`s ≤ j + 1 ∧ j + 1 < cs.length`):
+    `rs[j].toGF216 = cs[j].toGF216 − cs[j+1].toGF216 * d.toGF216`
+• All other positions are unchanged (`rs[j]? = cs[j]?`),
+
+then the polynomial interpretation of `rs` satisfies:
+
+  `listToGF216Poly rs =
+      listToGF216Poly cs −
+      C(d.toGF216) · X^(s−1) · listToGF216Poly (cs.drop s)`
+
+This identity captures the algebraic content of the in-place recurrence `v[i−1] −= v[i] * d` for
+`i ∈ start..l`: the result polynomial is obtained from the original by subtracting the trailing
+sub-polynomial (from position `s`) scaled by `d` and shifted down by one degree.  Since GF(2¹⁶) has
+characteristic 2, subtraction coincides with addition.
+-/
+private lemma mult_xdiff_poly_identity
+    (cs rs : List GF16) (s : Nat) (d : GF16)
+    (h_s_pos : 1 ≤ s) (h_s_le : s ≤ cs.length)
+    (h_len : rs.length = cs.length)
+    (h_mod : ∀ j, s ≤ j + 1 → j + 1 < cs.length → ∀ hj : j < rs.length,
+      (rs.get ⟨j, hj⟩).toGF216 = (cs[j]!).toGF216 - (cs[j + 1]!).toGF216 * d.toGF216)
+    (h_same : ∀ j, ¬(s ≤ j + 1 ∧ j + 1 < cs.length) → rs[j]? = cs[j]?) :
+    listToGF216Poly rs =
+      listToGF216Poly cs -
+      C d.toGF216 * X ^ (s - 1) * listToGF216Poly (cs.drop s) := by
+  ext m
+  rw [coeff_sub, listToGF216Poly_coeff, listToGF216Poly_coeff,
+      show C d.toGF216 * X ^ (s - 1) * listToGF216Poly (cs.drop s) =
+        C d.toGF216 * (listToGF216Poly (cs.drop s) * X ^ (s - 1)) by ring,
+      coeff_C_mul, coeff_mul_X_pow']
+  by_cases hm : m < cs.length
+  · -- m < cs.length (= rs.length)
+    rw [dif_pos (show m < rs.length by omega), dif_pos hm]
+    by_cases hs : s - 1 ≤ m
+    · -- s − 1 ≤ m: product term may be nonzero
+      rw [if_pos hs, listToGF216Poly_coeff]
+      by_cases hd : m - (s - 1) < (cs.drop s).length
+      · -- m + 1 < cs.length: carry-propagated position
+        rw [dif_pos hd]
+        have h2 : m + 1 < cs.length := by rw [List.length_drop] at hd; omega
+        have hmod := h_mod m (by omega) h2 (by omega)
+        simp only [List.get_eq_getElem] at hmod ⊢
+        rw [hmod, getElem!_pos cs m hm, getElem!_pos cs (m + 1) h2]
+        have h_drop := list_get_drop_eq cs s (m - (s - 1)) hd
+        simp only [List.get_eq_getElem] at h_drop
+        rw [h_drop]; simp only [show s + (m - (s - 1)) = m + 1 from by omega]; ring
+      · -- m ≥ cs.length − 1: product term has zero factor
+        rw [dif_neg hd, mul_zero, sub_zero]
+        have h_not : ¬(s ≤ m + 1 ∧ m + 1 < cs.length) := by
+          rw [List.length_drop] at hd; push_neg at hd ⊢; intro h1; omega
+        exact congr_arg GF16.toGF216
+          (list_get_of_getElem?_eq' (h_same m h_not) (by omega) hm)
+    · -- m < s − 1: product term is zero
+      rw [if_neg hs, mul_zero, sub_zero]
+      exact congr_arg GF16.toGF216
+        (list_get_of_getElem?_eq' (h_same m (by push_neg; intro h1; omega)) (by omega) hm)
+  · -- m ≥ cs.length: both sides are zero
+    push_neg at hm
+    rw [dif_neg (by omega), dif_neg (by omega)]
+    by_cases hs : s - 1 ≤ m
+    · rw [if_pos hs, listToGF216Poly_coeff,
+          dif_neg (by rw [List.length_drop]; omega), mul_zero]; ring
+    · rw [if_neg hs]; ring
+
 /--
 **Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing`**:
 
@@ -425,18 +512,29 @@ instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
   (equivalently, addition in characteristic 2).
 • All other positions are unchanged:
     `result.coefficients[j]? = self.coefficients[j]?`.
+• **Mathematical polynomial identity**:
+    `result.toGF216Poly =
+        self.toGF216Poly −
+        C(difference.toGF216) · X^(start − 1) ·
+          listToGF216Poly(self.coefficients.val.drop start)`
+  This expresses the algebraic content of the in-place recurrence
+  `v[i−1] −= v[i] * difference` for `i ∈ start..l`: the result
+  polynomial is obtained from the original by subtracting the trailing
+  sub-polynomial (from position `start`) scaled by `difference` and
+  shifted down by one degree.  Since GF(2¹⁶) has characteristic 2,
+  subtraction coincides with addition.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 174:4-181:5)
 -/
 @[step]
 theorem mult_xdiff_assign_trailing_spec
-    (self : spqr.encoding.polynomial.Poly)
-    (start : Std.Usize)
-    (difference : spqr.encoding.gf.GF16)
+    (self : Poly)
+    (start : Usize)
+    (difference : GF16)
     (h_start_pos : 1 ≤ start.val)
     (h_start_le : start.val ≤ self.coefficients.val.length) :
-    encoding.polynomial.Poly.mult_xdiff_assign_trailing self start difference
-      ⦃ (result : spqr.encoding.polynomial.Poly) =>
+    mult_xdiff_assign_trailing self start difference
+      ⦃ (result : Poly) =>
       result.coefficients.val.length = self.coefficients.val.length ∧
       (∀ (j : Nat),
         start.val ≤ j + 1 →
@@ -448,8 +546,16 @@ theorem mult_xdiff_assign_trailing_spec
               difference.toGF216) ∧
       (∀ (j : Nat),
         ¬(start.val ≤ j + 1 ∧ j + 1 < self.coefficients.val.length) →
-        result.coefficients.val[j]? = self.coefficients.val[j]?) ⦄ := by
+        result.coefficients.val[j]? = self.coefficients.val[j]?) ∧
+      result.toGF216Poly =
+        self.toGF216Poly -
+        C (difference.toGF216) * X ^ (start.val - 1) *
+          listToGF216Poly (self.coefficients.val.drop start.val) ⦄ := by
   unfold encoding.polynomial.Poly.mult_xdiff_assign_trailing
   step*
+  refine ⟨‹_›, ‹_›, ‹_›, ?_⟩
+  simp only [Poly.toGF216Poly]
+  exact mult_xdiff_poly_identity _ _ _ _
+    h_start_pos h_start_le ‹_› ‹_› ‹_›
 
 end spqr.encoding.polynomial.Poly
