@@ -77,16 +77,11 @@ Rust `AddAssign` instance for `GF16`.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.Poly
-open spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
+open spqr.encoding.polynomial
   (prodLinearFactors prodLinearFactors_eval_root
    prodLinearFactors_base prodLinearFactors_step prodLinearFactors_snoc)
 
 namespace spqr.encoding.polynomial.Poly
-
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
-instance : Inhabited spqr.encoding.polynomial.Pt where
-  default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
 
 /--
 `core.slice.Slice.is_empty pts` returns `true` iff the slice is empty.  This is a concrete (total)
@@ -593,14 +588,11 @@ theorem lagrange_interpolate_spec
   intro result ⟨h_rlen, h_empty, h_nonempty⟩
   set n := pts.val.length with hn_def
   by_cases h0 : n = 0
-  · -- Empty case: both sides are 0
-    rw [h0, lagrangeInterpolantSum]
+  · rw [h0, lagrangeInterpolantSum]
     have : result.coefficients.val.length = 0 := by rw [h_rlen]; exact h0
     exact Poly.toGF216Poly_eq_zero result this
-  · -- Non-empty case
-    have hpos : 0 < n := Nat.pos_of_ne_zero h0
+  · have hpos : 0 < n := Nat.pos_of_ne_zero h0
     obtain ⟨ws, hws_len, hws_id, hws_coeff⟩ := h_nonempty hpos
-    -- Step 1: Cancel (X − pts[i].x) to get ws[i] = X · C(scale_i) · basis_i
     have hws_poly : ∀ (i : Nat) (hi : i < ws.length) (hpi : i < n),
         (ws.get ⟨i, hi⟩).toGF216Poly =
           X * C (lagrangeScaleGF216 (pts.val.get ⟨i, hpi⟩) pts.val) *
@@ -619,7 +611,6 @@ theorem lagrange_interpolate_spec
           (X - C (GF16.toGF216 (pts.val.get ⟨i, hpi⟩).x)) := by ring
       rw [h_rhs_rw] at h_id
       exact mul_right_cancel₀ hne h_id
-    -- Step 2: Show each term agrees
     have h_term_eq : ∀ (m : ℕ) (i : Fin ws.length),
         ((ws.get i).coefficients.val[m + 1]!).toGF216 =
           (C (lagrangeScaleGF216 (pts.val.get ⟨i.val, by
@@ -635,15 +626,12 @@ theorem lagrange_interpolate_spec
           X * (C (lagrangeScaleGF216 (pts.val.get ⟨i, hpi⟩) pts.val) *
             lagrangeBasisPoly pts.val i) from by ring]
       exact Polynomial.coeff_X_mul _ _
-    -- Step 3: Show coefficient equality using ext
     unfold Poly.toGF216Poly
     ext m
     rw [listToGF216Poly_coeff]
     by_cases hm : m < result.coefficients.val.length
-    · -- m < n: use coefficient identity + term equality
-      rw [dif_pos hm, hws_coeff m hm, list_map_sum_eq_finset_sum]
+    · rw [dif_pos hm, hws_coeff m hm, list_map_sum_eq_finset_sum]
       rw [Finset.sum_congr rfl (fun i _ => h_term_eq m i)]
-      -- Now both sides are Finset sums of the same terms
       rw [lagrangeInterpolantSum_eq_finset_sum pts.val n (le_refl _)]
       rw [Polynomial.finset_sum_coeff]
       apply Finset.sum_bij (fun (a : Fin ws.length) _ => a.val)
@@ -654,8 +642,7 @@ theorem lagrange_interpolate_spec
           exact ⟨⟨b, by omega⟩, Finset.mem_univ _, rfl⟩)
         (fun a _ => by
           simp only [dif_pos (show a.val < pts.val.length from by omega)])
-    · -- m ≥ n: both sides are 0
-      rw [dif_neg hm]
+    · rw [dif_neg hm]
       exact (lagrangeInterpolantSum_coeff_high pts.val n m (le_refl _)
         (by rw [h_rlen] at hm; push_neg at hm; omega)).symm
 

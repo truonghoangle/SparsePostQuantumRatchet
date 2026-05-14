@@ -213,72 +213,8 @@ In GF(2¹⁶) (characteristic 2), subtraction coincides with addition:
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-/-!
-## Mathematical helper: Lagrange denominator product
-
-The mathematical specification of the loop requires a function that computes the partial product of
-`(pi.x - pts[j].x)` over all remaining points in the slice (from position `start` onwards) where
-`pts[j].x ≠ pi.x`.  This is the "Lagrange denominator product", which captures what the loop
-accumulates.
--/
-
-/--
-**Lagrange denominator product over a suffix of the point list.**
-
-Given a distinguished x-coordinate `pi_x : GF16`, a list of points `pts`, and a starting index
-`start`, compute the product
-
-  `∏_{j = start}^{pts.length - 1}
-      (if pi_x.value = pts[j].x.value then 1
-       else pi_x.toGF216 - pts[j].x.toGF216)`
-
-over the remaining points in the list.  The product is `1` when `start ≥ pts.length` (no remaining
-points).
-
-This function is used only in specifications and proofs — it is `noncomputable` because `GF216`
-arithmetic is noncomputable.
--/
-noncomputable def lagrangeDenomProd (pi_x : spqr.encoding.gf.GF16)
-    (pts : List spqr.encoding.polynomial.Pt) (start : Nat) : GF216 :=
-  if h : start < pts.length then
-    if pi_x.value = (pts.get ⟨start, h⟩).x.value
-    then lagrangeDenomProd pi_x pts (start + 1)
-    else (pi_x.toGF216 - (pts.get ⟨start, h⟩).x.toGF216) *
-         lagrangeDenomProd pi_x pts (start + 1)
-  else 1
-termination_by pts.length - start
-
-/-! ### Basic properties of `lagrangeDenomProd` -/
-
-/-- When `start ≥ pts.length`, the product is `1` (empty product). -/
-@[simp]
-lemma lagrangeDenomProd_ge (pi_x : spqr.encoding.gf.GF16)
-    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
-    (h : pts.length ≤ start) :
-    lagrangeDenomProd pi_x pts start = 1 := by
-  unfold lagrangeDenomProd
-  simp [show ¬(start < pts.length) from by omega]
-
-/-- One-step unfolding when the current point matches `pi_x`. -/
-lemma lagrangeDenomProd_skip (pi_x : spqr.encoding.gf.GF16)
-    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
-    (h : start < pts.length)
-    (heq : pi_x.value = (pts.get ⟨start, h⟩).x.value) :
-    lagrangeDenomProd pi_x pts start =
-      lagrangeDenomProd pi_x pts (start + 1) := by
-  conv_lhs => unfold lagrangeDenomProd
-  rw [dif_pos h, if_pos heq]
-
-/-- One-step unfolding when the current point differs from `pi_x`. -/
-lemma lagrangeDenomProd_accum (pi_x : spqr.encoding.gf.GF16)
-    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
-    (h : start < pts.length)
-    (hne : pi_x.value ≠ (pts.get ⟨start, h⟩).x.value) :
-    lagrangeDenomProd pi_x pts start =
-      (pi_x.toGF216 - (pts.get ⟨start, h⟩).x.toGF216) *
-        lagrangeDenomProd pi_x pts (start + 1) := by
-  conv_lhs => unfold lagrangeDenomProd
-  rw [dif_pos h, if_neg hne]
+open spqr.encoding.polynomial (lagrangeDenomProd lagrangeDenomProd_ge
+  lagrangeDenomProd_skip lagrangeDenomProd_accum)
 
 /-! ### Helper lemma for element access across equal slices -/
 
@@ -380,30 +316,7 @@ end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop1
 
-noncomputable def hornerAccum (g_x : spqr.encoding.gf.GF16)
-    (coeffs : List spqr.encoding.gf.GF16) (pos : Nat) : GF216 :=
-  if h : pos < coeffs.length then
-    (coeffs.get ⟨pos, h⟩).toGF216 +
-      g_x.toGF216 * hornerAccum g_x coeffs (pos + 1)
-  else 0
-termination_by coeffs.length - pos
-
-@[simp]
-lemma hornerAccum_ge (g_x : spqr.encoding.gf.GF16)
-    (coeffs : List spqr.encoding.gf.GF16) (pos : Nat)
-    (h : coeffs.length ≤ pos) :
-    hornerAccum g_x coeffs pos = 0 := by
-  unfold hornerAccum
-  simp [show ¬(pos < coeffs.length) from by omega]
-
-lemma hornerAccum_unfold (g_x : spqr.encoding.gf.GF16)
-    (coeffs : List spqr.encoding.gf.GF16) (pos : Nat)
-    (h : pos < coeffs.length) :
-    hornerAccum g_x coeffs pos =
-      (coeffs.get ⟨pos, h⟩).toGF216 +
-        g_x.toGF216 * hornerAccum g_x coeffs (pos + 1) := by
-  conv_lhs => unfold hornerAccum
-  rw [dif_pos h]
+open spqr.encoding.polynomial (hornerAccum hornerAccum_ge hornerAccum_unfold)
 
 private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
     {k : Nat}
@@ -678,15 +591,7 @@ open spqr.encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16
 
 namespace spqr.encoding.polynomial.Poly
 
-instance : Inhabited spqr.encoding.polynomial.Pt where
-  default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
-
-noncomputable def lagrangeScaleGF216
-    (pi : spqr.encoding.polynomial.Pt)
-    (pts : List spqr.encoding.polynomial.Pt) : GF216 :=
-  pi.y.toGF216 *
-    (lagrange_interpolate_complete_loop0.lagrangeDenomProd
-       pi.x pts 0) ^ (2 ^ 16 - 2)
+open spqr.encoding.polynomial (lagrangeScaleGF216 lagrangeDenomProd)
 
 @[step]
 theorem into_iter_spec (pts : Slice Pt) :
@@ -705,17 +610,17 @@ private lemma GF216_add_self_eq_zero (x : GF216) : x + x = 0 := by
 private lemma hornerAccum_cancel (g : spqr.encoding.gf.GF16)
     (coeffs : List spqr.encoding.gf.GF16) (k : Nat)
     (hk : k < coeffs.length) :
-    lagrange_interpolate_complete_loop1.hornerAccum g coeffs k +
+    hornerAccum g coeffs k +
       g.toGF216 *
-        lagrange_interpolate_complete_loop1.hornerAccum
+        hornerAccum
           g coeffs (k + 1) =
       (coeffs.get ⟨k, hk⟩).toGF216 := by
   conv_lhs =>
-    rw [lagrange_interpolate_complete_loop1.hornerAccum_unfold
+    rw [hornerAccum_unfold
       g coeffs k hk]
   set c := (coeffs.get ⟨k, hk⟩).toGF216
   set t := g.toGF216 *
-    lagrange_interpolate_complete_loop1.hornerAccum
+    hornerAccum
       g coeffs (k + 1)
   rw [show (c + t) + t = c + (t + t) from by ring]
   rw [GF216_add_self_eq_zero t, add_zero]
@@ -733,11 +638,11 @@ private lemma poly_identity_from_loop1
     (hpos : 0 < coeffs.length)
     (hv0_zero : ∀ (h0 : 0 < v.length),
         (v.get ⟨0, h0⟩).toGF216 = 0)
-    (hH0 : lagrange_interpolate_complete_loop1.hornerAccum
+    (hH0 : hornerAccum
       g coeffs 0 = 0)
     (hvk : ∀ k (hk : k < v.length), 0 < k →
         (v.get ⟨k, hk⟩).toGF216 =
-          s * lagrange_interpolate_complete_loop1.hornerAccum
+          s * hornerAccum
             g coeffs k) :
     listToGF216Poly v * (X - C (g.toGF216)) =
       X * C s * listToGF216Poly coeffs := by
@@ -777,25 +682,25 @@ private lemma poly_identity_from_loop1
         rw [hv0_zero (by omega),
             hvk 1 (by omega) (by omega), zero_add]
         have hH0_unf :=
-          lagrange_interpolate_complete_loop1.hornerAccum_unfold
+          hornerAccum_unfold
             g coeffs 0 (by omega)
         rw [hH0] at hH0_unf
         have hcoeff0 :
             (coeffs.get ⟨0, by omega⟩).toGF216 =
-              α * lagrange_interpolate_complete_loop1.hornerAccum
+              α * hornerAccum
                 g coeffs 1 :=
           GF216_eq_of_add_eq_zero hH0_unf.symm
         rw [hcoeff0]; ring
       · have hm1_pos : 0 < m - 1 := by omega
         rw [hvk (m - 1) hm1_lt_v hm1_pos,
             hvk m hm_lt_v hm_pos]
-        rw [show s * lagrange_interpolate_complete_loop1.hornerAccum
+        rw [show s * hornerAccum
                 g coeffs (m - 1) +
-              α * (s * lagrange_interpolate_complete_loop1.hornerAccum
+              α * (s * hornerAccum
                 g coeffs m) =
-            s * (lagrange_interpolate_complete_loop1.hornerAccum
+            s * (hornerAccum
                 g coeffs (m - 1) +
-              α * lagrange_interpolate_complete_loop1.hornerAccum
+              α * hornerAccum
                 g coeffs m) from by ring]
         congr 1
         have hm_succ : m - 1 + 1 = m := by omega
@@ -814,16 +719,16 @@ private lemma poly_identity_from_loop1
             dif_pos hm1_lt_c]
         rw [mul_zero, add_zero]
         have hH_last :=
-          lagrange_interpolate_complete_loop1.hornerAccum_unfold
+          hornerAccum_unfold
             g coeffs (coeffs.length - 1) hm1_lt_c
         have hsucc : coeffs.length - 1 + 1 = coeffs.length :=
           by omega
         rw [hsucc] at hH_last
-        rw [lagrange_interpolate_complete_loop1.hornerAccum_ge
+        rw [hornerAccum_ge
           g coeffs coeffs.length (le_refl _)] at hH_last
         simp [mul_zero, add_zero] at hH_last
         have hH_last_get : (coeffs.get ⟨coeffs.length - 1, hm1_lt_c⟩).toGF216 =
-            lagrange_interpolate_complete_loop1.hornerAccum g coeffs (coeffs.length - 1) := by
+            hornerAccum g coeffs (coeffs.length - 1) := by
           simp only [List.get_eq_getElem]; exact hH_last.symm
         rw [hH_last_get]
         by_cases h_pos : 0 < coeffs.length - 1
@@ -851,19 +756,19 @@ private lemma hornerAccum_cons
     (g c : GF16)
     (cs : List GF16)
     (pos : Nat) :
-    lagrange_interpolate_complete_loop1.hornerAccum g (c :: cs) (pos + 1) =
-      lagrange_interpolate_complete_loop1.hornerAccum g cs pos := by
+    hornerAccum g (c :: cs) (pos + 1) =
+      hornerAccum g cs pos := by
   by_cases hlt : pos < cs.length
-  · rw [lagrange_interpolate_complete_loop1.hornerAccum_unfold g (c :: cs) (pos + 1)
+  · rw [hornerAccum_unfold g (c :: cs) (pos + 1)
           (by simp; omega),
-        lagrange_interpolate_complete_loop1.hornerAccum_unfold g cs pos hlt]
+        hornerAccum_unfold g cs pos hlt]
     have hget : (c :: cs).get ⟨pos + 1, by simp; omega⟩ = cs.get ⟨pos, hlt⟩ := by
       simp [List.get_eq_getElem]
     rw [hget]; congr 1; congr 1
     exact hornerAccum_cons g c cs (pos + 1)
-  · rw [lagrange_interpolate_complete_loop1.hornerAccum_ge g (c :: cs) (pos + 1)
+  · rw [hornerAccum_ge g (c :: cs) (pos + 1)
           (by simp; omega),
-        lagrange_interpolate_complete_loop1.hornerAccum_ge g cs pos (by omega)]
+        hornerAccum_ge g cs pos (by omega)]
 termination_by cs.length - pos
 decreasing_by omega
 
@@ -896,14 +801,14 @@ private lemma listToGF216Poly_cons
 private lemma hornerAccum_zero_eq_eval
     (g : GF16)
     (coeffs : List GF16) :
-    lagrange_interpolate_complete_loop1.hornerAccum g coeffs 0 =
+    hornerAccum g coeffs 0 =
       (listToGF216Poly coeffs).eval (g.toGF216) := by
   induction coeffs with
   | nil =>
-    rw [lagrange_interpolate_complete_loop1.hornerAccum_ge g [] 0 (by simp)]
+    rw [hornerAccum_ge g [] 0 (by simp)]
     simp
   | cons c cs ih =>
-    rw [lagrange_interpolate_complete_loop1.hornerAccum_unfold g (c :: cs) 0 (by simp)]
+    rw [hornerAccum_unfold g (c :: cs) 0 (by simp)]
     simp only [List.get_eq_getElem, List.getElem_cons_zero]
     rw [hornerAccum_cons g c cs 0, ih, listToGF216Poly_cons]
     simp [eval_add, eval_mul, eval_C, eval_X]
@@ -1125,7 +1030,7 @@ theorem lagrange_interpolate_complete_spec
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
-    have hH0 : lagrange_interpolate_complete_loop1.hornerAccum
+    have hH0 : hornerAccum
         (pts.val.get ⟨i.val, hi⟩).x self.coefficients.val 0 = 0 := by
       rw [hornerAccum_zero_eq_eval]
       unfold Poly.evalAt Poly.toGF216Poly at heval
@@ -1148,7 +1053,7 @@ theorem lagrange_interpolate_complete_spec
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
     have hlv_zero := b_post.mp hb
-    have hH0 : lagrange_interpolate_complete_loop1.hornerAccum
+    have hH0 : hornerAccum
         loop0_res.1.x self.coefficients.val 0 = 0 := by
       have h0 : 0 < v.val.length := by omega
       rw [← v_post3 h0]

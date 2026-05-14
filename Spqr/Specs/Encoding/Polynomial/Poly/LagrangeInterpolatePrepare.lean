@@ -52,10 +52,6 @@ The key invariant maintained by the outer loop is:
 -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
-instance : Inhabited spqr.encoding.polynomial.Pt where
-  default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
 
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
@@ -274,171 +270,10 @@ private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
   rw [h1, h2] at h
   exact Option.some_injective _ h
 
-/-!
-## Mathematical specification functions
-
-The following definitions capture the mathematical content of the loop: `prodLinearFactors` is the
-target product polynomial, and `expectedTrailingPoly` tracks the evolving trailing sub-polynomial
-through each iteration of the loop, accounting for the initial coefficients of `p`.
--/
-
-/--
-**Product of linear factors** `∏_{j=start}^{stop−1} (X − C(pts[j].x.toGF216))`.
-
-This is the target polynomial that `lagrange_interpolate_prepare` constructs.  It returns `1` when
-`start ≥ stop` or `start ≥ pts.length` (empty product).
--/
-noncomputable def prodLinearFactors
-    (pts : List Pt) (start stop : Nat) : GF216Poly :=
-  if h : start < stop ∧ start < pts.length then
-    (X - C ((pts.get ⟨start, h.2⟩).x.toGF216)) *
-      prodLinearFactors pts (start + 1) stop
-  else 1
-termination_by stop - start
-
-/--
-When `start ≥ stop` or `start ≥ pts.length`, the product is `1` (empty product).
--/
-@[simp]
-lemma prodLinearFactors_base (pts : List Pt) (start stop : Nat)
-    (h : ¬(start < stop ∧ start < pts.length)) :
-    prodLinearFactors pts start stop = 1 := by
-  unfold prodLinearFactors; rw [dif_neg h]
-
-/-- One-step unfolding of `prodLinearFactors` from the left. -/
-lemma prodLinearFactors_step (pts : List Pt) (start stop : Nat)
-    (h1 : start < stop) (h2 : start < pts.length) :
-    prodLinearFactors pts start stop =
-      (X - C ((pts.get ⟨start, h2⟩).x.toGF216)) *
-        prodLinearFactors pts (start + 1) stop := by
-  conv_lhs => unfold prodLinearFactors
-  rw [dif_pos ⟨h1, h2⟩]
-
-/--
-One-step unfolding of `prodLinearFactors` from the right (snoc form).  Uses commutativity of
-polynomial multiplication.
--/
-private lemma prodLinearFactors_snoc_aux (pts : List Pt) (stop : Nat)
-    (h2 : stop < pts.length) :
-    ∀ d s, s + d = stop → s ≤ stop →
-      prodLinearFactors pts s (stop + 1) =
-        prodLinearFactors pts s stop *
-          (X - C ((pts.get ⟨stop, h2⟩).x.toGF216)) := by
-  intro d
-  induction d with
-  | zero =>
-    intro s hs hle
-    have hseq : stop = s := by omega
-    subst hseq
-    rw [prodLinearFactors_step pts stop (stop + 1) (by omega) h2,
-        prodLinearFactors_base pts (stop + 1) (stop + 1) (by omega),
-        prodLinearFactors_base pts stop stop (by omega)]
-    ring
-  | succ n ih =>
-    intro s hs hle
-    rw [prodLinearFactors_step pts s (stop + 1) (by omega) (by omega),
-        prodLinearFactors_step pts s stop (by omega) (by omega)]
-    rw [ih (s + 1) (by omega) (by omega)]
-    ring
-
-lemma prodLinearFactors_snoc (pts : List Pt) (start stop : Nat)
-    (h1 : start ≤ stop) (h2 : stop < pts.length) :
-    prodLinearFactors pts start (stop + 1) =
-      prodLinearFactors pts start stop *
-        (X - C ((pts.get ⟨stop, h2⟩).x.toGF216)) :=
-  prodLinearFactors_snoc_aux pts stop h2 (stop - start) start (by omega) h1
-
-/-- Evaluation of `prodLinearFactors` at a root is zero. -/
-lemma prodLinearFactors_eval_root (pts : List Pt) (start stop : Nat)
-    (j : Nat) (hj1 : start ≤ j) (hj2 : j < stop) (hj3 : j < pts.length) :
-    (prodLinearFactors pts start stop).eval
-      ((pts.get ⟨j, hj3⟩).x.toGF216) = 0 := by
-  -- Induction on the number of linear factors (stop - start)
-  suffices h : ∀ (d : Nat) (start : Nat), stop - start = d → start ≤ j →
-      (prodLinearFactors pts start stop).eval
-        ((pts.get ⟨j, hj3⟩).x.toGF216) = 0 from
-    h (stop - start) start rfl hj1
-  intro d
-  induction d with
-  | zero => intro start hd; omega
-  | succ n ih =>
-    intro start hd hj1'
-    rw [prodLinearFactors_step pts start stop (by omega) (by omega)]
-    simp only [eval_mul]
-    by_cases hjs : j = start
-    · subst hjs; simp [eval_sub, eval_X, eval_C]
-    · have := ih (start + 1) (by omega) (by omega)
-      rw [this]; ring
-
-/--
-**Expected trailing sub-polynomial** after `k` iterations.
-
-Defined by the recurrence:
-  `S₀ = C(p_coeffs[offset]!.toGF216)`
-  `S_{k+1} = C(p_coeffs[offset − (k + 1)]!.toGF216) +
-             (X − C(pts[iter_start + k]!.x.toGF216)) · Sₖ`
-
-This tracks the compound effect of `k` calls to `mult_xdiff_assign_trailing` on the trailing
-sub-polynomial rooted at position `offset`.  After `k` iterations, the sub-polynomial at positions
-`[offset − k, …, offset]` equals `expectedTrailingPoly p_coeffs pts offset iter_start k`.
--/
-noncomputable def expectedTrailingPoly
-    (p_coeffs : List GF16) (pts : List Pt)
-    (offset iter_start : Nat) : Nat → GF216Poly
-  | 0 => C (p_coeffs[offset]!.toGF216)
-  | k + 1 =>
-    C (p_coeffs[offset - (k + 1)]!.toGF216) +
-    (X - C (pts[iter_start + k]!.x.toGF216)) *
-      expectedTrailingPoly p_coeffs pts offset iter_start k
-
-/--
-Base case: the expected trailing polynomial after 0 iterations is just the constant
-`C(p[offset]!.toGF216)`.
--/
-@[simp]
-lemma expectedTrailingPoly_zero (p_coeffs : List GF16) (pts : List Pt)
-    (offset iter_start : Nat) :
-    expectedTrailingPoly p_coeffs pts offset iter_start 0 =
-      C (p_coeffs[offset]!.toGF216) := rfl
-
-/-- Step case: one-step unfolding of `expectedTrailingPoly`. -/
-lemma expectedTrailingPoly_succ (p_coeffs : List GF16) (pts : List Pt)
-    (offset iter_start k : Nat) :
-    expectedTrailingPoly p_coeffs pts offset iter_start (k + 1) =
-      C (p_coeffs[offset - (k + 1)]!.toGF216) +
-      (X - C (pts[iter_start + k]!.x.toGF216)) *
-        expectedTrailingPoly p_coeffs pts offset iter_start k := rfl
-
-/--
-**Bridge lemma**: When the initial polynomial has `p[offset] = ONE` and `p[j] = ZERO` for `j <
-offset`, the expected trailing polynomial collapses to `prodLinearFactors`.
--/
-lemma expectedTrailingPoly_eq_prodLinearFactors
-    (p_coeffs : List GF16) (pts : List Pt) (offset : Nat)
-    (h_leading : p_coeffs[offset]!.toGF216 = 1)
-    (h_zeros : ∀ j, j < offset → p_coeffs[j]!.toGF216 = 0)
-    (h_pts : offset ≤ pts.length) :
-    ∀ k, k ≤ offset →
-      expectedTrailingPoly p_coeffs pts offset 0 k =
-        prodLinearFactors pts 0 k := by
-  intro k hk
-  induction k with
-  | zero =>
-    rw [expectedTrailingPoly_zero, prodLinearFactors_base pts 0 0 (by omega),
-        h_leading, map_one]
-  | succ n ih =>
-    rw [expectedTrailingPoly_succ]
-    have hn_le : n ≤ offset := by omega
-    rw [ih hn_le]
-    have h_zero : p_coeffs[offset - (n + 1)]!.toGF216 = 0 := by
-      apply h_zeros; omega
-    rw [h_zero, map_zero, zero_add]
-    have h_n_lt : n < pts.length := by omega
-    rw [prodLinearFactors_snoc pts 0 n (by omega) h_n_lt]
-    conv_lhs =>
-      rw [show pts[0 + n]!.x.toGF216 = (pts.get ⟨n, h_n_lt⟩).x.toGF216 from by
-        congr 1; congr 1; rw [Nat.zero_add]; exact getElem!_pos pts n h_n_lt]
-    ring
+open spqr.encoding.polynomial (prodLinearFactors prodLinearFactors_base
+  prodLinearFactors_step prodLinearFactors_snoc prodLinearFactors_eval_root
+  expectedTrailingPoly expectedTrailingPoly_zero expectedTrailingPoly_succ
+  expectedTrailingPoly_eq_prodLinearFactors expectedTrailingPoly_coeff_eq_zero)
 
 /-- Coefficient 0 of `C a + (X - C b) * P` equals `a - b * P.coeff 0`. -/
 private lemma coeff_zero_C_add_X_sub_C_mul {R : Type*} [CommRing R]
@@ -457,23 +292,6 @@ private lemma coeff_succ_C_add_X_sub_C_mul {R : Type*} [CommRing R]
   rw [sub_mul, coeff_add, coeff_sub, coeff_X_mul, coeff_C_mul]
   have : (C a).coeff (n + 1) = 0 := by rw [coeff_C]; exact if_neg (by omega)
   rw [this]; ring
-
-/-- Coefficients of `expectedTrailingPoly` beyond degree `k` are zero. -/
-private lemma expectedTrailingPoly_coeff_eq_zero
-    (p_coeffs : List GF16) (pts : List Pt)
-    (offset iter_start k n : Nat) (hn : k < n) :
-    (expectedTrailingPoly p_coeffs pts offset iter_start k).coeff n = 0 := by
-  induction k generalizing n with
-  | zero =>
-    simp only [expectedTrailingPoly_zero, coeff_C]
-    exact if_neg (by omega)
-  | succ k ih =>
-    cases n with
-    | zero => omega
-    | succ n' =>
-      rw [expectedTrailingPoly_succ, coeff_succ_C_add_X_sub_C_mul,
-          ih n' (by omega), ih (n' + 1) (by omega)]
-      ring
 
 /--
 **Closed-form postcondition for `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop`**:
@@ -856,42 +674,12 @@ the extracted Lean version contains only the unaccelerated fallback.
 namespace spqr.encoding.polynomial.Poly
 
 open encoding.gf.GF16
-open lagrange_interpolate_prepare_loop (prodLinearFactors expectedTrailingPoly
+open spqr.encoding.polynomial (prodLinearFactors expectedTrailingPoly
   prodLinearFactors_eval_root expectedTrailingPoly_eq_prodLinearFactors
   prodLinearFactors_base prodLinearFactors_step
-  expectedTrailingPoly_coeff_eq_zero)
-
-open Polynomial in
-/--
-Coefficients of `prodLinearFactors` beyond degree `stop − start` are zero.  This is the degree bound
-for the product of linear factors, proved by induction on the number of factors.
--/
-private lemma prodLinearFactors_coeff_eq_zero_high
-    (pts : List Pt) (start stop m : Nat) (hm : stop - start < m) :
-    (prodLinearFactors pts start stop).coeff m = 0 := by
-  suffices h : ∀ d start stop m, stop - start = d → d < m →
-      (prodLinearFactors pts start stop).coeff m = 0 from
-    h (stop - start) start stop m rfl hm
-  intro d
-  induction d with
-  | zero =>
-    intro start stop m hd hm'
-    have : ¬(start < stop ∧ start < pts.length) := by omega
-    rw [prodLinearFactors_base _ _ _ this, coeff_one]
-    exact if_neg (by omega)
-  | succ n ih =>
-    intro start stop m hd hm'
-    by_cases h : start < stop ∧ start < pts.length
-    · rw [prodLinearFactors_step _ _ _ h.1 h.2]
-      cases m with
-      | zero => omega
-      | succ m' =>
-        rw [sub_mul, coeff_sub, coeff_X_mul, coeff_C_mul,
-            ih (start + 1) stop (m' + 1) (by omega) (by omega),
-            ih (start + 1) stop m' (by omega) (by omega)]
-        ring
-    · rw [prodLinearFactors_base _ _ _ h, coeff_one]
-      exact if_neg (by omega)
+  expectedTrailingPoly_coeff_eq_zero
+  prodLinearFactors_coeff_eq_zero_high
+  listToGF216Poly_eq_of_coeffs)
 
 /--
 **Indexed read after `List.set` at the same index** (using `[·]!`). If `n < l.length`, then `(l.set
@@ -902,23 +690,6 @@ private lemma list_getElem_bang_set_self {α : Type*} [Inhabited α]
     (l.set n x)[n]! = x := by
   have h : n < (l.set n x).length := by rw [List.length_set]; exact hn
   rw [getElem!_pos (l.set n x) n h, List.getElem_set_self]
-
-/--
-If all coefficients of a list, interpreted via `GF16.toGF216`, match those of a polynomial `q` at
-in-range positions, and `q` has zero coefficients beyond the list length, then `listToGF216Poly cs =
-q`.
--/
-private lemma listToGF216Poly_eq_of_coeffs
-    (cs : List GF16) (q : GF216Poly)
-    (h_in : ∀ (m : Nat) (hm : m < cs.length),
-      (cs.get ⟨m, hm⟩).toGF216 = q.coeff m)
-    (h_out : ∀ m, cs.length ≤ m → q.coeff m = 0) :
-    listToGF216Poly cs = q := by
-  ext m
-  rw [listToGF216Poly_coeff]
-  split
-  · rename_i hm; exact h_in m hm
-  · rename_i hm; push_neg at hm; exact (h_out m hm).symm
 
 /--
 **Spec theorem for
@@ -977,7 +748,6 @@ theorem lagrange_interpolate_prepare_spec
   unfold lagrange_interpolate_prepare
   step*
   · simp_all [encoding.gf.GF16.Insts.CoreCloneClone.clone]
-  -- Bridge: connect expectedTrailingPoly to prodLinearFactors
   · simp_all
   · simp_all
   · simp_all
@@ -1009,12 +779,10 @@ theorem lagrange_interpolate_prepare_spec
         unfold List.resize at hj_lt ⊢
         simp only [Nat.zero_le, ge_iff_le, ↓reduceIte] at hj_lt ⊢
         by_cases hk : j < p.coefficients.val.length
-        · -- j within original: in the take part
-          have hj_take : j < (p.coefficients.val.take (pts.val.length + 1)).length := by
+        · have hj_take : j < (p.coefficients.val.take (pts.val.length + 1)).length := by
             simp; omega
           grind
-        · -- j in padded range: in the replicate part
-          push_neg at hk
+        · push_neg at hk
           have htake_len_le : (p.coefficients.val.take (pts.val.length + 1)).length ≤ j := by
             rw [List.length_take]; omega
           have hrepl_bnd : j - (p.coefficients.val.take (pts.val.length + 1)).length <

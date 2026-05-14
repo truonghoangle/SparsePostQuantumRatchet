@@ -45,6 +45,7 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateLoop1
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateLoopBoby1
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateLoopBody0
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
+import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
