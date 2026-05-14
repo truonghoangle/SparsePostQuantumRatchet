@@ -1,20 +1,5 @@
 # Specification Report: GF(2¹⁶) and Polynomial Verification
 
-**Date**: 2026-05-14
-**Author**: Generated report
-**Base reference**: `469d5b3` (upstream/main — `Verify : spqr::encoding::gf::reduce::reduce_from_byte`)
-**Head reference**: `8b5daf6` (HEAD — `updated`)
-
----
-
-## Overview
-
-This report documents the changes made to — and the corresponding mathematical representations of — the formal specifications in five Lean 4 files covering GF(2¹⁶) field arithmetic and Lagrange interpolation over GF(2¹⁶). The work spans two functional areas:
-
-1. **GF(2¹⁶) arithmetic** (`Gf/` directory): multiplication, polynomial reduction, and parallel multiplication.
-2. **Polynomial interpolation** (`Polynomial/Poly/` directory): Lagrange interpolation and its preparation phase.
-
-All five files live under `Spqr/Specs/Encoding/` and verify Rust functions extracted via Aeneas from `src/encoding/gf.rs` and `src/encoding/polynomial.rs`.
 
 ---
 
@@ -23,19 +8,6 @@ All five files live under `Spqr/Specs/Encoding/` and verify Rust functions extra
 ### Rust Source
 `spqr/src/encoding/gf.rs`, lines 444–446.
 
-### Status
-**Previously stubbed (`sorry`), now fully proved.**
-
-### Changes from Base
-
-| Aspect | Before (469d5b3) | After (HEAD) |
-|--------|-------------------|--------------|
-| Lines | 87 | 97 |
-| Imports | 4 imports | 5 imports (added `Spqr.Math.Poly.ModByMonic`) |
-| `mul_spec'` proof | `sorry` | Completed via `unfold mul; step*` |
-| `mul_spec` proof | `sorry` | Completed with explicit algebraic chain |
-| Type annotations | `Std.U16` | `U16` (alias) |
-| Documentation | Included hardware-dispatch note | Removed hardware-dispatch and import notes (streamlined) |
 
 ### Mathematical Representation
 
@@ -65,6 +37,8 @@ This lifts the polynomial-level result to the abstract field `GF216 = GaloisFiel
 2. Applies `ringHom_modByMonic` to show that the ring homomorphism commutes with `%ₘ polyGF2` (since `BinaryPoly.toGF216` vanishes on `polyGF2`).
 3. Uses `map_mul` to distribute the homomorphism over multiplication.
 
+
+
 ---
 
 ## 2. `Spqr/Specs/Encoding/Gf/Reduce/PolyReduce.lean`
@@ -72,20 +46,6 @@ This lifts the polynomial-level result to the abstract field `GF216 = GaloisFiel
 ### Rust Source
 `spqr/src/encoding/gf.rs`, lines 489–498.
 
-### Status
-**Completely rewritten: old bit-by-bit approach replaced with table-based two-pass specification, fully proved.**
-
-### Changes from Base
-
-| Aspect | Before (469d5b3) | After (HEAD) |
-|--------|-------------------|--------------|
-| Lines | 216 | 329 |
-| Approach | Bit-by-bit recursive `polyMod` | Table-based two-pass `polyReduceSpec` |
-| Import | `Spqr.Code.Funs` | `Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes` |
-| Key definition | `polyMod` (recursive bit clearing) | `polyReduceSpec` (two byte-level table lookups) |
-| Algebraic bridge | `polyMod_poly` (GF(2)[X] formulation) | `xor_table_shift_dvd` + `polyReduceSpec_correct` |
-| Main theorem | `poly_reduce_poly_mul_spec` (`sorry`) | `poly_reduce_spec` (fully proved) |
-| Namespace | `spqr.encoding.gf.reduce` | `spqr.encoding.gf.reduce` (unchanged) |
 
 ### Mathematical Representation
 
@@ -126,8 +86,96 @@ theorem poly_reduce_spec (v : Std.U32) :
 This connects the extracted Lean function `poly_reduce` to the mathematical specification. The proof unfolds the function, steps through the Aeneas-generated code, establishes value-level equalities for each intermediate variable (`i`, `i1`, `i2`, `i3`, `i4`, `v1`, `i5`, `shifted_v`, `i21`, `i6`, `i7`, `v2`), bridges to `polyReduceSpec`, and invokes `polyReduceSpec_correct`.
 
 ### Key Differences from Old Approach
-- **Old**: Used a recursive bit-by-bit `polyMod` definition that cleared one bit at a time from position 16 upward; required an intermediate `polyMod_poly` GF(2)[X] formulation and a congruence-preservation lemma. The final theorem was `sorry`-ed.
-- **New**: Uses the actual table-based two-pass algorithm matching the Rust implementation; proves correctness via divisibility of XOR-shift contributions by `polyGF2`; the final theorem is fully proved.
+
+The previous version (base commit `01eefaa`) took a fundamentally different approach to specifying and proving `poly_reduce`. Below is a detailed comparison.
+
+#### Old Approach (216 lines, 3 `sorry`)
+
+1. **Spec-level definition — `polyMod`**: A recursive bit-by-bit reduction operating on natural numbers. It iterated from bit position 16 up to bit `n + 15`, testing each high-order bit and XOR-ing with the shifted irreducible polynomial `0x1100b <<< k` to clear it:
+
+    ```
+    def polyMod (v : Nat) : (n : Nat) → Nat
+      | 0     => v
+      | n + 1 =>
+        let v' := polyMod v n
+        if v'.testBit (n + 16)
+        then v' ^^^ (0x1100b <<< n)
+        else v'
+    ```
+
+    This definition is mathematically natural (it mirrors textbook polynomial long division over GF(2)) but does **not** match the Rust implementation, which uses precomputed byte-level table lookups rather than bit-by-bit clearing.
+
+2. **Algebraic bridge — `polyMod_poly`**: A `noncomputable` GF(2)[X] formulation that re-expressed `polyMod` in terms of polynomial arithmetic — replacing XOR with polynomial addition, bit-shifts with multiplication by `X^n`, and `testBit` with coefficient checks:
+
+    ```
+    noncomputable def polyMod_poly (p : (ZMod 2)[X]) : (n : Nat) → (ZMod 2)[X]
+      | 0     => p
+      | n + 1 =>
+        let p' := polyMod_poly p n
+        if p'.coeff (n + 16) ≠ 0
+        then p' + POLY_GF2 * X ^ n
+        else p'
+    ```
+
+3. **Correspondence lemma — `polyMod_eq_polyMod_poly`** (`sorry`-ed): Stated that interpreting the natural-number input as a GF(2) polynomial via `natToGF2Poly`, the Nat-level `polyMod` and the algebraic `polyMod_poly` agree:
+
+    ```
+    theorem polyMod_eq_polyMod_poly (v n : Nat) :
+        natToGF2Poly (polyMod v n) = polyMod_poly (natToGF2Poly v) n := by sorry
+    ```
+
+    This required proving that XOR on naturals corresponds to polynomial addition, and that `testBit` corresponds to coefficient extraction — a tedious bitwise-to-polynomial correspondence argument.
+
+4. **Congruence lemma — `polyMod_poly_eq_modByMonic`** (`sorry`-ed): Stated that the recursive `polyMod_poly` computes the true polynomial remainder:
+
+    ```
+    theorem polyMod_poly_eq_modByMonic (p : (ZMod 2)[X]) (n : Nat)
+        (hp : p.natDegree < n + 16) (hirr : POLY_GF2.Monic) :
+        polyMod_poly p n = p %ₘ POLY_GF2 := by sorry
+    ```
+
+    Proving this would require an induction on `n` with a degree-drop argument at each step — showing that each XOR step preserves the congruence class modulo `POLY_GF2` and strictly reduces the degree.
+
+5. **Final spec — `poly_reduce_spec`** (`sorry`-ed): The postcondition was stated at the **Nat level** (`result.val = polyMod v.val 16`) rather than at the polynomial level, and was `sorry`-ed because the table-based Rust implementation could not be directly connected to the bit-by-bit `polyMod` without first proving the table correctness:
+
+    ```
+    theorem poly_reduce_spec (v : Std.U32) :
+        poly_reduce v ⦃ result => result.val = polyMod v.val 16 ⦄ := by sorry
+    ```
+
+6. **Structural issues**: The approach required a three-step proof chain (`poly_reduce` → `polyMod` → `polyMod_poly` → `%ₘ polyGF2`) with two `sorry`-ed bridge lemmas. The `polyMod` definition also did not match the Rust code's byte-level table-lookup strategy, creating an additional gap between implementation and specification. A separate `reduceFromByte` definition was present but unused in the main proof path.
+
+#### New Approach (329 lines, 0 `sorry`)
+
+1. **Spec-level definition — `polyReduceSpec`**: Directly mirrors the Rust two-pass table-based algorithm — extract the high byte, look up `reduceByteTable`, XOR-shift, extract the next byte, look up, XOR, return low 16 bits:
+
+    ```
+    def polyReduceSpec (v : Nat) : Nat :=
+      let t1 := reduceByteTable (v >>> 24)
+      let v1 := v ^^^ (t1 <<< 8)
+      let t2 := reduceByteTable ((v1 >>> 16) &&& 255)
+      (v1 ^^^ t2) % 2 ^ 16
+    ```
+
+2. **Divisibility lemma — `xor_table_shift_dvd`**: Shows that each XOR-shift step preserves the congruence class modulo `polyGF2` by proving `polyGF2 ∣ (natToBinaryPoly k * X^(n+16) + natToBinaryPoly (reduceByteTable k) * X^n)`. This uses the table correctness hypothesis and `modByMonic_add_div`.
+
+3. **Algebraic correctness — `polyReduceSpec_correct`**: Proves `natToBinaryPoly (polyReduceSpec v) = (natToBinaryPoly v) %ₘ polyGF2` in a single direct argument:
+   - Decomposes `v` into byte lanes via bitwise analysis.
+   - Applies `xor_table_shift_dvd` twice (once per pass) to show the accumulated XOR difference is divisible by `polyGF2`.
+   - Shows the final 16-bit result has degree < 16 and hence equals its own `%ₘ polyGF2` via `modByMonic_eq_self_iff`.
+
+4. **Full Aeneas bridge — `poly_reduce_spec`**: Steps through all 12+ intermediate variables in the Aeneas-generated code, establishing value-level equalities for each, then bridges to `polyReduceSpec` and invokes `polyReduceSpec_correct`. The postcondition is stated directly at the **polynomial level** (`natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2`), eliminating the need for any intermediate Nat-level spec.
+
+#### Summary of Improvements
+
+| Aspect | Old | New |
+|--------|-----|-----|
+| Spec definition | `polyMod`: bit-by-bit recursive clearing | `polyReduceSpec`: two-pass table lookup (matches Rust) |
+| Proof chain length | 3 hops: `poly_reduce` → `polyMod` → `polyMod_poly` → `%ₘ` | 2 hops: `poly_reduce` → `polyReduceSpec` → `%ₘ` |
+| Bridge lemmas | 2 (`sorry`-ed): Nat↔poly correspondence + recursive congruence | 1 (proved): `xor_table_shift_dvd` divisibility |
+| Postcondition level | Nat-level (`result.val = polyMod v.val 16`) | Polynomial-level (`natToBinaryPoly result.val = ... %ₘ polyGF2`) |
+| `sorry` count | 3 | 0 |
+| Implementation fidelity | Does not match Rust (bit-by-bit vs. table) | Directly mirrors Rust's byte-level table algorithm |
 
 ---
 
@@ -346,7 +394,7 @@ The proof unfolds the function, steps through `Poly::zero`, `Vec::resize`, the `
 | File | Base State | Current State | Key Change |
 |------|-----------|---------------|------------|
 | `Gf/Unaccelerated/Mul.lean` | 87 lines, 2 `sorry` | 97 lines, fully proved | Proofs completed; `ModByMonic` import added; documentation streamlined |
-| `Gf/Reduce/PolyReduce.lean` | 216 lines, 1 `sorry` | 329 lines, fully proved | Complete rewrite: bit-by-bit → table-based two-pass; `ReduceBytes` import; new `polyReduceSpec` + `polyReduceSpec_correct` + full Aeneas bridge |
+| `Gf/Reduce/PolyReduce.lean` | 216 lines, 3 `sorry` | 329 lines, fully proved | Complete rewrite: bit-by-bit → table-based two-pass; `ReduceBytes` import; new `polyReduceSpec` + `polyReduceSpec_correct` + full Aeneas bridge |
 | `Gf/ParallelMult.lean` | Did not exist | 384 lines, fully proved | New file: loop body (poly + GF216 levels with frame), loop (invariant-based), and top-level `parallel_mult` spec |
 | `Polynomial/Poly/LagrangeInterpolate.lean` | Did not exist | 642 lines, fully proved | New file: structural formula with witness polynomials + classical Lagrange interpolant sum; helper definitions and degree-bound lemmas |
 | `Polynomial/Poly/LagrangeInterpolatePrepare.lean` | Did not exist | 814 lines, fully proved | New file: loop body, loop with trailing-polynomial invariant, and top-level spec proving `result.toGF216Poly = ∏(X − pts[j].x)` |
