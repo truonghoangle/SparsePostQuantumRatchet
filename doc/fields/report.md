@@ -22,7 +22,9 @@ theorem mul_spec' (a b : U16) :
         (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 ⦄
 ```
 
-This states that the Rust function `mul(a, b)` — which composes `poly_mul` (carry-less long multiplication) with `poly_reduce` (table-based reduction) — produces a result whose binary polynomial representation equals the product of the input polynomials reduced modulo `polyGF2 = X¹⁶ + X¹² + X³ + X + 1`. The proof proceeds by unfolding `mul` and applying the `step*` tactic, which automatically chains the `@[step]`-tagged subspecifications `poly_mul_spec` and `poly_reduce_spec`.
+**In words:** Given two 16-bit unsigned integers `a` and `b`, the Rust function `mul(a, b)` returns a result whose binary polynomial representation equals the product of the input polynomials, reduced modulo the irreducible polynomial polyGF2 = X¹⁶ + X¹² + X³ + X + 1. That is, interpreting all values as polynomials over GF(2), the output is the remainder of `a(X) · b(X)` divided by polyGF2.
+
+The proof proceeds by unfolding `mul` and applying the `step*` tactic, which automatically chains the `@[step]`-tagged subspecifications `poly_mul_spec` and `poly_reduce_spec`.
 
 #### `mul_spec` — GF(2¹⁶)-level postcondition
 
@@ -31,6 +33,8 @@ theorem mul_spec (a b : U16) :
     mul a b ⦃ (result : U16) =>
       result.val.toGF216 = a.val.toGF216 * b.val.toGF216 ⦄
 ```
+
+**In words:** The Rust function `mul(a, b)` computes the product of `a` and `b` as elements of the finite field GF(2¹⁶). When each 16-bit integer is mapped to its corresponding field element via the canonical embedding `toGF216`, the result of `mul` maps to the field-theoretic product of the images of `a` and `b`.
 
 This lifts the polynomial-level result to the abstract field `GF216 = GaloisField 2 16` via the ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216`. The proof:
 1. Obtains the polynomial-level identity from `mul_spec'`.
@@ -59,7 +63,7 @@ def polyReduceSpec (v : Nat) : Nat :=
   (v1 ^^^ t2) % 2 ^ 16
 ```
 
-This mirrors the Rust two-pass reduction exactly: extract the high byte, look up its reduction in `REDUCE_BYTES`, XOR-shift it in; then extract the next byte, look up, XOR in; return the low 16 bits.
+**In words:** This is a pure specification-level function that mirrors the Rust two-pass reduction exactly: extract the high byte (bits 24–31), look up its reduction in `REDUCE_BYTES`, XOR-shift the result into the value; then extract the next byte (bits 16–23), look up its reduction, XOR it in; finally return the low 16 bits as the fully reduced GF(2¹⁶) representative.
 
 #### `polyReduceSpec_correct` — Algebraic correctness
 
@@ -70,7 +74,9 @@ theorem polyReduceSpec_correct (v : Nat) (hv : v < 2 ^ 32)
     natToBinaryPoly (polyReduceSpec v) = (natToBinaryPoly v) %ₘ polyGF2
 ```
 
-This proves that the two-pass table reduction computes the correct polynomial remainder. The proof strategy:
+**In words:** For any 32-bit value `v`, assuming the reduction table is correct (i.e., each entry `reduceByteTable[k]` represents the polynomial remainder of `k · X¹⁶` modulo polyGF2), the spec-level two-pass reduction `polyReduceSpec(v)` — when interpreted as a GF(2) polynomial — equals the polynomial remainder of `v` modulo polyGF2 = X¹⁶ + X¹² + X³ + X + 1.
+
+The proof strategy:
 1. Decomposes `v` into byte lanes (bits 24–31, 16–23, 0–15).
 2. Uses `xor_table_shift_dvd` to show each XOR step preserves congruence modulo `polyGF2`.
 3. Shows the final 16-bit result has degree < 16 and hence equals its own `%ₘ polyGF2`.
@@ -82,6 +88,8 @@ theorem poly_reduce_spec (v : Std.U32) :
     poly_reduce v ⦃ result =>
       natToBinaryPoly result.val = (natToBinaryPoly v.val) %ₘ polyGF2 ⦄
 ```
+
+**In words:** The Rust function `poly_reduce`, given a 32-bit unsigned integer `v` representing an unreduced carry-less product, returns a 16-bit result whose GF(2) polynomial representation is the remainder of `v(X)` modulo polyGF2 = X¹⁶ + X¹² + X³ + X + 1. This is the canonical degree-< 16 representative of `v` in the quotient ring GF(2)[X]/(polyGF2).
 
 This connects the extracted Lean function `poly_reduce` to the mathematical specification. The proof unfolds the function, steps through the Aeneas-generated code, establishes value-level equalities for each intermediate variable (`i`, `i1`, `i2`, `i3`, `i4`, `v1`, `i5`, `shifted_v`, `i21`, `i6`, `i7`, `v2`), bridges to `polyReduceSpec`, and invokes `polyReduceSpec_correct`.
 
@@ -124,6 +132,8 @@ The previous version (base commit `01eefaa`) took a fundamentally different appr
         natToGF2Poly (polyMod v n) = polyMod_poly (natToGF2Poly v) n := by sorry
     ```
 
+    **In words:** The bitwise XOR/shift operation `polyMod` on natural numbers is faithfully represented by the polynomial operation `polyMod_poly` on GF(2)[X]: converting the input to a polynomial, applying `polyMod_poly`, gives the same result as applying `polyMod` to the natural number and then converting.
+
     This required proving that XOR on naturals corresponds to polynomial addition, and that `testBit` corresponds to coefficient extraction — a tedious bitwise-to-polynomial correspondence argument.
 
 4. **Congruence lemma — `polyMod_poly_eq_modByMonic`** (`sorry`-ed): Stated that the recursive `polyMod_poly` computes the true polynomial remainder:
@@ -134,6 +144,8 @@ The previous version (base commit `01eefaa`) took a fundamentally different appr
         polyMod_poly p n = p %ₘ POLY_GF2 := by sorry
     ```
 
+    **In words:** For any GF(2) polynomial `p` whose degree is less than `n + 16`, applying `n` steps of the recursive `polyMod_poly` reduction yields the same result as computing the true polynomial remainder `p mod POLY_GF2`. In particular, for a degree-≤ 30 product of two 16-bit polynomials, 16 steps suffice.
+
     Proving this would require an induction on `n` with a degree-drop argument at each step — showing that each XOR step preserves the congruence class modulo `POLY_GF2` and strictly reduces the degree.
 
 5. **Final spec — `poly_reduce_spec`** (`sorry`-ed): The postcondition was stated at the **Nat level** (`result.val = polyMod v.val 16`) rather than at the polynomial level, and was `sorry`-ed because the table-based Rust implementation could not be directly connected to the bit-by-bit `polyMod` without first proving the table correctness:
@@ -142,6 +154,8 @@ The previous version (base commit `01eefaa`) took a fundamentally different appr
     theorem poly_reduce_spec (v : Std.U32) :
         poly_reduce v ⦃ result => result.val = polyMod v.val 16 ⦄ := by sorry
     ```
+
+    **In words:** The Rust function `poly_reduce(v)` returns a value equal to 16 steps of the recursive bit-by-bit polynomial modular reduction `polyMod` applied to `v`. This was `sorry`-ed because the Rust code uses table lookups, not bit-by-bit clearing, and the equivalence was not proved.
 
 6. **Structural issues**: The approach required a three-step proof chain (`poly_reduce` → `polyMod` → `polyMod_poly` → `%ₘ polyGF2`) with two `sorry`-ed bridge lemmas. The `polyMod` definition also did not match the Rust code's byte-level table-lookup strategy, creating an additional gap between implementation and specification. A separate `reduceFromByte` definition was present but unused in the main proof path.
 
@@ -213,6 +227,8 @@ theorem parallel_mult_loop_body_spec'
              natToBinaryPoly (into.val[i.val + 1]!).value.val) %ₘ polyGF2 ⦄
 ```
 
+**In words:** One iteration of the `parallel_mult` loop body processes a pair of consecutive slice elements at positions `i` and `i+1`. If fewer than 2 elements remain (the loop is done), the state is unchanged. Otherwise (the loop continues), the index advances by 2, the slice length is preserved, and both `into[i]` and `into[i+1]` are replaced by their GF(2¹⁶) products with `a` — expressed here at the polynomial level as carry-less multiplication reduced modulo polyGF2.
+
 #### `parallel_mult_loop_body_spec` — GF(2¹⁶)-level loop body with frame
 
 Lifts to `GF216` and adds a **frame condition**: all slice elements outside `{i, i+1}` are unchanged.
@@ -237,6 +253,8 @@ theorem parallel_mult_loop_spec
         (into'.val[j]!) = (into.val[j]!)) ⦄
 ```
 
+**In words:** After the loop completes starting from index `i`, the multiplier `a` is unchanged, the slice length is preserved, and the slice is partitioned into three regions: (1) elements before `i` are untouched, (2) elements from `i` up to the final index `i'` have each been multiplied by `a` in GF(2¹⁶), and (3) elements from `i'` onward (at most one trailing element) are untouched. The loop terminates when fewer than 2 elements remain to process.
+
 The proof uses `loop.spec_decr_nat` with the natural-number measure `into.length − i.val` and a loop invariant tracking processed/unprocessed/before-range elements.
 
 #### `parallel_mult_spec` — Top-level function specification
@@ -251,7 +269,7 @@ theorem parallel_mult_spec
         (result.val[j]!).toGF216 = a.toGF216 * (into.val[j]!).toGF216) ⦄
 ```
 
-Postconditions: length preserved; every element is the GF(2¹⁶) product of `a` with the original.
+**In words:** The Rust function `parallel_mult(a, into)` returns a slice of the same length as `into`, where every element has been replaced by its GF(2¹⁶) product with `a`. That is, for each index `j` in the result, `result[j]` equals `a * into[j]` as elements of the finite field GF(2¹⁶).
 
 ---
 
@@ -285,6 +303,8 @@ theorem lagrange_interpolate_formula
               (ws.map (fun w => w.coefficients[j+1].toGF216)).sum)) ⦄
 ```
 
+**In words:** The Rust function `lagrange_interpolate(pts)` returns a polynomial with exactly `pts.len()` coefficients. If the input is empty, the result is the zero polynomial. Otherwise, there exist "witness" polynomials `ws[0], …, ws[n−1]` — one per evaluation point — such that: (1) each witness `ws[i]`, when multiplied by the linear factor `(X − pts[i].x)`, equals a scaled copy of the full product-of-linear-factors template; and (2) each coefficient of the result is the characteristic-2 sum (XOR) of the corresponding shifted coefficients of all witnesses. This structural specification captures exactly how the Rust loop accumulates partial results via XOR.
+
 This establishes:
 - **Length**: result has `pts.len()` coefficients.
 - **Empty case**: zero polynomial for empty input.
@@ -298,6 +318,8 @@ theorem lagrange_interpolate_spec
     lagrange_interpolate pts ⦃ (result : Poly) =>
       result.toGF216Poly = lagrangeInterpolantSum pts.val pts.val.length ⦄
 ```
+
+**In words:** The Rust function `lagrange_interpolate(pts)` computes the classical Lagrange interpolating polynomial over GF(2¹⁶). Specifically, the result — interpreted as a polynomial in GF(2¹⁶)[X] — equals the sum `∑ᵢ cᵢ · Lᵢ(X)`, where `cᵢ` is the scaled y-value for point `i` and `Lᵢ(X) = ∏_{j≠i} (X − xⱼ)` is the Lagrange basis polynomial that is zero at all evaluation points except `xᵢ`.
 
 This shows the result equals the classical Lagrange interpolant:
 
@@ -350,6 +372,8 @@ theorem body_spec
           (frame condition for unmodified positions) ⦄
 ```
 
+**In words:** One iteration of the loop body either terminates (if the iterator range is exhausted, returning the polynomial unchanged) or continues by: advancing the iterator by one, preserving the coefficient vector length, and updating each coefficient in the trailing range via the recurrence `p1[j] = p[j] − p[j+1] · pts[i].x` (which is the in-place multiplication of the trailing sub-polynomial by the linear factor `(X − pts[i].x)`). Coefficients outside the affected range are unchanged.
+
 Each iteration retrieves the next index, looks up `pts[i].x`, and calls `mult_xdiff_assign_trailing(offset − i, pts[i].x)` to multiply the trailing sub-polynomial by `(X − pts[i].x)`.
 
 #### Loop — `loop_spec`
@@ -378,6 +402,8 @@ theorem lagrange_interpolate_prepare_spec
         (prodLinearFactors pts.val 0 pts.val.length).coeff m) ∧
       result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length ⦄
 ```
+
+**In words:** The Rust function `lagrange_interpolate_prepare(pts)` returns a monic polynomial of degree `pts.len()` (i.e., with `pts.len() + 1` coefficients and leading coefficient 1) that equals the product of all linear factors `∏_{j=0}^{n−1} (X − pts[j].x)` over GF(2¹⁶). Each coefficient of the result matches the corresponding coefficient of this product polynomial, and the leading coefficient is `GF16::ONE`.
 
 Postconditions:
 - **Length**: `pts.len() + 1` coefficients.
