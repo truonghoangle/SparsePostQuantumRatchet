@@ -300,7 +300,6 @@ theorem loop_spec
           have hj' : j < v'.val.length := by
             rw [← h_v2len]; exact hj
           have hjv : j < v.val.length := by rw [← h_len']; exact hj'
-
           -- From the body: v₂[j] = v'[j]! + working₂.coefficients[j+1]!
           have h_v2j := h_coord j hj
           -- From the IH on v': v'[j] = v[j]! + ws.map(...).sum

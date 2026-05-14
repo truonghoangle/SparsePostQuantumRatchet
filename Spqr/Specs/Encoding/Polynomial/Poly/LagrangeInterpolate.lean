@@ -12,8 +12,8 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateLoop0
 
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate`
+/-! # Spec theorem for 
+`spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate`
 
 Given a slice of evaluation points `pts : &[Pt]` with pairwise distinct x-coordinates, the Rust
 function `Poly::lagrange_interpolate` (in `src/encoding/polynomial.rs`, lines 106:4-137:5) returns
@@ -76,11 +76,8 @@ Rust `AddAssign` instance for `GF16`.
 -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
-open spqr.encoding.polynomial.Poly
-open spqr.encoding.polynomial
-  (prodLinearFactors prodLinearFactors_eval_root
-   prodLinearFactors_base prodLinearFactors_step prodLinearFactors_snoc)
-
+open spqr.encoding.polynomial.Poly spqr.encoding.polynomial
+  
 namespace spqr.encoding.polynomial.Poly
 
 /--
@@ -445,10 +442,6 @@ Each `ws[i]` therefore has zero constant term, and the
   `X · result.toGF216Poly =
         ∑_i X · C(lagrangeScaleGF216 pts[i] pts.val) · lagrangeBasisPoly pts i`,
 from which dividing by the nonzerodivisor `X` yields the claim.
-(The mechanical proof in Lean requires bridging the coefficient-list
-representation `listToGF216Poly` with the polynomial identity above
-and discharging the integral-domain cancellation; this is left as
-`sorry` for now.)
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 106:4-137:5)
 -/
