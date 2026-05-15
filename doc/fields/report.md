@@ -34,8 +34,6 @@ theorem mul_spec (a b : U16) :
       result.val.toGF216 = a.val.toGF216 * b.val.toGF216 ⦄
 ```
 
-**In words:** The Rust function `mul(a, b)` computes the product of `a` and `b` as elements of the finite field GF(2¹⁶). When each 16-bit integer is mapped to its corresponding field element via the canonical embedding `toGF216`, the result of `mul` maps to the field-theoretic product of the images of `a` and `b`.
-
 This lifts the polynomial-level result to the abstract field `GF216 = GaloisField 2 16` via the ring homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216`. The proof:
 1. Obtains the polynomial-level identity from `mul_spec'`.
 2. Applies `ringHom_modByMonic` to show that the ring homomorphism commutes with `%ₘ polyGF2` (since `BinaryPoly.toGF216` vanishes on `polyGF2`).

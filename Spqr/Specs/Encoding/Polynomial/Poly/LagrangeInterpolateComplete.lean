@@ -61,7 +61,7 @@ namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 ## Spec for `core.slice.iter.IteratorSliceIter.next`
 
-The slice iterator `next` method is a concrete (non-axiomatic) definition in the Aeneas standard
+The slice iterator `next` method is a concrete definition in the Aeneas standard
 library.  It advances the internal index `i` by one and returns the element at that position, or
 `none` if the iterator is exhausted.
 
