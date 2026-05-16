@@ -88,7 +88,7 @@ theorem parallel_mult_loop_body_spec'
   unfold parallel_mult_loop.body
   have h := mul2_u16_spec' a.value
   step*
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> simp_all <;>
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;>
     (try first
       | (rw [Slice.set_val_eq, Slice.set_val_eq,
              List.getElem!_set_ne (by scalar_tac : i.val ≠ i.val + 1),
@@ -248,7 +248,8 @@ theorem parallel_mult_loop_spec
     have hi' : i'.val + 2 ≤ Std.Usize.max := by omega
     step*
     split
-    · simp_all[GF16.toGF216]
+    · simp_all
+      grind
     · refine ⟨?measure, ?len, ?lo, ?proc, ?unproc, ?before, ?decr⟩
       case measure => simp_all
       case len => simp_all; grind
@@ -352,11 +353,10 @@ theorem parallel_mult_spec
           a.toGF216 * ((into.val[j]!).toGF216 : GF216)) ⦄ := by
   unfold parallel_mult
   step*
-  rename_i ha1 hlen1 hterm hi_hi hval_proc hval_unproc hval_before
   constructor
   · simp_all
   · intro j hj
-    set i:=ha1.2.2
+    set i:=a.2.2
     have hj_loop : j < i ∨ j ≥ i := Nat.lt_or_ge j i
     rcases hj_loop with hj1 | hj2
     · have :=hterm.2.2.2.2.2.1 j (by simp)  hj1

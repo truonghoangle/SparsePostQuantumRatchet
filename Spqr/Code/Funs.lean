@@ -10779,7 +10779,7 @@ def v1.chunked.send_ct.serialize.NoHeaderReceived.from_pb
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
         match cf2 with
-        | core.ops.control_flow.ControlFlow.Continue val2 =>
+        | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
           let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
           let r4 ←
             core.result.Result.map_err
@@ -10832,7 +10832,7 @@ def v1.chunked.send_ct.serialize.NoHeaderReceived.from_pb
             core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
               r2
           match cf2 with
-          | core.ops.control_flow.ControlFlow.Continue val2 =>
+          | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
             let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
             let r4 ←
               core.result.Result.map_err
@@ -10954,7 +10954,7 @@ def v1.chunked.send_ct.serialize.HeaderReceived.from_pb
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
         match cf2 with
-        | core.ops.control_flow.ControlFlow.Continue val2 =>
+        | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
           let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
           let r4 ←
             core.result.Result.map_err
@@ -11005,7 +11005,7 @@ def v1.chunked.send_ct.serialize.HeaderReceived.from_pb
             core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
               r2
           match cf2 with
-          | core.ops.control_flow.ControlFlow.Continue val2 =>
+          | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
             let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
             let r4 ←
               core.result.Result.map_err
@@ -11189,7 +11189,7 @@ def v1.chunked.send_ct.serialize.Ct1Sampled.from_pb
               core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                 r5
             match cf4 with
-            | core.ops.control_flow.ControlFlow.Continue val4 =>
+            | core.ops.control_flow.ControlFlow.Continue (val4 : proto.pq_ratchet.PolynomialDecoder) =>
               let r6 ← encoding.polynomial.PolyDecoder.from_pb val4
               let r7 ←
                 core.result.Result.map_err
@@ -11264,7 +11264,7 @@ def v1.chunked.send_ct.serialize.Ct1Sampled.from_pb
                 core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                   r5
               match cf4 with
-              | core.ops.control_flow.ControlFlow.Continue val4 =>
+              | core.ops.control_flow.ControlFlow.Continue (val4 : proto.pq_ratchet.PolynomialDecoder) =>
                 let r6 ← encoding.polynomial.PolyDecoder.from_pb val4
                 let r7 ←
                   core.result.Result.map_err
@@ -11502,7 +11502,7 @@ def v1.chunked.send_ct.serialize.Ct1Acknowledged.from_pb
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
         match cf2 with
-        | core.ops.control_flow.ControlFlow.Continue val2 =>
+        | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
           let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
           let r4 ←
             core.result.Result.map_err
@@ -11553,7 +11553,7 @@ def v1.chunked.send_ct.serialize.Ct1Acknowledged.from_pb
             core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
               r2
           match cf2 with
-          | core.ops.control_flow.ControlFlow.Continue val2 =>
+          | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
             let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
             let r4 ←
               core.result.Result.map_err
@@ -12415,7 +12415,7 @@ def v1.chunked.send_ek.serialize.HeaderSent.from_pb
               core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                 r5
             match cf4 with
-            | core.ops.control_flow.ControlFlow.Continue val4 =>
+            | core.ops.control_flow.ControlFlow.Continue (val4 : proto.pq_ratchet.PolynomialDecoder) =>
               let r6 ← encoding.polynomial.PolyDecoder.from_pb val4
               let r7 ←
                 core.result.Result.map_err
@@ -12490,7 +12490,7 @@ def v1.chunked.send_ek.serialize.HeaderSent.from_pb
                 core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                   r5
               match cf4 with
-              | core.ops.control_flow.ControlFlow.Continue val4 =>
+              | core.ops.control_flow.ControlFlow.Continue (val4 : proto.pq_ratchet.PolynomialDecoder) =>
                 let r6 ← encoding.polynomial.PolyDecoder.from_pb val4
                 let r7 ←
                   core.result.Result.map_err
@@ -12705,7 +12705,7 @@ def v1.chunked.send_ek.serialize.EkSentCt1Received.from_pb
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
         match cf2 with
-        | core.ops.control_flow.ControlFlow.Continue val2 =>
+        | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
           let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
           let r4 ←
             core.result.Result.map_err
@@ -12758,7 +12758,7 @@ def v1.chunked.send_ek.serialize.EkSentCt1Received.from_pb
             core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
               r2
           match cf2 with
-          | core.ops.control_flow.ControlFlow.Continue val2 =>
+          | core.ops.control_flow.ControlFlow.Continue (val2 : proto.pq_ratchet.PolynomialDecoder) =>
             let r3 ← encoding.polynomial.PolyDecoder.from_pb val2
             let r4 ←
               core.result.Result.map_err

@@ -1,7 +1,7 @@
 # Aeneas extraction configuration
 
 aeneas:
-  commit: "1ca2a067" # pinned commit hash
+  commit: "5fc8fdf2" # pinned commit hash
   repo: "https://github.com/AeneasVerif/aeneas.git"
 
 # Upstream Rust crate we are verifying
@@ -249,3 +249,5 @@ tweaks:
       replace: |
         (sorted_vec.SortedSet corecmpOrdInst) := {
 
+    - regex: "(ControlFlow\\.Continue )(val\\d+)(?= =>\\n\\s+let r\\d+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb \\2\\b)"
+      replace: "$1($2 : proto.pq_ratchet.PolynomialDecoder)"

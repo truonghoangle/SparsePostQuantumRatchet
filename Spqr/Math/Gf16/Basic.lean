@@ -39,7 +39,7 @@ lemma natToBinaryPoly_polyGF2 :
   rcases Nat.lt_or_ge m 17 with hlt | hge
   · interval_cases m <;> decide
   · have htb : Nat.testBit (0x1100b : Nat) m = false := by
-      apply Nat.testBit_eq_false_of_lt
+      apply Nat.testBit_lt_two_pow
       exact lt_of_lt_of_le (by norm_num : (0x1100b : Nat) < 2 ^ 17)
         (Nat.pow_le_pow_right (by norm_num) hge)
     simp only [htb, ↓reduceIte, show m ≠ 16 from by omega, show m ≠ 12 from by omega,
@@ -66,7 +66,7 @@ theorem polyGF2_ne_one : polyGF2 ≠ 1 := by
 
 lemma polyGF2_dvd_modByMonic_sub (p : BinaryPoly) :
     polyGF2 ∣ (p %ₘ polyGF2 - p) := by
-  have hadd := Polynomial.modByMonic_add_div p polyGF2_monic
+  have hadd := Polynomial.modByMonic_add_div p polyGF2
   refine ⟨-(p /ₘ polyGF2), ?_⟩
   linear_combination hadd
 

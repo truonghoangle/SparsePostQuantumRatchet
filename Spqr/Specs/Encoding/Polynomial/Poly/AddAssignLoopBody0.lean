@@ -193,16 +193,17 @@ theorem body_spec
   simp only [bind_tc_ok]
   cases opt with
   | none =>
-    simp only [WP.spec_ok]
+    simp [WP.spec_ok]
   | some p =>
     obtain ⟨i, v⟩ := p
-    simp only
+    simp only [alloc.vec.Vec.len, UScalar.lt_equiv, Usize.ofNatCore_val_eq,
+      alloc.vec.Vec.index_mut_slice_index, uncurry_apply_pair, List.get_eq_getElem,
+      List.getElem!_eq_getElem?_getD, ne_eq, not_lt]
     have h_i_lt_len : i.val < self.coefficients.val.length →
         i.val < self.coefficients.val.length := id
     step*
-    simp_all only [implies_true, alloc.vec.Vec.len, UScalar.lt_equiv, Usize.ofNatCore_val_eq,
-      getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set, List.get_eq_getElem,
-      forall_true_left, ne_eq, true_and, not_lt]
+    simp_all only [implies_true, getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set,
+      forall_true_left, true_and]
     use i
     use v
     grind

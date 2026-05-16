@@ -91,7 +91,7 @@ theorem mul_spec
           (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 := by
       simp_all
     rw [hPoly]
-  rw [key, ringHom_modByMonic BinaryPoly.toGF216 polyGF2 hMonic
+  rw [key, ringHom_modByMonic BinaryPoly.toGF216 polyGF2
     BinaryPoly.toGF216_polyGF2, map_mul]
 
 end spqr.encoding.gf.unaccelerated

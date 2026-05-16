@@ -137,7 +137,7 @@ private lemma reduceByteLoopFull_inv (a out : Nat) (n : Nat) (ha : a < 256) :
     simp only [reduceByteLoopFull]
     split_ifs with htb
     · have hn_le : n ≤ 7 := by
-        by_contra hlt; push_neg at hlt
+        by_contra hlt; push Not at hlt
         have := Nat.testBit_eq_false_of_lt (calc a < 256 := ha
           _ = 2 ^ 8 := by norm_num
           _ ≤ 2 ^ n := Nat.pow_le_pow_right (by norm_num) (by omega))
@@ -193,7 +193,7 @@ theorem reduceByteTable_eq_poly_full (k : Nat) (hk : k < 256) :
     exact if_neg (Bool.not_eq_true _ ▸ Nat.testBit_eq_false_of_lt
       (Nat.lt_of_lt_of_le (Nat.mod_lt _ (by norm_num)) (Nat.pow_le_pow_right (by norm_num) hm)))
   have hA_self : A %ₘ polyGF2 = A := by
-    have hA_eq := Polynomial.modByMonic_add_div A hmonic
+    have hA_eq := Polynomial.modByMonic_add_div A polyGF2
     suffices A /ₘ polyGF2 = 0 by rw [this, mul_zero, add_zero] at hA_eq; exact hA_eq
     by_contra hne
     have hprod_deg : (A /ₘ polyGF2 * polyGF2).natDegree ≥ 16 := by

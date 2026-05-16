@@ -91,7 +91,7 @@ theorem xor_table_shift_dvd (k n : Nat)
   apply dvd_mul_of_dvd_left
   rw [htable]
   set p := natToBinaryPoly k * X ^ 16
-  have h := Polynomial.modByMonic_add_div p polyGF2_monic
+  have h := Polynomial.modByMonic_add_div p polyGF2
   refine ⟨p /ₘ polyGF2, ?_⟩
   grind
 

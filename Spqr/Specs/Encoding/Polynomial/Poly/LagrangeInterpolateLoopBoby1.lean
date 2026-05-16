@@ -181,7 +181,8 @@ theorem body_spec
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
-    rw [h_opt_eq]; simp only
+    rw [h_opt_eq]
+    simp
     have h_j_lt_v : iter.start.val < v.val.length := by omega
     have h_jp1_lt_w : iter.start.val + 1 < working.coefficients.val.length := by
       omega
