@@ -75,4 +75,6 @@ lemma polyGF2_modByMonic_idem (p : BinaryPoly) :
   Polynomial.modByMonic_eq_of_dvd_sub polyGF2_monic
     (polyGF2_dvd_modByMonic_sub p)
 
+
+
 end spqr.math.gf

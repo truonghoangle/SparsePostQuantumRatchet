@@ -92,7 +92,6 @@ namespace spqr.encoding.polynomial
 
 /-! ## Inhabited instances -/
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
 instance : Inhabited spqr.encoding.polynomial.Pt where
   default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
@@ -172,7 +171,7 @@ lemma listToGF216Poly_coeff (cs : List spqr.encoding.gf.GF16) (m : Nat) :
         (fun ⟨j, hj⟩ _ hjm => by simp [show m ≠ j from fun h => hjm (Fin.ext h.symm)])]
     simp
   · rename_i hm
-    push_neg at hm
+    push Not at hm
     exact Finset.sum_eq_zero fun ⟨i, hi⟩ _ => by
       simp [show m ≠ i from by omega]
 
@@ -304,13 +303,13 @@ lemma GF216Poly.sub_eq_add (a b : GF216Poly) : a - b = a + b := by
 /--
 Evaluate the mathematical interpretation of a `Poly` at a `GF16` point.
 -/
-noncomputable def Poly.evalAt (p : Poly) (x : spqr.encoding.gf.GF16) : GF216 :=
+noncomputable def Poly.evalAt (p : Poly) (x : GF16) : GF216 :=
   (p.toGF216Poly).eval (x.toGF216)
 
 /--
 **Evaluating the zero polynomial at any point gives `0 : GF216`.**
 -/
-lemma Poly.evalAt_zero_poly (p : Poly) (x : spqr.encoding.gf.GF16)
+lemma Poly.evalAt_zero_poly (p : Poly) (x : GF16)
     (h : p.coefficients.length = 0) :
     p.evalAt x = 0 := by
   unfold Poly.evalAt
@@ -348,7 +347,7 @@ lemma listToGF216Poly_append_singleton
     simp only [hm3, if_false, mul_zero, add_zero]
     congr 1
     simp [List.get_eq_getElem, List.getElem_append_left hm1]
-  · push_neg at hm1
+  · push Not at hm1
     by_cases hm2 : m = cs.length
     · -- m = cs.length: LHS = a, RHS = 0 + a
       subst hm2
@@ -383,7 +382,7 @@ lemma listToGF216Poly_add (cs ds : List spqr.encoding.gf.GF16)
   by_cases hm : m < cs.length
   · simp only [hm, show m < ds.length from by omega, show m < rs.length from by omega, dif_pos]
     exact hcoeff m hm
-  · push_neg at hm
+  · push Not at hm
     simp [show ¬(m < cs.length) from by omega,
           show ¬(m < ds.length) from by omega,
           show ¬(m < rs.length) from by omega]
@@ -429,7 +428,7 @@ lemma listToGF216Poly_eq_of_coeffs
   rw [listToGF216Poly_coeff]
   split
   · rename_i hm; exact h_in m hm
-  · rename_i hm; push_neg at hm; exact (h_out m hm).symm
+  · rename_i hm; push Not at hm; exact (h_out m hm).symm
 
 /-! ## Product of linear factors -/
 

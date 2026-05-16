@@ -479,15 +479,15 @@ which is the expected semantics of `self += other` in `GF216[X]`.
 @[step]
 theorem loop_spec
     (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16))
-    (self : encoding.polynomial.Poly)
+      (core.slice.iter.Iter GF16))
+    (self : Poly)
     (other_coeffs : List encoding.gf.GF16)
     (h_iter_data : iter.iter.slice.val.drop iter.iter.i = other_coeffs)
     (h_count_eq : iter.count.val = iter.iter.i)
     (h_start : iter.iter.i = 0)
     (h_len : self.coefficients.val.length + other_coeffs.length ≤ Std.Usize.max) :
-    encoding.polynomial.Poly.add_assign_loop iter self
-      ⦃ (result : encoding.polynomial.Poly) =>
+    add_assign_loop iter self
+      ⦃ (result : Poly) =>
         result.toGF216Poly =
           self.toGF216Poly + listToGF216Poly other_coeffs ⦄ := by
   unfold encoding.polynomial.Poly.add_assign_loop

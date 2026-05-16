@@ -316,13 +316,16 @@ theorem lagrange_interpolate_pt_spec
         (X - C (GF16.toGF216 (pts.val.get ⟨i.val, hi⟩).x)) =
         X * C (lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩) pts.val) *
           prodLinearFactors pts.val 0 pts.val.length := by
-      rw [← h_r1_X_factor]; exact h_r1_id
+      rw [← h_r1_X_factor]
+      exact h_r1_id
     have h_cancel' :
         X * (listToGF216Poly (result1.coefficients.val.drop 1) *
           (X - C (GF16.toGF216 (pts.val.get ⟨i.val, hi⟩).x))) =
         X * (C (lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩) pts.val) *
           prodLinearFactors pts.val 0 pts.val.length) := by
-      ring_nf; ring_nf at h_cancel; exact h_cancel
+      ring_nf
+      ring_nf at h_cancel
+      exact h_cancel
     exact mul_left_cancel₀ h_X_ne_zero h_cancel'
 
 end spqr.encoding.polynomial.Poly

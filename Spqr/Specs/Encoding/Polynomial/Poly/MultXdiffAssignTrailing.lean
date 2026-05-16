@@ -211,7 +211,6 @@ have been modified so far), so reading `v_current[i]` yields the original `v[i]`
 
 namespace spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
 private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
     {k : Nat}
@@ -409,7 +408,6 @@ The postcondition is inherited directly from the loop specification in
 
 namespace spqr.encoding.polynomial.Poly
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
 open Polynomial
 
