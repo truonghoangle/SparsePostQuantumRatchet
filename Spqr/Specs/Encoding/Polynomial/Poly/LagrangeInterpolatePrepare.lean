@@ -175,14 +175,16 @@ theorem body_spec
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
-    rw [h_opt_eq]; simp only
+    rw [h_opt_eq]
+    simp only [uncurry_apply_pair, not_lt, tsub_le_iff_right, List.get_eq_getElem,
+      List.getElem!_eq_getElem?_getD, not_and]
     have h_i_lt_pts : iter.start.val < pts.val.length := by omega
     have h_i_lt_offset : iter.start.val < offset.val := by omega
     step*
     all_goals simp_all
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
-    rw [h_opt_eq]; simp only [WP.spec_ok]
-    exact ⟨trivial, by omega⟩
+    rw [h_opt_eq]
+    grind
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
@@ -430,12 +432,12 @@ theorem loop_spec
         omega
       · -- [offset]? preserved via body frame
         have h_off_frame := h_frame offset.val (by
-          push_neg; intro _; omega)
+          push Not; intro _; omega)
         rw [h_off_frame, h_off']
       · -- leading.toGF216 coefficient preserved
         intro hoff
         have h_off_frame := h_frame offset.val (by
-          push_neg; intro _; omega)
+          push Not; intro _; omega)
         have hoff_p' : offset.val < p'.coefficients.val.length := by omega
         have h_get_eq := list_get_of_getElem?_eq h_off_frame hoff hoff_p'
         simp only [List.get_eq_getElem] at h_get_eq ⊢
@@ -564,7 +566,7 @@ theorem loop_spec
             -- pos = offset
             have hpos_off : pos = offset.val := by omega
             -- Body frame: result[offset]? = p'[offset]?
-            have hfr := h_frame offset.val (by push_neg; intro _; omega)
+            have hfr := h_frame offset.val (by push Not; intro _; omega)
             -- Convert get index from pos to offset
             have hoff_len : offset.val <
                 (Prod.snd r_post).coefficients.val.length := by omega
@@ -755,7 +757,7 @@ theorem lagrange_interpolate_prepare_spec
     lt_add_iff_pos_right, zero_lt_one, getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set,
     getElem?_pos, List.getElem_set_self, Option.some.injEq, List.get_eq_getElem, ONE_toGF216,
     imp_self, tsub_self, zero_le, true_and, not_lt, tsub_zero, zero_add, Order.lt_add_one_iff,
-    forall_true_left, ONE_value, iff_true, forall_const]
+    forall_true_left, ONE_value,  forall_const]
     have h_bridge : expectedTrailingPoly
         ((p.coefficients.val.resize (pts.val.length + 1) ZERO).set pts.val.length ONE)
         pts.val pts.val.length 0 pts.val.length =
@@ -782,7 +784,7 @@ theorem lagrange_interpolate_prepare_spec
         · have hj_take : j < (p.coefficients.val.take (pts.val.length + 1)).length := by
             simp; omega
           grind
-        · push_neg at hk
+        · push Not at hk
           have htake_len_le : (p.coefficients.val.take (pts.val.length + 1)).length ≤ j := by
             rw [List.length_take]; omega
           have hrepl_bnd : j - (p.coefficients.val.take (pts.val.length + 1)).length <

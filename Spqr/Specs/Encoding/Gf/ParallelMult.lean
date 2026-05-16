@@ -90,11 +90,8 @@ theorem parallel_mult_loop_body_spec'
   step*
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;>
     (try first
-      | (rw [Slice.set_val_eq, Slice.set_val_eq,
-             List.getElem!_set_ne (by scalar_tac : i.val ≠ i.val + 1),
-             List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
-      | (rw [Slice.set_val_eq,
-             List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
+      | (rw [Slice.set_val_eq, Slice.set_val_eq])
+      | (rw [Slice.set_val_eq])
       | scalar_tac)
   · grind
   · grind
@@ -140,11 +137,8 @@ theorem parallel_mult_loop_body_spec
   step*
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp_all <;>
     (try first
-      | (rw [Slice.set_val_eq, Slice.set_val_eq,
-             List.getElem!_set_ne (by scalar_tac : i.val ≠ i.val + 1),
-             List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
-      | (rw [Slice.set_val_eq,
-             List.getElem!_set_self (by simp [Slice.length] at *; scalar_tac)])
+      | (rw [Slice.set_val_eq, Slice.set_val_eq])
+      | (rw [Slice.set_val_eq])
       | scalar_tac)
   · simp_all[GF16.toGF216]
     grind
@@ -356,29 +350,23 @@ theorem parallel_mult_spec
   constructor
   · simp_all
   · intro j hj
-    set i:=a.2.2
     have hj_loop : j < i ∨ j ≥ i := Nat.lt_or_ge j i
     rcases hj_loop with hj1 | hj2
-    · have :=hterm.2.2.2.2.2.1 j (by simp)  hj1
-      simp_all only [Slice.length, le_refl, List.getElem!_eq_getElem?_getD,
-      Slice.set_val_eq, List.length_set, zero_le,
-      forall_const, getElem!_pos, not_lt_zero, IsEmpty.forall_iff,
-      and_true, true_and, UScalar.lt_equiv,
-      Usize.ofNatCore_val_eq, getElem?_pos, Option.getD_some]
+    · have :=a1_post6 j (by simp)  hj1
+      simp_all only [Slice.length, getElem!_pos, zero_le, List.getElem!_eq_getElem?_getD,
+        forall_const, not_lt_zero, IsEmpty.forall_iff, UScalar.lt_equiv,
+        Usize.ofNatCore_val_eq, Std.le_refl, Prod.mk.injEq, Slice.set_val_eq, List.length_set]
       rw[← this]
       congr 1
       have : (↑i : Nat) ≠ j:= by omega
       simp [this]
-    · have : j< ha1.2.1.length := by
+    · have : j< into1.length := by
         simp_all
-      have :=hterm.2.2.2.2.2.2.1 j (by simp[hj2])  this
+      have :=a1_post7 j (by simp[hj2])  this
       have hji : j = ↑i := by
-        have := hterm.2.2.1
-        have := hterm.2.1
         simp_all
         omega
       subst hji
       simp_all [mul_comm]
-
 
 end spqr.encoding.gf

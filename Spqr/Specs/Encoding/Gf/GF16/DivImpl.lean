@@ -229,7 +229,7 @@ theorem div_impl_loop_body_spec
   rw [hnext]
   simp only [bind_tc_ok]
   cases o with
-  | none => simp only [WP.spec_ok]
+  | none => simp [WP.spec_ok]
   | some _ => step*
 
 
@@ -369,7 +369,8 @@ theorem div_impl_loop_spec
     by_cases h_lt : iter'.start.val < iter'.end.val
     · obtain ⟨h_opt, h_start1, h_end1⟩ := h_cont h_lt
       rw [h_opt]
-      simp only
+      simp only [uncurry_apply_pair, Int.lt_toNat, Int.ofNat_toNat, sup_lt_iff, Int.sub_pos,
+        and_assoc]
       step*
       have hk1 :
           (iter1.start.val - iter.start.val).toNat =
@@ -400,7 +401,8 @@ theorem div_impl_loop_spec
             (2 ^ (iter'.start.val - iter.start.val).toNat - 1) +
               2 ^ (iter'.start.val - iter.start.val).toNat =
             2 ^ (iter1.start.val - iter.start.val).toNat - 1 := by
-          rw [hk1, pow_succ]; omega
+          rw [hk1, pow_succ]
+          omega
         rw [h_eq]
       · rw [h_start1, h_end1]
         have h_pos : 0 < iter'.end.val - iter'.start.val := by omega
@@ -413,14 +415,15 @@ theorem div_impl_loop_spec
           have h0 : (0 : Int) ≤ iter'.end.val - iter'.start.val := by omega
           have h1 : (1 : Int) ≤ iter'.end.val - iter'.start.val := by omega
           omega
-        rw [h_toNat]
+        simp
         have h0 : 0 < (iter'.end.val - iter'.start.val).toNat := by
           have : (1 : Int) ≤ iter'.end.val - iter'.start.val := by omega
           omega
         omega
     · obtain ⟨h_opt, _⟩ := h_done h_lt
       rw [h_opt]
-      simp only [WP.spec_ok]
+      simp only [uncurry_apply_pair, Int.lt_toNat, Int.ofNat_toNat, sup_lt_iff, Int.sub_pos,
+        and_assoc, WP.spec_ok]
       have h_end' : iter'.end.val = iter.end.val := by rw [← h_end]
       have h_start_eq : iter'.start.val = iter.end.val := by omega
       have h_k_eq :
@@ -490,10 +493,5 @@ theorem div_impl_spec (self other : GF16) :
     div_impl_loop_spec { start := 1#i32, «end» := 16#i32 } square self
       (by scalar_tac)
   step*
-  rw [result_post, square_post,
-      show (other.toGF216 * other.toGF216 : GF216)
-            = other.toGF216 ^ 2 from by ring,
-      ← pow_mul]
-  congr 1
 
 end spqr.encoding.gf.GF16

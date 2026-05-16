@@ -146,14 +146,17 @@ theorem body_spec
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
-    rw [h_opt_eq]; simp only
+    rw [h_opt_eq]
+    simp only [alloc.vec.Vec.index_slice_index, alloc.vec.Vec.index_mut_slice_index,
+      uncurry_apply_pair, not_lt, List.get_eq_getElem, List.getElem!_eq_getElem?_getD, ne_eq]
     have h_i_lt_len : iter.start.val < v.val.length := by omega
     have h_im1_lt_len : iter.start.val - 1 < v.val.length := by omega
     step*
     all_goals simp_all
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
-    rw [h_opt_eq]; simp only [WP.spec_ok]
-    exact ⟨trivial, by omega⟩
+    rw [h_opt_eq]
+    simp [WP.spec_ok]
+    grind
 
 end spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
@@ -310,7 +313,7 @@ theorem loop_spec
         exact h_processed j hj1 (by omega) hj
       · intro j hj
         apply h_unchanged
-        push_neg at hj ⊢
+        push Not at hj ⊢
         intro h1; have := hj h1; omega
     · rename_i r_post
       simp only [] at r_post
@@ -333,22 +336,22 @@ theorem loop_spec
           subst hj_eq
           have h_mod := h_modified (by omega)
           have h_unch_m1 : v'.val[iter'.start.val - 1]? = v.val[iter'.start.val - 1]? :=
-            h_unchanged (iter'.start.val - 1) (by push_neg; intro _; omega)
+            h_unchanged (iter'.start.val - 1) (by push Not; intro _; omega)
           have h_unch_s : v'.val[iter'.start.val]? = v.val[iter'.start.val]? :=
-            h_unchanged iter'.start.val (by push_neg; intro _; omega)
+            h_unchanged iter'.start.val (by push Not; intro _; omega)
           have h_bang_m1 := getElem_bang_eq h_unch_m1 (by omega) (by omega)
           have h_bang_s := getElem_bang_eq h_unch_s (by omega) (by omega)
           simp only [List.get_eq_getElem] at h_mod ⊢
           rw [h_mod, h_bang_m1, h_bang_s]
           grind
       · intro j hj
-        push_neg at hj
+        push Not at hj
         have hj_ne : j ≠ iter'.start.val - 1 := by
           intro heq; subst heq
           grind
         have h_fr := h_frame j hj_ne
         have h_old_unch : v'.val[j]? = v.val[j]? := by
-          apply h_unchanged; push_neg; intro h1
+          apply h_unchanged; push Not; intro h1
           have := hj h1; omega
         rw [h_fr, h_old_unch]
       · grind
@@ -480,15 +483,15 @@ private lemma mult_xdiff_poly_identity
       · -- m ≥ cs.length − 1: product term has zero factor
         rw [dif_neg hd, mul_zero, sub_zero]
         have h_not : ¬(s ≤ m + 1 ∧ m + 1 < cs.length) := by
-          rw [List.length_drop] at hd; push_neg at hd ⊢; intro h1; omega
+          rw [List.length_drop] at hd; push Not at hd ⊢; intro h1; omega
         exact congr_arg GF16.toGF216
           (list_get_of_getElem?_eq' (h_same m h_not) (by omega) hm)
     · -- m < s − 1: product term is zero
       rw [if_neg hs, mul_zero, sub_zero]
       exact congr_arg GF16.toGF216
-        (list_get_of_getElem?_eq' (h_same m (by push_neg; intro h1; omega)) (by omega) hm)
+        (list_get_of_getElem?_eq' (h_same m (by push Not; intro h1; omega)) (by omega) hm)
   · -- m ≥ cs.length: both sides are zero
-    push_neg at hm
+    push Not at hm
     rw [dif_neg (by omega), dif_neg (by omega)]
     by_cases hs : s - 1 ≤ m
     · rw [if_pos hs, listToGF216Poly_coeff,

@@ -167,7 +167,8 @@ theorem body_spec (pi : Pt)
   | none =>
     simp [WP.spec_ok]
   | some pj =>
-    simp only [encoding.gf.GF16.Insts.CoreCmpPartialEqGF16.eq, bind_tc_ok]
+    simp only [GF16.Insts.CoreCmpPartialEqGF16.eq, bind_tc_ok, decide_eq_true_eq,
+      uncurry_apply_pair]
     split
     · simp only [WP.spec_ok]
       grind
@@ -302,12 +303,12 @@ theorem loop0_spec
         ring_nf at hinv
         exact hinv
     · rename_i hnlt
-      simp only [bind_tc_ok, WP.spec_ok]
+      simp only [bind_tc_ok]
       have hge' : iter.slice.val.length ≤ iter'.i := by
         simp only [Slice.len_val, hslice] at hnlt; grind
       rw [lagrangeDenomProd_ge pi.x iter.slice.val iter'.i hge', mul_one] at hinv
-      exact ⟨trivial, hinv⟩
-  · exact ⟨rfl, le_refl _, by ring⟩
+      grind
+  · grind
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
@@ -412,21 +413,28 @@ theorem body_spec
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter'.start.val < iter'.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
-    rw [h_opt_eq]; simp only
+    rw [h_opt_eq]
     have h_start_lt_len : iter'.start.val < v'.val.length := by omega
     have h_start_le_len : iter'.start.val ≤ v'.val.length := by omega
     have h_cursor_lt_len : v'.val.length - iter'.start.val < v'.val.length := by omega
     have h_cursor_ge1 : 1 ≤ v'.val.length - iter'.start.val := by omega
     step*
-    all_goals simp_all
-    · grind
-    ·   rw [list_double_set_getElem_fst (show v'.val.length - iter'.start.val - 1 ≠
+    · simp_all
+      grind
+    · simp_all only [not_true_eq_false, reduceCtorEq, false_and, implies_true,
+      and_self, tsub_lt_self_iff, alloc.vec.Vec.len,
+      Usize.ofNatCore_val_eq, getElem!_pos, alloc.vec.Vec.set_val_eq,
+      List.getElem!_eq_getElem?_getD, Nat.not_eq, ne_eq, tsub_pos_iff_lt, Order.lt_one_iff, or_true,
+      List.getElem?_set_neq, List.length_set, List.get_eq_getElem, forall_true_left,
+      List.getElem_set_self, getElem?_pos, Option.getD_some, not_false_eq_true, lt_or_lt_iff_ne,
+      true_or, and_true, true_and]
+      rw [list_double_set_getElem_fst (show v'.val.length - iter'.start.val - 1 ≠
             v'.val.length - iter'.start.val from by omega)]
-        simp only [GF16.toGF216]
-        exact g3_post
+      simp only [GF16.toGF216]
+      exact g3_post
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
-    rw [h_opt_eq]; simp only [WP.spec_ok]
-    exact ⟨trivial, by omega⟩
+    rw [h_opt_eq]
+    grind
 
 private lemma hornerAccum_eq_of_idx_eq
     {g_x : spqr.encoding.gf.GF16} {v_list xs : List spqr.encoding.gf.GF16}
@@ -659,7 +667,7 @@ private lemma poly_identity_from_loop1
     split
     · rename_i h0v
       rw [hv0_zero h0v, mul_zero]
-    · rename_i h0v; push_neg at h0v; omega
+    · rename_i h0v; push Not at h0v; omega
   · have hm_pos : 0 < m := Nat.pos_of_ne_zero hm0
     have hcoeff_v_X : (listToGF216Poly v * X).coeff m =
         (listToGF216Poly v).coeff (m - 1) := by
@@ -707,7 +715,7 @@ private lemma poly_identity_from_loop1
         have := hornerAccum_cancel g coeffs (m - 1) hm1_lt_c
         rw [hm_succ] at this
         exact this
-    · push_neg at hm_lt
+    · push Not at hm_lt
       by_cases hm_eq : m = coeffs.length
       · subst hm_eq
         have hm1_lt_c : coeffs.length - 1 < coeffs.length :=
@@ -837,7 +845,7 @@ private lemma Nat_toGF216_eq_zero
       (lt_of_lt_of_le hn (Nat.pow_le_pow_right (by norm_num : 0 < 2) hm))]
   have hnd : (natToBinaryPoly n).natDegree < 16 := by
     by_contra h_not
-    push_neg at h_not
+    push Not at h_not
     have h_lc : (natToBinaryPoly n).coeff (natToBinaryPoly n).natDegree ≠ 0 := by
       intro h0; exact hne (Polynomial.leadingCoeff_eq_zero.mp h0)
     exact h_lc (hcoeff_zero _ h_not)
@@ -1026,7 +1034,6 @@ theorem lagrange_interpolate_complete_spec
   case h2 =>
     simp only [core.fmt.Arguments.from_str, bind_tc_ok,
     List.get_eq_getElem, X_mul_C, WP.spec_fail]
-    rename_i _ _ _ _ loop0_fst_eq _ _ _ _ h_not_b
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
@@ -1037,7 +1044,8 @@ theorem lagrange_interpolate_complete_spec
       exact heval
     have h0_len : 0 < v.val.length := by omega
     have hv0_zero : (v.val.get ⟨0, h0_len⟩).toGF216 = 0 := by
-      rw [v_post3 h0_len, loop0_fst_eq, hpi_eq]; exact hH0
+      rw [v_post3 h0_len]
+      grind
     have hlv_get : left_val = v.val.get ⟨0, h0_len⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact left_val_post
@@ -1045,16 +1053,15 @@ theorem lagrange_interpolate_complete_spec
       GF16.toGF216_eq_zero_imp left_val (by rw [hlv_get]; exact hv0_zero)
     have hlv_eq_zero : left_val.value = spqr.encoding.gf.GF16.ZERO.value :=
       UScalar.eq_of_val_eq (by simp only [spqr.encoding.gf.GF16.ZERO]; exact hlv_val_zero)
-    have :=h_not_b (b_post.mpr hlv_eq_zero)
-    simp[this]
+    grind
   case h1 =>
-    rename_i _ _ loop0_res _ loop0_fst_eq loop0_snd_eq _ _ _ hb
+    rename_i _ _ _ _ _ _ hb
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
       exact pi_post
     have hlv_zero := b_post.mp hb
     have hH0 : hornerAccum
-        loop0_res.1.x self.coefficients.val 0 = 0 := by
+        pi1.x self.coefficients.val 0 = 0 := by
       have h0 : 0 < v.val.length := by omega
       rw [← v_post3 h0]
       have hlv_get : left_val = v.val.get ⟨0, h0⟩ := by
@@ -1070,13 +1077,13 @@ theorem lagrange_interpolate_complete_spec
         lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩)
           pts.val := by
       unfold lagrangeScaleGF216
-      rw [loop0_fst_eq] at scale_post
+      rw [pi1_post1] at scale_post
       rw [scale_post]
-      rw [iter_post1, iter_post2] at loop0_snd_eq
+      rw [iter_post1, iter_post2] at pi1_post2
       simp only [spqr.encoding.gf.GF16.ONE_toGF216,
-        one_mul] at loop0_snd_eq
-      rw [loop0_snd_eq, hpi_eq]
-    rw [loop0_fst_eq] at v_post2 v_post3 hH0
+        one_mul] at pi1_post2
+      rw [pi1_post2, hpi_eq]
+    rw [pi1_post1] at v_post2 v_post3 hH0
     rw [hpi_eq] at v_post2 v_post3 hH0
     constructor
     · exact v_post1

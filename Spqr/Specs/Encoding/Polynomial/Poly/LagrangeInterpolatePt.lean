@@ -286,7 +286,7 @@ theorem lagrange_interpolate_pt_spec
   have h_r1_pos : 0 < result1.coefficients.val.length := by
     rw [h_r1_len, h_template_len]; omega
   step with vec_remove_zero_spec result1.coefficients h_r1_pos as
-    ⟨_, h_v_drop⟩
+    ⟨_, _, h_v_drop⟩
   simp_all only
   have h_r1_len_eq : result1.coefficients.val.length = pts.val.length + 1 := by
     omega

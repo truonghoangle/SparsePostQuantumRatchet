@@ -240,7 +240,6 @@ theorem body_spec
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    simp only
     have hi_pts : iter.start.val < pts.val.length := by omega
     have h_eval_t : template.evalAt (pts.val.get ⟨iter.start.val, hi_pts⟩).x = 0 :=
       h_eval h_lt hi_pts
@@ -289,10 +288,34 @@ theorem body_spec
         pts iter.start hi_pts h_v1_len h_poly_eval
     have h_v_len_val : (alloc.vec.Vec.len v).val = v.val.length := by
       simp [alloc.vec.Vec.len]
-    step*
+    -- Step through copy_from_slice
+    apply WP.spec_bind h_copy
+    intro s2 hs2
+    rw [hs2]
+    -- Step through lagrange_interpolate_complete
+    apply WP.spec_bind h_complete
+    intro working1 ⟨h_w1_len, h_w1_poly⟩
+    -- Step through lagrange_interpolate_loop0_loop0
+    apply WP.spec_bind (lagrange_interpolate_loop0_loop0.loop_spec
+        working1
+        { start := 0#usize, «end» := alloc.vec.Vec.len v }
+        v
+        (by rw [h_v_len_val])
+        (by rw [h_v_len_val, h_w1_len, hv1_val]; exact h_v_lt)
+        (by grind))
+    rintro ⟨v2, working2⟩ ⟨h_w2_eq, h_v2_len, h_processed, h_unchanged⟩
+    simp only [uncurry_apply_pair, not_lt, List.get_eq_getElem, X_mul_C,
+      List.getElem!_eq_getElem?_getD, WP.spec_ok]
+    simp only [← h_w2_eq, List.get_eq_getElem, X_mul_C, UScalar.ofNatCore_val_eq, zero_le,
+      alloc.vec.Vec.len, Usize.ofNatCore_val_eq, List.getElem!_eq_getElem?_getD,
+      forall_const] at h_w1_len h_w1_poly h_processed ⊢
+    refine ⟨h_lt, h_start1, h_end1, h_v2_len, ?_, ?_, ?_⟩
+    · rw [h_w1_len, hv1_val]
+    · intro hi; rw [h_toGF_eq] at h_w1_poly; exact h_w1_poly
+    · intro j hj
+      grind
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
     rw [h_opt_eq]
-    simp only [WP.spec_ok]
-    exact ⟨trivial, h_lt⟩
+    grind
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0

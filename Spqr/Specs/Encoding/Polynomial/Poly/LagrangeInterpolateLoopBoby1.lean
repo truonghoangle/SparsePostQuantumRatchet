@@ -182,24 +182,20 @@ theorem body_spec
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    simp
+    simp only [alloc.vec.Vec.index_mut_slice_index, alloc.vec.Vec.index_slice_index,
+      uncurry_apply_pair, not_lt, List.get_eq_getElem, List.getElem!_eq_getElem?_getD, ne_eq]
     have h_j_lt_v : iter.start.val < v.val.length := by omega
     have h_jp1_lt_w : iter.start.val + 1 < working.coefficients.val.length := by
       omega
     step*
-    rename_i _ hxset hxclo _ _
-    rw [hxclo]
     refine ⟨h_lt, h_start1, h_end1, by
-              simp [alloc.vec.Vec.set_val_eq], ?_, ?_⟩
+              simp_all, ?_, ?_⟩
     · intro h_idx
-      simp only [alloc.vec.Vec.set_val_eq, List.get_eq_getElem,
-                 List.getElem_set_self]
-      rw [g2_post, hxset]
-      simp [g1_post, i_post]
+      simp_all
     · intro k hk
-      simp [alloc.vec.Vec.set_val_eq, hk]
+      simp_all
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
-    rw [h_opt_eq]; simp only [WP.spec_ok]
-    exact ⟨trivial, trivial, by omega⟩
-
+    rw [h_opt_eq]
+    simp [WP.spec_ok]
+    grind
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0
