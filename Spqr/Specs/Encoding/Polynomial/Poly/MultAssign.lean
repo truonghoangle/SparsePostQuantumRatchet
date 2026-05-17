@@ -83,10 +83,12 @@ theorem mult_assign_spec
     (self : Poly) (m : GF16)
     (h_len : self.coefficients.val.length + 2 ≤ Usize.max) :
     mult_assign self m ⦃ (result : Poly) =>
+      result.coefficients.val.length = self.coefficients.val.length ∧
       result.toGF216Poly = C (m.toGF216) * self.toGF216Poly ⦄ := by
   unfold mult_assign
   simp only [alloc.vec.Vec.deref_mut, lift, bind_tc_ok]
   step*
+  refine ⟨by simp_all [Slice.length], ?_⟩
   simp only [Poly.toGF216Poly]
   apply listToGF216Poly_eq_of_coeffs
   · intro j hj
@@ -97,5 +99,6 @@ theorem mult_assign_spec
   · intro j hj
     rw [coeff_C_mul, listToGF216Poly_coeff_eq_zero _ _ (by simp_all [Slice.length])]
     ring
+
 
 end spqr.encoding.polynomial.Poly

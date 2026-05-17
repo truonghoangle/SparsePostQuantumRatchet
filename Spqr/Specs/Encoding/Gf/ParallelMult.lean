@@ -35,8 +35,6 @@ open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf spqr.math.gf
 
 namespace spqr.encoding.gf
 
-local instance : Inhabited encoding.gf.GF16 := ⟨{ value := 0#u16 }⟩
-
 /--
 **Polynomial-level postcondition for `encoding.gf.parallel_mult_loop.body`**:
 
@@ -69,8 +67,8 @@ calls.
 **Source**: spqr/src/encoding/gf.rs (lines 570:4-575:5)
 -/
 theorem parallel_mult_loop_body_spec'
-    (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize)
-    (hi : i.val + 2 ≤ Std.Usize.max) :
+    (a : GF16) (into : Slice GF16) (i : Usize)
+    (hi : i.val + 2 ≤ Usize.max) :
     parallel_mult_loop.body a into i ⦃ cf =>
       match cf with
       | ControlFlow.done (a', into', i') =>
@@ -114,8 +112,8 @@ the GF(2¹⁶) interpretation of the result.
 -/
 @[step]
 theorem parallel_mult_loop_body_spec
-    (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize)
-    (hi : i.val + 2 ≤ Std.Usize.max) :
+    (a : GF16) (into : Slice GF16) (i : Usize)
+    (hi : i.val + 2 ≤ Usize.max) :
     parallel_mult_loop.body a into i ⦃ cf =>
       match cf with
       | ControlFlow.done (a', into', i') =>
@@ -209,8 +207,9 @@ in GF(2¹⁶).
 -/
 @[step]
 theorem parallel_mult_loop_spec
-    (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize)
-    (hlen : into.length + 2 ≤ Std.Usize.max) (hi : i.val ≤ into.length) :
+    (a : GF16) (into : Slice GF16) (i : Usize)
+    (hlen : into.length + 2 ≤ Usize.max)
+    (hi : i.val ≤ into.length) :
     parallel_mult_loop a into i ⦃ (a', into', i') =>
       a' = a ∧
       into'.length = into.length ∧
@@ -225,9 +224,9 @@ theorem parallel_mult_loop_spec
         (into'.val[j]!) = (into.val[j]!)) ⦄ := by
   unfold parallel_mult_loop
   apply loop.spec_decr_nat
-    (measure := fun (p : (Slice encoding.gf.GF16) × Std.Usize) =>
+    (measure := fun (p : (Slice GF16) × Usize) =>
       p.1.length - p.2.val)
-    (inv := fun (p : (Slice encoding.gf.GF16) × Std.Usize) =>
+    (inv := fun (p : (Slice GF16) × Usize) =>
       p.1.length = into.length ∧
       i.val ≤ p.2.val ∧
       p.2.val ≤ p.1.length ∧
@@ -239,7 +238,7 @@ theorem parallel_mult_loop_spec
         (p.1.val[j]!) = (into.val[j]!)))
   · rintro ⟨into', i'⟩ ⟨hlen', hi_le, hi_bound, hval_proc, hval_unproc, hval_before⟩
     simp only [] at *
-    have hi' : i'.val + 2 ≤ Std.Usize.max := by omega
+    have hi' : i'.val + 2 ≤ Usize.max := by omega
     step*
     split
     · simp_all
@@ -338,9 +337,9 @@ fallback.
 -/
 @[step]
 theorem parallel_mult_spec
-    (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16)
-    (hlen : into.length + 2 ≤ Std.Usize.max) :
-    parallel_mult a into ⦃ (result : Slice encoding.gf.GF16) =>
+    (a : GF16) (into : Slice GF16)
+    (hlen : into.length + 2 ≤ Usize.max) :
+    parallel_mult a into ⦃ (result : Slice GF16) =>
       result.length = into.length ∧
       (∀ j : Nat, j < result.length →
         ((result.val[j]!).toGF216 : GF216) =

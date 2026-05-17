@@ -84,4 +84,23 @@ theorem zero_spec (capacity : Std.Usize) :
   unfold zero
   simp [alloc.vec.Vec.with_capacity, Poly.toGF216Poly, spqr.encoding.polynomial.listToGF216Poly]
 
+/--
+**Stronger spec for `Poly.zero`**: in addition to the polynomial-level postcondition
+`result.toGF216Poly = 0` provided by `zero_spec`, the underlying coefficient vector
+also has length `0`.
+
+This is what `Vec::with_capacity` actually produces, regardless of the `capacity`
+hint, and is the form needed by callers (e.g. `lagrange_interpolate`, `lagrange_sum`)
+that have to discharge a uniform length bound `out.coefficients.val.length ≤ M`
+for the running accumulator before entering a loop.
+
+**Source**: spqr/src/encoding/polynomial.rs (lines 94:4-98:5)
+-/
+theorem zero_spec' (capacity : Std.Usize) :
+    zero capacity ⦃ (result : spqr.encoding.polynomial.Poly) =>
+      result.coefficients.val.length = 0 ∧ result.toGF216Poly = 0 ⦄ := by
+  unfold zero
+  simp [alloc.vec.Vec.with_capacity, Poly.toGF216Poly,
+    spqr.encoding.polynomial.listToGF216Poly]
+
 end spqr.encoding.polynomial.Poly

@@ -93,7 +93,7 @@ The two-element vector `[GF16::ONE, x]` satisfies the power-vector invariant:
 This establishes the precondition for loop 0, ensuring that the initial entries `x⁰ = 1` and
 `x¹ = x` are correctly represented before the loop extends the vector to higher powers.
 -/
-private lemma initial_power_invariant (x : encoding.gf.GF16) :
+private lemma initial_power_invariant (x : GF16) :
     ∀ j, j < [GF16.ONE, x].length →
       ([GF16.ONE, x][j]!).toGF216 = x.toGF216 ^ j := by
   intro j hj
@@ -145,29 +145,24 @@ construction + dot-product accumulation) to the mathematical polynomial evaluati
      `p.eval x` by `eval_eq_range_sum` (since `p.coeff j = 0` for `j ≥ n`).
 -/
 private lemma dot_product_eq_eval
-    (x : encoding.gf.GF16)
-    (v : List encoding.gf.GF16)
-    (xs : List encoding.gf.GF16)
+    (x : GF16) (v : List GF16) (xs : List GF16)
     (h_pow : ∀ j, j < xs.length → (xs[j]!).toGF216 = x.toGF216 ^ j)
     (h_len : v.length ≤ xs.length) :
     (∑ j ∈ Finset.range v.length,
       (v[j]!).toGF216 * (xs[j]!).toGF216) =
     (listToGF216Poly v).eval (x.toGF216) := by
-  -- Step 1: Substitute power invariant into the dot product
   have h_sub : ∀ j ∈ Finset.range v.length,
       (v[j]!).toGF216 * (xs[j]!).toGF216 =
       (v[j]!).toGF216 * x.toGF216 ^ j := by
     intro j hj; rw [Finset.mem_range] at hj
     congr 1; exact h_pow j (by omega)
   rw [Finset.sum_congr rfl h_sub]
-  -- Step 2: Rewrite getElem! to polynomial coefficients
   have h_coeff : ∀ j ∈ Finset.range v.length,
       (v[j]!).toGF216 * x.toGF216 ^ j =
       (listToGF216Poly v).coeff j * x.toGF216 ^ j := by
     intro j hj
     congr 1; exact getElem_bang_toGF216_eq_coeff v j
   rw [Finset.sum_congr rfl h_coeff]
-  -- Step 3: Connect the range sum to polynomial evaluation
   exact (eval_eq_range_sum (listToGF216Poly v) (x.toGF216) v.length
     (fun j hj => listToGF216Poly_coeff_eq_zero v j hj)).symm
 
@@ -191,7 +186,7 @@ private lemma max_two_succ_le_usize_max (n : Nat) (h : n + 1 ≤ Usize.max) :
 is zero and `GF16.ZERO` maps to `0 : GF216`.
 -/
 private lemma zero_toGF216_eq_empty_sum
-    (v xs : alloc.vec.Vec encoding.gf.GF16) :
+    (v xs : alloc.vec.Vec GF16) :
     GF16.ZERO.toGF216 = ∑ j ∈ Finset.range 0,
       (v.val[j]!).toGF216 * (xs.val[j]!).toGF216 := by
   simp [GF16.ZERO, GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero, map_zero]
@@ -233,7 +228,7 @@ theorem compute_at_spec
     grind
   have h_pow_init := initial_power_invariant x
   have h_xs2_val : xs2.val = [GF16.ONE, x] := by
-    have h_wc : (alloc.vec.Vec.with_capacity encoding.gf.GF16
+    have h_wc : (alloc.vec.Vec.with_capacity GF16
                     self.coefficients.len).val = [] := by
       simp [alloc.vec.Vec.with_capacity]
     rw [xs2_post, result_post, h_wc]; simp

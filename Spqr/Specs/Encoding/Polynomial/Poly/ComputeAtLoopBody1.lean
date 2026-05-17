@@ -11,20 +11,8 @@ import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 /-!
 # Spec theorem for `Poly::compute_at`: loop body 1
 
-The Rust function `Poly::compute_at` (in `src/encoding/polynomial.rs`, lines 255:4-273:5) evaluates
-a polynomial at a given point `x` in GF(2¹⁶).  The second loop (loop 1, lines 269:8-271:9)
-accumulates the dot product of the coefficient vector and the power vector:
-
-```
-let mut out = GF16::ZERO;
-for i in 0..self.coefficients.len() {
-    out += self.coefficients[i] * xs[i];
-}
-```
-
-This file specifies the **loop body** — a single step of the above iteration.  The extracted Lean
-function `encoding.polynomial.Poly.compute_at_loop1.body` performs one step: it calls `next` on the
-`Range<usize>` iterator and either:
+The extracted Lean function `encoding.polynomial.Poly.compute_at_loop1.body` performs one step: 
+it calls `next` on the `Range<usize>` iterator and either:
 
   1. **Done** (`none`): the iterator is exhausted, and the accumulator `out` is returned unchanged.
   2. **Continue** (`some i`): retrieves the coefficient `g = v[i]` and the power `g1 = xs[i]`,
@@ -60,7 +48,7 @@ The range iterator `next` always returns `ok` and either provides the current `s
 `core.ops.range.Range<usize>` iterator used in the Rust `for i in 0..self.coefficients.len()` loop.
 -/
 private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
+    (range : core.ops.range.Range Usize) :
     ∃ opt range',
       core.iter.range.IteratorRange.next core.iter.range.StepUsize range
         = ok (opt, range') ∧
@@ -141,10 +129,10 @@ The preconditions are exactly the loop invariants maintained by the surrounding 
 -/
 @[step]
 theorem body_spec
-    (v : alloc.vec.Vec encoding.gf.GF16)
-    (xs : alloc.vec.Vec encoding.gf.GF16)
-    (iter : core.ops.range.Range Std.Usize)
-    (out : encoding.gf.GF16)
+    (v : alloc.vec.Vec GF16)
+    (xs : alloc.vec.Vec GF16)
+    (iter : core.ops.range.Range Usize)
+    (out : GF16)
     (h_v_len : iter.«end».val ≤ v.val.length)
     (h_xs_len : iter.«end».val ≤ xs.val.length) :
     body v xs iter out ⦃ cf =>
@@ -163,16 +151,12 @@ theorem body_spec
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
-  · -- Continue case: iterator yields some i = iter.start
-    obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
+  · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    -- Key index bounds from the preconditions
     have h_i_lt_v : iter.start.val < v.val.length := by omega
     have h_i_lt_xs : iter.start.val < xs.val.length := by omega
-    -- Step through indexing, multiplication, and add_assign
     step*
-  · -- Done case: iterator exhausted
-    obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
+  · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩
 

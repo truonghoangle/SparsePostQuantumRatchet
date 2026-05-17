@@ -77,14 +77,13 @@ The preconditions are:
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.Poly
+open core.iter.adapters.enumerate core.slice.iter
 
 namespace spqr.encoding.polynomial.Poly.add_assign_loop
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
 /-! ## Helper lemmas for connecting coefficient-level updates to polynomial-level equality -/
 
-set_option linter.style.longLine false in
+
 /--
 **In-range coefficient update preserves the polynomial invariant.**
 
@@ -93,8 +92,8 @@ When `i < self.coefficients.length`, updating position `i` with the GF(2¹⁶) s
 exactly `C(v.toGF216) * X^i`.
 -/
 private lemma poly_update_in_range
-    (self self' : encoding.polynomial.Poly)
-    (i : Std.Usize) (v : encoding.gf.GF16)
+    (self self' : Poly)
+    (i : Std.Usize) (v : GF16)
     (h_lt : i.val < self.coefficients.val.length)
     (h_len_eq : self'.coefficients.val.length = self.coefficients.val.length)
     (h_upd : ∀ (h : i.val < self'.coefficients.val.length),
@@ -130,7 +129,7 @@ private lemma poly_update_in_range
       rw [h1, h2] at h_eq
       simp at h_eq
       congr 1
-  · push_neg at hm_lt
+  · push Not at hm_lt
     have hm_lt' : ¬(m < self'.coefficients.val.length) := by omega
     rw [dif_neg hm_lt']
     have hm_ne : m ≠ i.val := by omega
@@ -144,15 +143,15 @@ When `¬(i < self.coefficients.length)`, appending `v` to `self.coefficients` pr
 a polynomial that differs from `self.toGF216Poly` by `C(v.toGF216) * X^{self.coefficients.length}`.
 -/
 private lemma poly_update_extension
-    (self self' : encoding.polynomial.Poly)
-    (v : encoding.gf.GF16)
+    (self self' : Poly)
+    (v : GF16)
     (h_ext : self'.coefficients.val = self.coefficients.val ++ [v]) :
     self'.toGF216Poly = self.toGF216Poly + C (v.toGF216) * X ^ self.coefficients.val.length := by
   unfold Poly.toGF216Poly
   rw [h_ext]
   exact listToGF216Poly_append_singleton self.coefficients.val v
 
-set_option linter.style.longLine false in
+
 /--
 **Key step lemma**: processing the `k`-th coefficient from `other_coeffs` at position `k`
 (when enumerate starts at 0) preserves the polynomial invariant.
@@ -163,16 +162,17 @@ updates coefficient position `k` with `other_coeffs[k]`, the resulting polynomia
 -/
 private lemma step_invariant_preservation
     (orig_poly : GF216Poly)
-    (self self' : encoding.polynomial.Poly)
-    (other_coeffs : List encoding.gf.GF16)
-    (k : Nat) (v : encoding.gf.GF16)
+    (self self' : Poly)
+    (other_coeffs : List GF16)
+    (k : Nat) (v : GF16)
     (hk : k < other_coeffs.length)
     (hv : other_coeffs.get ⟨k, hk⟩ = v)
     (h_prev : self.toGF216Poly = orig_poly + listToGF216Poly (other_coeffs.take k))
     (h_step : self'.toGF216Poly = self.toGF216Poly + C (v.toGF216) * X ^ k) :
     self'.toGF216Poly = orig_poly + listToGF216Poly (other_coeffs.take (k + 1)) := by
   rw [h_step, h_prev]
-  have h_take_succ : other_coeffs.take (k + 1) = other_coeffs.take k ++ [other_coeffs.get ⟨k, hk⟩] := by simp
+  have h_take_succ :
+    other_coeffs.take (k + 1) = other_coeffs.take k ++ [other_coeffs.get ⟨k, hk⟩] := by simp
   rw [h_take_succ, listToGF216Poly_append_singleton]
   have h_take_len : (other_coeffs.take k).length = k := by
     rw [List.length_take]; omega
@@ -202,7 +202,7 @@ private lemma usize_wrapping_add_one_val (x : Std.Usize)
   apply Nat.mod_eq_of_lt
   scalar_tac
 
-set_option linter.style.longLine false in
+
 /--
 **Enumerate SliceIter next: `some` case specification.**
 
@@ -231,23 +231,23 @@ characterizes the output iterator state.
    `count.val + 1 = iter.i + 1 ≤ slice.val.length ≤ Usize.max`.
 -/
 private lemma enumerate_sliceiter_next_some
-    (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16))
+    (iter : Enumerate
+      (Iter GF16))
     (h_lt : iter.iter.i < iter.iter.slice.val.length)
     (h_count : iter.count.val = iter.iter.i)
     (h_bound : iter.iter.slice.val.length ≤ Std.Usize.max) :
-    ∃ (iter1 : core.iter.adapters.enumerate.Enumerate
-        (core.slice.iter.Iter encoding.gf.GF16)),
-      core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
-        (core.iter.traits.iterator.IteratorSliceIter encoding.gf.GF16) iter =
+    ∃ (iter1 : Enumerate
+        (Iter GF16)),
+      Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+        (core.iter.traits.iterator.IteratorSliceIter GF16) iter =
           ok (some (iter.count, iter.iter.slice.val[iter.iter.i]), iter1) ∧
       iter1.iter.slice = iter.iter.slice ∧
       iter1.iter.i = iter.iter.i + 1 ∧
       iter1.count.val = iter.iter.i + 1 := by
   -- Step 1: Unfold Enumerate.next and SliceIter.next
   simp only [
-    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
-    core.slice.iter.IteratorSliceIter.next]
+    Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorSliceIter.next]
   -- Step 2: The dite condition `iter.iter.i < iter.iter.slice.len` holds via h_lt
   -- After unfolding, the `true` branch is taken, returning:
   --   ok (some (iter.count, slice[iter.i]),
@@ -265,7 +265,7 @@ private lemma enumerate_sliceiter_next_some
   · -- False branch: contradiction with h_lt
     exact absurd h_lt ‹_›
 
-set_option linter.style.longLine false in
+
 /--
 **In-range coefficient update sub-lemma.**
 
@@ -280,8 +280,8 @@ This is a restatement of the `in_range_update_post` lemma from `AddAssignLoopBod
 made accessible within this file's namespace.
 -/
 private lemma in_range_update_post
-    {coeffs : List encoding.gf.GF16}
-    {i : Nat} {v g1 : encoding.gf.GF16}
+    {coeffs : List GF16}
+    {i : Nat} {v g1 : GF16}
     (h_lt : i < coeffs.length)
     (g1_post : g1.toGF216 = coeffs[i].toGF216 + v.toGF216) :
     let v1 := coeffs.set i g1
@@ -297,7 +297,7 @@ private lemma in_range_update_post
 
 /-! ## Body specs for the two iterator cases -/
 
-set_option linter.style.longLine false in
+
 /--
 **Body spec for the continuation case (elements remaining).**
 
@@ -332,9 +332,9 @@ Phase 6: grind (closes coefficient update goals)
 ```
 -/
 private theorem body_cont_spec
-    (iter' : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16))
-    (self' : encoding.polynomial.Poly)
+    (iter' : Enumerate
+      (Iter GF16))
+    (self' : Poly)
     (h_self_len : self'.coefficients.val.length < Std.Usize.max)
     (h_count' : iter'.count.val = iter'.iter.i)
     (h_lt : iter'.iter.i < iter'.iter.slice.val.length)
@@ -347,7 +347,7 @@ private theorem body_cont_spec
           iter''.iter.i = iter'.iter.i + 1 ∧
           iter''.count.val = iter'.iter.i + 1 ∧
           (∃ (_ : iter'.iter.i < iter'.iter.slice.val.length)
-           (i : Std.Usize) (v : encoding.gf.GF16),
+           (i : Std.Usize) (v : GF16),
             i.val = iter'.iter.i ∧
             v = iter'.iter.slice.val[iter'.iter.i] ∧
             ((i.val < self'.coefficients.val.length →
@@ -426,16 +426,16 @@ private theorem body_cont_spec
   --   3. For extension: use the Vec.push result (val = val ++ [v])
   grind
 
-/--
+/-
 **Body spec for the done case (iterator exhausted).**
 
 When `¬(iter'.iter.i < iter'.iter.slice.val.length)`, the body returns `done self'`
 and the continuation case is `False` (unreachable).
 -/
+
+open core.iter.adapters.enumerate in
 private theorem body_done_spec
-    (iter' : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16))
-    (self' : encoding.polynomial.Poly)
+    (iter' : Enumerate (Iter GF16)) (self' : Poly)
     (h_not_lt : ¬(iter'.iter.i < iter'.iter.slice.val.length)) :
     body iter' self' ⦃ cf =>
       match cf with
@@ -443,13 +443,13 @@ private theorem body_done_spec
       | ControlFlow.cont _ => False ⦄ := by
   unfold body
   simp only [
-    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
-    core.slice.iter.IteratorSliceIter.next, bind_tc_ok]
+    Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorSliceIter.next]
   split
   · rename_i h_lt; exact absurd h_lt h_not_lt
   · simp [WP.spec_ok]
 
-set_option linter.style.longLine false in
+
 /--
 **Spec theorem for `encoding.polynomial.Poly.add_assign_loop`**:
 
@@ -478,45 +478,43 @@ which is the expected semantics of `self += other` in `GF216[X]`.
 -/
 @[step]
 theorem loop_spec
-    (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter GF16))
+    (iter : Enumerate
+      (Iter GF16))
     (self : Poly)
-    (other_coeffs : List encoding.gf.GF16)
+    (other_coeffs : List GF16)
     (h_iter_data : iter.iter.slice.val.drop iter.iter.i = other_coeffs)
     (h_count_eq : iter.count.val = iter.iter.i)
     (h_start : iter.iter.i = 0)
-    (h_len : self.coefficients.val.length + other_coeffs.length ≤ Std.Usize.max) :
-    add_assign_loop iter self
-      ⦃ (result : Poly) =>
+    (h_len : max self.coefficients.val.length other_coeffs.length < Std.Usize.max) :
+    add_assign_loop iter self ⦃ (result : Poly) =>
+        result.coefficients.val.length =
+          max self.coefficients.val.length other_coeffs.length ∧
         result.toGF216Poly =
           self.toGF216Poly + listToGF216Poly other_coeffs ⦄ := by
-  unfold encoding.polynomial.Poly.add_assign_loop
+  unfold Poly.add_assign_loop
   apply loop.spec_decr_nat
-    (measure := fun (p : core.iter.adapters.enumerate.Enumerate
-                        (core.slice.iter.Iter encoding.gf.GF16) ×
-                      encoding.polynomial.Poly) =>
+    (measure := fun (p : Enumerate
+                        (Iter GF16) ×
+                      Poly) =>
                   p.1.iter.slice.val.length - p.1.iter.i)
-    (inv := fun (p : core.iter.adapters.enumerate.Enumerate
-                      (core.slice.iter.Iter encoding.gf.GF16) ×
-                    encoding.polynomial.Poly) =>
+    (inv := fun (p : Enumerate
+                      (Iter GF16) ×
+                    Poly) =>
         p.1.iter.slice = iter.iter.slice ∧
         iter.iter.i ≤ p.1.iter.i ∧
         p.1.iter.i ≤ p.1.iter.slice.val.length ∧
         p.1.count.val = p.1.iter.i ∧
-        p.2.coefficients.val.length +
+        max p.2.coefficients.val.length
           (p.1.iter.slice.val.length - p.1.iter.i) ≤ Std.Usize.max ∧
         p.2.coefficients.val.length = max self.coefficients.val.length p.1.iter.i ∧
         p.2.toGF216Poly =
           self.toGF216Poly +
             listToGF216Poly (other_coeffs.take (p.1.iter.i - iter.iter.i)))
-  · -- Body step: prove the invariant is preserved
-    rintro ⟨iter', self'⟩
+  · rintro ⟨iter', self'⟩
       ⟨h_slice', h_ge', h_le_slice', h_count', h_len', h_coeff_len', h_poly'⟩
     simp only [] at h_slice' h_ge' h_le_slice' h_count' h_len' h_coeff_len' h_poly' ⊢
-    -- Case split: does the iterator have more elements?
     by_cases h_more : iter'.iter.i < iter'.iter.slice.val.length
-    · -- Case 1: elements remaining — use body_cont_spec (done = False)
-      have h_self_len : self'.coefficients.val.length < Std.Usize.max := by omega
+    · have h_self_len : self'.coefficients.val.length < Std.Usize.max := by grind
       have h_bound' : iter'.iter.slice.val.length ≤ Std.Usize.max := by
         rw [h_slice']; grind
       have h_body := body_cont_spec iter' self' h_self_len h_count' h_more h_bound'
@@ -524,54 +522,43 @@ theorem loop_spec
       intro cf h_cf
       match cf with
       | ControlFlow.done result =>
-        -- Unreachable: body_cont_spec says done → False
         exact h_cf.elim
       | ControlFlow.cont (iter'', self'') =>
-        -- Cont case: process one element and check invariant + measure decrease
         simp only [] at h_cf ⊢
-        obtain ⟨h_slice'', h_i_adv, h_count'', h_lt_slice, i, v, h_i_val, h_v_val, h_in_range, h_extension⟩ := h_cf
-        -- Establish key derived facts
+        obtain ⟨h_slice'', h_i_adv, h_count'', h_lt_slice, i, v, h_i_val, h_v_val,
+          h_in_range, h_extension⟩ := h_cf
         have h_k : iter'.iter.i - iter.iter.i < other_coeffs.length := by
           have : other_coeffs.length = iter.iter.slice.val.length - iter.iter.i := by
             rw [← h_iter_data]; simp [List.length_drop]
           rw [h_slice'] at h_lt_slice
           omega
-        -- The element v equals other_coeffs at position k
         have h_v_eq : other_coeffs.get ⟨iter'.iter.i - iter.iter.i, h_k⟩ = v := by
-          -- The k-th element of other_coeffs = the k-th element of slice.drop(start)
-          -- = slice[start + k] = slice[iter'.iter.i] = v
           have h_oc : other_coeffs = iter.iter.slice.val := by
             rw [← h_iter_data, h_start, List.drop_zero]
           simp only [h_oc, h_start, Nat.sub_zero, List.get_eq_getElem, h_v_val, h_slice']
-        -- Prove the polynomial step
         have h_k_eq : iter'.iter.i - iter.iter.i = iter'.iter.i := by omega
-        have h_poly_step : self''.toGF216Poly = self'.toGF216Poly + C (v.toGF216) * X ^ iter'.iter.i := by
+        have h_poly_step :
+          self''.toGF216Poly = self'.toGF216Poly + C (v.toGF216) * X ^ iter'.iter.i := by
           rw [h_i_val] at h_in_range h_extension
           by_cases h_lt_coeff : iter'.iter.i < self'.coefficients.val.length
-          · -- In-range case
-            obtain ⟨h_len_eq, h_upd, h_other_k⟩ := h_in_range h_lt_coeff
+          · obtain ⟨h_len_eq, h_upd, h_other_k⟩ := h_in_range h_lt_coeff
             exact poly_update_in_range self' self'' ⟨⟨iter'.iter.i, by scalar_tac⟩⟩ v
               (by exact h_lt_coeff) (by exact h_len_eq)
               (by exact h_upd) (by exact h_other_k)
-          · -- Extension case
-            have h_ext := h_extension h_lt_coeff
+          · have h_ext := h_extension h_lt_coeff
             have h_len_eq_k : self'.coefficients.val.length = iter'.iter.i := by
               rw [h_coeff_len']; omega
             have h_poly := poly_update_extension self' self'' v h_ext
             rw [h_len_eq_k] at h_poly
             exact h_poly
-        -- Build invariant ∧ measure decrease
         constructor
-        · -- invariant (7 parts)
-          rw [h_i_val] at h_in_range h_extension
+        · rw [h_i_val] at h_in_range h_extension
           refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
           · rw [h_slice'', h_slice']
           · rw [h_i_adv]; omega
           · rw [h_i_adv, h_slice'', h_slice']; grind
           · rw [h_i_adv, h_count'']
-          · -- length bound: self''.coefficients.length + (slice.length - (iter'.i + 1)) ≤ Usize.max
-            -- Follows from h_len' and the coefficient length change (±0 or +1).
-            have h_slice_len : iter''.iter.slice.val.length = iter'.iter.slice.val.length := by
+          · have h_slice_len : iter''.iter.slice.val.length = iter'.iter.slice.val.length := by
               rw [h_slice'']
             by_cases h_lt_coeff : iter'.iter.i < self'.coefficients.val.length
             · obtain ⟨h_len_eq, _, _⟩ := h_in_range h_lt_coeff
@@ -580,61 +567,55 @@ theorem loop_spec
               have : self''.coefficients.val.length = self'.coefficients.val.length + 1 := by
                 rw [h_ext]; simp
               rw [h_i_adv, h_slice_len]; omega
-          · -- coefficient length = max(N, iter''.iter.i)
-            -- Follows from h_coeff_len' and the coefficient length change.
-            by_cases h_lt_coeff : iter'.iter.i < self'.coefficients.val.length
+          · by_cases h_lt_coeff : iter'.iter.i < self'.coefficients.val.length
             · obtain ⟨h_len_eq, _, _⟩ := h_in_range h_lt_coeff
               rw [h_i_adv, h_len_eq, h_coeff_len']; omega
             · have h_ext := h_extension h_lt_coeff
               have : self''.coefficients.val.length = self'.coefficients.val.length + 1 := by
                 rw [h_ext]; simp
               rw [h_i_adv]; omega
-          · -- polynomial invariant
-            rw [h_i_adv]
-            have h_new_k : iter'.iter.i + 1 - iter.iter.i = (iter'.iter.i - iter.iter.i) + 1 := by omega
+          · rw [h_i_adv]
+            have h_new_k :
+              iter'.iter.i + 1 - iter.iter.i = (iter'.iter.i - iter.iter.i) + 1 := by omega
             rw [h_new_k]
             exact step_invariant_preservation
               self.toGF216Poly self' self'' other_coeffs
               (iter'.iter.i - iter.iter.i) v h_k h_v_eq h_poly'
               (by rw [h_k_eq]; exact h_poly_step)
-        · -- measure decrease
-          rw [h_i_adv]
+        · rw [h_i_adv]
           have h_slice_eq : iter''.iter.slice.val.length = iter'.iter.slice.val.length := by
             rw [h_slice'', h_slice']
           rw [h_slice_eq]
           omega
-    · -- Case 2: iterator exhausted — use body_done_spec (cont = False)
-      have h_body := body_done_spec iter' self' h_more
+    · have h_body := body_done_spec iter' self' h_more
       apply WP.spec_mono h_body
       intro cf h_cf
       match cf with
       | ControlFlow.done result =>
-        -- Done case: result = self', prove the postcondition
         simp only [] at h_cf ⊢
         subst h_cf
         rw [h_poly']
         have h_exhausted : iter'.iter.i ≥ iter'.iter.slice.val.length := by
-          push_neg at h_more; exact h_more
+          push Not at h_more; exact h_more
+        have h_oc_len : other_coeffs.length = iter.iter.slice.val.length - iter.iter.i := by
+          rw [← h_iter_data]; simp [List.length_drop]
         have h_all_taken : other_coeffs.take (iter'.iter.i - iter.iter.i) = other_coeffs := by
           apply List.take_of_length_le
-          have : other_coeffs.length = iter.iter.slice.val.length - iter.iter.i := by
-            rw [← h_iter_data]; simp [List.length_drop]
           rw [h_slice'] at h_exhausted
           omega
-        rw [h_all_taken]
+        refine ⟨?_, ?_⟩
+        · rw [h_coeff_len']
+          rw [h_slice'] at h_exhausted
+          have h_i_eq : iter'.iter.i = other_coeffs.length := by grind
+          rw [h_i_eq]
+        · rw [h_all_taken]
       | ControlFlow.cont _ =>
-        -- Unreachable: body_done_spec says cont → False
         exact h_cf.elim
-  · -- Initial invariant
-    refine ⟨rfl, le_refl _, ?_, h_count_eq, ?_, ?_, ?_⟩
-    · show iter.iter.i ≤ iter.iter.slice.val.length
+  · refine ⟨rfl, le_refl _, ?_, h_count_eq, ?_, ?_, ?_⟩
+    · change iter.iter.i ≤ iter.iter.slice.val.length
       omega
-    · show self.coefficients.val.length +
-        (iter.iter.slice.val.length - iter.iter.i) ≤ Std.Usize.max
-      have : other_coeffs.length = iter.iter.slice.val.length - iter.iter.i := by
-        rw [← h_iter_data]; simp [List.length_drop]
-      omega
+    · grind
     · rw [h_start]; simp
-    · simp [List.take_zero, listToGF216Poly_nil]
+    · simp [List.take_zero]
 
 end spqr.encoding.polynomial.Poly.add_assign_loop

@@ -12,7 +12,7 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateLoop0
 
-/-! # Spec theorem for 
+/-! # Spec theorem for
 `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::lagrange_interpolate`
 
 Given a slice of evaluation points `pts : &[Pt]` with pairwise distinct x-coordinates, the Rust
@@ -77,7 +77,7 @@ Rust `AddAssign` instance for `GF16`.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.Poly spqr.encoding.polynomial
-  
+
 namespace spqr.encoding.polynomial.Poly
 
 /--
@@ -94,19 +94,8 @@ private lemma slice_is_empty_spec {T : Type} (s : Slice T) :
   · simp [h]
 
 /--
-Stronger spec for `Poly.zero`: the resulting polynomial not only represents `0 ∈ GF216[X]` but also
-has an empty coefficient vector (length `0`).  This is what is actually produced by the underlying
-`Vec::with_capacity` call.
--/
-private lemma zero_spec' (capacity : Std.Usize) :
-    zero capacity ⦃ (result : Poly) =>
-      result.coefficients.val.length = 0 ∧ result.toGF216Poly = 0 ⦄ := by
-  unfold zero
-  simp [alloc.vec.Vec.with_capacity, Poly.toGF216Poly,
-    spqr.encoding.polynomial.listToGF216Poly]
-
-/--
 **Spec for `alloc.vec.Vec.extend_from_slice` specialised to `GF16`**:
+
 
 The `core.clone.Clone` instance for `GF16` (`encoding.gf.GF16.Insts.CoreCloneClone`) has `clone x =
 ok x` for every `x`, hence the elementwise `Slice.clone` on `s` returns `ok s` and the resulting

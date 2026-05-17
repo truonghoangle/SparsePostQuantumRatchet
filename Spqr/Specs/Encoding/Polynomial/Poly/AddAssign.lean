@@ -52,6 +52,34 @@ Since the delegation introduces no additional logic beyond iterator setup, the p
 inherited directly from the loop specification (`add_assign_loop.loop_spec`): the mathematical
 polynomial interpretation of the result equals the sum of the interpretations of the inputs.
 
+## On the precondition (`h_len`)
+
+The hypothesis `h_len : self.length + other.length ≤ Usize.max` is a **proof artifact**, not a
+genuine semantic requirement.  Two strictly weaker bounds are sufficient for the function to
+succeed:
+
+* **(W1)** `max self.length other.length ≤ Usize.max` — this is the bound on the *final result
+  length*. It is implied by Aeneas `Vec` well-formedness (both `self.coefficients` and
+  `other.coefficients` are `Vec`s, so each component length is automatically `≤ Usize.max`,
+  hence so is the max).
+* **(W2)** `other.coefficients.val.length ≤ Usize.max` — this is the strict bound required by the
+  last `Vec.push` (the push grows the vector to at most `other.length`). Again, automatic from
+  `Vec` well-formedness.
+
+In particular, `(W2)` shows the spec can in principle be made **unconditional** — `h_len` would be
+implied by the `Vec` invariants on `self.coefficients` and `other.coefficients` and would not
+need to appear in the theorem statement.
+
+The proof of `loop_spec` however currently uses the additive form `self.length + other_coeffs.length
+≤ Usize.max` as its loop invariant.  Weakening `add_assign_spec` requires correspondingly
+weakening `loop_spec` (and `body_cont_spec`, which currently demands a *uniform* strict bound
+`self'.length < Usize.max` even though that bound is only really needed in the `Vec.push` branch,
+not in the in-range `Vec.set` branch).  Since `max a b ≤ Usize.max` does *not* imply `a + b ≤
+Usize.max` (e.g. `a = b = Usize.max / 2 + 1`), the weakening cannot be performed in this file
+alone.
+
+We therefore keep `h_len` in its present form, while documenting that it is suboptimal.
+
 **Source**: spqr/src/encoding/polynomial.rs (lines 239:4-247:5)
 -/
 
@@ -76,13 +104,22 @@ namespace spqr.encoding.polynomial.Poly
   In GF(2¹⁶) (characteristic 2), polynomial addition is coefficient-wise XOR, so this is
   equivalent to `self ⊕ other` on the coefficient vectors (padded with zeros to equal length).
 
+**Precondition analysis**: The bound `self.length + other.length ≤ Usize.max` is sufficient but
+not strictly necessary.  Semantically the result has length `max self.length other.length`, which
+is automatically `≤ Usize.max` from `Vec` well-formedness, and the largest length encountered
+during iteration is `max self.length other.length`.  See the module docstring for a complete
+discussion of why the additive bound is a proof artifact of `loop_spec` rather than a genuine
+requirement.
+
 **Source**: spqr/src/encoding/polynomial.rs (lines 239:4-247:5)
 -/
 @[step]
 theorem add_assign_spec
     (self other : Poly)
-    (h_len : self.coefficients.val.length + other.coefficients.val.length ≤ Usize.max) :
+    (h_len : max self.coefficients.val.length other.coefficients.val.length < Usize.max) :
     add_assign self other ⦃ (result : Poly) =>
+      result.coefficients.val.length =
+        max self.coefficients.val.length other.coefficients.val.length ∧
       result.toGF216Poly = self.toGF216Poly + other.toGF216Poly ⦄ := by
   unfold add_assign
   simp only [alloc.vec.Vec.deref, core.slice.Slice.iter,

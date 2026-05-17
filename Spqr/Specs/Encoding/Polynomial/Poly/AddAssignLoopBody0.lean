@@ -54,14 +54,12 @@ in `GF216[X] = (GaloisField 2 16)[X]`.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.Poly
+open core.iter.adapters.enumerate core.slice.iter
 
 namespace spqr.encoding.polynomial.Poly.add_assign_loop
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
 -- The long identifier cannot be broken across lines; suppress
 -- the line-length linter for the lemma statement and proof.
-set_option linter.style.longLine false in
 /--
 The enumerate iterator `next` always succeeds and returns either
 `none` (iterator exhausted) or `some (index, element)` together
@@ -82,19 +80,19 @@ returns `ok`:
   `none`.
 -/
 private lemma EnumerateSliceIter_next_post
-    (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16)) :
-    ∃ (opt : Option (Std.Usize × encoding.gf.GF16))
-      (iter' : core.iter.adapters.enumerate.Enumerate
-        (core.slice.iter.Iter encoding.gf.GF16)),
-      core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
-        (core.iter.traits.iterator.IteratorSliceIter encoding.gf.GF16) iter =
+    (iter : Enumerate
+      (Iter GF16)) :
+    ∃ (opt : Option (Usize × GF16))
+      (iter' : Enumerate
+        (Iter GF16)),
+      Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+        (core.iter.traits.iterator.IteratorSliceIter GF16) iter =
           ok (opt, iter') := by
-  simp only [core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
-    core.slice.iter.IteratorSliceIter.next]
+  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorSliceIter.next]
   split <;> exact ⟨_, _, rfl⟩
 
-set_option linter.style.longLine false in
+
 /--
 **Auxiliary lemma for the in-range update case of `body_spec`**.
 
@@ -104,8 +102,8 @@ a list that satisfies the postcondition: position `i` holds the sum, all other p
 are unchanged, and the extension clause is vacuously true.
 -/
 private lemma in_range_update_post
-    {coeffs : List encoding.gf.GF16}
-    {i : Nat} {v g1 : encoding.gf.GF16}
+    {coeffs : List GF16}
+    {i : Nat} {v g1 : GF16}
     (h_lt : i < coeffs.length)
     (g1_post : g1.toGF216 = coeffs[i].toGF216 + v.toGF216) :
     let v1 := coeffs.set i g1
@@ -124,7 +122,7 @@ private lemma in_range_update_post
     · grind
   · intro h; exact absurd h_lt h
 
-set_option linter.style.longLine false in
+
 /--
 **Spec theorem for `encoding.polynomial.Poly.add_assign_loop.body`**:
 
@@ -160,23 +158,23 @@ iterator and either terminates or processes the coefficient:
     - The coefficient vector is extended by exactly one element:
         `self'.coefficients.val = self.coefficients.val ++ [v]`.
 
-The precondition `self.coefficients.val.length < Std.Usize.max` ensures that `Vec::len` does
+The precondition `self.coefficients.val.length < Usize.max` ensures that `Vec::len` does
 not overflow and that `Vec::push` can accommodate the new element.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 240:8-246:9)
 -/
 @[step]
 theorem body_spec
-    (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.Iter encoding.gf.GF16))
+    (iter : Enumerate
+      (Iter GF16))
     (self : encoding.polynomial.Poly)
-    (h_self_len : self.coefficients.val.length < Std.Usize.max) :
+    (h_self_len : self.coefficients.val.length < Usize.max) :
     body iter self ⦃ cf =>
       match cf with
       | ControlFlow.done self' =>
           self' = self
       | ControlFlow.cont (_, self') =>
-          ∃ (i : Std.Usize) (v : encoding.gf.GF16),
+          ∃ (i : Usize) (v : GF16),
             (i.val < self.coefficients.val.length →
               self'.coefficients.val.length = self.coefficients.val.length ∧
               (∀ (h : i.val < self'.coefficients.val.length),

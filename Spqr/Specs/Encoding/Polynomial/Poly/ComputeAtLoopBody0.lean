@@ -10,24 +10,8 @@ import Spqr.Specs.Encoding.Gf.GF16.Mul
 /-!
 # Spec theorem for `Poly::compute_at`: loop body 0
 
-The Rust function `Poly::compute_at` (in `src/encoding/polynomial.rs`, lines 255:4-273:5) evaluates
-a polynomial at a given point `x` in GF(2¹⁶).  The first loop (loop 0, lines 260:8-265:9) builds a
-vector `xs` of successive powers of `x`:
-
-```
-let mut xs = Vec::with_capacity(self.coefficients.len());
-xs.push(GF16::ONE);
-xs.push(x);
-for i in 2..self.coefficients.len() {
-    let a = xs[i / 2];
-    let b = xs[(i / 2) + (i % 2)];
-    xs.push(a * b);
-}
-```
-
-This file specifies the **loop body** — a single step of the above iteration.  The extracted Lean
-function `encoding.polynomial.Poly.compute_at_loop0.body` performs one step: it calls `next` on the
-`Range<usize>` iterator and either:
+The extracted Lean function `encoding.polynomial.Poly.compute_at_loop0.body` performs one step:
+it calls `next` on the `Range<usize>` iterator and either:
 
   1. **Done** (`none`): the iterator is exhausted, and the vector `xs` is returned unchanged.
   2. **Continue** (`some i`): retrieves `a = xs[i / 2]` and `b = xs[i / 2 + i % 2]`, computes
@@ -101,17 +85,6 @@ private lemma IteratorRange_next_Usize_post
     exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
-**Auxiliary lemma**: for `n ≥ 2`, we have `n / 2 + n % 2 < n`.
-
-This ensures that the second vector index `xs[i/2 + i%2]` is within bounds when the loop
-invariant `i = xs.length` holds and `i ≥ 2`.  The proof exploits the Euclidean-division identity
-`n = (n / 2) * 2 + n % 2`, from which `n − (n / 2 + n % 2) = n / 2 ≥ 1` when `n ≥ 2`.
--/
-private lemma div2_add_mod2_lt (n : Nat) (h : 2 ≤ n) : n / 2 + n % 2 < n := by
-  have := Nat.div_add_mod n 2
-  omega
-
-/--
 **Spec theorem for `encoding.polynomial.Poly.compute_at_loop0.body`**:
 
 One step of the `Poly::compute_at` power-vector construction loop.  Given a range iterator and the
@@ -181,18 +154,15 @@ theorem body_spec
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
-  · -- Continue case: iterator yields some i = iter.start
-    obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
+  · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    -- Key arithmetic bounds from the loop invariant
     have h_div2_lt : iter.start.val / 2 < xs.val.length := by
       rw [← h_inv]; exact Nat.div_lt_self (by omega) (by omega)
     have h_sum_lt : iter.start.val / 2 + iter.start.val % 2 < xs.val.length := by
-      rw [← h_inv]; exact div2_add_mod2_lt _ h_ge2
-    -- Step through division, indexing, modulo, addition, indexing, multiplication, and push
+      rw [← h_inv];
+      grind
     step*
-  · -- Done case: iterator exhausted
-    obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
+  · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩
 
