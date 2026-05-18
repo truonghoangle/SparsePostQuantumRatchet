@@ -11,23 +11,6 @@ import Spqr.Specs.Encoding.Gf.ParallelMult
 /-!
 # Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::mult_assign`
 
-The Rust function `Poly::mult_assign` (in `src/encoding/polynomial.rs`, lines 250:4-252:5) implements
-in-place polynomial scalar multiplication `self *= m` in GF(2¹⁶)[X].  It delegates to
-`gf::parallel_mult`, which multiplies every coefficient of the polynomial by the scalar `m`:
-
-```
-fn mult_assign(&mut self, m: GF16) {
-    gf::parallel_mult(m, &mut self.coefficients);
-}
-```
-
-Concretely, `mult_assign self m`:
-  1. Obtains a mutable reference to `self.coefficients` via `Vec::deref_mut`.
-  2. Delegates to `encoding.gf.parallel_mult m coefficients`, which processes the coefficient slice
-     in strides of two (via the hardware-accelerated or software carry-less multiplication
-     `mul2_u16`), multiplying each coefficient by `m` in GF(2¹⁶), with a trailing-element fix-up
-     for odd-length slices via `MulAssign<GF16> for GF16`.
-  3. Writes the modified coefficients back into the `Poly` via the `deref_mut_back` closure.
 
 After the operation, the result polynomial represents the scalar product `C(m) · self` in
 `GF216[X] = (GaloisField 2 16)[X]`, where `C(m)` denotes the constant polynomial embedding of the

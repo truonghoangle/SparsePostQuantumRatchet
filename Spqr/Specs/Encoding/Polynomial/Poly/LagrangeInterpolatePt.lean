@@ -71,48 +71,15 @@ which in the case of pairwise distinct x-coordinates (so the denominator product
 
 the i-th Lagrange basis polynomial scaled to pass through `(pᵢ.x, pᵢ.y)`.
 
-In GF(2¹⁶) (characteristic 2), addition coincides with subtraction and is bitwise XOR of the 16-bit
-encodings:
-  `a + b = a − b = a ⊕ b`,
-so the `−` in `(X − pts[j].x)` is the same as `+`, and all field operations are carried out via the
-`GF16` Rust type wrapping `u16`.
-
 **Source**: spqr/src/encoding/polynomial.rs (lines 231:4-236:5)
 -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.Poly
 open spqr.encoding.polynomial
-  (prodLinearFactors prodLinearFactors_eval_root)
 
 namespace spqr.encoding.polynomial.Poly
 
-instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
-instance : Inhabited spqr.encoding.polynomial.Pt where
-  default := ⟨⟨0#u16⟩, ⟨0#u16⟩⟩
-
-/-!
-## Helper: spec for `alloc.vec.Vec.remove` at index 0
-
-`alloc.vec.Vec.remove` is an external axiom (declared in `FunsExternal.lean`) modelling Rust's
-`Vec::remove`.  For the `lagrange_interpolate_pt` proof we only need the case `index = 0`, where the
-first element is extracted and the remaining elements are shifted down:
-
-  `result.2.val = v.val.drop 1`
-
-The axiom captures the standard semantics of Rust's `Vec::remove(0)` on a non-empty vector.
--/
-
-/--
-**Spec for `alloc.vec.Vec.remove` at index 0, specialised to `GF16` vectors.**
-
-Given a non-empty vector `v` with `0 < v.val.length`, `Vec.remove v 0` returns the pair
-`(v[0], tail)` where `tail.val = v.val.drop 1`.  The first element is extracted and the remaining
-elements are shifted down by one position.
-
-This is an external axiom matching the standard semantics of Rust's `Vec::remove(0)`.
--/
 @[step]
 private axiom vec_remove_zero_spec
     (v : alloc.vec.Vec spqr.encoding.gf.GF16)
@@ -121,25 +88,6 @@ private axiom vec_remove_zero_spec
       ⦃ (result : GF16 × alloc.vec.Vec GF16) =>
         result.2.val = v.val.drop 1 ⦄
 
-/-!
-## Helper: polynomial division by `X` via `List.drop 1`
-
-When the constant-term coefficient (position 0) of a GF16 coefficient list is zero under
-`GF16.toGF216`, dropping the first element corresponds to polynomial division by `X`:
-
-  `listToGF216Poly cs = X · listToGF216Poly (cs.drop 1)`
-
-This is the algebraic content of the `coefficients.remove(0)` operation in the Rust implementation:
-since `result1.coefficients[0] = GF16::ZERO` (verified by the `debug_assert_eq!` in
-`lagrange_interpolate_complete`), removing it is equivalent to dividing the polynomial by `X`.
--/
-
-/--
-**`listToGF216Poly` of `drop 1` relates to the original polynomial by division by `X`.**
-
-If the constant-term coefficient of a `GF16` list has `toGF216 = 0`, then
-`listToGF216Poly cs = X · listToGF216Poly (cs.drop 1)`.
--/
 private lemma listToGF216Poly_eq_X_mul_drop_one
     (cs : List spqr.encoding.gf.GF16)
     (h0 : (listToGF216Poly cs).coeff 0 = 0) :
@@ -160,67 +108,31 @@ private lemma listToGF216Poly_eq_X_mul_drop_one
     · have hdn : ¬(n < (cs.drop 1).length) := by rw [List.length_drop]; omega
       rw [dif_neg hn, dif_neg hdn]
 
-/--
-**The constant term of `result1.toGF216Poly` is zero.**
-
-From the polynomial identity
-  `result1 · (X − C(a)) = X · C(s) · P`
-the RHS has a factor of `X` and hence zero constant term.  Comparing constant terms:
-  `result1.coeff(0) · (−a) = 0`
-In GF(2¹⁶), `−a = a`, so `result1.coeff(0) · a = 0`.
-
-• When `a ≠ 0`: since `GF216` is an integral domain, `result1.coeff(0) = 0`.
-• When `a = 0`: `(X − C(0)) = X`, so `result1 · X = X · C(s) · P`, giving
-  `result1 = C(s) · P`.  Since `P.eval a = 0` and `a = 0`, the factor theorem
-  gives `X ∣ P`, so `P = X · Q` and `result1 = C(s) · X · Q`, hence
-  `result1.coeff(0) = 0`.
-
-The additional hypothesis `h_root : P.eval a = 0` is needed for the `a = 0` case,
-where the constant-term argument alone is insufficient.  In the application context,
-this holds because `P = prodLinearFactors` evaluates to zero at every point `pts[j].x`.
--/
 private lemma coeff_zero_of_X_mul_identity
     (p : GF216Poly) (a s : GF216) (P : GF216Poly)
     (h_id : p * (X - C a) = X * C s * P)
     (h_root : P.eval a = 0) :
     p.coeff 0 = 0 := by
   by_cases ha : a = 0
-  · -- Case a = 0: X − C 0 = X, and P.eval 0 = 0 gives X ∣ P by the factor theorem
-    subst ha
+  · subst ha
     simp only [map_zero, sub_zero] at h_id
-    -- h_id : p * X = X * C s * P
-    -- Factor theorem: P.eval 0 = 0 ⟹ (X − C 0) ∣ P, i.e., X ∣ P
     have h_X_dvd_P : (X : GF216Poly) ∣ P := by
       have h_div : (X - C (0 : GF216)) ∣ P := dvd_iff_isRoot.mpr h_root
       rwa [map_zero, sub_zero] at h_div
     obtain ⟨Q, hQ⟩ := h_X_dvd_P
-    -- Cancel X: p * X = (C s * P) * X ⟹ p = C s * P
     have hX_ne : (X : GF216Poly) ≠ 0 := X_ne_zero
     have hp_eq : p = C s * P := by
       have h1 : p * X = (C s * P) * X := by
         ring_nf; ring_nf at h_id; exact h_id
       exact mul_right_cancel₀ hX_ne h1
-    -- Substitute P = X * Q: p = C s * (X * Q)
-    -- p.coeff 0 = s * (0 * Q.coeff 0) = 0
     rw [hp_eq, hQ]
     simp only [Polynomial.mul_coeff_zero, coeff_C_zero, coeff_X_zero,
                zero_mul, mul_zero]
-  · -- Case a ≠ 0: extract constant terms, use char 2 and integral domain
-    have h0 := congr_arg (fun q => q.coeff 0) h_id
+  · have h0 := congr_arg (fun q => q.coeff 0) h_id
     simp only [Polynomial.mul_coeff_zero, coeff_sub, coeff_X_zero, coeff_C_zero,
                zero_sub, zero_mul] at h0
-    -- h0 : p.coeff 0 * -a = 0
-    -- In char 2, -a = a
     rw [CharTwo.neg_eq] at h0
-    -- h0 : p.coeff 0 * a = 0. Since a ≠ 0, p.coeff 0 = 0.
     exact (mul_eq_zero.mp h0).elim id (absurd · ha)
-
-/-!
-## Main theorem
-
-The specification theorem for `lagrange_interpolate_pt` combines the prepare, complete, and remove
-steps into a single postcondition.
--/
 
 /--
 **Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_pt`**:

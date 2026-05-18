@@ -970,4 +970,13 @@ lemma list_map_sum_eq_finset_sum
     rw [ih, Fin.sum_univ_succ]
     simp [Fin.val_succ, List.get_eq_getElem]
 
+
+instance : Inhabited spqr.encoding.polynomial.Pt :=
+  ⟨{ x := default, y := default }⟩
+
+instance : Inhabited spqr.encoding.polynomial.Poly :=
+  ⟨{ coefficients := alloc.vec.Vec.new _ }⟩
+
+
+
 end spqr.encoding.polynomial
