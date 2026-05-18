@@ -39,30 +39,35 @@ At each step, the body processes index `j`:
         - Computes the field difference `g = pi.x.const_sub(pj.x)` via `const_sub`.
         - Updates the denominator: `denominator1 = denominator.const_mul(g)` via `const_mul`.
 
+**Important precondition note**: `mult_xdiff` requires that the leading coefficient
+`p.coefficients[N − 1]` is zero (since multiplying by a linear factor raises the degree by one
+and the result must fit in `N` coefficients).  After each non-skip iteration the degree of `p`
+grows by one, so a *single* hypothesis `p[N − 1] = 0` is **not** sufficient to guarantee that
+every iteration succeeds: we need a uniform degree bound that decreases together with the count
+of remaining non-skip points.
+
+The natural precondition is the **polynomial-degree bound**:
+
+  `natDegree(listToGF216Poly p.coefficients) + countNonSkip pi.x (pts.take N) j < N`
+
+where `countNonSkip` counts the indices `k ∈ [j, N)` with `pi.x ≠ pts[k].x`.  This bound is
+preserved by every body step (skip preserves it trivially; update raises the polynomial degree
+by 1 and decreases `countNonSkip` by 1) and at every non-skip body iteration it gives us
+`natDegree(listToGF216Poly p.coefficients) < N − 1`, hence the coefficient at index `N − 1` of
+the polynomial is zero in `GF216`, hence — via the bridge axiom
+`GF16.value_val_eq_zero_of_toGF216` — the underlying `u16` value at array position `N − 1` is
+zero, which is exactly what `mult_xdiff` requires.
+
 **Closed-form postcondition** (after all iterations from `j` to `N−1`):
 
-The loop processes the point indices `j, j+1, …, N−1` and builds the conditional products:
-
-  - **Polynomial**: the polynomial is multiplied by all linear factors `(X − pts[k].x)` for
-    `k ∈ [j, N)` where `pts[k].x ≠ pi.x`:
-      `listToGF216Poly pR.coefficients.val =
-         condProdLinearFactors pi.x (pts.val.take N.val) j.val *
-           listToGF216Poly p.coefficients.val`
-    where `condProdLinearFactors` is the conditional product of `(X − C(pts[k].x.toGF216))` for
-    indices `k ∈ [start, pts.length)` where `pi.x.value ≠ pts[k].x.value`.
-
-  - **Denominator**: the denominator is multiplied by all field differences
-    `pi.x − pts[k].x` for `k ∈ [j, N)` where `pts[k].x ≠ pi.x`:
-      `denominatorR.toGF216 =
-         denominator.toGF216 *
-           lagrangeDenomProd pi.x (pts.val.take N.val) j.val`
-
+  - **Polynomial**: `listToGF216Poly pR.coefficients =
+       condProdLinearFactors pi.x (pts.take N) j * listToGF216Poly p.coefficients`.
+  - **Denominator**: `denominatorR.toGF216 =
+       denominator.toGF216 * lagrangeDenomProd pi.x (pts.take N) j`.
   - **Interpolation point unchanged**: `piR = pi`.
 
 In GF(2¹⁶) (characteristic 2), subtraction coincides with addition (`a − b = a + b = a ⊕ b`),
-so `(X − pj.x) = (X + pj.x)` and `pi.x − pj.x = pi.x + pj.x`.  All field operations are carried
-out via the `GF16` Rust type wrapping `u16`, with carry-less polynomial multiplication modulo the
-irreducible polynomial `x¹⁶ + x¹² + x³ + x + 1` (0x1100b).
+so `(X − pj.x) = (X + pj.x)` and `pi.x − pj.x = pi.x + pj.x`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 380:12-391:13)
 -/
@@ -72,23 +77,7 @@ open encoding.polynomial
 
 namespace spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
-/-! ## Conditional product of linear factors
-
-`condProdLinearFactors pi_x pts start` computes the conditional product
-
-  `∏_{k = start}^{pts.length − 1}
-      (if pi_x.value = pts[k].x.value then 1
-       else X − C(pts[k].x.toGF216))`
-
-over the point list `pts` from index `start`.  This is the polynomial analogue of
-`lagrangeDenomProd`, which computes the same conditional product but for field elements
-`(pi_x.toGF216 − pts[k].x.toGF216)` instead of linear polynomial factors.
-
-The definition mirrors `lagrangeDenomProd` from `Spqr.Math.Poly` and satisfies the same
-recursion/base-case structure: it returns `1` (the multiplicative identity in `GF216[X]`) when
-`start ≥ pts.length`, skips when `pi_x.value = pts[start].x.value`, and multiplies by the
-linear factor `(X − C(pts[start].x.toGF216))` otherwise.
--/
+/-! ## Conditional product of linear factors -/
 
 /--
 **Conditional product of linear factors** `∏_{k ≥ start, pts[k].x ≠ pi_x} (X − C(pts[k].x.toGF216))`.
@@ -136,6 +125,71 @@ lemma condProdLinearFactors_accum (pi_x : spqr.encoding.gf.GF16)
         condProdLinearFactors pi_x pts (start + 1) := by
   conv_lhs => unfold condProdLinearFactors
   rw [dif_pos h, if_neg hne]
+
+/-! ## Counting non-skip iterations -/
+
+/--
+**Count of non-skip indices**: the number of `k ∈ [start, pts.length)` with
+`pi_x.value ≠ pts[k].x.value`.
+-/
+def countNonSkip (pi_x : spqr.encoding.gf.GF16)
+    (pts : List spqr.encoding.polynomial.Pt) (start : Nat) : Nat :=
+  if h : start < pts.length then
+    (if pi_x.value = (pts.get ⟨start, h⟩).x.value then 0 else 1) +
+      countNonSkip pi_x pts (start + 1)
+  else 0
+termination_by pts.length - start
+
+/-- When `start ≥ pts.length`, the count is `0`. -/
+@[simp]
+lemma countNonSkip_ge (pi_x : spqr.encoding.gf.GF16)
+    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
+    (h : pts.length ≤ start) :
+    countNonSkip pi_x pts start = 0 := by
+  unfold countNonSkip
+  simp [show ¬(start < pts.length) from by omega]
+
+/-- One-step unfolding when the current point matches `pi_x`: the count is unchanged. -/
+lemma countNonSkip_skip (pi_x : spqr.encoding.gf.GF16)
+    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
+    (h : start < pts.length)
+    (heq : pi_x.value = (pts.get ⟨start, h⟩).x.value) :
+    countNonSkip pi_x pts start = countNonSkip pi_x pts (start + 1) := by
+  conv_lhs => unfold countNonSkip
+  rw [dif_pos h, if_pos heq]
+  simp
+
+/-- One-step unfolding when the current point differs: the count drops by `1`. -/
+lemma countNonSkip_accum (pi_x : spqr.encoding.gf.GF16)
+    (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
+    (h : start < pts.length)
+    (hne : pi_x.value ≠ (pts.get ⟨start, h⟩).x.value) :
+    countNonSkip pi_x pts start = 1 + countNonSkip pi_x pts (start + 1) := by
+  conv_lhs => unfold countNonSkip
+  rw [dif_pos h, if_neg hne]
+
+/-! ## Bridge axiom: GF216 zero implies u16 zero
+
+The map `GF16.toGF216 : GF16 → GF216` is given by `g ↦ natToBinaryPoly g.value.val %ₘ polyGF2`.
+Since `g.value.val < 2^16` and `polyGF2` has degree 16, the underlying binary polynomial
+`natToBinaryPoly g.value.val` has degree `< 16` and therefore equals its own reduction modulo
+`polyGF2`.  The composition is then injective on `u16` values, so `g.toGF216 = 0` implies
+`g.value.val = 0`.
+
+We expose this as a private axiom (following the precedent of `vec_remove_zero_spec` in
+`LagrangeInterpolatePt.lean`) to avoid a lengthy detour through Mathlib's `AdjoinRoot` and
+`natToBinaryPoly` machinery.  The converse, `g.value.val = 0 → g.toGF216 = 0`, is already a
+proven lemma `GF16.toGF216_zero_val` in `Spqr.Math.Poly`.
+-/
+
+/--
+**Bridge axiom**: if a `GF16` element maps to `0 : GF216`, then its underlying `u16` value is
+also `0`.  Provable from injectivity of the composition
+`u16 ↪ Nat → BinaryPoly → AdjoinRoot polyGF2 ≃ GF216` (since `polyGF2` has degree 16 and the
+binary expansion of any `u16` has degree `< 16`).
+-/
+private axiom GF16.value_val_eq_zero_of_toGF216 (g : spqr.encoding.gf.GF16) :
+    g.toGF216 = 0 → g.value.val = 0
 
 /-! ## Relaxed body spec
 
@@ -185,39 +239,44 @@ private theorem body_spec_gen
     step*
     · grind
     · grind
-    ·  grind
+    · grind
   · simp [h_lt]
 
-/-! ## Main loop spec -/
+/-! ## Main loop spec
+
+**Note on the previous version of this theorem.**
+
+A prior version used the single-leading-zero hypothesis
+`h_leading_zero : (p.coefficients.val[N.val - 1]!).value.val = 0`.  This is **not strong
+enough**: after one non-skip update, `p₁ = (X − c) · p` has `p₁[N − 1] = p[N − 2]` (in
+characteristic 2), which is not in general zero.  The corrected precondition is a
+polynomial-degree bound that decreases together with the remaining non-skip count.
+-/
 
 /--
 **Spec theorem for `encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop`**:
 
 The full `while j < N` loop in `PolyConst::lagrange_interpolate_pt`, which simultaneously
-constructs the unnormalised Lagrange basis polynomial and the corresponding denominator.  Given
-the slice `pts`, the interpolation point `pi = pts[i]`, the running polynomial `p`, the running
-`denominator`, and the starting loop counter `j`, the loop processes all indices from `j` to
-`N−1` and returns `(piR, pR, denominatorR)` satisfying:
+constructs the unnormalised Lagrange basis polynomial and the corresponding denominator.
 
-• The function always succeeds (no panic) provided the preconditions hold, since
-  `Slice.index_usize` is bounded by `N ≤ pts.length`, `mult_xdiff` is total under the
-  leading-zero precondition, and `const_sub`/`const_mul` are total on `GF16 × GF16`.
+**Preconditions**:
+  - `0 < N.val` and `N.val ≤ pts.val.length` (array indexing is in bounds).
+  - `j.val ≤ N.val` (the loop is at or before its end).
+  - The **polynomial-degree bound**
+      `(listToGF216Poly p.coefficients.val).natDegree +
+         countNonSkip pi.x (pts.val.take N.val) j.val < N.val`
+    ensures that every remaining `mult_xdiff` call satisfies its leading-zero assertion.
 
-• **Interpolation point unchanged**: `piR = pi`.
-
-• **Polynomial accumulation**:
-    `listToGF216Poly pR.coefficients.val =
-       condProdLinearFactors pi.x (pts.val.take N.val) j.val *
-         listToGF216Poly p.coefficients.val`
-  where `condProdLinearFactors` is the product of `(X − C(pts[k].x.toGF216))` over indices
-  `k ∈ [j, N)` where `pi.x.value ≠ pts[k].x.value` (skipping the interpolation point itself).
-
-• **Denominator accumulation**:
-    `denominatorR.toGF216 =
-       denominator.toGF216 *
-         lagrangeDenomProd pi.x (pts.val.take N.val) j.val`
-  where `lagrangeDenomProd` is the product of `(pi.x.toGF216 − pts[k].x.toGF216)` over the
-  same set of indices, defined in `Spqr.Math.Poly`.
+**Postconditions**:
+  - **Interpolation point unchanged**: `piR = pi`.
+  - **Polynomial accumulation**:
+      `listToGF216Poly pR.coefficients.val =
+         condProdLinearFactors pi.x (pts.val.take N.val) j.val *
+           listToGF216Poly p.coefficients.val`.
+  - **Denominator accumulation**:
+      `denominatorR.toGF216 =
+         denominator.toGF216 *
+           lagrangeDenomProd pi.x (pts.val.take N.val) j.val`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 380:12-391:13)
 -/
@@ -232,7 +291,9 @@ theorem loop_spec
     (h_N_pos : 0 < N.val)
     (h_N_le_pts : N.val ≤ pts.val.length)
     (h_j_le_N : j.val ≤ N.val)
-    (h_leading_zero : (p.coefficients.val[N.val - 1]!).value.val = 0) :
+    (h_degree_bound :
+        (listToGF216Poly p.coefficients.val).natDegree +
+          countNonSkip pi.x (pts.val.take N.val) j.val < N.val) :
     lagrange_interpolate_pt_loop pts pi p denominator j
       ⦃ result =>
         let (piR, pR, denominatorR) := result
@@ -244,8 +305,6 @@ theorem loop_spec
           denominator.toGF216 *
             lagrangeDenomProd pi.x (pts.val.take N.val) j.val ⦄ := by
   unfold lagrange_interpolate_pt_loop
-  -- Capture the interpolation point's x-coordinate for use in the invariant
-  set pi_x := pi.x with h_pi_x
   apply loop.spec_decr_nat
     (measure := fun (state : (PolyConst N) × GF16 × Usize) =>
                   N.val - state.2.2.val)
@@ -255,27 +314,192 @@ theorem loop_spec
         let j' := state.2.2
         j.val ≤ j'.val ∧
         j'.val ≤ N.val ∧
-        -- Polynomial accumulation invariant (multiplicative form):
-        -- p'(X) · condProd_remaining(j') = p(X) · condProd_remaining(j)
         listToGF216Poly p'.coefficients.val *
-          condProdLinearFactors pi_x (pts.val.take N.val) j'.val =
+          condProdLinearFactors pi.x (pts.val.take N.val) j'.val =
           listToGF216Poly p.coefficients.val *
-            condProdLinearFactors pi_x (pts.val.take N.val) j.val ∧
-        -- Denominator accumulation invariant (multiplicative form):
-        -- d' · denomProd_remaining(j') = denominator · denomProd_remaining(j)
+            condProdLinearFactors pi.x (pts.val.take N.val) j.val ∧
         d'.toGF216 *
-          lagrangeDenomProd pi_x (pts.val.take N.val) j'.val =
+          lagrangeDenomProd pi.x (pts.val.take N.val) j'.val =
           denominator.toGF216 *
-            lagrangeDenomProd pi_x (pts.val.take N.val) j.val ∧
-        -- The body can succeed: either h_leading_zero holds, or all remaining are skips
-        ((p'.coefficients.val[N.val - 1]!).value.val = 0 ∨
-         (∀ (k : Nat) (hk : k < pts.val.length), j'.val ≤ k → k < N.val →
-           pi_x.value = (pts.val.get ⟨k, hk⟩).x.value)))
-  · -- Body step: prove invariant is preserved and measure decreases
-    simp
-    sorry
+            lagrangeDenomProd pi.x (pts.val.take N.val) j.val ∧
+        (listToGF216Poly p'.coefficients.val).natDegree +
+          countNonSkip pi.x (pts.val.take N.val) j'.val < N.val)
+  · -- Body preservation step
+    rintro ⟨p', d', j'⟩ ⟨hj_ge, hj_le, hpoly_inv, hdenom_inv, hdeg_inv⟩
+    -- Derive the leading-zero hypothesis required by the relaxed body spec
+    have h_leading_for_body :
+        (h_jN : j'.val < N.val) →
+        pi.x.value ≠ (pts.val.get ⟨j'.val, by omega⟩).x.value →
+        (p'.coefficients.val[N.val - 1]!).value.val = 0 := by
+      intro h_jN h_ne
+      have hj_pts : j'.val < pts.val.length := by omega
+      have h_take_len : (pts.val.take N.val).length = N.val := by
+        rw [List.length_take]; omega
+      have h_take_lt : j'.val < (pts.val.take N.val).length := by
+        rw [h_take_len]; omega
+      have h_take_get :
+          (pts.val.take N.val).get ⟨j'.val, h_take_lt⟩ =
+            pts.val.get ⟨j'.val, hj_pts⟩ := by
+        simp [List.get_eq_getElem, List.getElem_take]
+      -- The current index is a non-skip, so countNonSkip(j') ≥ 1
+      have h_ne_take :
+          pi.x.value ≠ ((pts.val.take N.val).get ⟨j'.val, h_take_lt⟩).x.value := by
+        rw [h_take_get]; exact h_ne
+      have h_cs_eq :
+          countNonSkip pi.x (pts.val.take N.val) j'.val =
+          1 + countNonSkip pi.x (pts.val.take N.val) (j'.val + 1) :=
+        countNonSkip_accum pi.x (pts.val.take N.val) j'.val h_take_lt h_ne_take
+      -- From the degree invariant + countNonSkip ≥ 1, derive natDegree(p') < N - 1
+      have h_nd : (listToGF216Poly p'.coefficients.val).natDegree < N.val - 1 := by
+        grind
+      -- So the coefficient of p' at N - 1 is zero in GF216
+      have h_coeff :
+          (listToGF216Poly p'.coefficients.val).coeff (N.val - 1) = 0 :=
+        Polynomial.coeff_eq_zero_of_natDegree_lt h_nd
+      -- Bridge to the array value via getElem_bang_toGF216_eq_coeff
+      have h_toGF216 :
+          (p'.coefficients.val[N.val - 1]!).toGF216 = 0 := by
+        rw [getElem_bang_toGF216_eq_coeff]; exact h_coeff
+      -- Bridge from GF216 zero to u16 zero via the axiom
+      exact GF16.value_val_eq_zero_of_toGF216 _ h_toGF216
+    -- Apply the body spec with the derived leading-zero hypothesis
+    have h_body := body_spec_gen pts pi p' d' j' h_N_pos h_N_le_pts h_leading_for_body
+    apply Aeneas.Std.WP.spec_mono h_body
+    intro cf hcf
+    cases cf with
+    | done result =>
+      -- Done case: j' ≥ N, so j' = N (by hj_le) and the products collapse to 1
+      obtain ⟨piR, pR, denomR⟩ := result
+      simp only at hcf
+      obtain ⟨hpi_eq, hp_eq, hd_eq, h_not_lt⟩ := hcf
+      have hj_eq_N : j'.val = N.val := by grind
+      have h_take_len : (pts.val.take N.val).length = N.val := by
+        rw [List.length_take]; omega
+      have h_cond_eq_one :
+          condProdLinearFactors pi.x (pts.val.take N.val) j'.val = 1 := by
+        apply condProdLinearFactors_ge
+        rw [h_take_len]; omega
+      have h_denom_eq_one :
+          lagrangeDenomProd pi.x (pts.val.take N.val) j'.val = 1 := by
+        apply lagrangeDenomProd_ge
+        rw [h_take_len]; omega
+      refine ⟨hpi_eq, ?_, ?_⟩
+      · rw [hp_eq]
+        have := hpoly_inv
+        rw [h_cond_eq_one, mul_one] at this
+        rw [this]; ring
+      · rw [hd_eq]
+        have := hdenom_inv
+        rw [h_denom_eq_one, mul_one] at this
+        rw [this]
+    | cont state =>
+      -- Cont case: the new invariant must be re-established and the measure must decrease
+      obtain ⟨p1, d1, j1⟩ := state
+      simp only at hcf
+      obtain ⟨h_lt, h_j1_eq, h_cases⟩ := hcf
+      simp only
+      have hj_pts : j'.val < pts.val.length := by omega
+      obtain ⟨h_skip, h_update⟩ := h_cases hj_pts
+      have h_take_len : (pts.val.take N.val).length = N.val := by
+        rw [List.length_take]; omega
+      have h_take_lt : j'.val < (pts.val.take N.val).length := by
+        rw [h_take_len]; exact h_lt
+      have h_take_get :
+          (pts.val.take N.val).get ⟨j'.val, h_take_lt⟩ =
+            pts.val.get ⟨j'.val, hj_pts⟩ := by
+        simp [List.get_eq_getElem, List.getElem_take]
+      refine ⟨⟨?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+      · -- j ≤ j1
+        show j.val ≤ j1.val; grind
+      · -- j1 ≤ N
+        show j1.val ≤ N.val; omega
+      · -- Polynomial invariant
+        by_cases h_eq : pi.x.value = (pts.val.get ⟨j'.val, hj_pts⟩).x.value
+        · -- Skip case
+          obtain ⟨hp_eq, _⟩ := h_skip h_eq
+          subst hp_eq
+          have h_cond_skip :
+              condProdLinearFactors pi.x (pts.val.take N.val) j'.val =
+              condProdLinearFactors pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [condProdLinearFactors_skip pi.x (pts.val.take N.val) j'.val h_take_lt]
+            rw [h_take_get]; exact h_eq
+          rw [h_j1_eq, ← h_cond_skip]
+          exact hpoly_inv
+        · -- Update case
+          obtain ⟨hp_id, _⟩ := h_update h_eq
+          have h_cond_acc :
+              condProdLinearFactors pi.x (pts.val.take N.val) j'.val =
+              (X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216)) *
+                condProdLinearFactors pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [condProdLinearFactors_accum pi.x (pts.val.take N.val) j'.val h_take_lt]
+            · rw [h_take_get]
+            · rw [h_take_get]; exact h_eq
+          rw [h_j1_eq, hp_id]
+          have := hpoly_inv
+          rw [h_cond_acc] at this
+          linear_combination this
+      · -- Denominator invariant
+        by_cases h_eq : pi.x.value = (pts.val.get ⟨j'.val, hj_pts⟩).x.value
+        · obtain ⟨_, hd_eq⟩ := h_skip h_eq
+          subst hd_eq
+          have h_denom_skip :
+              lagrangeDenomProd pi.x (pts.val.take N.val) j'.val =
+              lagrangeDenomProd pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [lagrangeDenomProd_skip pi.x (pts.val.take N.val) j'.val h_take_lt]
+            rw [h_take_get]; exact h_eq
+          rw [h_j1_eq, ← h_denom_skip]
+          exact hdenom_inv
+        · obtain ⟨_, hd_id⟩ := h_update h_eq
+          have h_denom_acc :
+              lagrangeDenomProd pi.x (pts.val.take N.val) j'.val =
+              (pi.x.toGF216 - (pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216) *
+                lagrangeDenomProd pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [lagrangeDenomProd_accum pi.x (pts.val.take N.val) j'.val h_take_lt]
+            · rw [h_take_get]
+            · rw [h_take_get]; exact h_eq
+          rw [h_j1_eq, hd_id]
+          have := hdenom_inv
+          rw [h_denom_acc] at this
+          linear_combination this
+      · -- Polynomial-degree invariant
+        by_cases h_eq : pi.x.value = (pts.val.get ⟨j'.val, hj_pts⟩).x.value
+        · -- Skip: p1 = p', countNonSkip preserved
+          obtain ⟨hp_eq, _⟩ := h_skip h_eq
+          subst hp_eq
+          have h_cs_skip :
+              countNonSkip pi.x (pts.val.take N.val) j'.val =
+              countNonSkip pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [countNonSkip_skip pi.x (pts.val.take N.val) j'.val h_take_lt]
+            rw [h_take_get]; exact h_eq
+          rw [h_j1_eq, ← h_cs_skip]
+          exact hdeg_inv
+        · -- Update: natDegree raises by ≤ 1, countNonSkip drops by 1
+          obtain ⟨hp_id, _⟩ := h_update h_eq
+          have h_cs_acc :
+              countNonSkip pi.x (pts.val.take N.val) j'.val =
+              1 + countNonSkip pi.x (pts.val.take N.val) (j'.val + 1) := by
+            rw [countNonSkip_accum pi.x (pts.val.take N.val) j'.val h_take_lt]
+            · rw [h_take_get]; exact h_eq
+          have h_nd_p1 :
+              (listToGF216Poly p1.coefficients.val).natDegree ≤
+              1 + (listToGF216Poly p'.coefficients.val).natDegree := by
+            rw [hp_id]
+            calc ((X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216)) *
+                    listToGF216Poly p'.coefficients.val).natDegree
+                ≤ (X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216) :
+                    GF216Poly).natDegree +
+                  (listToGF216Poly p'.coefficients.val).natDegree :=
+                  Polynomial.natDegree_mul_le
+              _ = 1 + (listToGF216Poly p'.coefficients.val).natDegree := by
+                  rw [Polynomial.natDegree_X_sub_C]
+          rw [h_j1_eq]
+          have h_old := hdeg_inv
+          rw [h_cs_acc] at h_old
+          grind
+      · -- Measure decrease
+        show N.val - j1.val < N.val - j'.val; omega
   · -- Initial invariant
-    refine ⟨le_refl _, h_j_le_N, ?_, ?_, Or.inl h_leading_zero⟩
+    refine ⟨le_refl _, h_j_le_N, ?_, ?_, h_degree_bound⟩
     · ring
     · ring
 
