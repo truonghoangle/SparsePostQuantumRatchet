@@ -9,6 +9,8 @@ import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.Mult
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoop0
+import Spqr.Specs.Encoding.Gf.GF16.ZERO
+import Spqr.Specs.Encoding.Gf.GF16.ONE
 
 /-! # Spec theorem for
 `spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyConst<N>}::lagrange_interpolate_pt`
@@ -331,9 +333,64 @@ theorem lagrange_interpolate_pt_spec
               (pts.val.take N.val) 0 ⦄ := by
   unfold lagrange_interpolate_pt
   step*
-  · trace_state
-    sorry
-  · trace_state
-    sorry
+  · simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
+    -- The initial polynomial [ONE, ZERO, ..., ZERO] equals 1
+    have h_init : listToGF216Poly ((List.replicate (↑N) GF16.ZERO).set 0 GF16.ONE) = 1 := by
+      ext m
+      rw [listToGF216Poly_coeff, Polynomial.coeff_one]
+      simp only [List.length_set, List.length_replicate]
+      cases m with
+      | zero =>
+        simp [h_N_pos, List.get_eq_getElem, GF16.ONE_toGF216]
+      | succ n =>
+        rw [if_neg (show n + 1 ≠ 0 from by omega)]
+        by_cases hlt : n + 1 < ↑N
+        · rw [dif_pos hlt]
+          simp only [List.get_eq_getElem, ne_eq, Nat.right_eq_add, Nat.add_eq_zero_iff, one_ne_zero,
+            and_false, not_false_eq_true, List.getElem_set_ne, List.getElem_replicate,
+            GF16.ZERO_toGF216]
+        · rw [dif_neg hlt]
+    rw [h_init, Polynomial.natDegree_one, Nat.zero_add]
+    -- countNonSkip ≤ N - 1 because index i is a skip (pi = pts[i])
+    have h_count : countNonSkip pi.x (List.take (↑N) (↑pts)) 0 ≤ ↑N - 1 := by
+      apply countNonSkip_le_of_skip_exists pi.x _ (↑N)
+        (by simp only [List.length_take, inf_le_left]) (↑i) h_i_lt_N
+      intro h_i_lt
+      have h_i_lt_pts : (↑i) < (↑pts : List Pt).length := by omega
+      have h_take_eq : (List.take (↑N) (↑pts : List Pt)).get ⟨↑i, h_i_lt⟩ =
+          (↑pts : List Pt).get ⟨↑i, h_i_lt_pts⟩ := by
+        simp only [List.get_eq_getElem, List.getElem_take]
+      rw [h_take_eq, pi_post, List.get_eq_getElem]
+      simp only [List.getElem!_eq_getElem?_getD, List.getElem?_eq_getElem h_i_lt_pts,
+        Option.getD_some]
+    omega
+  · -- Final postcondition: compose the loop, const_div, and mult specs
+    obtain ⟨h_pi1_eq, h_poly, h_denom⟩ := pi1_post
+    -- Step 1: rewrite LHS using result_post1 and h_poly
+    rw [result_post1, h_poly]
+    -- Step 2: rewrite g using g_post and pi1 = pi
+    rw [g_post, h_pi1_eq]
+    -- Step 3: simplify the denominator using ONE_toGF216
+    rw [h_denom, GF16.ONE_toGF216, one_mul]
+    -- Step 4: show listToGF216Poly ↑a1 = 1
+    have h_init : listToGF216Poly ↑a1 = 1 := by
+      simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
+      ext m
+      rw [listToGF216Poly_coeff, Polynomial.coeff_one]
+      simp only [List.length_set, List.length_replicate]
+      cases m with
+      | zero => simp [h_N_pos, List.get_eq_getElem, GF16.ONE_toGF216]
+      | succ n =>
+        rw [if_neg (by omega)]
+        by_cases hlt : n + 1 < ↑N
+        · rw [dif_pos hlt]; simp [List.get_eq_getElem, List.getElem_replicate, GF16.ZERO_toGF216]
+        · rw [dif_neg hlt]
+    rw [h_init, mul_one]
+    -- Step 5: relate pi to pts[i] via pi_post
+    -- pi_post : pi = (↑pts)[↑i]! and we need pi = (↑pts).get ⟨↑i, result_post2⟩
+    rw [pi_post]
+    simp only [List.getElem!_eq_getElem?_getD, List.getElem?_eq_getElem result_post2,
+      Option.getD_some, Nat.reducePow, Nat.reduceSub, map_mul, map_pow, List.get_eq_getElem]
+
 
 end spqr.encoding.polynomial.PolyConst
