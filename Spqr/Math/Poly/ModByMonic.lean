@@ -20,12 +20,19 @@ namespace spqr.math.gf
 lemma ringHom_modByMonic
     {R : Type*} [CommRing R]
     (φ : BinaryPoly →+* R)
+<<<<<<< HEAD
     (P : BinaryPoly)
     (hφ : φ P = 0)
     (p : BinaryPoly) :
     φ (p %ₘ P) = φ p := by
   have heq : p %ₘ P + P * (p /ₘ P) = p :=
     Polynomial.modByMonic_add_div p P
+=======
+    (P : BinaryPoly) (hφ : φ P = 0)
+    (p : BinaryPoly) :
+    φ (p %ₘ P) = φ p := by
+  have heq : p %ₘ P + P * (p /ₘ P) = p := Polynomial.modByMonic_add_div p _
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
   have h1 : φ p = φ (p %ₘ P + P * (p /ₘ P)) := by rw [heq]
   have h2 :
       φ (p %ₘ P + P * (p /ₘ P)) = φ (p %ₘ P) + φ P * φ (p /ₘ P) := by

@@ -937,8 +937,7 @@ axiom prost.encoding.message.encoded_len
 axiom sorted_vec.SortedSet.Insts.CoreCloneClone.clone
   {T : Type} (corecloneCloneInst : core.clone.Clone T) (corecmpOrdInst :
   core.cmp.Ord T) :
-  sorted_vec.SortedSet corecmpOrdInst → Result (sorted_vec.SortedSet
-    corecmpOrdInst)
+  sorted_vec.SortedSet T → Result (sorted_vec.SortedSet T)
 
 /-- [sorted_vec::{core::ops::deref::Deref<alloc::vec::Vec<T>> for sorted_vec::SortedVec<T>[TraitClause@0]}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 309:2-309:30
@@ -947,7 +946,7 @@ axiom sorted_vec.SortedSet.Insts.CoreCloneClone.clone
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref"]
 axiom sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedVec corecmpOrdInst → Result (alloc.vec.Vec T)
+  sorted_vec.SortedVec T → Result (alloc.vec.Vec T)
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>[TraitClause@0]}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
@@ -955,7 +954,7 @@ axiom sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
 axiom sorted_vec.SortedSet.new
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Result (sorted_vec.SortedSet corecmpOrdInst)
+  Result (sorted_vec.SortedSet T)
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>[TraitClause@0]}::with_capacity]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 351:2-351:49
@@ -963,7 +962,7 @@ axiom sorted_vec.SortedSet.new
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::with_capacity"]
 axiom sorted_vec.SortedSet.with_capacity
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Std.Usize → Result (sorted_vec.SortedSet corecmpOrdInst)
+  Std.Usize → Result (sorted_vec.SortedSet T)
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>[TraitClause@0]}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
@@ -971,8 +970,8 @@ axiom sorted_vec.SortedSet.with_capacity
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::push"]
 axiom sorted_vec.SortedSet.push
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet corecmpOrdInst → T → Result ((Std.Usize × (Option
-    T)) × (sorted_vec.SortedSet corecmpOrdInst))
+  sorted_vec.SortedSet T → T → Result ((Std.Usize × (Option
+    T)) × (sorted_vec.SortedSet T))
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>[TraitClause@0]> for sorted_vec::SortedSet<T>[TraitClause@0]}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 543:2-543:36
@@ -981,8 +980,7 @@ axiom sorted_vec.SortedSet.push
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref"]
 axiom sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet corecmpOrdInst → Result (sorted_vec.SortedVec
-    corecmpOrdInst)
+  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T)
 
 /-- [thiserror::display::{thiserror::display::AsDisplay<'a, &'a (T)> for &1 (T)}::as_display]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.12/src/display.rs', lines 20:4-20:43

@@ -4,8 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
+<<<<<<< HEAD
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
+=======
+import Spqr.Specs.Encoding.Gf.Reduce.ReduceBytes
+
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 /-!
 # Spec theorem for `spqr::encoding::gf::reduce::REDUCE_BYTES`
 
@@ -29,6 +34,7 @@ The constant is unconditional and pure — its evaluation never fails and never 
 **Source**: spqr/src/encoding/gf.rs (lines 435:4-435:52)
 -/
 
+<<<<<<< HEAD
 open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.math.gf
 
 namespace spqr.encoding.gf.reduce
@@ -106,4 +112,24 @@ theorem REDUCE_BYTES_poly_spec :
   simp only [REDUCE_BYTES]
   exact reduce_bytes_spec_poly
 
+=======
+open Aeneas Aeneas.Std  Polynomial  spqr.math.gf
+
+namespace spqr.encoding.gf.reduce
+
+/-- **Spec theorem for `spqr::encoding::gf::reduce::REDUCE_BYTES`**
+
+The compile-time lookup table `REDUCE_BYTES` is exactly the table produced by `reduce_bytes`:
+for every byte index `j < 256`, the entry `REDUCE_BYTES[j]`, read as a GF(2)-polynomial, equals
+`(j · X¹⁶) mod polyGF2`, the canonical reduction of the shifted byte polynomial modulo the
+irreducible `polyGF2 = X¹⁶ + X¹² + X³ + X + 1`. -/
+@[step]
+theorem REDUCE_BYTES_spec :
+    REDUCE_BYTES ⦃ (result : Array U16 256#usize) =>
+      ∀ (j : Usize) (_ :j.val < 256),
+          natToBinaryPoly result[j]! = (natToBinaryPoly j * X ^ 16) %ₘ polyGF2 ⦄ := by
+  simp only [REDUCE_BYTES]
+  exact reduce_bytes_spec
+
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 end spqr.encoding.gf.reduce

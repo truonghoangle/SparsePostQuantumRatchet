@@ -99,6 +99,7 @@ tweaks:
     - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
+<<<<<<< HEAD
     # Insert concrete MulAssign body before Mul::mul (opaque because Rust dispatches to SIMD)
     - find: |
         /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
@@ -146,3 +147,12 @@ tweaks:
 
     - regex: "(ControlFlow\\.Continue )(val\\d+)(?= =>\\n\\s+let r\\d+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb \\2\\b)"
       replace: "$1($2 : proto.pq_ratchet.PolynomialDecoder)"
+=======
+    # Fix ok_or none type inference
+    - find: "core.option.Option.ok_or none Error.StateDecode"
+      replace: "core.option.Option.ok_or (none : Option _) Error.StateDecode"
+    - regex: "(\\| core\\.ops\\.control_flow\\.ControlFlow\\.Continue) val2 (=>\\n\\s+let \\S+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb val2)"
+      replace: "$1 (val2 : proto.pq_ratchet.PolynomialDecoder) $2"
+    - regex: "(\\| core\\.ops\\.control_flow\\.ControlFlow\\.Continue) val4 (=>\\n\\s+let \\S+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb val4)"
+      replace: "$1 (val4 : proto.pq_ratchet.PolynomialDecoder) $2"
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089

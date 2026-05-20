@@ -26,12 +26,16 @@ The function proceeds in two stages:
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
 
-open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.reduce spqr.math.gf
+open Aeneas Aeneas.Std Result spqr.math.gf
 
 namespace spqr.encoding.gf.unaccelerated
 
+<<<<<<< HEAD
 /--
 **Polynomial-level postcondition for `encoding.gf.unaccelerated.mul`**:
+=======
+/-- **Spec theorem for `encoding.gf.unaccelerated.mul`**:
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 
 Carry-less polynomial multiplication of two `u16` values in GF(2¹⁶), followed by reduction modulo
 the irreducible polynomial POLY = 0x1100b.
@@ -54,20 +58,32 @@ at the polynomial level.
 
 **Source**: spqr/src/encoding/gf.rs (lines 444:4-446:5)
 -/
+<<<<<<< HEAD
 theorem mul_spec' (a b : U16) :
     mul a b ⦃ result =>
+=======
+theorem mul_spec_nat (a b : U16) :
+    mul a b ⦃ ( result : U16) =>
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
       natToBinaryPoly result.val =
         (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 ⦄ := by
   unfold mul
   step*
 
 /--
+<<<<<<< HEAD
 **GF216-level postcondition (provable, parametric)**:
 
 For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on `polyGF2`,
 the result of `mul a b` corresponds — via `BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the product of
 `a` and `b` in `GF216`.
 
+=======
+For any ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` that vanishes on `polyGF2`,
+the result of `mul a b` corresponds — via `BinaryPoly.toGF216 ∘ natToBinaryPoly` — to the product of
+`a` and `b` in `GF216`.
+
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 Specializing `BinaryPoly.toGF216` to the canonical isomorphism (whose construction requires
 irreducibility of `polyGF2` over `ZMod 2`, i.e. a finite-field development we omit here) recovers
 the GF(2¹⁶) interpretation of the result.
@@ -77,8 +93,11 @@ theorem mul_spec
     (a b : U16) :
     mul a b ⦃ (result : U16) =>
       result.val.toGF216 = a.val.toGF216 * b.val.toGF216 ⦄ := by
+<<<<<<< HEAD
   have hMonic : polyGF2.Monic := polyGF2_monic
   have h := mul_spec' a b
+=======
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
   unfold mul
   step*
   simp only [Nat.toGF216]
@@ -86,6 +105,7 @@ theorem mul_spec
       BinaryPoly.toGF216 (natToBinaryPoly result.val) =
         BinaryPoly.toGF216
           ((natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2) := by
+<<<<<<< HEAD
     have hPoly :
         natToBinaryPoly result.val =
           (natToBinaryPoly a.val * natToBinaryPoly b.val) %ₘ polyGF2 := by
@@ -93,5 +113,9 @@ theorem mul_spec
     rw [hPoly]
   rw [key, ringHom_modByMonic BinaryPoly.toGF216 polyGF2
     BinaryPoly.toGF216_polyGF2, map_mul]
+=======
+    grind
+  rw [key, ringHom_modByMonic BinaryPoly.toGF216 polyGF2 BinaryPoly.toGF216_polyGF2, map_mul]
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 
 end spqr.encoding.gf.unaccelerated

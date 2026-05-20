@@ -4,10 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Mathlib.Algebra.Field.ZMod
-import Mathlib.RingTheory.Polynomial.Basic
+import Mathlib.Algebra.Lie.OfAssociative
+import Mathlib.Algebra.Order.Ring.Star
+import Mathlib.Data.Int.ConditionallyCompleteOrder
 import Mathlib.Data.Nat.BitIndices
-import Mathlib.Data.Nat.Bits
-import Mathlib.Algebra.CharP.Two
+import Mathlib.RingTheory.Polynomial.Basic
 
 /-!
 # The binary polynomial ring `(ZMod 2)[X]`
@@ -178,7 +179,11 @@ lemma natToBinaryPoly_one : natToBinaryPoly 1 = 1 := by
   | zero => decide
   | succ n =>
     have htb : Nat.testBit 1 (n + 1) = false :=
+<<<<<<< HEAD
       Nat.testBit_lt_two_pow (Nat.one_lt_pow (by omega) (by omega))
+=======
+      Nat.testBit_lt_two_pow (Nat.one_lt_pow (by omega) (by norm_num))
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
     simp [htb]
 
 end spqr.math.gf

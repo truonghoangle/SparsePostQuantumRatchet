@@ -263,6 +263,7 @@ theorem poly_mul_loop_spec (b : Std.U16) (acc : Std.U32) (me : Std.U32)
   · intro ⟨acc', shift'⟩ ⟨hShift', hInv', hMe'⟩
     simp only []
     unfold poly_mul_loop.body
+<<<<<<< HEAD
     by_cases hLt : shift'.val < 16
     · simp only [UScalar.lt_equiv, UScalar.ofNatCore_val_eq, hLt,
         ↓reduceIte, bne_iff_ne, ne_eq, UScalar.neq_to_neq_val,
@@ -293,6 +294,36 @@ theorem poly_mul_loop_spec (b : Std.U16) (acc : Std.U32) (me : Std.U32)
             rw [Nat.one_shiftLeft, show U16.size = 2 ^ 16 from by simp [U16.size, U16.numBits]]
             exact Nat.pow_lt_pow_right (by omega) hLt)
         have : b.val.testBit shift'.val = True := by
+=======
+    -- simp only []
+    by_cases hLt : shift'.val < 16
+    · simp only [UScalar.lt_equiv, UScalar.ofNatCore_val_eq, hLt,
+      ↓reduceIte, bne_iff_ne, ne_eq, UScalar.neq_to_neq_val,
+      ReduceNat.reduceNatEq, ite_not, Nat.reducePow, and_assoc]
+      step*
+      split
+      · step*
+        · have : b.val.testBit shift'.val = False := by
+            have hmod : 1 <<< shift'.val % U16.size = 1 <<< shift'.val :=
+              Nat.mod_eq_of_lt (by
+                rw [Nat.one_shiftLeft, show U16.size = 2 ^ 16 from by simp [U16.size, U16.numBits]]
+                exact Nat.pow_lt_pow_right (by omega) hLt)
+            have h := not_testBit_of_and_one_shiftLeft_eq_zero
+              (n := b.val) (k := shift'.val) (by rw [← hmod]; simp_all)
+            simp [h]
+          constructor
+          · grind
+          · constructor
+            · simp [shift1_post, clmul, this]
+              simp_all
+            · grind
+      · step*
+        have : b.val.testBit shift'.val = True := by
+          have hmod : 1 <<< shift'.val % U16.size = 1 <<< shift'.val :=
+            Nat.mod_eq_of_lt (by
+              rw [Nat.one_shiftLeft, show U16.size = 2 ^ 16 from by simp [U16.size, U16.numBits]]
+              exact Nat.pow_lt_pow_right (by omega) hLt)
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
           have h := testBit_of_and_one_shiftLeft_ne_zero
             (n := b.val) (k := shift'.val) (by rw [← hmod]; simp_all)
           simp [h]

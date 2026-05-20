@@ -3,9 +3,13 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
+<<<<<<< HEAD
 import Spqr.Math.Gf2Poly.Basic
+=======
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 import Mathlib.Data.Nat.Bitwise
 import Mathlib.Tactic.IntervalCases
+import Spqr.Math.Gf2Poly.Basic
 
 /-!
 # Computable Nat-level representation of `BinaryPoly`
@@ -245,7 +249,12 @@ lemma natToBinaryPoly_surjective (q : BinaryPoly) : ∃ n, natToBinaryPoly n = q
       exact (monomial_zero_right n).symm
     · refine ⟨2 ^ n, ?_⟩
       rw [natToBinaryPoly_two_pow]
+<<<<<<< HEAD
       exact X_pow_eq_monomial n
+=======
+      simp [X_pow_eq_monomial]
+      rfl
+>>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 
 lemma exists_natToBinaryPoly_eq_of_one_le_natDegree (q : BinaryPoly)
     (hd : 1 ≤ q.natDegree) : ∃ b, b ≥ 2 ∧ natToBinaryPoly b = q := by
