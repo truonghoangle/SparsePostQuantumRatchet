@@ -911,7 +911,7 @@ structure encoding.Encoder (Self : Type) where
     Visibility: public -/
 structure encoding.polynomial.PolyDecoder where
   pts_needed : Std.Usize
-  pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize
+  pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize
   is_complete : Bool
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::new_with_poly_count::closure]

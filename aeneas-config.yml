@@ -87,8 +87,6 @@ tweaks:
     - regex: "\\n  collect := fun \\{B : Type\\}[\\s\\S]*?(?=\\n\\})"
       replace: "\n  take := sorry"
 
-  
-
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
     - regex: "(def (?:encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
@@ -130,14 +128,11 @@ tweaks:
 
         /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
 
-    # Replace all remaining SortedSet encoding.polynomial.Pt) with the Ord instance
-    # (substitution #16 above handles the struct field in Types.lean; this regex
-    # catches every other occurrence in Funs.lean where Pt is used as a bare type
-    # argument instead of the required Ord instance)
-    - regex: "SortedSet(\\s+)encoding\\.polynomial\\.Pt\\)"
-      replace: "SortedSet$1encoding.polynomial.Pt.Insts.CoreCmpOrd)"
-
-
+  
+    # Fix ok_or none type inference
+    - find: "core.option.Option.ok_or none Error.StateDecode"
+      replace: "core.option.Option.ok_or (none : Option _) Error.StateDecode"
+      
     # Fix parallel_mult: bind both mul2_u16 results instead of discarding second
     - find: "let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value"
       replace: "let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value"

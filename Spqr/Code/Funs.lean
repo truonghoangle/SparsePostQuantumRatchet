@@ -9560,7 +9560,7 @@ def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt.call_mut
   (c : encoding.polynomial.PolyDecoder.new_with_poly_count.closure)
   (tupled_args : Std.Usize) :
-  Result ((sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) ×
+  Result ((sorted_vec.SortedSet encoding.polynomial.Pt) ×
     encoding.polynomial.PolyDecoder.new_with_poly_count.closure)
   := do
   let ss ← sorted_vec.SortedSet.new encoding.polynomial.Pt.Insts.CoreCmpOrd
@@ -9572,7 +9572,7 @@ def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt.call_once
   (c : encoding.polynomial.PolyDecoder.new_with_poly_count.closure)
   (i : Std.Usize) :
-  Result (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
+  Result (sorted_vec.SortedSet encoding.polynomial.Pt)
   := do
   let (ss, _) ←
     encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt.call_mut
@@ -9586,7 +9586,7 @@ def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt
   : core.ops.function.FnOnce
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure Std.Usize
-  (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) := {
+  (sorted_vec.SortedSet encoding.polynomial.Pt) := {
   call_once :=
     encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt.call_once
 }
@@ -9598,7 +9598,7 @@ def
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt
   : core.ops.function.FnMut
   encoding.polynomial.PolyDecoder.new_with_poly_count.closure Std.Usize
-  (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) := {
+  (sorted_vec.SortedSet encoding.polynomial.Pt) := {
   FnOnceInst :=
     encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeSortedSetPt
   call_mut :=
@@ -9633,7 +9633,7 @@ def encoding.polynomial.PolyDecoder.new_with_poly_count
     Source: 'src/encoding/polynomial.rs', lines 803:12-807:13 -/
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0.body
-  (pts : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
+  (pts : sorted_vec.SortedSet encoding.polynomial.Pt)
   (iter : core.ops.range.Range Std.Usize) (v : alloc.vec.Vec Std.U8) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec
     Std.U8)) (alloc.vec.Vec Std.U8))
@@ -9665,7 +9665,7 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0.body
 @[rust_loop]
 def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
   (iter : core.ops.range.Range Std.Usize)
-  (pts : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
+  (pts : sorted_vec.SortedSet encoding.polynomial.Pt)
   (v : alloc.vec.Vec Std.U8) :
   Result (alloc.vec.Vec Std.U8)
   := do
@@ -9678,10 +9678,10 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
     Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.into_pb_loop0.body
-  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt))
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8)) :
   Result (ControlFlow ((core.slice.iter.Iter (sorted_vec.SortedSet
-    encoding.polynomial.Pt.Insts.CoreCmpOrd)) × (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
+    encoding.polynomial.Pt)) × (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
     (alloc.vec.Vec (alloc.vec.Vec Std.U8)))
   := do
   let (o, iter1) ← core.slice.iter.IteratorSliceIter.next iter
@@ -9711,7 +9711,7 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0.body
     Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
 @[rust_loop]
 def encoding.polynomial.PolyDecoder.into_pb_loop0
-  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt))
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8)) :
   Result (alloc.vec.Vec (alloc.vec.Vec Std.U8))
   := do
@@ -9746,9 +9746,9 @@ def encoding.polynomial.PolyDecoder.into_pb
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0.body
   (pts : alloc.vec.Vec Std.U8)
-  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) (j : Std.Usize) :
-  Result (ControlFlow ((sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) ×
-    Std.Usize) (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd))
+  (v : sorted_vec.SortedSet encoding.polynomial.Pt) (j : Std.Usize) :
+  Result (ControlFlow ((sorted_vec.SortedSet encoding.polynomial.Pt) ×
+    Std.Usize) (sorted_vec.SortedSet encoding.polynomial.Pt))
   := do
   let i ← j + 4#usize
   let i1 := alloc.vec.Vec.len pts
@@ -9778,8 +9778,8 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0.body
 @[rust_loop]
 def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0
   (pts : alloc.vec.Vec Std.U8)
-  (v : sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) (j : Std.Usize) :
-  Result (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd)
+  (v : sorted_vec.SortedSet encoding.polynomial.Pt) (j : Std.Usize) :
+  Result (sorted_vec.SortedSet encoding.polynomial.Pt)
   := do
   loop
     (fun (v1, j1) => encoding.polynomial.PolyDecoder.from_pb_loop0_loop0.body
@@ -9792,10 +9792,10 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0_loop0
 def encoding.polynomial.PolyDecoder.from_pb_loop0.body
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
   (iter : core.ops.range.Range Std.Usize)
-  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
+  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Array
-    (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize)) (Array
-    (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize))
+    (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize)) (Array
+    (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
@@ -9824,8 +9824,8 @@ def encoding.polynomial.PolyDecoder.from_pb_loop0.body
 def encoding.polynomial.PolyDecoder.from_pb_loop0
   (iter : core.ops.range.Range Std.Usize)
   (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
-  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize) :
-  Result (Array (sorted_vec.SortedSet encoding.polynomial.Pt.Insts.CoreCmpOrd) 16#usize)
+  (out_pts : Array (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize) :
+  Result (Array (sorted_vec.SortedSet encoding.polynomial.Pt) 16#usize)
   := do
   loop
     (fun (iter1, out_pts1) =>
@@ -10830,7 +10830,7 @@ def v1.chunked.send_ct.serialize.NoHeaderReceived.from_pb
           r1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
-        let r2 ← core.option.Option.ok_or none Error.StateDecode
+        let r2 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
         let cf2 ←
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
@@ -11005,7 +11005,7 @@ def v1.chunked.send_ct.serialize.HeaderReceived.from_pb
           r1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
-        let r2 ← core.option.Option.ok_or none Error.StateDecode
+        let r2 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
         let cf2 ←
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
@@ -11240,7 +11240,7 @@ def v1.chunked.send_ct.serialize.Ct1Sampled.from_pb
               r4
           match cf3 with
           | core.ops.control_flow.ControlFlow.Continue val3 =>
-            let r5 ← core.option.Option.ok_or none Error.StateDecode
+            let r5 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
             let cf4 ←
               core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                 r5
@@ -11553,7 +11553,7 @@ def v1.chunked.send_ct.serialize.Ct1Acknowledged.from_pb
           r1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
-        let r2 ← core.option.Option.ok_or none Error.StateDecode
+        let r2 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
         let cf2 ←
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
@@ -12466,7 +12466,7 @@ def v1.chunked.send_ek.serialize.HeaderSent.from_pb
               r4
           match cf3 with
           | core.ops.control_flow.ControlFlow.Continue val3 =>
-            let r5 ← core.option.Option.ok_or none Error.StateDecode
+            let r5 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
             let cf4 ←
               core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
                 r5
@@ -12756,7 +12756,7 @@ def v1.chunked.send_ek.serialize.EkSentCt1Received.from_pb
           r1
       match cf1 with
       | core.ops.control_flow.ControlFlow.Continue val1 =>
-        let r2 ← core.option.Option.ok_or none Error.StateDecode
+        let r2 ← core.option.Option.ok_or (none : Option _) Error.StateDecode
         let cf2 ←
           core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
             r2
