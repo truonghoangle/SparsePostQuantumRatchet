@@ -5,6 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
+
 /-!
 # Spec theorem for `spqr::encoding::gf::GF16::ZERO`
 
@@ -25,12 +26,22 @@ natToBinaryPoly`) to the additive identity `0 : GF216`.  This follows because:
 **Source**: spqr/src/encoding/gf.rs (lines 541:4-541:45)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf spqr.math.gf
-namespace spqr.encoding.gf.GF16
+open Aeneas Aeneas.Std Result spqr.math.gf
 
-/--
-**Spec theorem for `encoding.gf.GF16.ZERO`**:
+namespace spqr.encoding.gf.GF16
+@[simp]
+theorem ZERO_value : (ZERO).value = 0#u16 := by
+  simp [ZERO]
+
+@[simp]
+theorem ZERO_value_val : (ZERO).value.val = 0 := by
+  simp [ZERO]
+
+@[simp]
+theorem ZERO_toGF216 : (ZERO.toGF216 : GF216) = 0 := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero]
+
+/-- **Spec theorem for `encoding.gf.GF16.ZERO`**:
 
 • The underlying `u16` value of `ZERO` is `0`:
     `ZERO.value = 0#u16`
@@ -43,26 +54,9 @@ namespace spqr.encoding.gf.GF16
 • `ZERO` is a left- and right-identity for `GF16` addition (which is
   bitwise XOR): for every `a : GF16`,
     `(a + ZERO).value.val.toGF216 = a.value.val.toGF216`,
-  which follows from the GF(2¹⁶) identity `x + 0 = x`.
-
-**The underlying `u16` of `ZERO` is `0_u16`**.
--/
-@[simp]
-theorem ZERO_value : (ZERO).value = 0#u16 := by
-  simp [ZERO]
-
-/-- **The underlying natural-number value of `ZERO` is `0`**. -/
-@[simp]
-theorem ZERO_value_val : (ZERO).value.val = 0 := by
-  simp [ZERO]
-
-
-@[simp]
-theorem ZERO_toGF216 : (ZERO.toGF216 : GF216) = 0 := by
-  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero]
-
+  which follows from the GF(2¹⁶) identity `x + 0 = x`. -/
 @[step]
-theorem zero_spec :
+theorem ZERO_spec :
     ok ZERO ⦃ (result : GF16) =>
       (result.toGF216 : GF216) = 0 ⦄ := by
   simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero]
