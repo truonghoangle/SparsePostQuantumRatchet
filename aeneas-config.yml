@@ -132,6 +132,9 @@ tweaks:
     # Fix ok_or none type inference
     - find: "core.option.Option.ok_or none Error.StateDecode"
       replace: "core.option.Option.ok_or (none : Option _) Error.StateDecode"
+    
+#    - regex: "SortedSet(\\s+)encoding\\.polynomial\\.Pt\\)"
+#      replace: "SortedSet$1encoding.polynomial.Pt.core.cmp.Ord)"
       
     # Fix parallel_mult: bind both mul2_u16 results instead of discarding second
     - find: "let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value"
@@ -140,11 +143,6 @@ tweaks:
     # Fix parallel_mult: store GF16 value instead of unit
     - find: "let s ← Slice.update into1 i3 ()"
       replace: "let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)"
-
-    - find: |
-        (sorted_vec.SortedSet T) := {
-      replace: |
-        (sorted_vec.SortedSet corecmpOrdInst) := {
 
     - regex: "(ControlFlow\\.Continue )(val\\d+)(?= =>\\n\\s+let r\\d+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb \\2\\b)"
       replace: "$1($2 : proto.pq_ratchet.PolynomialDecoder)"

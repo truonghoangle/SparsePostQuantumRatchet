@@ -223,7 +223,7 @@ def libcrux_ml_kem.ind_cca.incremental.types.Error.Insts.CoreFmtDebug :
 @[reducible, rust_trait_impl "core::clone::Clone<sorted_vec::SortedSet<@T>>"]
 def sorted_vec.SortedSet.Insts.CoreCloneClone {T : Type} (corecloneCloneInst :
   core.clone.Clone T) (corecmpOrdInst : core.cmp.Ord T) : core.clone.Clone
-  (sorted_vec.SortedSet corecmpOrdInst) := {
+  (sorted_vec.SortedSet T) := {
   clone := sorted_vec.SortedSet.Insts.CoreCloneClone.clone corecloneCloneInst
     corecmpOrdInst
 }
