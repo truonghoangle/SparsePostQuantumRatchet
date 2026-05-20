@@ -131,14 +131,8 @@ theorem try_from_spec {T : Type} (N : Usize) (copyInst : core.marker.Copy T)
     core.array.TryFromArrayCopySlice.try_from N copyInst s ⦃ result =>
       ∃ (a : Array T N), result = .Ok a ∧ a.val = s.val ⦄ := by
   unfold core.array.TryFromArrayCopySlice.try_from
-<<<<<<< HEAD
   simp only [dif_pos h_len, WP.spec_ok]
   exact ⟨⟨s.val, by scalar_tac⟩, rfl, rfl⟩
-=======
-  have hm := List.mapM_clone_eq h_clone
-  simp only [dif_pos h_len]
-  step*
->>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
 
 /--
 **Spec and proof concerning `encoding.polynomial.Pt.deserialize`**:

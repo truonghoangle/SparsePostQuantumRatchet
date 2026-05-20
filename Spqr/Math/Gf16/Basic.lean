@@ -66,10 +66,6 @@ theorem polyGF2_ne_one : polyGF2 ≠ 1 := by
 
 lemma polyGF2_dvd_modByMonic_sub (p : BinaryPoly) :
     polyGF2 ∣ (p %ₘ polyGF2 - p) := by
-<<<<<<< HEAD
-  have hadd := Polynomial.modByMonic_add_div p polyGF2
-=======
->>>>>>> e4dda3b02fc166a9b012a800b9b2d1b54c6ac089
   refine ⟨-(p /ₘ polyGF2), ?_⟩
   grind [Polynomial.modByMonic_add_div]
 

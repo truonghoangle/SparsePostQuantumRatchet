@@ -1036,7 +1036,8 @@ theorem lagrange_interpolate_complete_spec
     List.get_eq_getElem, X_mul_C, WP.spec_fail]
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      exact pi_post
+      · exact pi_post
+      · grind
     have hH0 : hornerAccum
         (pts.val.get ⟨i.val, hi⟩).x self.coefficients.val 0 = 0 := by
       rw [hornerAccum_zero_eq_eval]
@@ -1048,7 +1049,8 @@ theorem lagrange_interpolate_complete_spec
       grind
     have hlv_get : left_val = v.val.get ⟨0, h0_len⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      exact left_val_post
+      · exact left_val_post
+      · grind
     have hlv_val_zero : left_val.value.val = 0 :=
       GF16.toGF216_eq_zero_imp left_val (by rw [hlv_get]; exact hv0_zero)
     have hlv_eq_zero : left_val.value = spqr.encoding.gf.GF16.ZERO.value :=
@@ -1058,7 +1060,8 @@ theorem lagrange_interpolate_complete_spec
     rename_i _ _ _ _ _ _ hb
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      exact pi_post
+      · exact pi_post
+      · grind
     have hlv_zero := b_post.mp hb
     have hH0 : hornerAccum
         pi1.x self.coefficients.val 0 = 0 := by
@@ -1066,7 +1069,8 @@ theorem lagrange_interpolate_complete_spec
       rw [← v_post3 h0]
       have hlv_get : left_val = v.val.get ⟨0, h0⟩ := by
         rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-        exact left_val_post
+        · exact left_val_post
+        · grind
       rw [← hlv_get]
       have hval_zero : left_val.value.val = 0 := by
         have := congr_arg UScalar.val hlv_zero
