@@ -6,7 +6,7 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
-import spqr.Specs.Encoding.Gf.GF16.ZERO
+import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop1
 

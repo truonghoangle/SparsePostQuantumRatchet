@@ -104,6 +104,6 @@ theorem REDUCE_BYTES_poly_spec :
             natToBinaryPoly v.val =
               (natToBinaryPoly j.val * X ^ 16) %ₘ polyGF2 ⦄ := by
   simp only [REDUCE_BYTES]
-  exact reduce_byte_poly_spec
+  exact reduce_bytes_spec_poly
 
 end spqr.encoding.gf.reduce

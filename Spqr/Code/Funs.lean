@@ -4996,7 +4996,7 @@ def proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion.partial_cmp
   := do
   let self1 := read_discriminant self
   let other1 := read_discriminant other
-  sorry
+  ok (core.cmp.impls.PartialOrdI32.partial_cmp self1 other1)
 
 /-- Trait implementation: [spqr::proto::pq_ratchet::{core::cmp::PartialOrd<spqr::proto::pq_ratchet::Version> for spqr::proto::pq_ratchet::Version}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 373:50-373:60 -/
@@ -5006,10 +5006,6 @@ def proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion :
   partialEqInst := proto.pq_ratchet.Version.Insts.CoreCmpPartialEqVersion
   partial_cmp :=
     proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion.partial_cmp
-  lt := sorry
-  le := sorry
-  gt := sorry
-  ge := sorry
 }
 
 /-- [spqr::proto::pq_ratchet::{core::cmp::Ord for spqr::proto::pq_ratchet::Version}::cmp]:
@@ -5031,9 +5027,6 @@ def proto.pq_ratchet.Version.Insts.CoreCmpOrd : core.cmp.Ord
   eqInst := proto.pq_ratchet.Version.Insts.CoreCmpEq
   partialOrdInst := proto.pq_ratchet.Version.Insts.CoreCmpPartialOrdVersion
   cmp := proto.pq_ratchet.Version.Insts.CoreCmpOrd.cmp
-  max := sorry
-  min := sorry
-  clamp := sorry
 }
 
 /-- Trait implementation: [spqr::proto::pq_ratchet::{core::default::Default for spqr::proto::pq_ratchet::Version}]
@@ -5164,7 +5157,7 @@ def proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection.partial_cmp
   := do
   let self1 := read_discriminant self
   let other1 := read_discriminant other
-  sorry
+  ok (core.cmp.impls.PartialOrdI32.partial_cmp self1 other1)
 
 /-- Trait implementation: [spqr::proto::pq_ratchet::{core::cmp::PartialOrd<spqr::proto::pq_ratchet::Direction> for spqr::proto::pq_ratchet::Direction}]
     Source: 'target/out/signal.proto.pq_ratchet.rs', lines 402:50-402:60 -/
@@ -5175,10 +5168,6 @@ def proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection :
   partialEqInst := proto.pq_ratchet.Direction.Insts.CoreCmpPartialEqDirection
   partial_cmp :=
     proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection.partial_cmp
-  lt := sorry
-  le := sorry
-  gt := sorry
-  ge := sorry
 }
 
 /-- [spqr::proto::pq_ratchet::{core::cmp::Ord for spqr::proto::pq_ratchet::Direction}::cmp]:
@@ -5200,9 +5189,6 @@ def proto.pq_ratchet.Direction.Insts.CoreCmpOrd : core.cmp.Ord
   eqInst := proto.pq_ratchet.Direction.Insts.CoreCmpEq
   partialOrdInst := proto.pq_ratchet.Direction.Insts.CoreCmpPartialOrdDirection
   cmp := proto.pq_ratchet.Direction.Insts.CoreCmpOrd.cmp
-  max := sorry
-  min := sorry
-  clamp := sorry
 }
 
 /-- Trait implementation: [spqr::proto::pq_ratchet::{core::default::Default for spqr::proto::pq_ratchet::Direction}]
@@ -7373,7 +7359,39 @@ def encoding.polynomial.Pt.Insts.CoreMarkerCopy : core.marker.Copy
   cloneInst := encoding.polynomial.Pt.Insts.CoreCloneClone
 }
 
--- Pt PartialEq and Eq instances moved to Types.lean
+/-- [spqr::encoding::polynomial::{core::cmp::PartialEq<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}::eq]:
+    Source: 'src/encoding/polynomial.rs', lines 61:4-63:5
+    Visibility: public -/
+def encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt.eq
+  (self : encoding.polynomial.Pt) (other : encoding.polynomial.Pt) :
+  Result Bool
+  := do
+  ok (self.x.value = other.x.value)
+
+/-- Trait implementation: [spqr::encoding::polynomial::{core::cmp::PartialEq<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}]
+    Source: 'src/encoding/polynomial.rs', lines 60:0-64:1 -/
+@[reducible]
+def encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt : core.cmp.PartialEq
+  encoding.polynomial.Pt encoding.polynomial.Pt := {
+  eq := encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt.eq
+}
+
+/-- [spqr::encoding::polynomial::{core::cmp::Eq for spqr::encoding::polynomial::Pt}::assert_receiver_is_total_eq]:
+    Source: 'src/encoding/polynomial.rs', lines 22:22-22:24
+    Visibility: public -/
+def encoding.polynomial.Pt.Insts.CoreCmpEq.assert_receiver_is_total_eq
+  (self : encoding.polynomial.Pt) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [spqr::encoding::polynomial::{core::cmp::Eq for spqr::encoding::polynomial::Pt}]
+    Source: 'src/encoding/polynomial.rs', lines 22:22-22:24 -/
+@[reducible]
+def encoding.polynomial.Pt.Insts.CoreCmpEq : core.cmp.Eq encoding.polynomial.Pt
+  := {
+  partialEqInst := encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt
+  assert_receiver_is_total_eq :=
+    encoding.polynomial.Pt.Insts.CoreCmpEq.assert_receiver_is_total_eq
+}
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::Pt}::serialize]:
     Source: 'src/encoding/polynomial.rs', lines 32:4-37:5 -/
@@ -7427,7 +7445,45 @@ def encoding.polynomial.Pt.deserialize
   let g1 ← encoding.gf.GF16.new i1
   ok { x := g, y := g1 }
 
--- Pt PartialOrd and Ord instances moved to Types.lean
+/-- [spqr::encoding::polynomial::{core::cmp::PartialOrd<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}::partial_cmp]:
+    Source: 'src/encoding/polynomial.rs', lines 55:4-57:5
+    Visibility: public -/
+def encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.partial_cmp
+  (self : encoding.polynomial.Pt) (other : encoding.polynomial.Pt) :
+  Result (Option Ordering)
+  := do
+  let o ← lift (core.cmp.impls.OrdU16.cmp self.x.value other.x.value)
+  ok (some o)
+
+/-- Trait implementation: [spqr::encoding::polynomial::{core::cmp::PartialOrd<spqr::encoding::polynomial::Pt> for spqr::encoding::polynomial::Pt}]
+    Source: 'src/encoding/polynomial.rs', lines 54:0-58:1 -/
+@[reducible]
+def encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt : core.cmp.PartialOrd
+  encoding.polynomial.Pt encoding.polynomial.Pt := {
+  partialEqInst := encoding.polynomial.Pt.Insts.CoreCmpPartialEqPt
+  partial_cmp := encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.partial_cmp
+}
+
+/-- [spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}::cmp]:
+    Source: 'src/encoding/polynomial.rs', lines 47:4-49:5
+    Visibility: public -/
+def encoding.polynomial.Pt.Insts.CoreCmpOrd.cmp
+  (self : encoding.polynomial.Pt) (other : encoding.polynomial.Pt) :
+  Result Ordering
+  := do
+  let o ←
+    encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt.partial_cmp self other
+  core.option.Option.unwrap o
+
+/-- Trait implementation: [spqr::encoding::polynomial::{core::cmp::Ord for spqr::encoding::polynomial::Pt}]
+    Source: 'src/encoding/polynomial.rs', lines 46:0-50:1 -/
+@[reducible]
+def encoding.polynomial.Pt.Insts.CoreCmpOrd : core.cmp.Ord
+  encoding.polynomial.Pt := {
+  eqInst := encoding.polynomial.Pt.Insts.CoreCmpEq
+  partialOrdInst := encoding.polynomial.Pt.Insts.CoreCmpPartialOrdPt
+  cmp := encoding.polynomial.Pt.Insts.CoreCmpOrd.cmp
+}
 
 /-- [spqr::encoding::polynomial::MAX_STORED_POLYNOMIAL_DEGREE_V1]
     Source: 'src/encoding/polynomial.rs', lines 69:0-69:54
