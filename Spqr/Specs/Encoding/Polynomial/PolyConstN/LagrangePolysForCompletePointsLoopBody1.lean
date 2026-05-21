@@ -60,7 +60,7 @@ equivalently `(X + ones[k].x)` and `ones[j].x + ones[k].x`.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
-  (condProdLinearFactors)
+
 
 namespace spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop1
 
@@ -116,7 +116,7 @@ theorem body_spec
                     (ones.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
                 condProdLinearFactors (ones.val.get ⟨i.val, hi⟩).x
                   (ones.val.take N.val) 0) ∧
-          (∀ (j : Nat), j ≠ i.val → out1.val[j]? = out.val[j]?) ⦄ := by
+          (∀ (j : Nat) (_: j ≠ i.val) (_: j < out.length), out1.val[j]? = out.val[j]?) ⦄ := by
   unfold body
   by_cases h_lt : i.val < N.val
   · -- Continue case: i < N
@@ -124,7 +124,17 @@ theorem body_spec
       List.Vector.length_val, List.get_eq_getElem, forall_true_left, ne_eq,
       true_and]
     step*
-    simp_all
+    simp [i1_post]
+    constructor
+    · have : i.val < (s.val).length := by grind
+      have := pc_post this
+      simp [a_post, this]
+      grind
+    · intro j hj hlt
+      rw[a_post]
+      grind
+
+
 
   · -- Done case: i ≥ N
     step*

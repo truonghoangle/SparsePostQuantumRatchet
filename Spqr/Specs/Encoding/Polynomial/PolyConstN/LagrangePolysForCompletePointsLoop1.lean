@@ -6,7 +6,8 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
---import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody1
 
 /-!
 # Spec theorem for `lagrange_polys_for_complete_points`: loop 1
@@ -134,7 +135,6 @@ theorem loop_spec
                   (ones.val.take N.val) 0) ∧
         (∀ (j : Nat), j < i.val →
           result.val[j]? = out.val[j]?) ⦄ := by
-/-
   unfold lagrange_polys_for_complete_points_loop1
   apply loop.spec_decr_nat
     (measure := fun (p : (Array (PolyConst N) N) × Usize) =>
@@ -209,5 +209,5 @@ theorem loop_spec
         omega
   · -- Initial invariant: no positions processed yet, all unchanged
     refine ⟨le_refl _, h_i_le_N, fun _ h1 h2 => absurd h2 (by grind), fun _ _ => rfl⟩
--/
+
 end spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop1
