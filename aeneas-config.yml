@@ -88,7 +88,7 @@ tweaks:
       replace: "\n  take := sorry"
 
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
-    - regex: "(def (?:encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+    - regex: "(def (?:encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
     # Sorry merge closure FnOnce call_once assignments (Aeneas types them wrong)
@@ -146,3 +146,6 @@ tweaks:
 
     - regex: "(ControlFlow\\.Continue )(val\\d+)(?= =>\\n\\s+let r\\d+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb \\2\\b)"
       replace: "$1($2 : proto.pq_ratchet.PolynomialDecoder)"
+
+    - regex: "    let a ← Array\\.update ones i \\(\\)\\n    let i1 ← i \\+ 1#usize"
+      replace: "    let i_u16 ← lift (UScalar.cast .U16 i)\n    let a ← Array.update ones i ({ x := { value := i_u16 }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)\n    let i1 ← i + 1#usize"

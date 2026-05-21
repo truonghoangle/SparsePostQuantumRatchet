@@ -51,6 +51,10 @@ import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.Mult
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultLoopBody0
@@ -59,5 +63,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop1
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyConstN.ZEROS
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize

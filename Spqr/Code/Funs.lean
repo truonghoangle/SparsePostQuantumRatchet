@@ -8326,7 +8326,15 @@ def encoding.polynomial.lagrange_polys_for_complete_points_loop0.body
   {N : Std.Usize} (ones : Array encoding.polynomial.Pt N) (i : Std.Usize) :
   Result (ControlFlow ((Array encoding.polynomial.Pt N) × Std.Usize) (Array
     encoding.polynomial.Pt N))
-  := sorry
+  := do
+  if i < N
+  then
+    let i_u16 ← lift (UScalar.cast .U16 i)
+    let a ← Array.update ones i ({ x := { value := i_u16 }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)
+    let i1 ← i + 1#usize
+    ok (cont (a, i1))
+  else ok (done ones)
+
 /-- [spqr::encoding::polynomial::lagrange_polys_for_complete_points]: loop 0:
     Source: 'src/encoding/polynomial.rs', lines 477:8-482:9 -/
 @[rust_loop]
