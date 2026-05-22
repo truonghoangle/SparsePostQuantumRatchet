@@ -34,6 +34,7 @@ import Spqr.Specs.Encoding.Gf.Reduce.ReduceFromByte
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul2
 import Spqr.Specs.Encoding.Gf.Unaccelerated.PolyMul
+import Spqr.Specs.Encoding.Polynomial.LagrangePolysForCompletePoints
 import Spqr.Specs.Encoding.Polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
@@ -49,12 +50,6 @@ import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePtLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangePolysForCompletePointsLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.Mult
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultLoopBody0
