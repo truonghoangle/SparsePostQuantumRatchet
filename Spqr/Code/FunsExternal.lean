@@ -168,16 +168,39 @@ axiom
 
 /-- [core::iter::adapters::map::{core::iter::traits::iterator::Iterator<B> for core::iter::adapters::map::Map<I, F>}::collect]:
     Source: '/rustc/library/core/src/iter/adapters/map.rs', lines 99:0-101:27
-    Name pattern: [core::iter::adapters::map::{core::iter::traits::iterator::Iterator<core::iter::adapters::map::Map<@I, @F>, @B>}::collect] -/
+    Name pattern: [core::iter::adapters::map::{core::iter::traits::iterator::Iterator<core::iter::adapters::map::Map<@I, @F>, @B>}::collect]
+
+    Concrete model: drives the underlying iterator `I` to completion, applies
+    `FnMut.call_mut` to each element to produce a `B`, then collects all `B`
+    items into `B1` via `FromIterator.from_iter`.  Internally constructs an
+    `Iterator (Map I F) B` instance whose `next` composes the underlying
+    iterator's `next` with the mapping function. -/
 @[rust_fun
   "core::iter::adapters::map::{core::iter::traits::iterator::Iterator<core::iter::adapters::map::Map<@I, @F>, @B>}::collect"]
-axiom core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
+def core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
   {B : Type} {I : Type} {F : Type} {B1 : Type} {Clause0_Item : Type}
   (traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I
   Clause0_Item) (opsfunctionFnMutFTupleClause0_ItemBInst :
   core.ops.function.FnMut F Clause0_Item B) (traitscollectFromIteratorInst :
   core.iter.traits.collect.FromIterator B1 B) :
-  core.iter.adapters.map.Map I F → Result B1
+  core.iter.adapters.map.Map I F → Result B1 := fun m =>
+  let mapIterInst : core.iter.traits.iterator.Iterator
+      (core.iter.adapters.map.Map I F) B := {
+    next := fun m => do
+      let (opt, iter') ← traitsiteratorIteratorInst.next m.iter
+      match opt with
+      | none => .ok (none, ⟨iter', m.f⟩)
+      | some item => do
+        let (b, f') ←
+          opsfunctionFnMutFTupleClause0_ItemBInst.call_mut m.f item
+        .ok (some b, ⟨iter', f'⟩)
+    step_by := fun m s =>
+      if s.val = 0 then .fail .panic else .ok ⟨m, s⟩
+    enumerate := fun m => .ok ⟨m, 0#usize⟩
+    take := fun m n => .ok ⟨m, n⟩
+  }
+  traitscollectFromIteratorInst.from_iter
+    (core.iter.traits.collect.IntoIterator.Blanket mapIterInst) m
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::backward_checked]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 340:16-340:74
@@ -453,14 +476,19 @@ axiom core.slice.iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.collect
 
 /-- [core::slice::iter::{core::iter::traits::iterator::Iterator<&'a (T)> for core::slice::iter::Iter<'a, T>}::map]:
     Source: '/rustc/library/core/src/slice/iter/macros.rs', lines 153:8-153:45
-    Name pattern: [core::slice::iter::{core::iter::traits::iterator::Iterator<core::slice::iter::Iter<'a, @T>, &'a @T>}::map] -/
+    Name pattern: [core::slice::iter::{core::iter::traits::iterator::Iterator<core::slice::iter::Iter<'a, @T>, &'a @T>}::map]
+
+    Concrete model: wraps the slice iterator and mapping function into a `Map`
+    adapter struct.  No elements are consumed; iteration is deferred to
+    `Map.collect` or `Map.next`. -/
 @[rust_fun
   "core::slice::iter::{core::iter::traits::iterator::Iterator<core::slice::iter::Iter<'a, @T>, &'a @T>}::map"]
-axiom core.slice.iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.map
-  {T : Type} {B : Type} {F : Type} (opsfunctionFnMutFTupleSharedATBInst :
+def core.slice.iter.Iter.Insts.CoreIterTraitsIteratorIteratorSharedAT.map
+  {T : Type} {B : Type} {F : Type} (_opsfunctionFnMutFTupleSharedATBInst :
   core.ops.function.FnMut F T B) :
   core.slice.iter.Iter T → F → Result (core.iter.adapters.map.Map
-    (core.slice.iter.Iter T) F)
+    (core.slice.iter.Iter T) F) :=
+  fun iter f => ok ⟨iter, f⟩
 
 /-- [core::slice::iter::{core::iter::traits::collect::IntoIterator<&'a (T), core::slice::iter::Iter<'a, T>> for &'a ([T])}::into_iter]:
     Source: '/rustc/library/core/src/slice/iter.rs', lines 25:4-25:37
