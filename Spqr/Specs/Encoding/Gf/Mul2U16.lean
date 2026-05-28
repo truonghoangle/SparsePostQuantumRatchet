@@ -53,7 +53,7 @@ theorem mul2_u16_spec' (a b1 b2 : U16) :
       natToBinaryPoly result.2.val =
         (natToBinaryPoly a.val * natToBinaryPoly b2.val) %ₘ polyGF2 ⦄ := by
   unfold mul2_u16
-  have h := unaccelerated.mul2_spec' a b1 b2
+  have h := unaccelerated.mul2_spec_poly a b1 b2
   step*
 
 /--

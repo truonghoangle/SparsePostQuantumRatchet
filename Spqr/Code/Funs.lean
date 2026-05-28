@@ -614,7 +614,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct2Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -656,7 +656,7 @@ def
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -715,7 +715,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct1Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -897,7 +897,7 @@ def proto.pq_ratchet.v1_state.chunked.HeaderSent.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -1241,7 +1241,7 @@ def proto.pq_ratchet.Chain.Insts.CoreCmpPartialEqChain.eq
       then
         let b ←
           alloc.vec.partial_eq.PartialEqVec.eq
-            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch 
+            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch
             self.links other.links
         if b
         then
@@ -7165,7 +7165,6 @@ def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16 : core.ops.arith.Div
   div := encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div
 }
 
-<<<<<<< HEAD
 /-- [spqr::encoding::gf::mul2_u16]:
     Source: 'src/encoding/gf.rs', lines 581:0-590:1
     Visibility: public -/
@@ -7174,8 +7173,6 @@ def encoding.gf.mul2_u16
   Result (Std.U16 × Std.U16) :=
   encoding.gf.unaccelerated.mul2 a b1 b2
 
-=======
->>>>>>> 497a2e5360ea4e7e37ce0af4437f253674df30dc
 /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/
@@ -7184,7 +7181,6 @@ def encoding.gf.parallel_mult_loop.body
   (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
   Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
     × (Slice encoding.gf.GF16) × Std.Usize))
-<<<<<<< HEAD
   := do
   let i1 ← i + 2#usize
   let i2 := Slice.len into
@@ -7199,9 +7195,6 @@ def encoding.gf.parallel_mult_loop.body
     ok (cont (s, i1))
   else ok (done (a, into, i))
 
-=======
-  := sorry
->>>>>>> 497a2e5360ea4e7e37ce0af4437f253674df30dc
 /-- [spqr::encoding::gf::parallel_mult]: loop 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/
@@ -11868,13 +11861,13 @@ def v1.chunked.send_ct.NoHeaderReceived.epoch
     Visibility: public -/
 def v1.unchunked.send_ct.HeaderReceived.send_ct1
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived) 
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived)
   (rng : R) :
   Result ((v1.unchunked.send_ct.Ct1Sent × (alloc.vec.Vec Std.U8) ×
     EpochSecret) × R)
   := do
   let (t, rng1) ←
-    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst 
+    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst
       self.hdr rng
   let (ct1, es, secret) := t
   let s ←
@@ -12880,7 +12873,7 @@ def v1.chunked.send_ek.KeysUnsampled.new
     Visibility: public -/
 def v1.unchunked.send_ek.KeysUnsampled.send_header
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled) 
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled)
   (rng : R) :
   Result ((v1.unchunked.send_ek.HeaderSent × (alloc.vec.Vec Std.U8) ×
     (alloc.vec.Vec Std.U8)) × R)
