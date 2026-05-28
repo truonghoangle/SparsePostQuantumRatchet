@@ -80,22 +80,26 @@ tweaks:
         set_option linter.style.whitespace false
 
     # Strip map field from Iterator instances (Aeneas generates it but Lean backend doesn't have it)
+    # https://github.com/AeneasVerif/aeneas/issues/1043
     - regex: "\\n  map := fun \\{B : Type\\} \\{F : Type\\}[\\s\\S]*?(?=\\n  enumerate)"
       replace: ""
 
     # Replace collect field with take := sorry in Iterator instances
+    # https://github.com/AeneasVerif/aeneas/issues/1043
     - regex: "\\n  collect := fun \\{B : Type\\}[\\s\\S]*?(?=\\n\\})"
       replace: "\n  take := sorry"
 
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
-    - regex: "(def (?:encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+    - regex: "(def (?:encoding\\.gf\\.parallel_mult_loop\\.body|encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
     # Sorry merge closure FnOnce call_once assignments (Aeneas types them wrong)
+    # https://github.com/AeneasVerif/aeneas/issues/1046
     - regex: "call_once :=\\n    proto\\.pq_ratchet\\.\\S+\\.merge\\.closure\\S*\\.Insts\\.CoreOpsFunctionFnOnceTupleTupleTuple\\.call_once\\n    bytesbufbuf_implBufInst\\n}"
       replace: "call_once := sorry\n}"
 
     # Sorry merge function bodies (broken Result.map with mistyped closures)
+    # https://github.com/AeneasVerif/aeneas/issues/1046
     - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
@@ -130,22 +134,10 @@ tweaks:
 
 
     # Fix ok_or none type inference
+    # https://github.com/AeneasVerif/aeneas/issues/1018
     - find: "core.option.Option.ok_or none Error.StateDecode"
       replace: "core.option.Option.ok_or (none : Option _) Error.StateDecode"
-
-#    - regex: "SortedSet(\\s+)encoding\\.polynomial\\.Pt\\)"
-#      replace: "SortedSet$1encoding.polynomial.Pt.core.cmp.Ord)"
-
-    # Fix parallel_mult: bind both mul2_u16 results instead of discarding second
-    - find: "let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value"
-      replace: "let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value"
-
-    # Fix parallel_mult: store GF16 value instead of unit
-    - find: "let s ← Slice.update into1 i3 ()"
-      replace: "let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)"
-
-    - regex: "(ControlFlow\\.Continue )(val\\d+)(?= =>\\n\\s+let r\\d+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb \\2\\b)"
-      replace: "$1($2 : proto.pq_ratchet.PolynomialDecoder)"
-
-    - regex: "    let a ← Array\\.update ones i \\(\\)\\n    let i1 ← i \\+ 1#usize"
-      replace: "    let i_u16 ← lift (UScalar.cast .U16 i)\n    let a ← Array.update ones i ({ x := { value := i_u16 }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)\n    let i1 ← i + 1#usize"
+    - regex: "(\\| core\\.ops\\.control_flow\\.ControlFlow\\.Continue) val2 (=>\\n\\s+let \\S+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb val2)"
+      replace: "$1 (val2 : proto.pq_ratchet.PolynomialDecoder) $2"
+    - regex: "(\\| core\\.ops\\.control_flow\\.ControlFlow\\.Continue) val4 (=>\\n\\s+let \\S+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb val4)"
+      replace: "$1 (val4 : proto.pq_ratchet.PolynomialDecoder) $2"

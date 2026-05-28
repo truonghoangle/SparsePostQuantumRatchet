@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 /-!
 # Spec theorem for `spqr::encoding::gf::{impl ops::SubAssign for GF16}::sub_assign`
@@ -21,8 +20,7 @@ introducing no additional logic — the two are observationally identical:
 **Source**: spqr/src/encoding/gf.rs (lines 81:4-83:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.gf
+open Aeneas Aeneas.Std
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubAssignShared0GF16
 
@@ -35,15 +33,11 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubAssignShared0GF16
   observationally identical.
 • Together with the `Sub` trait implementation, the following
   identity holds:
-    `(a - b).value = sub_assign(a, b).value`
-
-**Source**: spqr/src/encoding/gf.rs (lines 81:4-83:5)
--/
+    `(a - b).value = sub_assign(a, b).value` -/
 @[step]
 theorem sub_assign_spec (self other : GF16) :
     sub_assign self other ⦃ (result : GF16) =>
-      result.toGF216 =
-        self.toGF216 - other.toGF216 ⦄ := by
+      result.toGF216 = self.toGF216 - other.toGF216 ⦄ := by
   unfold sub_assign
   step*
 
@@ -70,19 +64,15 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubAssignGF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) difference of
   the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216`
+    `(result.value.val.toGF216 : GF216) = self.value.val.toGF216 - other.value.val.toGF216`
   where the `-` on the right-hand side is subtraction in
   `GF216 = GaloisField 2 16` (which, in characteristic 2, coincides
   with addition).
-
-**Source**: spqr/src/encoding/gf.rs (lines 92:4-94:5)
 -/
 @[step]
 theorem sub_assign_spec (self other : GF16) :
     sub_assign self other ⦃ (result : GF16) =>
-      (result.toGF216 : GF216) =
-        self.toGF216 - other.toGF216 ⦄ := by
+      result.toGF216 = self.toGF216 - other.toGF216 ⦄ := by
   unfold sub_assign
   step*
 

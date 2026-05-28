@@ -30,8 +30,7 @@ open Aeneas Aeneas.Std Result Polynomial spqr.encoding.gf.unaccelerated spqr.mat
 
 namespace spqr.encoding.gf.GF16
 
-/--
-**Polynomial-level postcondition for `encoding.gf.GF16.const_sub`**:
+/-- **Spec theorem for `encoding.gf.GF16.const_sub`**:
 
 Bitwise XOR of two `u16` values in GF(2¹⁶), wrapped into a `GF16`.
 
@@ -41,13 +40,7 @@ has characteristic 2, polynomial subtraction coincides with polynomial addition,
 encodes polynomial subtraction.
 
 The result satisfies the polynomial-level specification:
-  `natToBinaryPoly result.value.val =
-       natToBinaryPoly self.value.val - natToBinaryPoly other.value.val`
-
-This follows from composing:
-  1. `UScalar.val_xor`:        `(a ^^^ b).val = a.val ^^^ b.val`
-  2. `natToBinaryPoly_xor`:        XOR of naturals = addition of polys
-  3. `BinaryPoly.sub_eq_add`:   in `BinaryPoly`, `a - b = a + b`
+  `natToBinaryPoly result.value = natToBinaryPoly self.value - natToBinaryPoly other.value.val`
 
 This establishes that `const_sub` computes subtraction in the quotient ring
   GF(2¹⁶) ≅ GF(2)[X] / (polyGF2)
@@ -56,16 +49,15 @@ values stays within 16 bits and therefore corresponds to a polynomial of degree 
 
 **Source**: spqr/src/encoding/gf.rs (lines 566:4-570:5)
 -/
-theorem const_sub_spec' (self other : GF16) :
+theorem const_sub_spec_poly (self other : GF16) :
     const_sub self other ⦃ (result : GF16) =>
-      natToBinaryPoly result.value.val =
-        natToBinaryPoly self.value.val - natToBinaryPoly other.value.val ⦄ := by
+      natToBinaryPoly result.value =
+        natToBinaryPoly self.value - natToBinaryPoly other.value ⦄ := by
   unfold const_sub
   step*
   simp_all only [UScalar.val_xor, natToBinaryPoly_xor, BinaryPoly.sub_eq_add]
 
-/--
-**Spec theorem for `spqr.encoding.gf.GF16.const_sub`**:
+/-- **Spec theorem for `spqr.encoding.gf.GF16.const_sub`**:
 
 For the chosen ring-homomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` (which vanishes on
 `polyGF2`), the result of `const_sub self other` corresponds — via `BinaryPoly.toGF216 ∘
@@ -77,8 +69,7 @@ irreducibility of `polyGF2` over `ZMod 2`, i.e. the finite-field development we 
 the GF(2¹⁶) interpretation of the result.
 
 Note that in GF(2¹⁶) addition and subtraction coincide, so this is equivalently
-  `result.toGF216 =
-       self.toGF216 + other.toGF216`.
+  `result.toGF216 = self.toGF216 + other.toGF216`.
 -/
 @[step]
 theorem const_sub_spec

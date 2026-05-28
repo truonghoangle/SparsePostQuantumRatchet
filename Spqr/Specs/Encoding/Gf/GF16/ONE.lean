@@ -5,8 +5,8 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
-/-!
-# Spec theorem for `spqr::encoding::gf::GF16::ONE`
+
+/-! # Spec theorem for `spqr::encoding::gf::GF16::ONE`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — the one element is the unique element `1`
 satisfying `1 * a = a * 1 = a` for every `a ∈ GF(2¹⁶)`.  Concretely, since GF16 is a transparent
@@ -24,12 +24,22 @@ natToBinaryPoly`) to the multiplicative identity `1 : GF216`.  This follows beca
 **Source**: spqr/src/encoding/gf.rs (lines 542:4-542:44)
 -/
 
-open Aeneas Aeneas.Std Result
-open Polynomial spqr.encoding.gf spqr.math.gf
+open Aeneas Aeneas.Std Result spqr.math.gf
+
 namespace spqr.encoding.gf.GF16
 
-/--
-**Spec theorem for `encoding.gf.GF16.ONE`**:
+@[simp]
+theorem ONE_value : (ONE).value = 1#u16 := by
+  simp [ONE]
+
+theorem ONE_value_val : (ONE).value.val = 1 := by
+  simp [ONE]
+
+@[simp]
+theorem ONE_toGF216 : ONE.toGF216 = 1 := by
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_one]
+
+/-- **Spec theorem for `encoding.gf.GF16.ONE`**:
 • The underlying `u16` value of `ONE` is `1`:
     `ONE.value = 1#u16`
   and equivalently as a natural number:
@@ -40,28 +50,11 @@ namespace spqr.encoding.gf.GF16
     `(ONE.value.val.toGF216 : GF216) = 1`.
 • `ONE` is a left- and right-identity for `GF16` multiplication: for every `a : GF16`, `a * ONE` and
   `ONE * a` lift to `a.value.val.toGF216` in `GF216`, which follows from the GF(2¹⁶) identity `x * 1
-  = x`.
-
-**The underlying `u16` of `ONE` is `1_u16`**.
--/
-@[simp]
-theorem ONE_value : (ONE).value = 1#u16 := by
-  simp [ONE]
-
-/-- **The underlying natural-number value of `ONE` is `1`**. -/
-@[simp]
-theorem ONE_value_val : (ONE).value.val = 1 := by
-  simp [ONE]
-
-
-@[simp]
-theorem ONE_toGF216 : (ONE.toGF216 : GF216) = 1 := by
-  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_one]
-
+  = x`. -/
 @[step]
-theorem one_spec :
+theorem ONE_spec :
     ok ONE ⦃ (result : GF16) =>
-      (result.toGF216 : GF216) = 1 ⦄ := by
+      result.toGF216 = 1 ⦄ := by
   simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_one]
 
 end spqr.encoding.gf.GF16

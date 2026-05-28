@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.SubAssign
 /-!
 # Spec theorem for `spqr::encoding::gf::{impl ops::Sub for GF16}::sub`
@@ -30,8 +29,7 @@ since every element is its own additive inverse (`a + a = 0`).
 **Source**: spqr/src/encoding/gf.rs (lines 104:4-108:5)
 -/
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.gf
+open Aeneas Aeneas.Std
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubGF16GF16
 
@@ -43,19 +41,16 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubGF16GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) difference of
   the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216`
-  where the `-` on the right-hand side is subtraction in
-  `GF216 = GaloisField 2 16` (which, in characteristic 2, coincides
-  with addition).
+    `(result.value.val.toGF216 : GF216) = self.value.val.toGF216 - other.value.val.toGF216`
+  where the `-` on the right-hand side is subtraction in `GF216 = GaloisField 2 16` (which, in
+  characteristic 2, coincides with addition).
 
 **Source**: spqr/src/encoding/gf.rs (lines 104:4-108:5)
 -/
 @[step]
 theorem sub_spec (self other : GF16) :
     sub self other ⦃ (result : GF16) =>
-      (result.toGF216 : GF216) =
-        self.toGF216 - other.toGF216 ⦄ := by
+      result.toGF216 = self.toGF216 - other.toGF216 ⦄ := by
   unfold sub
   step*
 
@@ -80,19 +75,16 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithSubShared0GF16GF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) difference of
   the similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 - other.value.val.toGF216`
-  where the `-` on the right-hand side is subtraction in
-  `GF216 = GaloisField 2 16` (which, in characteristic 2, coincides
-  with addition).
+    `(result.value.val.toGF216 : GF216) = self.value.val.toGF216 - other.value.val.toGF216`
+  where the `-` on the right-hand side is subtraction in `GF216 = GaloisField 2 16` (which,
+  in characteristic 2, coincides with addition).
 
 **Source**: spqr/src/encoding/gf.rs (lines 118:4-122:5)
 -/
 @[step]
 theorem sub_spec (self other : GF16) :
     sub self other ⦃ (result : GF16) =>
-      (result.toGF216 : GF216) =
-        self.toGF216 - other.toGF216 ⦄ := by
+      result.toGF216 = self.toGF216 - other.toGF216 ⦄ := by
   unfold sub
   step*
 

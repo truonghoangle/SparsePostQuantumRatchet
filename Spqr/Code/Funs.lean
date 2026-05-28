@@ -6925,7 +6925,7 @@ def encoding.gf.GF16.new (value : Std.U16) : Result encoding.gf.GF16 := do
   ok { value }
 
 /-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-    Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
+    Source: 'src/encoding/gf.rs', lines 490:4-503:5 -/
 def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
   (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
   Result encoding.gf.GF16
@@ -7165,6 +7165,7 @@ def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16 : core.ops.arith.Div
   div := encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div
 }
 
+<<<<<<< HEAD
 /-- [spqr::encoding::gf::mul2_u16]:
     Source: 'src/encoding/gf.rs', lines 581:0-590:1
     Visibility: public -/
@@ -7173,6 +7174,8 @@ def encoding.gf.mul2_u16
   Result (Std.U16 × Std.U16) :=
   encoding.gf.unaccelerated.mul2 a b1 b2
 
+=======
+>>>>>>> 497a2e5360ea4e7e37ce0af4437f253674df30dc
 /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/
@@ -7181,6 +7184,7 @@ def encoding.gf.parallel_mult_loop.body
   (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
   Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
     × (Slice encoding.gf.GF16) × Std.Usize))
+<<<<<<< HEAD
   := do
   let i1 ← i + 2#usize
   let i2 := Slice.len into
@@ -7195,6 +7199,9 @@ def encoding.gf.parallel_mult_loop.body
     ok (cont (s, i1))
   else ok (done (a, into, i))
 
+=======
+  := sorry
+>>>>>>> 497a2e5360ea4e7e37ce0af4437f253674df30dc
 /-- [spqr::encoding::gf::parallel_mult]: loop 0:
     Source: 'src/encoding/gf.rs', lines 570:4-575:5
     Visibility: public -/

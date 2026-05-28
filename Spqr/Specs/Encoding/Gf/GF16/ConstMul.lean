@@ -25,11 +25,9 @@ GaloisField 2 16` via `Nat.toGF216` yields the GF(2¹⁶) product of the lifts o
 
 open Aeneas Aeneas.Std Result
 
-
 namespace spqr.encoding.gf.GF16
 
-/--
-**Spec theorem for `spqr.encoding.gf.GF16.const_mul`**:
+/-- **Spec theorem for `spqr.encoding.gf.GF16.const_mul`**:
 
 `const_mul` computes GF(2¹⁶) multiplication on the `GF16` wrapper by delegating to the underlying
 `unaccelerated::mul` (carry-less polynomial multiplication followed by reduction modulo POLY =
@@ -37,15 +35,11 @@ namespace spqr.encoding.gf.GF16
 
 The result satisfies the GF(2¹⁶)-level postcondition:
 
-  `(result.toGF216 : GF216) =
-       self.toGF216 * other.toGF216`
+  `result.toGF216 = self.toGF216 * other.toGF216`
 
 where `Nat.toGF216 n = BinaryPoly.toGF216 (natToBinaryPoly n)` interprets a natural number as an
 element of `GF216 = GaloisField 2 16` via the chosen ring homomorphism `BinaryPoly.toGF216 :
-BinaryPoly →+* GF216` that vanishes on `polyGF2`.
-
-**Source**: spqr/src/encoding/gf.rs (lines 560:4-564:5)
--/
+BinaryPoly →+* GF216` that vanishes on `polyGF2`. -/
 @[step]
 theorem const_mul_spec (self other : GF16) :
     const_mul self other ⦃ (result : GF16) =>

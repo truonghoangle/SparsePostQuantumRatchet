@@ -5,8 +5,8 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
-/-!
-# Spec theorem for `spqr::encoding::gf::GF16::new`
+
+/-! # Spec theorem for `spqr::encoding::gf::GF16::new`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — every element is represented internally by a
 16-bit unsigned integer.  The `new` function is the trivial wrapper that takes a `u16` value and
@@ -23,12 +23,21 @@ natToBinaryPoly` (with `BinaryPoly.toGF216 : BinaryPoly →+* GF216`).
 -/
 
 open Aeneas Aeneas.Std Result
-open spqr.encoding.gf.unaccelerated
 
 namespace spqr.encoding.gf.GF16
 
-/--
-**Spec theorem for `encoding.gf.GF16.new`**:
+@[simp]
+theorem new_eq (value : U16) :
+    new value = ok ({ value } : GF16) := by
+  simp [new]
+
+@[simp]
+theorem mk_value_toGF216 (value : U16) :
+    (({ value } : GF16).value.val.toGF216 : GF216)
+      = value.val.toGF216 := by
+  rfl
+
+/-- **Spec theorem for `spqr::encoding::gf::GF16::new`**:
 
 • The function always succeeds: `new value = ok (GF16 { value })`.
 • The underlying `u16` value of the wrapped `GF16` is `value`, and equivalently as a natural number
@@ -39,27 +48,11 @@ namespace spqr.encoding.gf.GF16
     `(value.val.toGF216 : GF216) = value.val.toGF216`.
   In Hoare-triple form, calling `new value` produces a `GF16`
   `result` whose lift agrees with that of the raw input:
-    `new value ⦃ result =>
-        (result.value.val.toGF216 : GF216) = value.val.toGF216 ⦄`.
-
-**`new value` reduces to `ok (GF16 { value })`**: the constructor is the trivial monadic wrapper
-around the underlying `u16`.
--/
-@[simp]
-theorem new_eq (value : Std.U16) :
-    new value = ok ({ value } : GF16) := by
-  simp [new]
-
-@[simp]
-theorem mk_value_toGF216 (value : Std.U16) :
-    (({ value } : GF16).value.val.toGF216 : GF216)
-      = value.val.toGF216 := by
-  rfl
-
+        (result.value.val.toGF216 : GF216) = value.val.toGF216 `. -/
 @[step]
 theorem new_spec (value : U16) :
     new value ⦃ (result : GF16) =>
-      (result.toGF216 : GF216) = value.val.toGF216 ⦄ := by
+      result.toGF216 = value.val.toGF216 ⦄ := by
   simp [GF16.toGF216, new]
 
 end spqr.encoding.gf.GF16
