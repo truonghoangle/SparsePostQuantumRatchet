@@ -52,6 +52,8 @@ import Spqr.Specs.Encoding.Polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.ComputeAt
+import Spqr.Specs.Encoding.Polynomial.Poly.DeserializeLoop0
+import Spqr.Specs.Encoding.Polynomial.Poly.DeserializeLoopBody0
 import Spqr.Specs.Encoding.Polynomial.Poly.Eq
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePointsLoop0
@@ -63,6 +65,9 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeSum
 import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
+import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
+import Spqr.Specs.Encoding.Polynomial.Poly.SerializeLoop0
+import Spqr.Specs.Encoding.Polynomial.Poly.SerializeLoopBody
 import Spqr.Specs.Encoding.Polynomial.Poly.VecDeref
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
@@ -78,3 +83,9 @@ import Spqr.Specs.Encoding.Polynomial.PolyConstN.ToPoly
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.ZEROS
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
+import Spqr.Specs.Encoding.Polynomial.Point.Clone
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody2
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop2

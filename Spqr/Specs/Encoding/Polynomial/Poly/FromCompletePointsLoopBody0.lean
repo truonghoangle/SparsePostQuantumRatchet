@@ -753,14 +753,63 @@ private theorem body_spec_none_36
                 simp [alloc.vec.Vec.deref]
               simp_all
 
-lemma aux (pts : Slice Pt)
-  (i1_post : 0#u64 = UScalar.cast UScalarTy.U64 pts.len) :
-  pts.val.length = 0 := by
-  have hv := UScalar.val_eq_of_eq i1_post
-  simp  [UScalar.ofNatCore, UScalarTy.U64_numBits_eq, Nat.reducePow] at hv
-  rw [← hv]
-  sorry
 
+
+/-! ## Spec theorem: in-bounds body (no size restriction) -/
+
+/--
+Body spec when the iterator is in-bounds. Does NOT require admissible size.
+Used for the non-admissible-size theorem where the loop invariant guarantees
+we never reach the exhausted-iterator (none) branch.
+-/
+theorem body_spec_inbounds
+    (pts : Slice Pt)
+    (iter : Enumerate (Iter Pt))
+    (h_count : iter.count.val ≤ UScalar.max .U16)
+    (h_slice_eq : iter.iter.slice = pts)
+    (h_in_bounds : iter.iter.i < pts.val.length) :
+    body pts iter ⦃ cf =>
+      match cf with
+      | ControlFlow.done (core.result.Result.Err ()) =>
+          (pts.val.get ⟨iter.iter.i, h_in_bounds⟩).x.value.val ≠
+            iter.count.val
+      | ControlFlow.cont iter' =>
+          (pts.val.get ⟨iter.iter.i, h_in_bounds⟩).x.value.val =
+            iter.count.val ∧
+          iter'.iter.i = iter.iter.i + 1 ∧
+          iter'.iter.slice = pts ∧
+          iter'.count.val = iter.count.val + 1
+      | ControlFlow.done (core.result.Result.Ok _) =>
+          False
+    ⦄ := by
+  have h_in_bounds' : iter.iter.i < iter.iter.slice.val.length := by
+    rw [h_slice_eq]; exact h_in_bounds
+  unfold body
+  obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+  rw [hnext]
+  simp only [bind_tc_ok]
+  cases opt with
+  | some p =>
+    obtain ⟨idx, pt⟩ := p
+    obtain ⟨h_lt, rfl, h_pt_eq, h_iter1_i, h_iter1_slice, h_iter1_count⟩ :=
+      EnumerateSliceIter_next_Pt_some iter idx pt iter1 hnext
+    subst h_pt_eq
+    have h_lt_pts : iter.iter.i < pts.val.length := by
+      rw [← h_slice_eq]; exact h_lt
+    have h_cast_val := usize_cast_u16_val iter.count h_count
+    step*
+    rename_i h_bne
+    simp only [List.get_eq_getElem]
+    subst i1_post
+    have h_val_eq : (↑pts : List Pt)[iter.iter.i].x.value.val =
+          (UScalar.cast UScalarTy.U16 iter.count).val := by
+      rw [h_cast_val]
+      simp only [bne_iff_ne, ne_eq] at h_bne
+      grind
+    simp_all
+    grind
+  | none =>
+    exact absurd h_in_bounds' (EnumerateSliceIter_next_Pt_none iter iter1 hnext)
 
 /-! ## Spec theorem for the loop body -/
 
@@ -769,7 +818,10 @@ theorem body_spec
     (pts : Slice Pt)
     (iter : Enumerate (Iter Pt))
     (h_count : iter.count.val ≤ UScalar.max .U16)
-    (h_slice_eq : iter.iter.slice = pts) :
+    (h_slice_eq : iter.iter.slice = pts)
+    (h_len_ok : pts.val.length = 0 ∨ pts.val.length = 1 ∨ pts.val.length = 3 ∨
+                pts.val.length = 5 ∨ pts.val.length = 30 ∨ pts.val.length = 34 ∨
+                pts.val.length = 36) :
     body pts iter ⦃ cf =>
       match cf with
       | ControlFlow.done (core.result.Result.Ok p) =>
@@ -780,10 +832,7 @@ theorem body_spec
               C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) ∧
             (pts.val.length = 0 →
               polys.val.length = 0 ∧ p.toGF216Poly = 0) ∧
-            ( pts.val.length = 1 ∨
-             pts.val.length = 3 ∨ pts.val.length = 5 ∨
-             pts.val.length = 30 ∨ pts.val.length = 34 ∨
-             pts.val.length = 36 →
+            (pts.val.length ≠ 0 →
               polys.val.length = pts.val.length ∧
               ∃ (N : Usize) (ones1 : Array Pt N),
                 N.val = pts.val.length ∧
@@ -812,11 +861,16 @@ theorem body_spec
             iter'.iter.slice = pts ∧
             iter'.count.val = iter.count.val + 1
     ⦄ := by
-  unfold body
-  obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
-  rw [hnext]
-  simp [bind_tc_ok]
-  sorry
+  by_cases h_in : iter.iter.i < iter.iter.slice.val.length
+  · exact body_spec_some_case pts iter h_count h_slice_eq h_in
+  · rcases h_len_ok with h | h | h | h | h | h | h
+    · exact body_spec_none_0 pts iter h_slice_eq h_in h
+    · exact body_spec_none_1 pts iter h_slice_eq h_in h
+    · exact body_spec_none_3 pts iter h_slice_eq h_in h
+    · exact body_spec_none_5 pts iter h_slice_eq h_in h
+    · exact body_spec_none_30 pts iter h_slice_eq h_in h
+    · exact body_spec_none_34 pts iter h_slice_eq h_in h
+    · exact body_spec_none_36 pts iter h_slice_eq h_in h
 
 
 
