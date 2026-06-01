@@ -84,6 +84,8 @@ import Spqr.Specs.Encoding.Polynomial.PolyConstN.ZEROS
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.Encoding.Polynomial.Point.Clone
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop1

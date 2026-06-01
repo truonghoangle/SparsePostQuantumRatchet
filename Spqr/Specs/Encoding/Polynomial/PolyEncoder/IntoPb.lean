@@ -49,11 +49,12 @@ raw byte level.
 -/
 theorem into_pb_spec_bytes
     (self : encoding.polynomial.PolyEncoder)
-    (h_overflow : match self.s with
-      | .Points points =>
+    (h_overflow_points : ∀ points,
+      self.s = .Points points →
         ∀ (j : Nat), j < points.val.length →
-          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max
-      | .Polys polys =>
+          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max)
+    (h_overflow_polys : ∀ polys,
+      self.s = .Polys polys →
         ∀ (j : Nat), j < polys.val.length →
           2 * (polys.val[j]!).coefficients.val.length +
             2 ≤ Usize.max) :
@@ -95,13 +96,13 @@ theorem into_pb_spec_bytes
   simp only [alloc.vec.Vec.with_capacity]
   cases h : self.s with
   | Points points =>
-    simp only [h] at h_overflow ⊢
+    have h_overflow := h_overflow_points points h
     step*
     all_goals first
       | assumption
       | scalar_tac
   | Polys polys =>
-    simp only [h] at h_overflow ⊢
+    have h_overflow := h_overflow_polys polys h
     step*
     -- step* stopped at Slice.iter; unfold it manually
     simp only [core.slice.Slice.iter, bind_tc_ok]
@@ -118,21 +119,25 @@ theorem into_pb_spec_bytes
       grind
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb`**
-(algebraic level)
+(cascading: byte-level + algebraic)
 
-Lifts the byte-level specification (`into_pb_spec_bytes`) to the algebraic
-level, adding GF(2¹⁶) and polynomial identities.
+Lifts the byte-level specification (`into_pb_spec_bytes`) to a cascading
+postcondition that includes the raw byte equality **and** the derived
+GF(2¹⁶) and polynomial identities.  This is marginally tighter than stating
+only the algebraic consequences, because clients that need the raw equality
+can use it directly without having to re-derive it.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 541:4-571:5)
 -/
 @[step]
 theorem into_pb_spec
     (self : encoding.polynomial.PolyEncoder)
-    (h_overflow : match self.s with
-      | .Points points =>
+    (h_overflow_points : ∀ points,
+      self.s = .Points points →
         ∀ (j : Nat), j < points.val.length →
-          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max
-      | .Polys polys =>
+          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max)
+    (h_overflow_polys : ∀ polys,
+      self.s = .Polys polys →
         ∀ (j : Nat), j < polys.val.length →
           2 * (polys.val[j]!).coefficients.val.length +
             2 ≤ Usize.max) :
@@ -152,6 +157,8 @@ theorem into_pb_spec
               ∃ (hi lo : Std.U8),
                 serialized.val[2 * k]? = some hi ∧
                 serialized.val[2 * k + 1]? = some lo ∧
+                hi.val * 256 + lo.val =
+                  ((points.val[j]!).value.val[k]!).value.val ∧
                 (hi.val * 256 + lo.val).toGF216 =
                   ((points.val[j]!).value.val[k]!
                     ).value.val.toGF216 ∧
@@ -172,6 +179,9 @@ theorem into_pb_spec
               ∃ (hi lo : Std.U8),
                 serialized.val[2 * k]? = some hi ∧
                 serialized.val[2 * k + 1]? = some lo ∧
+                hi.val * 256 + lo.val =
+                  ((polys.val[j]!).coefficients.val[k]!
+                    ).value.val ∧
                 (hi.val * 256 + lo.val).toGF216 =
                   ((polys.val[j]!).coefficients.val[k]!
                     ).value.val.toGF216 ∧
@@ -179,7 +189,7 @@ theorem into_pb_spec
                   natToBinaryPoly
                     (((polys.val[j]!).coefficients.val[k]!
                       ).value.val) ⦄ := by
-  have h_raw := into_pb_spec_bytes self h_overflow
+  have h_raw := into_pb_spec_bytes self h_overflow_points h_overflow_polys
   apply WP.spec_mono h_raw
   intro result h_post
   obtain ⟨h_idx, h_data⟩ := h_post
@@ -192,7 +202,7 @@ theorem into_pb_spec
     obtain ⟨serialized, h_some, h_slen, h_enc⟩ := h_ser j hj
     refine ⟨serialized, h_some, h_slen, fun k hk => ?_⟩
     obtain ⟨hi, lo, hhi, hlo, h_eq⟩ := h_enc k hk
-    exact ⟨hi, lo, hhi, hlo,
+    exact ⟨hi, lo, hhi, hlo, h_eq,
       congr_arg Nat.toGF216 h_eq,
       congr_arg natToBinaryPoly h_eq⟩
   | Polys polys =>
@@ -202,7 +212,7 @@ theorem into_pb_spec
     obtain ⟨serialized, h_some, h_slen, h_enc⟩ := h_ser j hj
     refine ⟨serialized, h_some, h_slen, fun k hk => ?_⟩
     obtain ⟨hi, lo, hhi, hlo, h_eq⟩ := h_enc k hk
-    exact ⟨hi, lo, hhi, hlo,
+    exact ⟨hi, lo, hhi, hlo, h_eq,
       congr_arg Nat.toGF216 h_eq,
       congr_arg natToBinaryPoly h_eq⟩
 

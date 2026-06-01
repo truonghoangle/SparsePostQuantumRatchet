@@ -376,13 +376,37 @@ axiom
 
 /-- [core::result::{core::ops::try_trait::Try<T, core::result::Result<core::convert::Infallible, E>> for core::result::Result<T, E>}::branch]:
     Source: '/rustc/library/core/src/result.rs', lines 2172:4-2172:64
-    Name pattern: [core::result::{core::ops::try_trait::Try<core::result::Result<@T, @E>, @T, core::result::Result<core::convert::Infallible, @E>>}::branch] -/
+    Name pattern: [core::result::{core::ops::try_trait::Try<core::result::Result<@T, @E>, @T, core::result::Result<core::convert::Infallible, @E>>}::branch]
+
+    Concrete model of Rust's `<Result<T,E> as Try>::branch`: given a
+    `core.result.Result T E`, returns `ControlFlow.Continue v` for `Ok v`
+    and `ControlFlow.Break (Err e)` for `Err e`.  The outer `Result` is
+    always `ok` (the call never panics). -/
 @[rust_fun
   "core::result::{core::ops::try_trait::Try<core::result::Result<@T, @E>, @T, core::result::Result<core::convert::Infallible, @E>>}::branch"]
-axiom core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+def core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
   {T : Type} {E : Type} :
   core.result.Result T E → Result (core.ops.control_flow.ControlFlow
-    (core.result.Result core.convert.Infallible E) T)
+    (core.result.Result core.convert.Infallible E) T) :=
+  fun r =>
+    match r with
+    | core.result.Result.Ok v =>
+      ok (core.ops.control_flow.ControlFlow.Continue v)
+    | core.result.Result.Err e =>
+      ok (core.ops.control_flow.ControlFlow.Break
+        (core.result.Result.Err e))
+
+@[simp, step_simps]
+theorem core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch_spec
+  {T : Type} {E : Type} (r : core.result.Result T E) :
+  (core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r)
+    = match r with
+      | core.result.Result.Ok v =>
+        ok (core.ops.control_flow.ControlFlow.Continue v)
+      | core.result.Result.Err e =>
+        ok (core.ops.control_flow.ControlFlow.Break
+          (core.result.Result.Err e)) := by
+  cases r <;> simp [core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch]
 
 /-- [core::result::{core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, E>> for core::result::Result<T, F>}::from_residual]:
     Source: '/rustc/library/core/src/result.rs', lines 2187:4-2187:70
