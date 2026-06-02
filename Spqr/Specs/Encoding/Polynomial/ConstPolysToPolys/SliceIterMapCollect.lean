@@ -7,7 +7,7 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMap
+import Spqr.Specs.Aeneas.SliceIterMap
 
 /-!
 # Spec theorem for `core::iter::adapters::map::{Iterator for Map<I, F>}::collect`

@@ -10,6 +10,7 @@ import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
 import Spqr.Specs.Aeneas.Collect
+import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
 /-!
 # Spec theorem for `PolyEncoder::point_at`: loop body 0
@@ -73,53 +74,6 @@ on arrays/lists of `Point` has a well-defined default value.  We use the empty v
 as the canonical default.
 -/
 instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
-
-/-! ## Helper lemma: Range<usize> iterator `next` specification -/
-
-/--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in 0..NUM_POLYS` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /-! ## Helper lemmas for the enumerate-map-collect pipeline -/
 
@@ -426,7 +380,7 @@ theorem body_spec
                   C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
                     (lagrange_polys.val[j]!).toGF216Poly) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val

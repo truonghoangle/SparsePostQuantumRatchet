@@ -6,6 +6,7 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
+import Spqr.Specs.Aeneas.SliceIteratorNext
 
 /-!
 # Spec theorem for `PolyEncoder::into_pb`: loop body 2
@@ -46,30 +47,6 @@ namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop1
 coefficient vector as the canonical default.
 -/
 instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
-
-/-! ## Helper lemma: Slice iterator `next` specification -/
-
-/--
-The slice iterator `next` always returns `ok` and either provides the current element (when
-`i < slice.length`) or `none` (when `i ≥ slice.length`).  This is the concrete specification for
-the `core.slice.iter.Iter<Poly>` iterator used in the Rust `for poly in polys.iter()` loop.
--/
-private lemma IteratorSliceIter_next_post {T : Type}
-    (iter : core.slice.iter.Iter T) :
-    ∃ opt iter',
-      core.slice.iter.IteratorSliceIter.next iter = ok (opt, iter') ∧
-      (¬ iter.i < iter.slice.val.length →
-          opt = none ∧ iter' = iter) ∧
-      (∀ (h : iter.i < iter.slice.val.length),
-          opt = some (iter.slice.val[iter.i]'h) ∧
-          iter'.i = iter.i + 1 ∧
-          iter'.slice = iter.slice) := by
-  unfold core.slice.iter.IteratorSliceIter.next
-  split
-  · next h =>
-    exact ⟨_, _, rfl, fun h' => absurd h h', fun _ => ⟨rfl, rfl, rfl⟩⟩
-  · next h =>
-    exact ⟨_, _, rfl, fun _ => ⟨rfl, rfl⟩, fun h' => absurd h' h⟩
 
 /-! ## Spec theorem for the into_pb polynomial-serialization loop body -/
 
@@ -147,7 +124,7 @@ theorem body_spec
                 hi.val * 256 + lo.val =
                   ((iter.slice.val[iter.i]!).coefficients.val[k]!).value.val ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorSliceIter_next_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.slice.iter.IteratorSliceIter.next_post iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.i < iter.slice.val.length

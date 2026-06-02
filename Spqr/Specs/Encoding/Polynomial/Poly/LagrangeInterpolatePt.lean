@@ -88,52 +88,6 @@ private axiom vec_remove_zero_spec
       ⦃ (result : GF16 × alloc.vec.Vec GF16) =>
         result.2.val = v.val.drop 1 ⦄
 
-private lemma listToGF216Poly_eq_X_mul_drop_one
-    (cs : List spqr.encoding.gf.GF16)
-    (h0 : (listToGF216Poly cs).coeff 0 = 0) :
-    listToGF216Poly cs = X * listToGF216Poly (cs.drop 1) := by
-  ext m
-  cases m with
-  | zero =>
-    simp only [coeff_X_mul_zero, h0]
-  | succ n =>
-    rw [coeff_X_mul, listToGF216Poly_coeff, listToGF216Poly_coeff]
-    by_cases hn : n + 1 < cs.length
-    · have hdn : n < (cs.drop 1).length := by rw [List.length_drop]; omega
-      rw [dif_pos hn, dif_pos hdn]
-      congr 1
-      simp only [List.get_eq_getElem]
-      simp only [List.getElem_drop]
-      grind
-    · have hdn : ¬(n < (cs.drop 1).length) := by rw [List.length_drop]; omega
-      rw [dif_neg hn, dif_neg hdn]
-
-private lemma coeff_zero_of_X_mul_identity
-    (p : GF216Poly) (a s : GF216) (P : GF216Poly)
-    (h_id : p * (X - C a) = X * C s * P)
-    (h_root : P.eval a = 0) :
-    p.coeff 0 = 0 := by
-  by_cases ha : a = 0
-  · subst ha
-    simp only [map_zero, sub_zero] at h_id
-    have h_X_dvd_P : (X : GF216Poly) ∣ P := by
-      have h_div : (X - C (0 : GF216)) ∣ P := dvd_iff_isRoot.mpr h_root
-      rwa [map_zero, sub_zero] at h_div
-    obtain ⟨Q, hQ⟩ := h_X_dvd_P
-    have hX_ne : (X : GF216Poly) ≠ 0 := X_ne_zero
-    have hp_eq : p = C s * P := by
-      have h1 : p * X = (C s * P) * X := by
-        ring_nf; ring_nf at h_id; exact h_id
-      exact mul_right_cancel₀ hX_ne h1
-    rw [hp_eq, hQ]
-    simp only [Polynomial.mul_coeff_zero, coeff_C_zero, coeff_X_zero,
-               zero_mul, mul_zero]
-  · have h0 := congr_arg (fun q => q.coeff 0) h_id
-    simp only [Polynomial.mul_coeff_zero, coeff_sub, coeff_X_zero, coeff_C_zero,
-               zero_sub, zero_mul] at h0
-    rw [CharTwo.neg_eq] at h0
-    exact (mul_eq_zero.mp h0).elim id (absurd · ha)
-
 /--
 **Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_pt`**:
 

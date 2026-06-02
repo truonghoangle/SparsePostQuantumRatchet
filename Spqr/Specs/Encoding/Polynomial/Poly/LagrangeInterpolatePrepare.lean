@@ -6,11 +6,14 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.General
+import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Gf.GF16.Eq
 import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
+import Spqr.Specs.Aeneas.RangeIteratorNext
 
 /-!
 # Spec theorem for `lagrange_interpolate_prepare`: loop body 0
@@ -56,46 +59,6 @@ open Polynomial
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
-
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_prepare_loop.body`**:
@@ -166,7 +129,7 @@ theorem body_spec
               j + 1 < p.coefficients.val.length) →
             p1.coefficients.val[j]? = p.coefficients.val[j]?) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
@@ -218,29 +181,6 @@ The key invariant maintained by the outer loop is:
 -/
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
-
-
-private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
-
-private lemma coeff_zero_C_add_X_sub_C_mul {R : Type*} [CommRing R]
-    (a b : R) (P : R[X]) :
-    (C a + (X - C b) * P).coeff 0 = a - b * P.coeff 0 := by
-  rw [sub_mul, coeff_add, coeff_sub, coeff_C_zero, coeff_X_mul_zero, coeff_C_mul]
-  ring
-
-private lemma coeff_succ_C_add_X_sub_C_mul {R : Type*} [CommRing R]
-    (a b : R) (P : R[X]) (n : ℕ) :
-    (C a + (X - C b) * P).coeff (n + 1) = P.coeff n - b * P.coeff (n + 1) := by
-  rw [sub_mul, coeff_add, coeff_sub, coeff_X_mul, coeff_C_mul]
-  have : (C a).coeff (n + 1) = 0 := by rw [coeff_C]; exact if_neg (by omega)
-  rw [this]; ring
 
 @[step]
 theorem loop_spec
@@ -510,12 +450,6 @@ where `offset = pts.len()`, returning a `Poly` of degree `offset` with `offset +
 namespace spqr.encoding.polynomial.Poly
 
 open encoding.gf.GF16
-
-private lemma list_getElem_bang_set_self {α : Type*} [Inhabited α]
-    (l : List α) (n : Nat) (x : α) (hn : n < l.length) :
-    (l.set n x)[n]! = x := by
-  have h : n < (l.set n x).length := by rw [List.length_set]; exact hn
-  rw [getElem!_pos (l.set n x) n h, List.getElem_set_self]
 
 /--
 **Spec theorem for

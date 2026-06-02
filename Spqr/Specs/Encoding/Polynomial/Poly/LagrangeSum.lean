@@ -10,6 +10,7 @@ import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
+import Spqr.Specs.Aeneas.RangeIteratorNext
 
 /-!
 # Spec theorem for `Poly::lagrange_sum`: loop body 0
@@ -46,46 +47,6 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomi
 open spqr.encoding.polynomial.Poly
 
 namespace spqr.encoding.polynomial.Poly.lagrange_sum_loop
-
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.lagrange_sum_loop.body`**:
@@ -165,7 +126,7 @@ theorem body_spec
             C ((pts.val[iter.start.val]!).y.toGF216) *
               (polys.val[iter.start.val]!).toGF216Poly ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val

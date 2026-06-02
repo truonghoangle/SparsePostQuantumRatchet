@@ -6,6 +6,8 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
+import Spqr.Specs.Aeneas.RangeIteratorNext
+import Spqr.Specs.Aeneas.VecExtendFromSlice
 
 /-!
 # Spec theorem for `PolyEncoder::into_pb`: loop body 1
@@ -31,53 +33,6 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop0_loop0
 
-/-! ## Helper lemma: Range<usize> iterator `next` specification -/
-
-/--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in 0..pts.len()` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
-
 /-! ## Helper: `RangeFull` indexing on an array yields its slice -/
 
 @[simp, step_simps]
@@ -89,34 +44,6 @@ private theorem array_index_rangeFull_ok {T : Type} {N : Usize}
       a () =
     ok a.to_slice :=
   rfl
-
-/-! ## Helper: `extend_from_slice` specialised to `U8` -/
-
-/--
-**Spec for `alloc.vec.Vec.extend_from_slice` specialised to `U8`**:
-
-The `core.clone.Clone` instance for `U8` (`core.clone.CloneU8`) has `clone x = ok x` for every `x`,
-hence the elementwise `Slice.clone` on `s` returns `ok s` and the resulting vector is exactly
-`v.val ++ s.val`.  The precondition `v.val.length + s.val.length ≤ Usize.max` discharges the
-overflow guard in the body of `extend_from_slice`.
--/
-@[step]
-private lemma extend_from_slice_U8_spec
-    (v : alloc.vec.Vec U8) (s : Slice U8)
-    (h : v.val.length + s.val.length ≤ Usize.max) :
-    alloc.vec.Vec.extend_from_slice core.clone.CloneU8 v s
-      ⦃ (r : alloc.vec.Vec U8) => r.val = v.val ++ s.val ⦄ := by
-  have h_clone_x :
-      ∀ x ∈ s.val, core.clone.CloneU8.clone x = ok x := by
-    intros _ _; rfl
-  have h_slclone :
-      Slice.clone core.clone.CloneU8.clone s = ok s := by
-    obtain ⟨s', h_eq, hs⟩ := WP.spec_imp_exists (Slice.clone_spec h_clone_x)
-    rw [h_eq, ← hs]
-  unfold alloc.vec.Vec.extend_from_slice
-  have hlen : v.length + s.length ≤ Usize.max := h
-  rw [dif_pos hlen]
-  grind
 
 /-! ## Spec theorem for the into_pb inner loop body -/
 
@@ -170,7 +97,7 @@ theorem body_spec
             hi.val * 256 + lo.val =
               (pts.val[iter.start.val]!).value.val ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val

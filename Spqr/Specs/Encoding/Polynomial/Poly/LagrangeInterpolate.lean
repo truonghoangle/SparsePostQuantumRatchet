@@ -6,10 +6,13 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.General
+import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
+import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 
 /-!
@@ -62,46 +65,6 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomi
 open spqr.encoding.polynomial.Poly
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0
-
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`**:
@@ -171,7 +134,7 @@ theorem body_spec
             k ≠ iter.start.val →
             v1.val[k]? = v.val[k]?) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
@@ -229,22 +192,6 @@ per-iteration specification is in
 -/
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0
-
-private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
-
-private lemma getElem_bang_eq {T : Type} [Inhabited T] {xs ys : List T} {k : Nat}
-    (h : xs[k]? = ys[k]?)
-    (hx : k < xs.length) (hy : k < ys.length) :
-    xs[k]! = ys[k]! := by
-  rw [getElem!_pos xs k hx, getElem!_pos ys k hy]
-  exact list_get_of_getElem?_eq h hx hy
 
 @[step]
 theorem loop_spec
@@ -421,51 +368,6 @@ polynomial `working`, it:
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0
 
 /--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in 1..pts.len()` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
-
-/--
 **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_loop0.body`**:
 
 One step of the outer Lagrange-interpolation loop.  Given the slice `pts`, a fixed `template`
@@ -569,7 +471,7 @@ theorem body_spec
               (v.val[j]!).toGF216 +
               (working₂.coefficients.val[j + 1]!).toGF216) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
@@ -1313,42 +1215,6 @@ takes the form
        ∑_i C(lagrangeScaleGF216 pts[i] pts.val) ·
             ∏_{j ≠ i} (X − pts[j].x)`. -/
 
-/--
-**Lagrange basis polynomial**: the product `∏_{j ≠ i} (X − pts[j].x)`
-of linear factors over all points except the `i`-th, as a polynomial
-in `GF216[X]`.  Defined as
-`prodLinearFactors pts 0 i.val * prodLinearFactors pts (i+1) pts.length`
-when `i < pts.length`, and `1` otherwise.
--/
-noncomputable def lagrangeBasisPoly
-    (pts : List Pt) (i : Nat) :
-    Polynomial GF216 :=
-  if i < pts.length then
-    prodLinearFactors pts 0 i *
-      prodLinearFactors pts (i + 1) pts.length
-  else 1
-
-/--
-**Sum of `lagrangeScale · lagrangeBasis` over a prefix `[0, n)` of the
-point list `pts`.**
-
-This is the partial Lagrange interpolant
-  `∑_{i=0}^{n−1} C(lagrangeScaleGF216 pts[i] pts) ·
-       lagrangeBasisPoly pts i`,
-i.e. the unique polynomial of degree `< pts.length` taking value
-`pts[i].y` at `pts[i].x` for `i ∈ [0, n)` (modulo the assumption
-of pairwise distinct x-coordinates).
--/
-noncomputable def lagrangeInterpolantSum
-    (pts : List Pt) : Nat → Polynomial GF216
-  | 0     => 0
-  | n + 1 =>
-      lagrangeInterpolantSum pts n +
-        (if h : n < pts.length then
-          C (lagrangeScaleGF216 (pts.get ⟨n, h⟩) pts) *
-            lagrangeBasisPoly pts n
-        else 0)
-
 /-
 **Classical Lagrange interpolation formula** (corollary of
 `lagrange_interpolate_spec`).
@@ -1389,130 +1255,6 @@ from which dividing by the nonzerodivisor `X` yields the claim.
 **Source**: spqr/src/encoding/polynomial.rs (lines 106:4-137:5)
 -/
 
--- Helper lemmas for the classical formula proof
-
-/-- Splitting `prodLinearFactors` at a midpoint. -/
-private lemma prodLinearFactors_split_at
-    (pts : List Pt) (mid n : Nat)
-    (hmid : mid ≤ n) (hn : n ≤ pts.length) :
-    prodLinearFactors pts 0 n =
-      prodLinearFactors pts 0 mid * prodLinearFactors pts mid n := by
-  induction n with
-  | zero =>
-    have : mid = 0 := by omega
-    subst this; simp
-  | succ k ih =>
-    by_cases hmk : mid = k + 1
-    · subst hmk; simp
-    · rw [prodLinearFactors_snoc pts 0 k (by omega) (by omega : k < pts.length),
-          ih (by omega) (by omega),
-          prodLinearFactors_snoc pts mid k (by omega) (by omega : k < pts.length)]
-      ring
-
-/-- The full product factors as `(X − pts[i].x) · lagrangeBasisPoly pts i`. -/
-private lemma prodLinearFactors_eq_factor_mul_basis
-    (pts : List Pt) (i : Nat)
-    (hi : i < pts.length) :
-    prodLinearFactors pts 0 pts.length =
-      (X - C ((pts.get ⟨i, hi⟩).x.toGF216)) *
-        lagrangeBasisPoly pts i := by
-  simp only [lagrangeBasisPoly, if_pos hi]
-  rw [prodLinearFactors_split_at pts (i + 1) pts.length (by omega) (le_refl _),
-      prodLinearFactors_snoc pts 0 i (by omega) hi]
-  ring
-
-/-- Bridge: `getElem!` with `toGF216` equals `listToGF216Poly` coefficient. -/
-private lemma getElem_bang_toGF216_eq_coeff
-    (cs : List GF16) (j : Nat) :
-    (cs[j]!).toGF216 = (listToGF216Poly cs).coeff j := by
-  rw [listToGF216Poly_coeff]
-  by_cases hj : j < cs.length
-  · rw [dif_pos hj, List.get_eq_getElem]
-    grind
-  · rw [dif_neg hj]
-    have : (cs[j]! : GF16) = default := by
-      grind
-    rw [this]; exact GF16.toGF216_zero_val _ (by rfl)
-
-/-- Degree bound for `prodLinearFactors`. -/
-private lemma natDegree_prodLinearFactors_le
-    (pts : List Pt) (s t : Nat) (hs : s ≤ t) (ht : t ≤ pts.length) :
-    (prodLinearFactors pts s t).natDegree ≤ t - s := by
-  induction t with
-  | zero => simp [show s = 0 from by omega]
-  | succ k ih =>
-    by_cases hsk : s = k + 1
-    · subst hsk; simp
-    · rw [prodLinearFactors_snoc pts s k (by omega) (by omega : k < pts.length)]
-      calc (prodLinearFactors pts s k * (X - C _)).natDegree
-          ≤ (prodLinearFactors pts s k).natDegree +
-              (X - C ((pts.get ⟨k, by omega⟩).x.toGF216)).natDegree :=
-            Polynomial.natDegree_mul_le
-        _ ≤ (k - s) + 1 := by
-            have h1 := ih (by omega) (by omega)
-            have h2 : (X - C ((pts.get ⟨k, by omega⟩).x.toGF216) : GF216Poly).natDegree = 1 :=
-              Polynomial.natDegree_X_sub_C _
-            omega
-        _ = k + 1 - s := by omega
-
-/-- Degree bound for `lagrangeBasisPoly`. -/
-private lemma natDegree_lagrangeBasisPoly_le
-    (pts : List Pt) (i : Nat) (hi : i < pts.length) (hn : 0 < pts.length) :
-    (lagrangeBasisPoly pts i).natDegree ≤ pts.length - 1 := by
-  simp only [lagrangeBasisPoly, if_pos hi]
-  calc (prodLinearFactors pts 0 i * prodLinearFactors pts (i + 1) pts.length).natDegree
-      ≤ (prodLinearFactors pts 0 i).natDegree +
-          (prodLinearFactors pts (i + 1) pts.length).natDegree :=
-        Polynomial.natDegree_mul_le
-    _ ≤ (i - 0) + (pts.length - (i + 1)) := by
-        have h1 := natDegree_prodLinearFactors_le pts 0 i (by omega) (by omega)
-        have h2 := natDegree_prodLinearFactors_le pts (i + 1) pts.length (by omega) (by omega)
-        omega
-    _ = pts.length - 1 := by omega
-
-/-- `lagrangeInterpolantSum` equals a `Finset.sum`. -/
-private lemma lagrangeInterpolantSum_eq_finset_sum
-    (pts : List Pt) (n : Nat) (hn : n ≤ pts.length) :
-    lagrangeInterpolantSum pts n =
-      Finset.sum (Finset.range n) (fun i =>
-        if h : i < pts.length then
-          C (lagrangeScaleGF216 (pts.get ⟨i, h⟩) pts) *
-            lagrangeBasisPoly pts i
-        else 0) := by
-  induction n with
-  | zero => simp [lagrangeInterpolantSum]
-  | succ k ih =>
-    rw [lagrangeInterpolantSum, ih (by omega), Finset.sum_range_succ]
-
-/-- Coefficient of `lagrangeInterpolantSum` beyond degree is zero. -/
-private lemma lagrangeInterpolantSum_coeff_high
-    (pts : List Pt) (n j : Nat) (hn : n ≤ pts.length)
-    (hj : pts.length ≤ j) :
-    (lagrangeInterpolantSum pts n).coeff j = 0 := by
-  rw [lagrangeInterpolantSum_eq_finset_sum pts n hn]
-  simp only [Polynomial.finset_sum_coeff]
-  apply Finset.sum_eq_zero
-  intro i hi
-  rw [Finset.mem_range] at hi
-  have hi' : i < pts.length := by omega
-  rw [dif_pos hi']
-  exact Polynomial.coeff_eq_zero_of_natDegree_lt (by
-    calc (C _ * lagrangeBasisPoly pts i).natDegree
-        ≤ (lagrangeBasisPoly pts i).natDegree := Polynomial.natDegree_C_mul_le _ _
-      _ ≤ pts.length - 1 := natDegree_lagrangeBasisPoly_le pts i hi' (by omega)
-      _ < j := by omega)
-
-/-- Converting `List.map/sum` to `Finset.sum` indexed by `Fin`. -/
-private lemma list_map_sum_eq_finset_sum
-    {α β : Type} [AddCommMonoid β]
-    (l : List α) (f : α → β) :
-    (l.map f).sum = Finset.sum Finset.univ (fun i : Fin l.length => f (l.get i)) := by
-  induction l with
-  | nil => simp
-  | cons a l ih =>
-    simp only [List.map_cons, List.sum_cons, List.length_cons, List.get_eq_getElem]
-    rw [ih, Fin.sum_univ_succ]
-    simp [Fin.val_succ, List.get_eq_getElem]
 @[step]
 theorem lagrange_interpolate_spec
     (pts : Slice Pt)
@@ -1535,7 +1277,11 @@ theorem lagrange_interpolate_spec
             lagrangeBasisPoly pts.val i := by
       intro i hi hpi
       have h_id := hws_id i hi hpi
-      rw [prodLinearFactors_eq_factor_mul_basis pts.val i hpi] at h_id
+      rw [prodLinearFactors_eq_factor_mul_basis pts.val i hpi,
+          show prodLinearFactors pts.val 0 i *
+              prodLinearFactors pts.val (i + 1) pts.val.length =
+              lagrangeBasisPoly pts.val i from by
+            unfold lagrangeBasisPoly; rw [if_pos hpi]] at h_id
       have hne : (X : GF216Poly) - C (GF16.toGF216 (pts.val.get ⟨i, hpi⟩).x) ≠ 0 :=
         (Polynomial.monic_X_sub_C _).ne_zero
       have h_rhs_rw :

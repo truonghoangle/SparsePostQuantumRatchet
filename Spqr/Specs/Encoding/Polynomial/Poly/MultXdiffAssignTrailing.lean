@@ -6,8 +6,11 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.Aeneas
+import Spqr.Math.Poly.General
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.SubAssign
+import Spqr.Specs.Aeneas.RangeIteratorNext
 /-!
 # Spec theorem for `mult_xdiff_assign_trailing`: loop body 0
 
@@ -45,51 +48,6 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 namespace spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
-
-/--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in start..l` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop.body`**:
@@ -142,7 +100,7 @@ theorem body_spec
             j ≠ iter.start.val - 1 →
             v1.val[j]? = v.val[j]?) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
@@ -210,23 +168,6 @@ have been modified so far), so reading `v_current[i]` yields the original `v[i]`
 -/
 
 namespace spqr.encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop
-
-
-private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
-
-private lemma getElem_bang_eq {T : Type} [Inhabited T] {xs ys : List T} {k : Nat}
-    (h : xs[k]? = ys[k]?)
-    (hx : k < xs.length) (hy : k < ys.length) :
-    xs[k]! = ys[k]! := by
-  rw [getElem!_pos xs k hx, getElem!_pos ys k hy]
-  exact list_get_of_getElem?_eq h hx hy
 
 /--
 **Closed-form postcondition for `encoding.polynomial.Poly.mult_xdiff_assign_trailing_loop`**:
@@ -410,91 +351,6 @@ namespace spqr.encoding.polynomial.Poly
 
 
 open Polynomial
-
-private lemma list_get_of_getElem?_eq' {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
-
-/-- Drop indexing: `(l.drop n).get ⟨k, hk⟩ = l.get ⟨n + k, _⟩`. -/
-private lemma list_get_drop_eq {α : Type*} (l : List α) (n k : Nat)
-    (hk : k < (l.drop n).length) :
-    (l.drop n).get ⟨k, hk⟩ =
-      l.get ⟨n + k, by rw [List.length_drop] at hk; omega⟩ := by
-  simp only [List.get_eq_getElem, List.getElem_drop]
-
-/--
-**Mathematical polynomial identity for `mult_xdiff_assign_trailing`.**
-
-Given a coefficient list `cs`, a result list `rs` of the same length, a starting index `s ≥ 1` with
-`s ≤ cs.length`, and a field element `d : GF16` such that:
-• For carry-propagated positions (`s ≤ j + 1 ∧ j + 1 < cs.length`):
-    `rs[j].toGF216 = cs[j].toGF216 − cs[j+1].toGF216 * d.toGF216`
-• All other positions are unchanged (`rs[j]? = cs[j]?`),
-
-then the polynomial interpretation of `rs` satisfies:
-
-  `listToGF216Poly rs =
-      listToGF216Poly cs −
-      C(d.toGF216) · X^(s−1) · listToGF216Poly (cs.drop s)`
-
-This identity captures the algebraic content of the in-place recurrence `v[i−1] −= v[i] * d` for
-`i ∈ start..l`: the result polynomial is obtained from the original by subtracting the trailing
-sub-polynomial (from position `s`) scaled by `d` and shifted down by one degree.  Since GF(2¹⁶) has
-characteristic 2, subtraction coincides with addition.
--/
-private lemma mult_xdiff_poly_identity
-    (cs rs : List GF16) (s : Nat) (d : GF16)
-    (h_s_pos : 1 ≤ s) (h_s_le : s ≤ cs.length)
-    (h_len : rs.length = cs.length)
-    (h_mod : ∀ j, s ≤ j + 1 → j + 1 < cs.length → ∀ hj : j < rs.length,
-      (rs.get ⟨j, hj⟩).toGF216 = (cs[j]!).toGF216 - (cs[j + 1]!).toGF216 * d.toGF216)
-    (h_same : ∀ j, ¬(s ≤ j + 1 ∧ j + 1 < cs.length) → rs[j]? = cs[j]?) :
-    listToGF216Poly rs =
-      listToGF216Poly cs -
-      C d.toGF216 * X ^ (s - 1) * listToGF216Poly (cs.drop s) := by
-  ext m
-  rw [coeff_sub, listToGF216Poly_coeff, listToGF216Poly_coeff,
-      show C d.toGF216 * X ^ (s - 1) * listToGF216Poly (cs.drop s) =
-        C d.toGF216 * (listToGF216Poly (cs.drop s) * X ^ (s - 1)) by ring,
-      coeff_C_mul, coeff_mul_X_pow']
-  by_cases hm : m < cs.length
-  · -- m < cs.length (= rs.length)
-    rw [dif_pos (show m < rs.length by omega), dif_pos hm]
-    by_cases hs : s - 1 ≤ m
-    · -- s − 1 ≤ m: product term may be nonzero
-      rw [if_pos hs, listToGF216Poly_coeff]
-      by_cases hd : m - (s - 1) < (cs.drop s).length
-      · -- m + 1 < cs.length: carry-propagated position
-        rw [dif_pos hd]
-        have h2 : m + 1 < cs.length := by rw [List.length_drop] at hd; omega
-        have hmod := h_mod m (by omega) h2 (by omega)
-        simp only [List.get_eq_getElem] at hmod ⊢
-        rw [hmod, getElem!_pos cs m hm, getElem!_pos cs (m + 1) h2]
-        have h_drop := list_get_drop_eq cs s (m - (s - 1)) hd
-        simp only [List.get_eq_getElem] at h_drop
-        rw [h_drop]; simp only [show s + (m - (s - 1)) = m + 1 from by omega]; ring
-      · -- m ≥ cs.length − 1: product term has zero factor
-        rw [dif_neg hd, mul_zero, sub_zero]
-        have h_not : ¬(s ≤ m + 1 ∧ m + 1 < cs.length) := by
-          rw [List.length_drop] at hd; push Not at hd ⊢; intro h1; omega
-        exact congr_arg GF16.toGF216
-          (list_get_of_getElem?_eq' (h_same m h_not) (by omega) hm)
-    · -- m < s − 1: product term is zero
-      rw [if_neg hs, mul_zero, sub_zero]
-      exact congr_arg GF16.toGF216
-        (list_get_of_getElem?_eq' (h_same m (by push Not; intro h1; omega)) (by omega) hm)
-  · -- m ≥ cs.length: both sides are zero
-    push Not at hm
-    rw [dif_neg (by omega), dif_neg (by omega)]
-    by_cases hs : s - 1 ≤ m
-    · rw [if_pos hs, listToGF216Poly_coeff,
-          dif_neg (by rw [List.length_drop]; omega), mul_zero]; ring
-    · rw [if_neg hs]; ring
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.mult_xdiff_assign_trailing`**:

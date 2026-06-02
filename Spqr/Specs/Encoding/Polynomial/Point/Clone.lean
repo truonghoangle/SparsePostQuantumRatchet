@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
+import Spqr.Specs.Aeneas.CloneGF16
 
 /-!
 # Spec theorem for `spqr::encoding::polynomial::{impl Clone for Point}::clone`
@@ -37,23 +38,6 @@ namespace spqr.encoding.polynomial.Point
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 512:9-512:14, `#[derive(Clone)]`)
 -/
-@[step]
-private lemma clone_GF16_id (x : encoding.gf.GF16) :
-    encoding.gf.GF16.Insts.CoreCloneClone.clone x ⦃ (r : encoding.gf.GF16) =>
-      r = x ⦄ := by
-  simp [encoding.gf.GF16.Insts.CoreCloneClone.clone]
-
-@[step]
-private lemma clone_vec_GF16_spec (v : alloc.vec.Vec encoding.gf.GF16) :
-    alloc.vec.CloneVec.clone encoding.gf.GF16.Insts.CoreCloneClone v
-      ⦃ (r : alloc.vec.Vec encoding.gf.GF16) => r = v ⦄ := by
-  unfold alloc.vec.CloneVec.clone
-  apply WP.spec_mono
-    (Slice.clone_spec (fun x _ => by
-      simp [encoding.gf.GF16.Insts.CoreCloneClone.clone]))
-  intro v' h
-  exact h.symm
-
 @[step]
 theorem clone_spec (self : encoding.polynomial.Point) :
     Insts.CoreCloneClone.clone self ⦃ (result : encoding.polynomial.Point) =>

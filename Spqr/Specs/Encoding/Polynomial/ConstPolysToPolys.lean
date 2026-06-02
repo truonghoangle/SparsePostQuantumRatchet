@@ -8,8 +8,8 @@ import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOne
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIter
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMap
+import Spqr.Specs.Aeneas.SliceIter
+import Spqr.Specs.Aeneas.SliceIterMap
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
 
 /-!

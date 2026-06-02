@@ -6,6 +6,7 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
 
 /-!
@@ -40,19 +41,6 @@ theorem ZEROS_coefficients (N : Usize) :
 theorem ZEROS_coefficients_val (N : Usize) :
     (ZEROS N).coefficients.val = List.replicate N.val GF16.ZERO := by
   simp [ZEROS, Array.repeat_val]
-
-/-! ## Core lemma: all-zero coefficient lists yield the zero polynomial -/
-
-/-- A `List` of `n` copies of `GF16.ZERO` represents the zero polynomial in `GF216[X]`.
-This is the key algebraic fact: since `GF16.ZERO.toGF216 = 0`, every term
-`C (cs[i].toGF216) * X ^ i` in the defining sum of `listToGF216Poly` vanishes. -/
-private theorem listToGF216Poly_replicate_ZERO (n : Nat) :
-    listToGF216Poly (List.replicate n GF16.ZERO) = 0 := by
-  simp only [listToGF216Poly]
-  apply Finset.sum_eq_zero
-  intro i _
-  simp [List.get_eq_getElem, List.getElem_replicate,
-    GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero, map_zero]
 
 @[simp]
 theorem ZEROS_toGF216Poly (N : Usize) :

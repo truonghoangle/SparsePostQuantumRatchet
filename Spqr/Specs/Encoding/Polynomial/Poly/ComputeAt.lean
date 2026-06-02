@@ -6,8 +6,11 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.Aeneas
+import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
+import Spqr.Specs.Aeneas.RangeIteratorNext
 
 /-!
 # Spec theorem for `Poly::compute_at`: loop body 0
@@ -38,53 +41,6 @@ open spqr.encoding.polynomial.Poly
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
-
--- The long identifier cannot be broken across lines; suppress
--- the line-length linter for the lemma statement and proof.
-/--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in 2..self.coefficients.len()` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Std.Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.compute_at_loop0.body`**:
@@ -152,7 +108,7 @@ theorem body_spec
               (xs.val[xs.val.length / 2]!).toGF216 *
               (xs.val[xs.val.length / 2 + xs.val.length % 2]!).toGF216 ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
@@ -218,56 +174,6 @@ namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
 
 /-! ## Helper lemmas for the power-vector invariant -/
-
-/--
-**Euclidean-division identity**: for any natural number `n`, `n / 2 + (n / 2 + n % 2) = n`.
-
-This is the key arithmetic identity used to show that `x^(n/2) · x^(n/2 + n%2) = x^n`.  The proof
-exploits the Euclidean-division identity `n = (n / 2) · 2 + n % 2`, from which
-`n / 2 + (n / 2 + n % 2) = 2 · (n / 2) + n % 2 = n`.
--/
-private lemma div2_add_sum_eq (n : Nat) : n / 2 + (n / 2 + n % 2) = n := by
-  have := Nat.div_add_mod n 2
-  omega
-
-/--
-**Power-vector invariant preservation.**
-
-Appending `g = xs[n/2] * xs[n/2 + n%2]` to a power vector `xs` of length `n ≥ 2` that satisfies
-`xs[j].toGF216 = x.toGF216 ^ j` for all `j < n` produces a vector of length `n + 1` satisfying the
-same property for all `j < n + 1`.
-
-For `j < n`, the element is inherited from `xs` (the append does not change existing elements).
-For `j = n`, the new element satisfies:
-  `g.toGF216 = x.toGF216 ^ (n/2) · x.toGF216 ^ (n/2 + n%2) = x.toGF216 ^ n`
-by the Euclidean-division identity `n/2 + (n/2 + n%2) = n` and the power law `x^a · x^b = x^(a+b)`.
--/
-private lemma power_invariant_step
-    (x : GF16)
-    (xs : List GF16)
-    (g : GF16)
-    (h_ge2 : 2 ≤ xs.length)
-    (h_pow : ∀ j, j < xs.length → (xs[j]!).toGF216 = x.toGF216 ^ j)
-    (h_g : g.toGF216 =
-      (xs[xs.length / 2]!).toGF216 *
-      (xs[xs.length / 2 + xs.length % 2]!).toGF216) :
-    ∀ j, j < (xs ++ [g]).length → ((xs ++ [g])[j]!).toGF216 = x.toGF216 ^ j := by
-  intro j hj
-  simp only [List.length_append, List.length_singleton] at hj
-  have h_div2_lt : xs.length / 2 < xs.length := Nat.div_lt_self (by omega) (by omega)
-  have h_sum_lt : xs.length / 2 + xs.length % 2 < xs.length := by
-    have := Nat.div_add_mod xs.length 2; omega
-  by_cases hlt : j < xs.length
-  · have hlt' : j < (xs ++ [g]).length := by grind
-    grind
-  · have hj_eq : j = xs.length := by omega
-    subst hj_eq
-    have hlt' : xs.length < (xs ++ [g]).length := by grind
-    simp only [List.length_append, List.length_cons, List.length_nil, zero_add,
-      lt_add_iff_pos_right, Order.lt_one_iff, getElem!_pos, le_refl, List.getElem_append_right,
-      tsub_self, List.getElem_cons_zero]
-    rw [h_g, h_pow _ h_div2_lt, h_pow _ h_sum_lt, ← pow_add, div2_add_sum_eq]
-
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.compute_at_loop0`**:
@@ -406,53 +312,6 @@ open spqr.encoding.polynomial.Poly
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop1
 
--- The long identifier cannot be broken across lines; suppress
--- the line-length linter for the lemma statement and proof.
-/--
-The range iterator `next` always returns `ok` and either provides the current `start` value (when
-`start < end`) or `none` (when `start ≥ end`).  This is the concrete specification for the
-`core.ops.range.Range<usize>` iterator used in the Rust `for i in 0..self.coefficients.len()` loop.
--/
-private lemma IteratorRange_next_Usize_post
-    (range : core.ops.range.Range Usize) :
-    ∃ opt range',
-      core.iter.range.IteratorRange.next core.iter.range.StepUsize range
-        = ok (opt, range') ∧
-      (¬ range.start.val < range.«end».val →
-          opt = none ∧ range' = range) ∧
-      (range.start.val < range.«end».val →
-          opt = some range.start ∧
-          range'.start.val = range.start.val + 1 ∧
-          range'.«end» = range.«end») := by
-  simp only [core.iter.range.IteratorRange.next]
-  simp only [liftFun2, liftFun1, core.clone.impls.CloneUsize.clone, bind_tc_ok, not_lt]
-  have h_lt_iff :
-      (core.cmp.impls.PartialOrdUsize.lt range.start range.«end» = true) =
-      (range.start.val < range.«end».val) := by
-    simp [core.cmp.impls.PartialOrdUsize.lt]
-  simp only [h_lt_iff]
-  by_cases hlt : range.start.val < range.«end».val
-  · rw [if_pos hlt]
-    have hbound : range.start.val + 1 ≤ Usize.max := by
-      have := range.«end».hBounds; scalar_tac
-    refine ⟨some range.start,
-            {range with start := ⟨range.start.val + 1, by scalar_tac⟩},
-            ?_, ?_, ?_⟩
-    · simp only [core.iter.range.StepUsize.forward_checked, bind_tc_ok]
-      have hca := Usize.checked_add_bv_spec range.start 1#usize
-      rcases heq : Usize.checked_add range.start 1#usize with _ | z
-      · rw [heq] at hca; scalar_tac
-      · simp only
-        rw [heq] at hca
-        obtain ⟨_, hval, _⟩ := hca
-        have hzval : z.val = range.start.val + 1 := by scalar_tac
-        congr 4
-        exact UScalar.eq_of_val_eq hzval
-    · intro h; omega
-    · intro _; exact ⟨rfl, rfl, rfl⟩
-  · rw [if_neg hlt]
-    exact ⟨none, range, rfl, fun _ => ⟨rfl, rfl⟩, fun h => absurd h hlt⟩
-
 /--
 **Spec theorem for `encoding.polynomial.Poly.compute_at_loop1.body`**:
 
@@ -513,7 +372,7 @@ theorem body_spec
             (v.val[iter.start.val]!).toGF216 *
             (xs.val[iter.start.val]!).toGF216 ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := IteratorRange_next_Usize_post iter
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
@@ -740,115 +599,6 @@ open spqr.encoding.polynomial.Poly
 
 namespace spqr.encoding.polynomial.Poly
 
-
-/-! ## Helper lemmas -/
-
-/--
-**Initial power-vector invariant.**
-
-The two-element vector `[GF16::ONE, x]` satisfies the power-vector invariant:
-  `[ONE, x][j]!.toGF216 = x.toGF216 ^ j` for all `j < 2`.
-
-This establishes the precondition for loop 0, ensuring that the initial entries `x⁰ = 1` and
-`x¹ = x` are correctly represented before the loop extends the vector to higher powers.
--/
-private lemma initial_power_invariant (x : GF16) :
-    ∀ j, j < [GF16.ONE, x].length →
-      ([GF16.ONE, x][j]!).toGF216 = x.toGF216 ^ j := by
-  intro j hj
-  simp only [List.length_cons, List.length_nil] at hj
-  interval_cases j
-  · simp [GF16.ONE, GF16.toGF216, Nat.toGF216, natToBinaryPoly_one, map_one]
-  · simp [pow_one]
-
-/--
-**Polynomial evaluation via range sum.**
-
-If all coefficients of `p` at positions `≥ n` are zero, then `p.eval a` equals the finite sum
-`∑ j ∈ Finset.range n, p.coeff j * a ^ j`.  This extends the standard
-`Polynomial.eval_eq_sum_range` (which uses `natDegree + 1` as the upper bound) to any upper bound
-`n` beyond which all coefficients vanish.
--/
-private lemma eval_eq_range_sum (p : GF216Poly) (a : GF216) (n : ℕ)
-    (h : ∀ j, n ≤ j → p.coeff j = 0) :
-    p.eval a = ∑ j ∈ Finset.range n, p.coeff j * a ^ j := by
-  rw [Polynomial.eval_eq_sum, Polynomial.sum_def]
-  apply Finset.sum_subset
-  · intro j hj
-    rw [Finset.mem_range]
-    by_contra h_ge; push Not at h_ge
-    exact (Polynomial.mem_support_iff.mp hj) (h j h_ge)
-  · intro j _ hj
-    have : p.coeff j = 0 := by
-      by_contra h_ne
-      exact hj (Polynomial.mem_support_iff.mpr h_ne)
-    rw [this, zero_mul]
-
-/--
-**Dot-product to polynomial evaluation bridge.**
-
-When the power vector `xs` satisfies the power-vector invariant `xs[j].toGF216 = x.toGF216 ^ j` for
-all `j < xs.length`, and `n = v.length ≤ xs.length`, the dot product
-  `∑ j ∈ Finset.range n, v[j]!.toGF216 * xs[j]!.toGF216`
-equals the polynomial evaluation
-  `(listToGF216Poly v).eval (x.toGF216)`.
-
-This is the key bridge connecting the computational result of the two loops (power-vector
-construction + dot-product accumulation) to the mathematical polynomial evaluation in
-`GF216 = GaloisField 2 16`.  The proof proceeds in three steps:
-
-  1. **Substitute power invariant**: replace each `(xs[j]!).toGF216` by `x.toGF216 ^ j`.
-  2. **Rewrite coefficients**: replace each `(v[j]!).toGF216` by `(listToGF216Poly v).coeff j`
-     using the `getElem_bang_toGF216_eq_coeff` bridge from `Spqr.Math.Poly`.
-  3. **Connect to evaluation**: the resulting `∑ j ∈ range n, p.coeff j * x ^ j` equals
-     `p.eval x` by `eval_eq_range_sum` (since `p.coeff j = 0` for `j ≥ n`).
--/
-private lemma dot_product_eq_eval
-    (x : GF16) (v : List GF16) (xs : List GF16)
-    (h_pow : ∀ j, j < xs.length → (xs[j]!).toGF216 = x.toGF216 ^ j)
-    (h_len : v.length ≤ xs.length) :
-    (∑ j ∈ Finset.range v.length,
-      (v[j]!).toGF216 * (xs[j]!).toGF216) =
-    (listToGF216Poly v).eval (x.toGF216) := by
-  have h_sub : ∀ j ∈ Finset.range v.length,
-      (v[j]!).toGF216 * (xs[j]!).toGF216 =
-      (v[j]!).toGF216 * x.toGF216 ^ j := by
-    intro j hj; rw [Finset.mem_range] at hj
-    congr 1; exact h_pow j (by omega)
-  rw [Finset.sum_congr rfl h_sub]
-  have h_coeff : ∀ j ∈ Finset.range v.length,
-      (v[j]!).toGF216 * x.toGF216 ^ j =
-      (listToGF216Poly v).coeff j * x.toGF216 ^ j := by
-    intro j hj
-    congr 1; exact getElem_bang_toGF216_eq_coeff v j
-  rw [Finset.sum_congr rfl h_coeff]
-  exact (eval_eq_range_sum (listToGF216Poly v) (x.toGF216) v.length
-    (fun j hj => listToGF216Poly_coeff_eq_zero v j hj)).symm
-
-/--
-**Max-2 length bound.**
-
-If `n + 1 ≤ Usize.max`, then `max 2 n + 1 ≤ Usize.max`. This is used to discharge the length
-precondition of `compute_at_loop0.loop_spec` when the initial vector has length 2.
--/
-private lemma max_two_succ_le_usize_max (n : Nat) (h : n + 1 ≤ Usize.max) :
-    Nat.max 2 n + 1 ≤ Usize.max := by
-  simp only [Nat.max_def]
-  split_ifs
-  · exact h
-  · scalar_tac
-
-/--
-**Zero accumulator equals empty sum.**
-
-`GF16.ZERO.toGF216 = ∑ j ∈ Finset.range 0, f j` for any `f`, since the sum over an empty range
-is zero and `GF16.ZERO` maps to `0 : GF216`.
--/
-private lemma zero_toGF216_eq_empty_sum
-    (v xs : alloc.vec.Vec GF16) :
-    GF16.ZERO.toGF216 = ∑ j ∈ Finset.range 0,
-      (v.val[j]!).toGF216 * (xs.val[j]!).toGF216 := by
-  simp [GF16.ZERO, GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero, map_zero]
 
 /--
 **Spec theorem for `encoding.polynomial.Poly.compute_at`**:
