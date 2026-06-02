@@ -156,8 +156,9 @@ theorem body_spec
     (h_overflow : v.val.length + (iter.«end».val - iter.start.val) ≤ Usize.max) :
     body pts iter v ⦃ cf =>
       match cf with
-      | ControlFlow.done () =>
-          ¬(iter.start.val < iter.«end».val)
+      | ControlFlow.done v_final =>
+          ¬(iter.start.val < iter.«end».val) ∧
+          v_final = v
       | ControlFlow.cont (iter1, v1) =>
           iter.start.val < iter.«end».val ∧
           iter1.start.val = iter.start.val + 1 ∧
@@ -182,6 +183,6 @@ theorem body_spec
       simp_all [Array.make, Nat.mul_comm]⟩
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
-    exact h_lt
+    exact ⟨h_lt, rfl⟩
 
 end spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0

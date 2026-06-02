@@ -191,7 +191,7 @@ theorem loop_spec
       constructor
       · -- Invariant is preserved
         refine ⟨by rw [h_end1]; exact h_end',
-               by omega,
+               by grind,
                fun j hj => ?_⟩
         by_cases hj_lt : j < iter'.start.val
         · -- Previously processed: j is in the prefix
@@ -202,7 +202,7 @@ theorem loop_spec
           subst hj_eq
           exact ⟨poly, h_out_eq, h_poly_len, h_poly_encode⟩
       · -- Measure decreases
-        omega
+        grind
   · -- Initial state satisfies the invariant
     exact ⟨rfl, h_start_le, h_pre⟩
 

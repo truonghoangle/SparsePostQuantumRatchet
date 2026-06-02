@@ -141,17 +141,34 @@ axiom
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::map]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 62:0-64:16
-    Name pattern: [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<core::iter::adapters::enumerate::Enumerate<@I>, (usize, @Clause0_Item)>}::map] -/
+    Name pattern: [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<core::iter::adapters::enumerate::Enumerate<@I>, (usize, @Clause0_Item)>}::map]
+
+    Concrete model: wraps the enumerate iterator and mapping function into a `Map`
+    adapter struct.  No elements are consumed; iteration is deferred to
+    `Map.collect` or `Map.next`. -/
 @[rust_fun
   "core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<core::iter::adapters::enumerate::Enumerate<@I>, (usize, @Clause0_Item)>}::map"]
-axiom
+def
   core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
+  {I : Type} {B : Type} {F : Type} {Clause0_Item : Type}
+  (_traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I
+  Clause0_Item) (_opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst :
+  core.ops.function.FnMut F (Std.Usize × Clause0_Item) B) :
+  core.iter.adapters.enumerate.Enumerate I → F → Result
+    (core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F) :=
+  fun iter f => ok ⟨iter, f⟩
+
+@[simp, step_simps]
+theorem core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map_spec
   {I : Type} {B : Type} {F : Type} {Clause0_Item : Type}
   (traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I
   Clause0_Item) (opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst :
-  core.ops.function.FnMut F (Std.Usize × Clause0_Item) B) :
-  core.iter.adapters.enumerate.Enumerate I → F → Result
-    (core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F)
+  core.ops.function.FnMut F (Std.Usize × Clause0_Item) B)
+  (iter : core.iter.adapters.enumerate.Enumerate I) (f : F) :
+  (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
+    traitsiteratorIteratorInst opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst iter f)
+    = ok ⟨iter, f⟩ := by
+  simp [core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map]
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::step_by]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 62:0-64:16
@@ -776,10 +793,21 @@ axiom alloc.vec.Vec.clear
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2956:4-2956:40
-    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::is_empty] -/
+    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::is_empty]
+
+    Concrete model of Rust's `Vec::is_empty`: returns `true` iff the vector
+    has no elements.  The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::is_empty"]
-axiom alloc.vec.Vec.is_empty
-  {T : Type} (A : Type) : alloc.vec.Vec T → Result Bool
+def alloc.vec.Vec.is_empty
+  {T : Type} (_A : Type) (v : alloc.vec.Vec T) : Result Bool :=
+  ok (v.length = 0)
+
+@[simp, step_simps, step]
+theorem alloc.vec.Vec.is_empty_spec
+  {T : Type} (A : Type) (v : alloc.vec.Vec T) :
+  alloc.vec.Vec.is_empty A v ⦃ b => b = (v.length = 0) ⦄ := by
+  simp only [alloc.vec.Vec.is_empty, alloc.vec.Vec.length,
+    List.length_eq_zero_iff, eq_iff_iff, WP.spec_ok, decide_eq_true_eq]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::split_off]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2989:4-2991:17

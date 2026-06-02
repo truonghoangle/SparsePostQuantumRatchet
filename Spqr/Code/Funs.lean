@@ -614,7 +614,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct2Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone
+      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone 
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -656,7 +656,7 @@ def
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -715,7 +715,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct1Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -897,7 +897,7 @@ def proto.pq_ratchet.v1_state.chunked.HeaderSent.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone
+      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone 
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -1241,7 +1241,7 @@ def proto.pq_ratchet.Chain.Insts.CoreCmpPartialEqChain.eq
       then
         let b ←
           alloc.vec.partial_eq.PartialEqVec.eq
-            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch
+            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch 
             self.links other.links
         if b
         then
@@ -6925,7 +6925,7 @@ def encoding.gf.GF16.new (value : Std.U16) : Result encoding.gf.GF16 := do
   ok { value }
 
 /-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-    Source: 'src/encoding/gf.rs', lines 490:4-503:5 -/
+    Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
 def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
   (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
   Result encoding.gf.GF16
@@ -7189,9 +7189,9 @@ def encoding.gf.parallel_mult_loop.body
     let g ← Slice.index_usize into i
     let i3 ← i + 1#usize
     let g1 ← Slice.index_usize into i3
-    let (i4, v3) ← encoding.gf.mul2_u16 a.value g.value g1.value
+    let (i4, i5) ← encoding.gf.mul2_u16 a.value g.value g1.value
     let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-    let s ← Slice.update into1 i3 ({ value := v3 } : encoding.gf.GF16)
+    let s ← Slice.update into1 i3 ({ value := i5 } : encoding.gf.GF16)
     ok (cont (s, i1))
   else ok (done (a, into, i))
 
@@ -8329,8 +8329,7 @@ def encoding.polynomial.lagrange_polys_for_complete_points_loop0.body
   := do
   if i < N
   then
-    let i_u16 ← lift (UScalar.cast .U16 i)
-    let a ← Array.update ones i ({ x := { value := i_u16 }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)
+    let a ← Array.update ones i ({ x := { value := (UScalar.cast .U16 i) }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)
     let i1 ← i + 1#usize
     ok (cont (a, i1))
   else ok (done ones)
@@ -8977,12 +8976,12 @@ def encoding.polynomial.PolyEncoder.from_pb_loop1_loop0.body
   (pts : alloc.vec.Vec Std.U8) (iter : core.ops.range.Range Std.Usize)
   (v : alloc.vec.Vec encoding.gf.GF16) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec
-    encoding.gf.GF16)) Unit)
+    encoding.gf.GF16)) (alloc.vec.Vec encoding.gf.GF16))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok (done v)
   | some k =>
     let j ← k * 2#usize
     let i ←
@@ -9001,7 +9000,7 @@ def encoding.polynomial.PolyEncoder.from_pb_loop1_loop0.body
 def encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
   (iter : core.ops.range.Range Std.Usize) (pts : alloc.vec.Vec Std.U8)
   (v : alloc.vec.Vec encoding.gf.GF16) :
-  Result Unit
+  Result (alloc.vec.Vec encoding.gf.GF16)
   := do
   loop
     (fun (iter1, v1) =>
@@ -9018,7 +9017,37 @@ def encoding.polynomial.PolyEncoder.from_pb_loop1.body
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Array
     encoding.polynomial.Point 16#usize)) (core.result.Result
     encoding.polynomial.PolyEncoder encoding.polynomial.PolynomialError))
-  := sorry
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none =>
+    ok (done (core.result.Result.Ok
+      { idx := i, s := (encoding.polynomial.EncoderState.Points out) }))
+  | some i1 =>
+    let pts ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice (alloc.vec.Vec
+        Std.U8)) v i1
+    let i2 := alloc.vec.Vec.len pts
+    let i3 ← i2 % 2#usize
+    if i3 != 0#usize
+    then
+      ok (done (core.result.Result.Err
+        encoding.polynomial.PolynomialError.SerializationInvalid))
+    else
+      let i4 := alloc.vec.Vec.len pts
+      let i5 ← i4 / 2#usize
+      let v1 := alloc.vec.Vec.with_capacity encoding.gf.GF16 i5
+      let i6 := alloc.vec.Vec.len pts
+      let i7 ← i6 / 2#usize
+      let v_result ← encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
+        { start := 0#usize, «end» := i7 } pts v1
+      massert (i1 < 16#usize)
+      let (p, index_mut_back) ← Array.index_mut_usize out i1
+      let out1 := index_mut_back ({ value := v_result } : encoding.polynomial.Point)
+      let a ← Array.update out1 i1 ({ value := v_result } : encoding.polynomial.Point)
+      ok (cont (iter1, a))
+
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyEncoder}::from_pb]: loop 1:
     Source: 'src/encoding/polynomial.rs', lines 593:12-606:73 -/
 @[rust_loop]
@@ -11861,13 +11890,13 @@ def v1.chunked.send_ct.NoHeaderReceived.epoch
     Visibility: public -/
 def v1.unchunked.send_ct.HeaderReceived.send_ct1
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived)
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived) 
   (rng : R) :
   Result ((v1.unchunked.send_ct.Ct1Sent × (alloc.vec.Vec Std.U8) ×
     EpochSecret) × R)
   := do
   let (t, rng1) ←
-    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst
+    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst 
       self.hdr rng
   let (ct1, es, secret) := t
   let s ←
@@ -12873,7 +12902,7 @@ def v1.chunked.send_ek.KeysUnsampled.new
     Visibility: public -/
 def v1.unchunked.send_ek.KeysUnsampled.send_header
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled)
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled) 
   (rng : R) :
   Result ((v1.unchunked.send_ek.HeaderSent × (alloc.vec.Vec Std.U8) ×
     (alloc.vec.Vec Std.U8)) × R)

@@ -90,7 +90,7 @@ tweaks:
       replace: "\n  take := sorry"
 
     # Sorry loop bodies where Aeneas generates () instead of the correct typed value
-    - regex: "(def (?:encoding\\.gf\\.parallel_mult_loop\\.body|encoding\\.polynomial\\.lagrange_polys_for_complete_points_loop0\\.body|encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1\\.body|encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
+    - regex: "(def (?:encoding\\.polynomial\\.PolyEncoder\\.encode_bytes_base_loop\\.body)\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
     # Sorry merge closure FnOnce call_once assignments (Aeneas types them wrong)
@@ -141,3 +141,39 @@ tweaks:
       replace: "$1 (val2 : proto.pq_ratchet.PolynomialDecoder) $2"
     - regex: "(\\| core\\.ops\\.control_flow\\.ControlFlow\\.Continue) val4 (=>\\n\\s+let \\S+ ← encoding\\.polynomial\\.PolyDecoder\\.from_pb val4)"
       replace: "$1 (val4 : proto.pq_ratchet.PolynomialDecoder) $2"
+
+    # Fix lagrange_polys_for_complete_points loop: Aeneas generates () instead of Pt
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - find: "let a ← Array.update ones i ()"
+      replace: "let a ← Array.update ones i ({ x := { value := (UScalar.cast .U16 i) }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)"
+
+    # Fix parallel_mult loop: mul2_u16 second result discarded then () used instead of GF16
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - find: |
+        let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value
+            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
+            let s ← Slice.update into1 i3 ()
+      replace: |
+        let (i4, i5) ← encoding.gf.mul2_u16 a.value g.value g1.value
+            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
+            let s ← Slice.update into1 i3 ({ value := i5 } : encoding.gf.GF16)
+
+    # Fix from_pb_loop1_loop0 body: return accumulated GF16 vector instead of Unit
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - find: "encoding.gf.GF16)) Unit)"
+      replace: "encoding.gf.GF16)) (alloc.vec.Vec encoding.gf.GF16))"
+
+    # Fix from_pb_loop1_loop0 body: return v on done instead of ()
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - find: "ok (done ())"
+      replace: "ok (done v)"
+
+    # Fix from_pb_loop1_loop0: return accumulated GF16 vector instead of Unit
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - regex: "(def encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1_loop0\\n[\\s\\S]*?encoding\\.gf\\.GF16\\) :\\n  )Result Unit"
+      replace: "$1Result (alloc.vec.Vec encoding.gf.GF16)"
+
+    # Fix from_pb_loop1 outer body: capture inner loop result and construct Point
+    # https://github.com/AeneasVerif/aeneas/issues/1046
+    - find: "      encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back p\n      let a \u2190 Array.update out1 i1 ()"
+      replace: "      let v_result \u2190 encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back ({ value := v_result } : encoding.polynomial.Point)\n      let a \u2190 Array.update out1 i1 ({ value := v_result } : encoding.polynomial.Point)"

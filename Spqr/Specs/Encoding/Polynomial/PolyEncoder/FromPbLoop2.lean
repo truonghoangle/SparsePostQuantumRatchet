@@ -118,16 +118,15 @@ theorem loop_spec
     (h_end_le : 2 * iter.«end».val ≤ pts.val.length)
     (h_start_le : iter.start.val ≤ iter.«end».val)
     (h_overflow : v.val.length + (iter.«end».val - iter.start.val) ≤ Usize.max) :
-    from_pb_loop1_loop0 iter pts v ⦃ (_ : Unit) =>
-      ∃ (v' : alloc.vec.Vec encoding.gf.GF16),
-        v'.val.length = v.val.length + (iter.«end».val - iter.start.val) ∧
-        (∀ (j : Nat), j < v.val.length → v'.val[j]? = v.val[j]?) ∧
-        ∀ (j : Nat), iter.start.val ≤ j → j < iter.«end».val →
-          ∃ (g : encoding.gf.GF16),
-            v'.val[v.val.length + (j - iter.start.val)]? = some g ∧
-            g.value.val =
-              ((pts.val[2 * j]!).val * 256 +
-               (pts.val[2 * j + 1]!).val) ⦄ := by
+    from_pb_loop1_loop0 iter pts v ⦃ (v_result : alloc.vec.Vec encoding.gf.GF16) =>
+      v_result.val.length = v.val.length + (iter.«end».val - iter.start.val) ∧
+      (∀ (j : Nat), j < v.val.length → v_result.val[j]? = v.val[j]?) ∧
+      ∀ (j : Nat), iter.start.val ≤ j → j < iter.«end».val →
+        ∃ (g : encoding.gf.GF16),
+          v_result.val[v.val.length + (j - iter.start.val)]? = some g ∧
+          g.value.val =
+            ((pts.val[2 * j]!).val * 256 +
+             (pts.val[2 * j + 1]!).val) ⦄ := by
   unfold from_pb_loop1_loop0
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Std.Usize ×
@@ -156,9 +155,11 @@ theorem loop_spec
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
-    | ControlFlow.done () =>
+    | ControlFlow.done v_final =>
       simp only [] at h_cf ⊢
-      exact ⟨v', by omega, h_prefix', fun j hj1 hj2 => h_pre' j hj1 (by omega)⟩
+      obtain ⟨h_not_lt, h_eq⟩ := h_cf
+      subst h_eq
+      exact ⟨by omega, h_prefix', fun j hj1 hj2 => h_pre' j hj1 (by omega)⟩
     | ControlFlow.cont (iter'', v'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1, g, h_v_eq, h_g_val⟩ := h_cf
