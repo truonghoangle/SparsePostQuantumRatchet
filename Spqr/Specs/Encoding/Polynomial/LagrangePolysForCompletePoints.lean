@@ -6,6 +6,7 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Poly
+import Spqr.Math.Poly.General
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Gf.GF16.New
 import Spqr.Specs.Encoding.Gf.GF16.ONE
@@ -156,21 +157,6 @@ has a unique binary polynomial representative of degree < 16).
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop0
-
-/-! ## Helper lemmas -/
-
-/--
-Transfer a `List.get`-indexed value through a `List.getElem?` equality.
-If `xs[k]? = ys[k]?` and both indices are in bounds, then `xs.get ⟨k, _⟩ = ys.get ⟨k, _⟩`.
--/
-private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
 
 /--
 **Spec theorem for `encoding.polynomial.lagrange_polys_for_complete_points_loop0`**:
@@ -478,21 +464,6 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomi
 open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
 namespace spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop1
-
-/-! ## Helper lemmas -/
-
-/--
-Transfer a `List.get`-indexed value through a `List.getElem?` equality.
-If `xs[k]? = ys[k]?` and both indices are in bounds, then `xs.get ⟨k, _⟩ = ys.get ⟨k, _⟩`.
--/
-private lemma list_get_of_getElem?_eq {T : Type} {xs ys : List T}
-    {k : Nat}
-    (h : xs[k]? = ys[k]?) (hx : k < xs.length) (hy : k < ys.length) :
-    xs.get ⟨k, hx⟩ = ys.get ⟨k, hy⟩ := by
-  have h1 : xs[k]? = some (xs.get ⟨k, hx⟩) := List.getElem?_eq_getElem hx
-  have h2 : ys[k]? = some (ys.get ⟨k, hy⟩) := List.getElem?_eq_getElem hy
-  rw [h1, h2] at h
-  exact Option.some_injective _ h
 
 /--
 **Spec theorem for `encoding.polynomial.lagrange_polys_for_complete_points_loop1`**:

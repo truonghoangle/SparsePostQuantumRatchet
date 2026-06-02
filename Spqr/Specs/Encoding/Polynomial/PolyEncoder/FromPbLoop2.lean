@@ -5,6 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
+import Spqr.Math.Poly.General
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody2
 
 /-!
@@ -53,18 +54,6 @@ this file lifts it through `loop.spec_decr_nat` (with measure
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
-
-/-! ## Helper lemma: `getElem?` preservation under list append -/
-
-/--
-When index `i` falls within the first list `l₁`, indexing into the concatenation `l₁ ++ l₂`
-returns the same element as indexing into `l₁` alone.  This is used to show that previously
-deserialized GF(2¹⁶) elements are preserved when a new element is appended.
--/
-private lemma getElem?_append_of_lt {α : Type}
-    (l₁ l₂ : List α) {i : Nat} (h : i < l₁.length) :
-    (l₁ ++ l₂)[i]? = l₁[i]? :=
-  List.getElem?_append_left h
 
 /-! ## Spec theorem for the from_pb inner byte-deserialization loop -/
 
