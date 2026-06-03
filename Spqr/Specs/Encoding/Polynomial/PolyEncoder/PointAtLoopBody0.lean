@@ -439,23 +439,36 @@ theorem body_spec
       have h_massert : (iter.start.val < 16) = True := by grind
       simp only [UScalar.lt_equiv, UScalar.ofNatCore_val_eq, h_massert, ↓reduceIte]
       step*
-      exact ⟨h_lt, h_start1, h_end1,
-        fun k hk => by simp_all [alloc.vec.Vec.deref],
-        polys_lp,
-        by { simp only [← List.getElem!_eq_getElem?_getD]
-             rw [h_deref_len] at h_len_le_lp; exact h_len_le_lp },
-        by {
-          -- Show a[iter.start]! = poly via the Array-level double-set helper lemma
-          have h_a_eq : a[iter.start]! = poly := by
-            rw [a_post, p2_post1, p2_post2]
-            exact array_set_restore_set_getElem! polys iter.start poly (by grind)
-          simp_all
-          apply Finset.sum_congr rfl
-          intro j hj
-          have hj_pt : j < pt_vec.val.length := by rw [h_pt_len]; exact Finset.mem_range.mp hj
-          sorry
+      constructor
+      · grind
+      · constructor
+        · grind
+        · constructor
+          · grind
+          · constructor
+            · intro k hk
+              simp_all
+            · have h_a_eq : a[iter.start]! = poly := by
+                rw [a_post, p2_post1, p2_post2]
+                exact array_set_restore_set_getElem! polys iter.start poly (by grind)
+              simp_all
+              refine ⟨polys_lp, ?_, ?_⟩
+              · omega
+              · apply Finset.sum_congr rfl
+                intro j hj
+                have hj_range := Finset.mem_range.mp hj
+                have hj_pt : j < pt_vec.val.length := by
+                  simp [alloc.vec.Vec.deref] at *; omega
+                have hy := (h_pt_elts j
+                  (by simp [alloc.vec.Vec.deref]; omega)).2
+                simp only [alloc.vec.Vec.deref, List.get_eq_getElem] at hy
+                simp only [alloc.vec.Vec.deref,
+                  List.getElem?_eq_getElem hj_pt,
+                  List.getElem?_eq_getElem hj_range,
+                  Option.getD_some]
+                rw [hy]
 
-        }⟩
+
     | core.result.Result.Err () =>
       -- Err case: contradiction since all collected points satisfy validation
       exfalso
