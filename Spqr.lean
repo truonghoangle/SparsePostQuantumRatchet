@@ -110,6 +110,8 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPb
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop1

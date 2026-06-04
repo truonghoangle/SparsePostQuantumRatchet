@@ -94,7 +94,7 @@ private theorem body_spec_with_iter
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
   unfold body
   simp only [
-    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
+core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
     core.iter.traits.iterator.IteratorChunksExact,
     core.slice.iter.IteratorChunksExact.next]
   split
@@ -197,79 +197,102 @@ theorem loop_spec_nat
   · -- Step: the body preserves the invariant or produces the final result
     rintro ⟨iter', pts'⟩ ⟨h_chunks', h_push', h_pre'⟩
     simp only [] at h_chunks' h_push' h_pre' ⊢
-    -- The body needs h_push_ok for a single push: length + 1 ≤ Usize.max
-    have h_push_one : ∀ (j : Nat), j < 16 →
-        (pts'.val[j]!).value.val.length + 1 ≤ Usize.max := by
+    -- Case split on whether the chunk list is empty or has elements.
+    -- When chunks is empty, the body returns done and h_push_one is not needed.
+    -- When chunks is non-empty, h_push_one follows from h_push' since chunks.length ≥ 1.
+    cases h_chunks_cases : iter'.iter.chunks with
+    | nil =>
+      -- Iterator exhausted: body returns done, postcondition follows from invariant
+      unfold body
+      simp only [
+        core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
+        core.iter.traits.iterator.IteratorChunksExact,
+        core.slice.iter.IteratorChunksExact.next,
+        h_chunks_cases]
+      simp [WP.spec_ok]
       intro j hj
-      have := h_push' j hj
       simp_all
-    have h_body := body_spec_with_iter iter' pts' h_push_one h_chunks'
-    apply WP.spec_mono h_body
-    intro cf h_cf
-    match cf with
-    | ControlFlow.done pts'' =>
-      -- Iterator exhausted: pts'' = pts', chunks were already empty
-      simp only [] at h_cf ⊢
-      obtain ⟨h_eq, _⟩ := h_cf
-      subst h_eq
-      intro j hj
-      exact h_pre' j hj
-    | ControlFlow.cont (iter'', pts'') =>
-      simp only [] at h_cf ⊢
-      obtain ⟨⟨hd, tl, h_chunks_eq, h_iter_eq⟩,
-              i, c, g, h_c_len, h_g_decode, h_poly_eq, h_preserve⟩ := h_cf
-      constructor
-      · -- Invariant is preserved
+    | cons hd₀ tl₀ =>
+      -- Chunks non-empty: length + 1 ≤ Usize.max since chunks.length ≥ 1
+      have h_push_one : ∀ (j : Nat), j < 16 →
+          (pts'.val[j]!).value.val.length + 1 ≤ Usize.max := by
+        intro j hj
+        have := h_push' j hj
+        rw [h_chunks_cases] at this
+        simp only [List.length_cons] at this
+        omega
+      have h_body := body_spec_with_iter iter' pts' h_push_one h_chunks'
+      apply WP.spec_mono h_body
+      intro cf h_cf
+      match cf with
+      | ControlFlow.done pts'' =>
+        -- Iterator exhausted: pts'' = pts', chunks were already empty
+        simp only [] at h_cf ⊢
+        obtain ⟨h_eq, _⟩ := h_cf
+        subst h_eq
+        intro j hj
+        exact h_pre' j hj
+      | ControlFlow.cont (iter'', pts'') =>
+        simp only [] at h_cf ⊢
+        obtain ⟨⟨hd, tl, h_chunks_eq, h_iter_eq⟩,
+                i, c, g, h_c_len, h_g_decode, h_poly_eq, h_preserve⟩ := h_cf
+        -- Relate case-split variables to body-spec variables
+        have h_tl_eq : tl = tl₀ := by
+          have := h_chunks_cases.symm.trans h_chunks_eq
+          simp_all
+
         constructor
-        · -- Remaining chunks are valid: iter''.iter.chunks ⊆ iter'.iter.chunks
-          intro c' hc'
-          exact h_chunks' c' (by rw [h_chunks_eq]; exact .tail _ (h_iter_eq ▸ hc'))
-        constructor
-        · -- Push overflow maintained: length grew by ≤ 1, chunks shrank by 1
-          intro j hj
-          by_cases hj_eq : j = i.val % 16
-          · -- The modified point: length increased by 1, chunks decreased by 1
-            subst hj_eq
-            have h_len : pts''.val[i.val % 16]!.value.val.length =
-                (pts'.val[i.val % 16]!).value.val.length + 1 := by
-              rw [h_poly_eq]; simp [List.length_append]
-            rw [h_iter_eq]
-            have := h_push' (i.val % 16) hj
-            rw [h_chunks_eq] at this
-            simp [List.length_cons] at this
-            omega
-          · -- Unmodified points: length unchanged, chunks decreased by 1
-            have := h_preserve j hj_eq
-            rw [h_iter_eq, show pts''.val[j]! = pts'.val[j]! from this]
-            have := h_push' j hj
-            rw [h_chunks_eq] at this
-            simp [List.length_cons] at this
-            omega
-        · -- Prefix preservation with decode validity
-          intro j hj
-          obtain ⟨suffix, h_suffix_eq, h_suffix_valid⟩ := h_pre' j hj
-          by_cases hj_eq : j = i.val % 16
-          · -- Modified point: suffix grows by [g]
-            subst hj_eq
-            refine ⟨suffix ++ [g], ?_, ?_⟩
-            · rw [h_poly_eq, h_suffix_eq, List.append_assoc]
-            · intro g' hg'
-              rw [List.mem_append] at hg'
-              rcases hg' with hg' | hg'
-              · exact h_suffix_valid g' hg'
-              · rw [List.mem_singleton] at hg'
-                subst hg'
-                exact ⟨c, h_c_len, h_g_decode⟩
-          · -- Unmodified point: suffix unchanged
-            have h_eq := h_preserve j hj_eq
-            refine ⟨suffix, ?_, h_suffix_valid⟩
-            rw [show pts''.val[j]! = pts'.val[j]! from h_eq, h_suffix_eq]
-      · -- Measure decreases
-        rw [h_iter_eq, h_chunks_eq]
-        simp [List.length_cons]
+        · -- Invariant is preserved
+          constructor
+          · -- Remaining chunks are valid: iter''.iter.chunks ⊆ iter'.iter.chunks
+            intro c' hc'
+            exact h_chunks' c' (by rw [h_chunks_eq]; exact .tail _ (h_iter_eq ▸ hc'))
+          constructor
+          · -- Push overflow maintained: length grew by ≤ 1, chunks shrank by 1
+            intro j hj
+            by_cases hj_eq : j = i.val % 16
+            · -- The modified point: length increased by 1, chunks decreased by 1
+              subst hj_eq
+              have h_len : pts''.val[i.val % 16]!.value.val.length =
+                  (pts'.val[i.val % 16]!).value.val.length + 1 := by
+                rw [h_poly_eq]; simp [List.length_append]
+              rw [h_iter_eq]
+              have := h_push' (i.val % 16) hj
+              rw [h_chunks_eq] at this
+              simp only [List.length_cons] at this
+              omega
+            · -- Unmodified points: length unchanged, chunks decreased by 1
+              have := h_preserve j hj_eq
+              rw [h_iter_eq, show pts''.val[j]! = pts'.val[j]! from this]
+              have := h_push' j hj
+              rw [h_chunks_eq] at this
+              simp only [List.length_cons] at this
+              omega
+          · -- Prefix preservation with decode validity
+            intro j hj
+            obtain ⟨suffix, h_suffix_eq, h_suffix_valid⟩ := h_pre' j hj
+            by_cases hj_eq : j = i.val % 16
+            · -- Modified point: suffix grows by [g]
+              subst hj_eq
+              refine ⟨suffix ++ [g], ?_, ?_⟩
+              · rw [h_poly_eq, h_suffix_eq, List.append_assoc]
+              · intro g' hg'
+                rw [List.mem_append] at hg'
+                rcases hg' with hg' | hg'
+                · exact h_suffix_valid g' hg'
+                · rw [List.mem_singleton] at hg'
+                  subst hg'
+                  exact ⟨c, h_c_len, h_g_decode⟩
+            · -- Unmodified point: suffix unchanged
+              have h_eq := h_preserve j hj_eq
+              refine ⟨suffix, ?_, h_suffix_valid⟩
+              rw [show pts''.val[j]! = pts'.val[j]! from h_eq, h_suffix_eq]
+        · -- Measure decreases
+          rw [h_iter_eq, h_tl_eq]
+          simp [List.length_cons]
   · -- Initial state satisfies the invariant
     exact ⟨h_chunks_len, h_push_ok,
-           fun j _ => ⟨[], by simp, fun _ h => absurd h (List.not_mem_nil _)⟩⟩
+           fun j _ => ⟨[], by simp, fun _ h => absurd h (by grind)⟩⟩
 
 /--
 For any `Enumerate<ChunksExact<u8>>` iterator over a message's 2-byte chunks and an initial array
