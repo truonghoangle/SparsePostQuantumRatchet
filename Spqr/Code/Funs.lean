@@ -9395,7 +9395,29 @@ def encoding.polynomial.PolyEncoder.encode_bytes_base_loop.body
   Result (ControlFlow ((core.iter.adapters.enumerate.Enumerate
     (core.slice.iter.ChunksExact Std.U8)) × (Array encoding.polynomial.Point
     16#usize)) (Array encoding.polynomial.Point 16#usize))
-  := sorry
+  := do
+  let (o, iter1) ←
+    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+      (core.iter.traits.iterator.IteratorChunksExact Std.U8) iter
+  match o with
+  | none => ok (done pts)
+  | some p =>
+    let (i, c) := p
+    let s ← lift (Array.to_slice pts)
+    let i1 := Slice.len s
+    let poly ← i % i1
+    let (p1, index_mut_back) ← Array.index_mut_usize pts poly
+    let i2 ← Slice.index_usize c 0#usize
+    let i3 ← lift (UScalar.cast .U16 i2)
+    let i4 ← i3 <<< 8#i32
+    let i5 ← Slice.index_usize c 1#usize
+    let i6 ← lift (UScalar.cast .U16 i5)
+    let i7 ← i4 + i6
+    let g ← encoding.gf.GF16.new i7
+    let v ← alloc.vec.Vec.push p1.value g
+    let a := index_mut_back { p1 with value := v }
+    ok (cont (iter1, a))
+
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyEncoder}::encode_bytes_base]: loop 0:
     Source: 'src/encoding/polynomial.rs', lines 679:8-686:9 -/
 @[rust_loop]

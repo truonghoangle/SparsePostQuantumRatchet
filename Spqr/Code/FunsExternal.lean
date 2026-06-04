@@ -113,6 +113,21 @@ def
       let i := self.count
       ok (some (i, val), ⟨iter', UScalar.wrapping_add i 1#usize⟩)
 
+@[simp, step_simps]
+theorem core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec
+  {I : Type} {Clause0_Item : Type} (traitsiteratorIteratorInst :
+  core.iter.traits.iterator.Iterator I Clause0_Item)
+  (self : core.iter.adapters.enumerate.Enumerate I) :
+  (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+    traitsiteratorIteratorInst self) =
+  (do
+    let (opt, iter') ← traitsiteratorIteratorInst.next self.iter
+    match opt with
+    | none => ok (none, ⟨iter', self.count⟩)
+    | some val =>
+      ok (some (self.count, val), ⟨iter', UScalar.wrapping_add self.count 1#usize⟩)) := by
+  simp [core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next]
+
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::collect]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 62:0-64:16
     Name pattern: [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<core::iter::adapters::enumerate::Enumerate<@I>, (usize, @Clause0_Item)>}::collect] -/
