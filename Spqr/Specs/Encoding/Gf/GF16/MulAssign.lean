@@ -7,8 +7,7 @@ import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.Unaccelerated.Mul
 
-/-!
-# Spec theorem for `spqr::encoding::gf::GF16::mul_assign`
+/-! # Spec theorem for `spqr::encoding::gf::GF16::mul_assign`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication is polynomial multiplication
 modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
@@ -22,33 +21,25 @@ Concretely, `mul_assign self other` calls `unaccelerated.mul self.value other.va
      POLY using a precomputed table (`REDUCE_BYTES`), yielding a
      16-bit canonical representative in GF(2¹⁶).
 
-**Source**: spqr/src/encoding/gf.rs (lines 492:4-502:5)
--/
+**Source**: spqr/src/encoding/gf.rs  -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.gf
+open Aeneas Aeneas.Std
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 
-/--
-**Spec theorem for `encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign`**:
+/-- **Spec theorem for `encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign`**:
 
 • The function always succeeds (no panic) for any pair of `GF16` inputs, since `unaccelerated.mul`
   is total on `Std.U16 × Std.U16`.
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
-    `(result.toGF216 : GF216) =
-        self.toGF216 * other.toGF216`
-  where the `*` on the right-hand side is multiplication in
-  `GF216 = GaloisField 2 16`.
-
-**Source**: spqr/src/encoding/gf.rs (lines 492:4-502:5)
--/
+    `result.toGF216 = self.toGF216 * other.toGF216`
+  where the `*` on the right-hand side is multiplication in `GF216 = GaloisField 2 16`. -/
 @[step]
 theorem mul_assign_spec (self other : GF16) :
-    mul_assign self other ⦃ result =>
-      (result.toGF216 : GF216) =
-        self.toGF216 * other.toGF216 ⦄ := by
+    mul_assign self other ⦃ (result : GF16) =>
+      result.toGF216 = self.toGF216 * other.toGF216 ⦄ := by
   unfold mul_assign
   step*
   simp[GF16.toGF216]
@@ -56,8 +47,7 @@ theorem mul_assign_spec (self other : GF16) :
 
 end spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16
 
-/-!
-# Spec theorem for `spqr::encoding::gf::GF16::mul_assign`
+/-! # Spec theorem for `spqr::encoding::gf::GF16::mul_assign`
 
 In GF(2¹⁶) — the Galois field with 65 536 elements — multiplication is polynomial multiplication
 modulo the irreducible polynomial POLY = x¹⁶ + x¹² + x³ + x + 1 (0x1100b).  Each field element is
@@ -69,13 +59,11 @@ is inherited from the by-reference `mul_assign` (and ultimately `unaccelerated.m
 lifting the `u16` of the result into `GF216 = GaloisField 2 16` via `Nat.toGF216` yields the GF(2¹⁶)
 product of the lifts of `self.value` and `other.value`.
 
-**Source**: spqr/src/encoding/gf.rs (lines 507:4-509:5)
--/
+**Source**: spqr/src/encoding/gf.rs  -/
 
 namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16
 
-/--
-**Spec theorem for `encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign`**:
+/-- **Spec theorem for `encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign`**:
 
 • The function always succeeds (no panic) for any pair of `GF16` inputs, since the underlying
   `unaccelerated.mul` is total on `Std.U16 × Std.U16`.
@@ -84,18 +72,12 @@ namespace spqr.encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16
 • Lifting `result.value.val` into `GF216` via the canonical map
   `Nat.toGF216 = BinaryPoly.toGF216 ∘ natToBinaryPoly` yields the GF(2¹⁶) product of the
   similarly-lifted inputs:
-    `(result.value.val.toGF216 : GF216) =
-        self.value.val.toGF216 * other.value.val.toGF216`
-  where the `*` on the right-hand side is multiplication in
-  `GF216 = GaloisField 2 16`.
-
-**Source**: spqr/src/encoding/gf.rs (lines 507:4-509:5)
--/
+    `result.toGF216  = self.toGF216 * other.toGF216`
+  where the `*` on the right-hand side is multiplication in `GF216 = GaloisField 2 16`. -/
 @[step]
 theorem mul_assign_spec (self other : GF16) :
-    mul_assign self other ⦃ result =>
-      (result.toGF216 : GF216) =
-        self.toGF216 * other.toGF216 ⦄ := by
+    mul_assign self other ⦃ (result : GF16)=>
+      result.toGF216 = self.toGF216 * other.toGF216 ⦄ := by
   unfold mul_assign
   step*
 
