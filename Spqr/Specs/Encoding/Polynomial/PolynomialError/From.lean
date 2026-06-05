@@ -6,15 +6,22 @@ Authors: Hoang Le Truong
 import Spqr.Code.Funs
 
 /-!
-# Spec theorem for `spqr::encoding::{core::convert::From<spqr::encoding::polynomial::PolynomialError> for spqr::encoding::EncodingError}::from`
+# Spec theorem for `spqr::encoding::{From<PolynomialError> for EncodingError}::from`
 
-The `From<PolynomialError> for EncodingError` implementation is the canonical injection of
-`PolynomialError` into the `EncodingError` sum type.  The function simply wraps its input `value`
-in the `EncodingError.PolynomialError` constructor:
-  `from(value) = ok (EncodingError.PolynomialError value)`
+`EncodingError` is the algebraic sum type
 
-The conversion is unconditional and pure — it never fails, performs no computation on its input,
-and preserves the `PolynomialError` payload verbatim.
+  `EncodingError ≃ PolynomialError  ⊕  {ChunkIndexDecodingError}  ⊕  {ChunkDataDecodingError}`
+
+whose `PolynomialError`-branch carries a `PolynomialError` payload verbatim.  The `From` instance
+realises the canonical injection of `PolynomialError` into this sum type, lifting a value through
+the `EncodingError.PolynomialError` constructor.
+
+The function proceeds in a single stage:
+  1. Wrap the input `value : PolynomialError` in the `EncodingError.PolynomialError` constructor,
+     producing `EncodingError.PolynomialError value`, and return it via `ok`.
+
+It is total, pure, and never fails — no computation is performed on the payload, which is preserved
+unchanged.
 
 **Source**: spqr/src/encoding.rs (lines 19:4-21:5)
 -/
@@ -23,22 +30,23 @@ open Aeneas Aeneas.Std Result
 
 namespace spqr.encoding.EncodingError.Insts.CoreConvertFromPolynomialError
 
-@[simp]
-theorem from_eq (value : encoding.polynomial.PolynomialError) :
-    «from» value = ok (encoding.EncodingError.PolynomialError value) := by
-  simp [«from»]
-
 /-- **Spec theorem for `encoding.EncodingError.Insts.CoreConvertFromPolynomialError.from`**:
 
-• The function always succeeds (no panic / no error) for any `PolynomialError` input.
-• The result is exactly `EncodingError.PolynomialError value`, i.e. the `PolynomialError` variant
-  of `EncodingError` carrying the original `value` unchanged.
+Canonical injection of `PolynomialError` into the `EncodingError` sum type, lifting `value` through
+the `EncodingError.PolynomialError` constructor.
 
-In Hoare-triple form, calling `from value` produces an `EncodingError` `result` satisfying:
-    `result = EncodingError.PolynomialError value`
+The function is the identity composed with `EncodingError.PolynomialError`, returning its result
+through `ok`.
 
-This is the trivial embedding of the `PolynomialError` sum type into the larger `EncodingError`
-sum type, and it follows directly from the definition.
+The result satisfies the constructor-level specification:
+  `result = EncodingError.PolynomialError value`
+
+This establishes that `from` realises — at the level of `Result encoding.EncodingError` — the
+inclusion
+
+  `ι : PolynomialError ↪ EncodingError,   ι value = EncodingError.PolynomialError value`
+
+of `PolynomialError` into the algebraic sum `EncodingError`.
 
 **Source**: spqr/src/encoding.rs (lines 19:4-21:5)
 -/
@@ -46,6 +54,7 @@ sum type, and it follows directly from the definition.
 theorem from_spec (value : encoding.polynomial.PolynomialError) :
     «from» value ⦃ (result : encoding.EncodingError) =>
       result = encoding.EncodingError.PolynomialError value ⦄ := by
-  simp [«from»]
+  unfold «from»
+  step*
 
 end spqr.encoding.EncodingError.Insts.CoreConvertFromPolynomialError

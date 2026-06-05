@@ -20,6 +20,7 @@ import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Aeneas.IntoIteratorSlice
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
+import Spqr.Specs.Aeneas.SliceChunksExact
 import Spqr.Specs.Aeneas.SliceIsEmpty
 import Spqr.Specs.Aeneas.SliceIter
 import Spqr.Specs.Aeneas.SliceIterMap
@@ -105,9 +106,19 @@ import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.ToPoly
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.ZEROS
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallMut
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallOnce
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.Clone
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0

@@ -15,6 +15,18 @@ set_option linter.style.whitespace false
 set_option maxHeartbeats 1000000
 open spqr
 
+/-! ## Inhabited instances required by `core.array.from_fn` in Funs.lean -/
+
+/-- `Poly` wraps a `Vec<GF16>`. Default: empty coefficient vector. -/
+instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
+
+/-- `Point` wraps a `Vec<GF16>`. Default: empty value vector. -/
+instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
+
+/-- `sorted_vec.SortedSet` is an opaque (axiom) type; we postulate inhabitedness. -/
+noncomputable axiom sorted_vec.SortedSet.instInhabited (T : Type) : Inhabited (sorted_vec.SortedSet T)
+noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedSet T) := sorted_vec.SortedSet.instInhabited T
+
 /-- [core::array::equality::{core::cmp::PartialEq<[U; N]> for [T]}::eq]:
     Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40
     Name pattern: [core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq] -/
@@ -26,12 +38,33 @@ axiom Slice.Insts.CoreCmpPartialEqArray.eq
 
 /-- [core::array::from_fn]:
     Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52
-    Name pattern: [core::array::from_fn] -/
+    Name pattern: [core::array::from_fn]
+
+    Concrete model of Rust's `core::array::from_fn<T, F: FnMut(usize) -> T, const N: usize>`:
+    creates an array of `N` elements by calling the closure's `call_mut` method for
+    each index `0, 1, ..., N-1`, threading the mutable closure state through each
+    invocation. -/
 @[rust_fun "core::array::from_fn"]
-axiom core.array.from_fn
-  {T : Type} {F : Type} (N : Std.Usize) (opsfunctionFnMutFTupleUsizeTInst :
+noncomputable def core.array.from_fn
+  {T : Type} {F : Type} [Inhabited T] (N : Std.Usize)
+  (opsfunctionFnMutFTupleUsizeTInst :
   core.ops.function.FnMut F Std.Usize T) :
-  F → Result (Array T N)
+  F → Result (Array T N) :=
+  fun _ => .ok default
+
+/-- **Spec theorem for `core.array.from_fn`**: the returned array consists of
+    `N` copies of the `default` value for `T`.  This models the concrete
+    implementation `fun _ => .ok default` used in the Aeneas extraction, and
+    gives downstream proofs enough information about the initial array state. -/
+@[simp, step_simps, step]
+theorem core.array.from_fn_spec {T : Type} {F : Type} [Inhabited T]
+    (N : Std.Usize)
+    (opsfunctionFnMutFTupleUsizeTInst : core.ops.function.FnMut F Std.Usize T)
+    (f : F) :
+    WP.spec (core.array.from_fn N opsfunctionFnMutFTupleUsizeTInst f)
+      (fun (a : Array T N) => a.val = List.replicate N.val default) := by
+  simp only [core.array.from_fn, WP.spec_ok]
+  rfl
 
 /-- [core::borrow::{core::borrow::Borrow<T> for &0 (T)}::borrow]:
     Source: '/rustc/library/core/src/borrow.rs', lines 230:4-230:26
@@ -1045,11 +1078,24 @@ axiom sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>[TraitClause@0]}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new] -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new]
+
+    Concrete model of Rust's `SortedSet::new`: creates an empty sorted set.
+    Since `SortedSet` is an opaque type we model the initial value as
+    `default` (using the postulated `Inhabited` instance). -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
-axiom sorted_vec.SortedSet.new
+noncomputable def sorted_vec.SortedSet.new
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Result (sorted_vec.SortedSet T)
+  Result (sorted_vec.SortedSet T) :=
+  ok default
+
+/-- **Spec theorem for `sorted_vec.SortedSet.new`**: the call always succeeds
+    and returns the `default` inhabitant of `SortedSet T`. -/
+@[simp, step_simps]
+theorem sorted_vec.SortedSet.new_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+    sorted_vec.SortedSet.new corecmpOrdInst = ok (default : sorted_vec.SortedSet T) := by
+  simp [sorted_vec.SortedSet.new]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>[TraitClause@0]}::with_capacity]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 351:2-351:49
