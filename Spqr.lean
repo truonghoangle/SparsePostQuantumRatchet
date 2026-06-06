@@ -2,8 +2,10 @@ import Spqr.Aux.Aeneas.StdNextCoreIterRangeStep
 import Spqr.Aux.Aeneas.StdNextStepUsize
 import Spqr.Code.Funs
 import Spqr.Code.FunsExternal
+import Spqr.Code.FunsExternal_Template
 import Spqr.Code.Types
 import Spqr.Code.TypesExternal
+import Spqr.Code.TypesExternal_Template
 import Spqr.Math.Gf16.Basic
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible

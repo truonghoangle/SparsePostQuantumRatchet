@@ -120,6 +120,7 @@ theorem body_spec
       rw [← h_inv];
       grind
     step*
+    grind
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩
@@ -381,6 +382,7 @@ theorem body_spec
     have h_i_lt_v : iter.start.val < v.val.length := by omega
     have h_i_lt_xs : iter.start.val < xs.val.length := by omega
     step*
+    grind
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩

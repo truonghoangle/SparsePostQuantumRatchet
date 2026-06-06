@@ -6428,37 +6428,6 @@ def encoding.gf.unaccelerated.mul
 /-- [spqr::encoding::gf::{impl core::ops::arith::MulAssign<&'_0 spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul_assign]:
     Source: 'src/encoding/gf.rs', lines 127:4-137:5
     Visibility: public -/
-<<<<<<< HEAD
-def encoding.gf.unaccelerated.mul2
-  (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
-  Result (Std.U16 × Std.U16)
-  := do
-  let i ← encoding.gf.unaccelerated.mul a b1
-  let i1 ← encoding.gf.unaccelerated.mul a b2
-  ok (i, i1)
-
-/-- [spqr::encoding::gf::{spqr::encoding::gf::GF16}::ZERO]
-    Source: 'src/encoding/gf.rs', lines 439:4-439:45
-    Visibility: public -/
-@[global_simps, irreducible]
-def encoding.gf.GF16.ZERO : encoding.gf.GF16 := { value := 0#u16 }
-
-/-- [spqr::encoding::gf::{spqr::encoding::gf::GF16}::ONE]
-    Source: 'src/encoding/gf.rs', lines 440:4-440:44
-    Visibility: public -/
-@[global_simps, irreducible]
-def encoding.gf.GF16.ONE : encoding.gf.GF16 := { value := 1#u16 }
-
-/-- [spqr::encoding::gf::{spqr::encoding::gf::GF16}::new]:
-    Source: 'src/encoding/gf.rs', lines 442:4-444:5
-    Visibility: public -/
-def encoding.gf.GF16.new (value : Std.U16) : Result encoding.gf.GF16 := do
-  ok { value }
-
-/-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-    Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
-=======
->>>>>>> 8e7413df8f523d9bb84377ccdae42c8cb8626520
 def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
   (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
   Result encoding.gf.GF16
@@ -6787,180 +6756,7 @@ def encoding.gf.GF16.const_div
   := do
   encoding.gf.GF16.const_div_loop other self 1#usize
 
-<<<<<<< HEAD
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 491:0-503:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16 :
-  core.ops.arith.MulAssign encoding.gf.GF16 encoding.gf.GF16 := {
-  mul_assign :=
-    encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
-}
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::MulAssign<spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 506:0-510:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16 : core.ops.arith.MulAssign
-  encoding.gf.GF16 encoding.gf.GF16 := {
-  mul_assign := encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign
-}
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 513:0-520:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16 : core.ops.arith.Mul
-  encoding.gf.GF16 encoding.gf.GF16 encoding.gf.GF16 := {
-  mul := encoding.gf.GF16.Insts.CoreOpsArithMulGF16GF16.mul
-}
-
-/-- [spqr::encoding::gf::{core::ops::arith::Mul<&0 (spqr::encoding::gf::GF16), spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
-    Source: 'src/encoding/gf.rs', lines 525:4-529:5
-    Visibility: public -/
-def encoding.gf.GF16.Insts.CoreOpsArithMulShared0GF16GF16.mul
-  (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-  Result encoding.gf.GF16
-  := do
-  encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign self other
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::Mul<&0 (spqr::encoding::gf::GF16), spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 523:0-530:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithMulShared0GF16GF16 : core.ops.arith.Mul
-  encoding.gf.GF16 encoding.gf.GF16 encoding.gf.GF16 := {
-  mul := encoding.gf.GF16.Insts.CoreOpsArithMulShared0GF16GF16.mul
-}
-
-/-- [spqr::encoding::gf::{core::ops::arith::DivAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::div_assign]:
-    Source: 'src/encoding/gf.rs', lines 535:4-537:5
-    Visibility: public -/
-def encoding.gf.GF16.Insts.CoreOpsArithDivAssignShared0GF16.div_assign
-  (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-  Result encoding.gf.GF16
-  := do
-  encoding.gf.GF16.div_impl self other
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::DivAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 533:0-538:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithDivAssignShared0GF16 :
-  core.ops.arith.DivAssign encoding.gf.GF16 encoding.gf.GF16 := {
-  div_assign :=
-    encoding.gf.GF16.Insts.CoreOpsArithDivAssignShared0GF16.div_assign
-}
-
-/-- [spqr::encoding::gf::{core::ops::arith::DivAssign<spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::div_assign]:
-    Source: 'src/encoding/gf.rs', lines 542:4-544:5
-    Visibility: public -/
-def encoding.gf.GF16.Insts.CoreOpsArithDivAssignGF16.div_assign
-  (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-  Result encoding.gf.GF16
-  := do
-  encoding.gf.GF16.div_impl self other
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::DivAssign<spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 541:0-545:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithDivAssignGF16 : core.ops.arith.DivAssign
-  encoding.gf.GF16 encoding.gf.GF16 := {
-  div_assign := encoding.gf.GF16.Insts.CoreOpsArithDivAssignGF16.div_assign
-}
-
-/-- [spqr::encoding::gf::{core::ops::arith::Div<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::div]:
-    Source: 'src/encoding/gf.rs', lines 550:4-552:5
-    Visibility: public -/
-def encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div
-  (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-  Result encoding.gf.GF16
-  := do
-  encoding.gf.GF16.div_impl self other
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::Div<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 548:0-553:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16 : core.ops.arith.Div
-  encoding.gf.GF16 encoding.gf.GF16 encoding.gf.GF16 := {
-  div := encoding.gf.GF16.Insts.CoreOpsArithDivGF16GF16.div
-}
-
-/-- [spqr::encoding::gf::{core::ops::arith::Div<&0 (spqr::encoding::gf::GF16), spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::div]:
-    Source: 'src/encoding/gf.rs', lines 558:4-560:5
-    Visibility: public -/
-def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div
-  (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-  Result encoding.gf.GF16
-  := do
-  encoding.gf.GF16.div_impl self other
-
-/-- Trait implementation: [spqr::encoding::gf::{core::ops::arith::Div<&0 (spqr::encoding::gf::GF16), spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}]
-    Source: 'src/encoding/gf.rs', lines 556:0-561:1 -/
-@[reducible]
-def encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16 : core.ops.arith.Div
-  encoding.gf.GF16 encoding.gf.GF16 encoding.gf.GF16 := {
-  div := encoding.gf.GF16.Insts.CoreOpsArithDivShared0GF16GF16.div
-}
-
-/-- [spqr::encoding::gf::mul2_u16]:
-    Source: 'src/encoding/gf.rs', lines 581:0-590:1
-    Visibility: public -/
-def encoding.gf.mul2_u16
-  (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
-  Result (Std.U16 × Std.U16) :=
-  encoding.gf.unaccelerated.mul2 a b1 b2
-
-/-- [spqr::encoding::gf::parallel_mult]: loop body 0:
-    Source: 'src/encoding/gf.rs', lines 570:4-575:5
-    Visibility: public -/
-@[rust_loop_body]
-def encoding.gf.parallel_mult_loop.body
-  (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
-  Result (ControlFlow ((Slice encoding.gf.GF16) × Std.Usize) (encoding.gf.GF16
-    × (Slice encoding.gf.GF16) × Std.Usize))
-  := do
-  let i1 ← i + 2#usize
-  let i2 := Slice.len into
-  if i1 <= i2
-  then
-    let g ← Slice.index_usize into i
-    let i3 ← i + 1#usize
-    let g1 ← Slice.index_usize into i3
-    let (i4, i5) ← encoding.gf.mul2_u16 a.value g.value g1.value
-    let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-    let s ← Slice.update into1 i3 ({ value := i5 } : encoding.gf.GF16)
-    ok (cont (s, i1))
-  else ok (done (a, into, i))
-
-/-- [spqr::encoding::gf::parallel_mult]: loop 0:
-    Source: 'src/encoding/gf.rs', lines 570:4-575:5
-    Visibility: public -/
-@[rust_loop]
-def encoding.gf.parallel_mult_loop
-  (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) (i : Std.Usize) :
-  Result (encoding.gf.GF16 × (Slice encoding.gf.GF16) × Std.Usize)
-  := do
-  loop
-    (fun (into1, i1) => encoding.gf.parallel_mult_loop.body a into1 i1)
-    (into, i)
-
-/-- [spqr::encoding::gf::parallel_mult]:
-    Source: 'src/encoding/gf.rs', lines 566:0-579:1
-    Visibility: public -/
-def encoding.gf.parallel_mult
-  (a : encoding.gf.GF16) (into : Slice encoding.gf.GF16) :
-  Result (Slice encoding.gf.GF16)
-  := do
-  let (a1, into1, i) ← encoding.gf.parallel_mult_loop a into 0#usize
-  let i1 := Slice.len into1
-  if i < i1
-  then
-    let (g, index_mut_back) ← Slice.index_mut_usize into1 i
-    let g1 ← encoding.gf.GF16.Insts.CoreOpsArithMulAssignGF16.mul_assign g a1
-    ok (index_mut_back g1)
-  else ok into1
-
-/-- [spqr::encoding::polynomial::{core::fmt::Debug for spqr::encoding::polynomial::PolynomialError}::fmt]:
-=======
 /-- [spqr::encoding::polynomial::{impl core::fmt::Debug for spqr::encoding::polynomial::PolynomialError}::fmt]:
->>>>>>> 8e7413df8f523d9bb84377ccdae42c8cb8626520
     Source: 'src/encoding/polynomial.rs', lines 12:9-12:14
     Visibility: public -/
 def encoding.polynomial.PolynomialError.Insts.CoreFmtDebug.fmt
@@ -8066,17 +7862,11 @@ def encoding.polynomial.lagrange_polys_for_complete_points_loop0.body
   := do
   if i < N
   then
-<<<<<<< HEAD
-    let a ← Array.update ones i ({ x := { value := (UScalar.cast .U16 i) }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)
-    let i1 ← i + 1#usize
-    ok (cont (a, i1))
-=======
     let (p, index_mut_back) ← Array.index_mut_usize ones i
     let i1 ← lift (UScalar.cast .U16 i)
     let i2 ← i + 1#usize
     let a := index_mut_back { p with x := { value := i1 } }
     ok (cont (a, i2))
->>>>>>> 8e7413df8f523d9bb84377ccdae42c8cb8626520
   else ok (done ones)
 
 /-- [spqr::encoding::polynomial::lagrange_polys_for_complete_points]: loop 0:
@@ -8784,14 +8574,6 @@ def encoding.polynomial.PolyEncoder.from_pb_loop1.body
       let v1 := alloc.vec.Vec.with_capacity encoding.gf.GF16 i5
       let i6 := alloc.vec.Vec.len pts
       let i7 ← i6 / 2#usize
-<<<<<<< HEAD
-      let v_result ← encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
-        { start := 0#usize, «end» := i7 } pts v1
-      massert (i1 < 16#usize)
-      let (p, index_mut_back) ← Array.index_mut_usize out i1
-      let out1 := index_mut_back ({ value := v_result } : encoding.polynomial.Point)
-      let a ← Array.update out1 i1 ({ value := v_result } : encoding.polynomial.Point)
-=======
       let v2 ←
         encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
           { start := 0#usize, «end» := i7 } pts v1
@@ -8800,7 +8582,6 @@ def encoding.polynomial.PolyEncoder.from_pb_loop1.body
       let out1 := index_mut_back p
       let a ←
         Array.update out1 i1 ({ value := v2 } : encoding.polynomial.Point)
->>>>>>> 8e7413df8f523d9bb84377ccdae42c8cb8626520
       ok (cont (iter1, a))
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyEncoder}::from_pb]: loop 1:
@@ -9170,11 +8951,7 @@ def encoding.polynomial.PolyEncoder.encode_bytes_base_loop.body
     let i7 ← i4 + i6
     let g ← encoding.gf.GF16.new i7
     let v ← alloc.vec.Vec.push p1.value g
-<<<<<<< HEAD
-    let a := index_mut_back { p1 with value := v }
-=======
     let a := index_mut_back { value := v }
->>>>>>> 8e7413df8f523d9bb84377ccdae42c8cb8626520
     ok (cont (iter1, a))
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyEncoder}::encode_bytes_base]: loop 0:

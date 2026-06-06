@@ -247,6 +247,7 @@ theorem mult_xdiff_spec
         (X - C (difference.toGF216)) * listToGF216Poly self.coefficients.val ⦄ := by
   unfold mult_xdiff
   step*
+  · grind
   apply @mult_xdiff_result_eq N (self.coefficients) difference i xp1 dp1 xp2 h_N_pos i_post1
   all_goals simp_all
 

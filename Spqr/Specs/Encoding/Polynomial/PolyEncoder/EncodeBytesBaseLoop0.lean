@@ -108,21 +108,21 @@ core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairU
     have h_c_len : hd.val.length ≥ 2 :=
       h_chunks_len hd (by rw [rest]; exact .head _)
     step*
+    · simp_all
+      grind
     constructor
     · use hd
     · refine ⟨iter.count, hd, g, h_c_len, ?_, ?_, ?_⟩
       · -- toGF216 equation: <<< 8 % U16.size = 256 * for U8 values
-        simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
-         Order.add_one_le_iff, List.mem_cons, ge_iff_le, forall_eq_or_imp, true_and,
-        Usize.ofNatCore_val_eq, Array.val_to_slice, List.getElem!_eq_getElem?_getD,
-        UScalarTy.U8_numBits_eq, UScalarTy.U16_numBits_eq, Nat.reduceLeDiff,
-        UScalar.cast_val_mod_pow_greater_numBits_eq, Bvify.U16.UScalar_bv, UScalar.cast_bv_eq,
-        Bvify.U8.UScalar_bv]
+        conv_lhs =>
+          simp[g_post,i7_post,i4_post1,i6_post, i3_post, i2_post, i5_post]
         congr
-        rw[Nat.shiftLeft_eq]
-        simp only [Nat.reducePow]
-        apply Nat.mod_eq_of_lt
-        scalar_tac
+        · rw[Nat.shiftLeft_eq]
+          simp only [Nat.reducePow]
+          have :(↑(hd)[0] * 256) < U16.size := by scalar_tac
+          have := Nat.mod_eq_of_lt this
+          grind
+        · grind
       · -- push equation: set then get at same index
         simp_all
         grind

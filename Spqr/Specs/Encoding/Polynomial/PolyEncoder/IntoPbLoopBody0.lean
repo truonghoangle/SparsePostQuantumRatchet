@@ -134,7 +134,14 @@ theorem body_spec
     rw [h_opt_eq]
     have h_j_lt : iter.start.val < points.val.length := by omega
     have h_inner := h_inner_overflow iter.start.val h_j_lt
-    step* <;> simp_all [alloc.vec.Vec.with_capacity]
+    step*
+    · simp_all
+      grind
+    · simp_all [alloc.vec.Vec.with_capacity]
+    · simp_all
+      grind
+    · simp_all
+      grind
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩

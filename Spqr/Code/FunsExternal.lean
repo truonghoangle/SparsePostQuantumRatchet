@@ -405,8 +405,8 @@ axiom core.result.Result.unwrap_or
     and `ControlFlow.Break (Err e)` for `Err e`.  The outer `Result` is
     always `ok` (the call never panics). -/
 @[rust_fun
-  "core::result::{core::ops::try_trait::Try<core::result::Result<@T, @E>, @T, core::result::Result<core::convert::Infallible, @E>>}::branch"]
-def core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
+  "core::result::{core::ops::try_trait::Try<core::result::Result<@T, @E>>}::branch"]
+def core.result.Result.Insts.CoreOpsTry_traitTry.branch
   {T : Type} {E : Type} :
   core.result.Result T E → Result (core.ops.control_flow.ControlFlow
     (core.result.Result core.convert.Infallible E) T) :=
@@ -421,14 +421,16 @@ def core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch
 @[simp, step_simps]
 theorem core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch_spec
   {T : Type} {E : Type} (r : core.result.Result T E) :
-  (core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch r)
+  (core.result.Result.Insts.CoreOpsTry_traitTry.branch r)
     = match r with
       | core.result.Result.Ok v =>
         ok (core.ops.control_flow.ControlFlow.Continue v)
       | core.result.Result.Err e =>
         ok (core.ops.control_flow.ControlFlow.Break
           (core.result.Result.Err e)) := by
-  cases r <;> simp [core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch]
+  cases r <;> simp [core.result.Result.Insts.CoreOpsTry_traitTry.branch]
+
+
 
 /-- [core::result::{core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, E>> for core::result::Result<T, F>}::from_residual]:
     Source: '/rustc/library/core/src/result.rs', lines 2187:4-2187:70

@@ -296,17 +296,7 @@ theorem body_spec
     step*
     · simp_all
       grind
-    · simp_all only [not_true_eq_false, reduceCtorEq, false_and, implies_true,
-      and_self, tsub_lt_self_iff, alloc.vec.Vec.len,
-      Usize.ofNatCore_val_eq, getElem!_pos, alloc.vec.Vec.set_val_eq,
-      List.getElem!_eq_getElem?_getD, Nat.not_eq, ne_eq, tsub_pos_iff_lt, Order.lt_one_iff, or_true,
-      List.getElem?_set_neq, List.length_set, List.get_eq_getElem, forall_true_left,
-      List.getElem_set_self, getElem?_pos, Option.getD_some, not_false_eq_true, lt_or_lt_iff_ne,
-      true_or, and_true, true_and]
-      rw [list_double_set_getElem_fst (show v'.val.length - iter'.start.val - 1 ≠
-            v'.val.length - iter'.start.val from by omega)]
-      simp only [GF16.toGF216]
-      exact g3_post
+    · simp_all
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
     rw [h_opt_eq]
     grind
@@ -610,7 +600,7 @@ theorem lagrange_interpolate_complete_spec
     rename_i _ _ _ _ _ _ hb
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      · exact pi_post
+      · grind
       · grind
     have hlv_zero := b_post.mp hb
     have hH0 : hornerAccum
@@ -619,7 +609,7 @@ theorem lagrange_interpolate_complete_spec
       rw [← v_post3 h0]
       have hlv_get : left_val = v.val.get ⟨0, h0⟩ := by
         rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-        · exact left_val_post
+        · grind
         · grind
       rw [← hlv_get]
       have hval_zero : left_val.value.val = 0 := by
@@ -657,7 +647,7 @@ theorem lagrange_interpolate_complete_spec
     simp only [WP.spec_fail]
     have hpi_eq : pi = pts.val.get ⟨i.val, hi⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      · exact pi_post
+      · grind
       · grind
     have hH0 : hornerAccum
         (pts.val.get ⟨i.val, hi⟩).x self.coefficients.val 0 = 0 := by
@@ -671,7 +661,7 @@ theorem lagrange_interpolate_complete_spec
       exact hH0
     have hlv_get : left_val = v.val.get ⟨0, h0_len⟩ := by
       rw [List.get_eq_getElem, List.Inhabited_getElem_eq_getElem!]
-      · exact left_val_post
+      · grind
       · grind
     have hlv_val_zero : left_val.value.val = 0 :=
       GF16_toGF216_eq_zero_imp left_val (by rw [hlv_get]; exact hv0_zero)

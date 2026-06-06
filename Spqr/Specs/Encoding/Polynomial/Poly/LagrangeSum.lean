@@ -137,6 +137,9 @@ theorem body_spec
     have h_p_len := h_poly_len h_lt
     have h_a_len := h_max_len h_lt
     step*
+    · grind
+    · grind
+    · grind
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩

@@ -164,20 +164,6 @@ tweaks:
 
         /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
 
-    # Insert concrete mul2_u16 body before parallel_mult loop (opaque because Rust dispatches to SIMD)
-    - find: |
-        /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
-      replace: |
-        /-- [spqr::encoding::gf::mul2_u16]:
-            Source: 'src/encoding/gf.rs', lines 581:0-590:1
-            Visibility: public -/
-        def encoding.gf.mul2_u16
-          (a : Std.U16) (b1 : Std.U16) (b2 : Std.U16) :
-          Result (Std.U16 × Std.U16) :=
-          encoding.gf.unaccelerated.mul2 a b1 b2
-
-        /-- [spqr::encoding::gf::parallel_mult]: loop body 0:
-
 
     # Fix ok_or none type inference
     # https://github.com/AeneasVerif/aeneas/issues/1018
@@ -192,17 +178,6 @@ tweaks:
     # https://github.com/AeneasVerif/aeneas/issues/1046
     - find: "let a ← Array.update ones i ()"
       replace: "let a ← Array.update ones i ({ x := { value := (UScalar.cast .U16 i) }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)"
-
-    # Fix parallel_mult loop: mul2_u16 second result discarded then () used instead of GF16
-    # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: |
-        let (i4, _) ← encoding.gf.mul2_u16 a.value g.value g1.value
-            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-            let s ← Slice.update into1 i3 ()
-      replace: |
-        let (i4, i5) ← encoding.gf.mul2_u16 a.value g.value g1.value
-            let into1 ← Slice.update into i ({ value := i4 } : encoding.gf.GF16)
-            let s ← Slice.update into1 i3 ({ value := i5 } : encoding.gf.GF16)
 
     # Fix from_pb_loop1_loop0 body: return accumulated GF16 vector instead of Unit
     # https://github.com/AeneasVerif/aeneas/issues/1046

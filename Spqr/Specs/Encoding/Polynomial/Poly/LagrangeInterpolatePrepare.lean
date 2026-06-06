@@ -548,12 +548,7 @@ theorem lagrange_interpolate_prepare_spec
             rw [List.length_take]; omega
           have hj_ne : Nat.not_eq pts.val.length j := by
             simp [Nat.not_eq]; omega
-          rw [List.getElem!_set_ne _ pts.val.length j ONE hj_ne,
-              List.getElem!_append_right
-                (p.coefficients.val.take (pts.val.length + 1))
-                (List.replicate (pts.val.length + 1 - p.coefficients.val.length) ZERO)
-                j htake_len_le,
-              List.getElem!_replicate ZERO hrepl_bnd, ZERO_toGF216]
+          simp_all
       · exact le_refl _
       · exact le_refl _
     constructor
@@ -563,10 +558,8 @@ theorem lagrange_interpolate_prepare_spec
         prodLinearFactors pts.val 0 pts.val.length
       apply listToGF216Poly_eq_of_coeffs
       · intro m hm
-        simp only [List.get_eq_getElem]
-        have hm_le : m ≤ pts.val.length := by omega
-        rw [p1_post5 m hm_le, h_bridge]
+        grind
       · intro m hm
-        exact prodLinearFactors_coeff_eq_zero_high _ _ _ _ (by omega)
+        exact prodLinearFactors_coeff_eq_zero_high _ _ _ _ (by grind)
 
 end spqr.encoding.polynomial.Poly

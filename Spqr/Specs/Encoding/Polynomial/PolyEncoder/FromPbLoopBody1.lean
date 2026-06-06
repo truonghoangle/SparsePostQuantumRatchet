@@ -174,14 +174,10 @@ theorem body_spec
     · -- goal 1: overflow precondition for inner loop
       simp only [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len] at *
       grind
+    · simp  [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len] at *
+      · grind
     · -- goal 2: cont case postcondition
-      subst a_post p_post1
-      simp only [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len] at *
-      refine ⟨h_lt, h_start1, h_end1, ?_, ?_, ?_⟩
-      · intro k hne; simp [*]
-      · simp_all
-      · intro k hk
-        grind
+      simp_all  [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len]
   · -- done case: iterator exhausted
     obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]

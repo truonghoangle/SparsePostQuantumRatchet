@@ -126,8 +126,6 @@ theorem body_spec
   · simp only [UScalar.lt_equiv, h_lt, ↓reduceIte, not_true_eq_false, and_false,
       List.get_eq_getElem, ne_eq, UScalar.neq_to_neq_val, true_and]
     step*
-    all_goals simp_all
-    grind
   · step*
 
 end spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
@@ -363,8 +361,6 @@ private theorem body_spec_gen
   · simp only [UScalar.lt_equiv, h_lt, ↓reduceIte, not_true_eq_false, and_false,
       List.get_eq_getElem, ne_eq, UScalar.neq_to_neq_val, true_and]
     step*
-    · grind
-    · grind
     · grind
   · simp [h_lt]
 
@@ -981,8 +977,6 @@ theorem lagrange_interpolate_pt_spec
           (↑pts : List Pt).get ⟨↑i, h_i_lt_pts⟩ := by
         simp only [List.get_eq_getElem, List.getElem_take]
       rw [h_take_eq, pi_post, List.get_eq_getElem]
-      simp only [List.getElem!_eq_getElem?_getD, List.getElem?_eq_getElem h_i_lt_pts,
-        Option.getD_some]
     omega
   · -- Final postcondition: compose the loop, const_div, and mult specs
     obtain ⟨h_pi1_eq, h_poly, h_denom⟩ := pi1_post

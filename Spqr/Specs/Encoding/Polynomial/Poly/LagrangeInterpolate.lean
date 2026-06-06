@@ -1167,8 +1167,7 @@ theorem lagrange_interpolate_formula
       v working1
       h_end_le_pts h_template_pos h_v_lt_template h_wt_eq
       h_one_le_end h_eval_all_template as
-      ⟨v1, h_v1_len, h_ws_ex⟩
-    obtain ⟨ws', h_ws'_len, h_ws'_id, h_v1_coeff⟩ := h_ws_ex
+      ⟨v1, h_v1_len, ws', h_ws'_len, h_ws'_id, h_v1_coeff⟩
     have h_v1_pts_len : v1.val.length = pts.val.length := by
       rw [h_v1_len, h_v_len]
     refine ⟨h_v1_pts_len, ?_, ?_⟩
