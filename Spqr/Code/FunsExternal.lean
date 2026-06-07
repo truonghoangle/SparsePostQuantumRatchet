@@ -438,14 +438,45 @@ theorem core.result.Result.Insts.CoreOpsTry_traitTryTResultInfallibleE.branch_sp
 
 /-- [core::result::{core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, E>> for core::result::Result<T, F>}::from_residual]:
     Source: '/rustc/library/core/src/result.rs', lines 2187:4-2187:70
-    Name pattern: [core::result::{core::ops::try_trait::FromResidual<core::result::Result<@T, @F>, core::result::Result<core::convert::Infallible, @E>>}::from_residual] -/
+    Name pattern: [core::result::{core::ops::try_trait::FromResidual<core::result::Result<@T, @F>, core::result::Result<core::convert::Infallible, @E>>}::from_residual]
+
+    Concrete model of Rust's
+    `<Result<T,F> as FromResidual<Result<Infallible, E>>>::from_residual`:
+    given a residual `Err e` (with `e : E`), apply the `From<F, E>` conversion
+    to obtain `f : F`, and return `Err f` wrapped in the outer `Result`.
+    The `Ok x` branch is logically impossible because `core::convert::Infallible`
+    is the empty type, so `x : Infallible` admits no constructor.  The outer
+    `Result` is `ok` whenever `convertFromInst.from_` succeeds. -/
 @[rust_fun
   "core::result::{core::ops::try_trait::FromResidual<core::result::Result<@T, @F>, core::result::Result<core::convert::Infallible, @E>>}::from_residual"]
-axiom
+def
   core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
   (T : Type) {E : Type} {F : Type} (convertFromInst : core.convert.From F E) :
   core.result.Result core.convert.Infallible E → Result (core.result.Result T
-    F)
+    F) :=
+  fun residual =>
+    match residual with
+    | core.result.Result.Err e => do
+        let f ← convertFromInst.from_ e
+        ok (core.result.Result.Err f)
+    | core.result.Result.Ok x => nomatch x
+
+/-- **Spec theorem for `from_residual` (Err case)**: on a residual `Err e` the
+    call reduces to the monadic composition that first runs the `From<F, E>`
+    conversion on `e` and then wraps the resulting `f : F` in `Err`.
+
+    This is the only meaningful case: the `Ok` constructor of
+    `Result Infallible E` is uninhabited because `Infallible` has no
+    constructors. -/
+@[simp, step_simps]
+theorem core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual_err_spec
+  (T : Type) {E : Type} {F : Type} (convertFromInst : core.convert.From F E)
+  (e : E) :
+  core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual
+    T convertFromInst (core.result.Result.Err e) = (do
+    let f ← convertFromInst.from_ e
+    ok (core.result.Result.Err f)) := by
+  rfl
 
 /-- [core::slice::cmp::{core::cmp::Ord for [T]}::cmp]:
     Source: '/rustc/library/core/src/slice/cmp.rs', lines 37:4-37:42
