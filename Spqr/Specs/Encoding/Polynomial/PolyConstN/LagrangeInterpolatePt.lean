@@ -771,7 +771,37 @@ private theorem init_leading_zero
   exact h_rest (N.val - 1) (by omega) (by omega)
 
 
+/--
+**The list `[ONE, ZERO, …, ZERO]` (of length `N`) represents the constant polynomial `1`.**
+
+The freshly-initialised coefficient list `(List.replicate N GF16.ZERO).set 0 GF16.ONE` has
+the form `[ONE, ZERO, …, ZERO]` with `N` entries.  Under `listToGF216Poly`, position `0`
+becomes `1 ∈ GF216` (via `GF16.ONE_toGF216`) and every other position is `0` (via
+`GF16.ZERO_toGF216`), so the resulting polynomial equals `C 1 = 1`.
+
+This factors out a coefficient-by-coefficient computation that is reused at two different
+places in `lagrange_interpolate_pt_spec` (the degree-bound discharge and the final
+postcondition rewrite).
+-/
+private lemma listToGF216Poly_replicate_zero_set_one
+    (N : Nat) (h_N_pos : 0 < N) :
+    listToGF216Poly ((List.replicate N GF16.ZERO).set 0 GF16.ONE) = 1 := by
+  ext m
+  rw [listToGF216Poly_coeff, Polynomial.coeff_one]
+  simp [List.length_set, List.length_replicate]
+  cases m
+  · simp [h_N_pos, GF16.ONE_toGF216]
+  · rename_i n
+    rw [if_neg (show n + 1 ≠ 0 from by omega)]
+    by_cases hlt : n + 1 < N
+    · rw [dif_pos hlt]
+      simp only [ne_eq, Nat.right_eq_add, Nat.add_eq_zero_iff, one_ne_zero,
+        and_false, not_false_eq_true, List.getElem_set_ne, List.getElem_replicate,
+        GF16.ZERO_toGF216]
+    · rw [dif_neg hlt]
+
 /-! ## Helper lemma: degree bound for the initial state
+
 
 The loop spec (`lagrange_interpolate_pt_loop.loop_spec`) requires the polynomial-degree
 invariant
@@ -947,28 +977,12 @@ theorem lagrange_interpolate_pt_spec
                 (pts.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
             condProdLinearFactors (pts.val.get ⟨i.val, hi⟩).x
               (pts.val.take N.val) 0 ⦄ := by
-  sorry
- /-
   unfold lagrange_interpolate_pt
   step*
   · simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
     -- The initial polynomial [ONE, ZERO, ..., ZERO] equals 1
-    have h_init : listToGF216Poly ((List.replicate (↑N) GF16.ZERO).set 0 GF16.ONE) = 1 := by
-      ext m
-      rw [listToGF216Poly_coeff, Polynomial.coeff_one]
-      simp only [List.length_set, List.length_replicate]
-      cases m with
-      | zero =>
-        simp [h_N_pos, List.get_eq_getElem, GF16.ONE_toGF216]
-      | succ n =>
-        rw [if_neg (show n + 1 ≠ 0 from by omega)]
-        by_cases hlt : n + 1 < ↑N
-        · rw [dif_pos hlt]
-          simp only [List.get_eq_getElem, ne_eq, Nat.right_eq_add, Nat.add_eq_zero_iff, one_ne_zero,
-            and_false, not_false_eq_true, List.getElem_set_ne, List.getElem_replicate,
-            GF16.ZERO_toGF216]
-        · rw [dif_neg hlt]
-    rw [h_init, Polynomial.natDegree_one, Nat.zero_add]
+    rw [listToGF216Poly_replicate_zero_set_one N.val h_N_pos,
+        Polynomial.natDegree_one, Nat.zero_add]
     -- countNonSkip ≤ N - 1 because index i is a skip (pi = pts[i])
     have h_count : countNonSkip pi.x (List.take (↑N) (↑pts)) 0 ≤ ↑N - 1 := by
       apply countNonSkip_le_of_skip_exists pi.x _ (↑N)
@@ -980,33 +994,20 @@ theorem lagrange_interpolate_pt_spec
         simp only [List.get_eq_getElem, List.getElem_take]
       rw [h_take_eq, pi_post, List.get_eq_getElem]
     omega
-  · -- Final postcondition: compose the loop, const_div, and mult specs
+  · -- Final postcondition: compose the loop, const_div, and mult specs.
+    -- Strategy: use `subst` to eliminate intermediate variables (which keeps the proof
+    -- term small by avoiding `Eq.mpr` motives over the huge goal expression), and
+    -- consolidate rewrites with `simp only`.
     obtain ⟨h_pi1_eq, h_poly, h_denom⟩ := pi1_post
-    -- Step 1: rewrite LHS using result_post1 and h_poly
-    rw [result_post1, h_poly]
-    -- Step 2: rewrite g using g_post and pi1 = pi
-    rw [g_post, h_pi1_eq]
-    -- Step 3: simplify the denominator using ONE_toGF216
-    rw [h_denom, GF16.ONE_toGF216, one_mul]
-    -- Step 4: show listToGF216Poly ↑a1 = 1
+    subst h_pi1_eq
+    -- Establish `listToGF216Poly ↑a1 = 1` once.
     have h_init : listToGF216Poly ↑a1 = 1 := by
       simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
-      ext m
-      rw [listToGF216Poly_coeff, Polynomial.coeff_one]
-      simp only [List.length_set, List.length_replicate]
-      cases m with
-      | zero => simp [h_N_pos, List.get_eq_getElem, GF16.ONE_toGF216]
-      | succ n =>
-        rw [if_neg (by omega)]
-        by_cases hlt : n + 1 < ↑N
-        · rw [dif_pos hlt]; simp [List.get_eq_getElem, List.getElem_replicate, GF16.ZERO_toGF216]
-        · rw [dif_neg hlt]
-    rw [h_init, mul_one]
-    -- Step 5: relate pi to pts[i] via pi_post
-    -- pi_post : pi = (↑pts)[↑i]! and we need pi = (↑pts).get ⟨↑i, result_post2⟩
-    rw [pi_post]
-    simp only [List.getElem!_eq_getElem?_getD, List.getElem?_eq_getElem result_post2,
-      Option.getD_some, Nat.reducePow, Nat.reduceSub, map_mul, map_pow, List.get_eq_getElem]
--/
+      exact listToGF216Poly_replicate_zero_set_one N.val h_N_pos
+    -- Single `simp only` instead of a chain of rewrites, to keep the proof term small.
+    simp only [result_post1, h_poly, g_post, h_denom, GF16.ONE_toGF216, one_mul, h_init,
+      mul_one, pi_post]
+    grind
+
 
 end spqr.encoding.polynomial.PolyConst

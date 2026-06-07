@@ -219,53 +219,9 @@ theorem loop_spec
     simp only [] at h_i_le_i' h_i'_le_N h_proc h_rest ⊢
     have h_body := body_spec ones' i' h_N_bound
     apply WP.spec_mono h_body
-    intro cf h_cf
-    match cf with
-    | ControlFlow.done ones_r =>
-      -- Done case: loop terminates, array unchanged
-      simp only [] at h_cf ⊢
-      obtain ⟨h_eq, h_not_lt⟩ := h_cf
-      subst h_eq
-      push Not at h_not_lt
-      -- i' ≥ N (from ¬(i' < N)), combined with i' ≤ N gives i' = N
-      refine ⟨?_, ?_⟩
-      · -- All positions i ≤ j < N were processed
-        intro j hj hj_lt hj'
-        exact h_proc j hj (by omega) hj'
-      · -- Positions j < i unchanged
-        intro j hj
-        exact h_rest j (by intro ⟨h1, _⟩; omega)
-    | ControlFlow.cont (ones1, i1) =>
-      -- Cont case: one more iteration processed
-      simp only [] at h_cf ⊢
-      obtain ⟨h_lt, h_i1, h_upd, h_frame⟩ := h_cf
-      constructor
-      · -- Invariant preserved (4 conjuncts)
-        refine ⟨by omega, by omega, ?_, ?_⟩
-        · -- Processed positions extended by one
-          intro j hj hj_lt_i1 hj'
-          by_cases hjk : j < i'.val
-          · -- j was already processed: chain frame + old invariant
-            have h_ne : j ≠ i'.val := by omega
-            have h_fr := h_frame j h_ne
-            have hj_old : j < ones'.val.length := by
-              simp only [List.Vector.length_val]; omega
-            have h_get := list_get_of_getElem?_eq h_fr hj' hj_old
-            simp only [List.get_eq_getElem] at h_get h_proc ⊢
-            rw [h_get]; exact h_proc j hj hjk hj_old
-          · -- j = i': newly processed by body
-            have hj_eq : j = i'.val := by omega
-            subst hj_eq
-            exact h_upd hj'
-        · -- Non-processed positions still unchanged
-          intro j hj
-          have h_ne : j ≠ i'.val := by
-            intro heq; apply hj; subst heq; exact ⟨h_i_le_i', by omega⟩
-          rw [h_frame j h_ne, h_rest j (by intro ⟨h1, h2⟩; exact hj ⟨h1, by omega⟩)]
-      · -- Measure decreases
-        omega
+    grind
   · -- Initial invariant: no positions processed yet, all unchanged
-    refine ⟨le_refl _, h_i_le_N, fun _ h1 h2 => absurd h2 (by grind), fun _ _ => rfl⟩
+    grind
 
 end spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop0
 
@@ -366,8 +322,7 @@ theorem body_spec
     (h_N_pos : 0 < N.val) :
     body ones out i ⦃ cf =>
       match cf with
-      | ControlFlow.done out' =>
-          out' = out ∧ ¬ (i.val < N.val)
+      | ControlFlow.done out' => out' = out ∧ ¬ (i.val < N.val)
       | ControlFlow.cont (out1, i1) =>
           i.val < N.val ∧
           i1.val = i.val + 1 ∧
@@ -378,26 +333,14 @@ theorem body_spec
                     (ones.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
                 condProdLinearFactors (ones.val.get ⟨i.val, hi⟩).x
                   (ones.val.take N.val) 0) ∧
-          (∀ (j : Nat) (_: j ≠ i.val) (_: j < out.length), out1.val[j]? = out.val[j]?) ⦄ := by
+          (∀ j < out.length, (_: j ≠ i.val) →  out1.val[j]? = out.val[j]?) ⦄ := by
   sorry
 /-  unfold body
-  by_cases h_lt : i.val < N.val
+  split
   · -- Continue case: i < N
-    simp only [UScalar.lt_equiv, h_lt, ↓reduceIte, not_true_eq_false, and_false,
-      List.Vector.length_val, List.get_eq_getElem, forall_true_left, ne_eq,
-      true_and]
+    simp
     step*
-    simp only [i1_post, Nat.add_left_cancel_iff, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
-      true_and]
-    constructor
-    · have : i.val < (s.val).length := by grind
-      have := pc_post this
-      simp only [a_post, Array.set_val_eq, List.getElem_set_self, this, List.get_eq_getElem,
-        Nat.reducePow, Nat.reduceSub, map_mul, map_pow]
-      grind
-    · intro j hj hlt
-      rw[a_post]
-      grind
+    grind
   · -- Done case: i ≥ N
     step*
 -/

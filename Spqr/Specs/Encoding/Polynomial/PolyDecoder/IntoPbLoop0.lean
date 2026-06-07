@@ -234,10 +234,7 @@ theorem loop_spec
         · -- Newly appended byte vector: j = iter'.i
           have hj_eq : j = iter'.i := by omega
           subst hj_eq
-          refine ⟨serialized, ?_, h_ser_len, h_ser_encode⟩
-          rw [h_out_eq, show iter'.i = out'.val.length from by omega,
-              List.getElem?_append_right (le_refl _)]
-          simp
+          grind
       · -- Measure decreases
         omega
   · -- Initial state satisfies the invariant
