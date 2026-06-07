@@ -574,7 +574,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct2Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct2Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -616,7 +616,7 @@ def
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -675,7 +675,7 @@ def proto.pq_ratchet.v1_state.chunked.Ct1Sampled.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.Ct1Sent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -857,7 +857,7 @@ def proto.pq_ratchet.v1_state.chunked.HeaderSent.Insts.CoreCloneClone.clone
   := do
   let o ←
     core.option.Option.Insts.CoreCloneClone.clone
-      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone 
+      proto.pq_ratchet.v1_state.unchunked.EkSent.Insts.CoreCloneClone
       self.uc
   let o1 ←
     core.option.Option.Insts.CoreCloneClone.clone
@@ -1201,7 +1201,7 @@ def proto.pq_ratchet.Chain.Insts.CoreCmpPartialEqChain.eq
       then
         let b ←
           alloc.vec.partial_eq.PartialEqVec.eq
-            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch 
+            proto.pq_ratchet.chain.Epoch.Insts.CoreCmpPartialEqEpoch
             self.links other.links
         if b
         then
@@ -7865,7 +7865,7 @@ def encoding.polynomial.lagrange_polys_for_complete_points_loop0.body
     let (p, index_mut_back) ← Array.index_mut_usize ones i
     let i1 ← lift (UScalar.cast .U16 i)
     let i2 ← i + 1#usize
-    let a := index_mut_back { p with x := { value := i1 } }
+    let a := index_mut_back { p with x := { value := i1 }, y := encoding.gf.GF16.ONE }
     ok (cont (a, i2))
   else ok (done ones)
 
@@ -9269,8 +9269,8 @@ def encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
       encoding.polynomial.PolyDecoder.into_pb_loop0_loop0.body pts iter1 v1)
     (iter, v)
 
-/-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::into_pb]: loop body 0:
-    Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
+  /-- [spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyDecoder}::into_pb]: loop body 0:
+      Source: 'src/encoding/polynomial.rs', lines 800:8-809:9 -/
 @[rust_loop_body]
 def encoding.polynomial.PolyDecoder.into_pb_loop0.body
   (iter : core.slice.iter.Iter (sorted_vec.SortedSet encoding.polynomial.Pt))
@@ -11025,7 +11025,7 @@ def v1.chunked.send_ek.KeysUnsampled.epoch
     Visibility: public -/
 def v1.unchunked.send_ek.KeysUnsampled.send_header
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled) 
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ek.KeysUnsampled)
   (rng : R) :
   Result ((v1.unchunked.send_ek.HeaderSent × (alloc.vec.Vec Std.U8) ×
     (alloc.vec.Vec Std.U8)) × R)
@@ -11138,13 +11138,13 @@ def v1.chunked.send_ct.HeaderReceived.epoch
     Visibility: public -/
 def v1.unchunked.send_ct.HeaderReceived.send_ct1
   {R : Type} (randrngRngInst : rand.rng.Rng R) (rand_coreCryptoRngInst :
-  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived) 
+  rand_core.CryptoRng R) (self : v1.unchunked.send_ct.HeaderReceived)
   (rng : R) :
   Result ((v1.unchunked.send_ct.Ct1Sent × (alloc.vec.Vec Std.U8) ×
     EpochSecret) × R)
   := do
   let (t, rng1) ←
-    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst 
+    incremental_mlkem768.encaps1 randrngRngInst rand_coreCryptoRngInst
       self.hdr rng
   let (ct1, es, secret) := t
   let s ←

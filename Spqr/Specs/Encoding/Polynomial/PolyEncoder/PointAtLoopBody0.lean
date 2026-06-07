@@ -238,7 +238,7 @@ private theorem from_iter_point_at_spec
         (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.mapIterator
           (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item
             (core.iter.traits.iterator.IteratorSliceIter GF16))
-          PolyEncoder.point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
+          point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
       { iter := { iter := { slice := s, i := 0 }, count := 0#usize }, f := () }
     ⦃ (pt_vec : alloc.vec.Vec Pt) =>
       pt_vec.val.length = s.val.length ∧
@@ -402,8 +402,13 @@ theorem body_spec
       simp [alloc.vec.Vec.deref]
       rcases h_adm with h | h | h | h | h | h | h <;> (simp_all [UScalar.max])
       all_goals (grind)
+    have h_pts_lt : iter.start.val < pts.val.length := by rw [pts.property]; exact h_i_lt_16
+    have h_eq : pts.val[iter.start.val] = pts.val[iter.start.val]! :=
+      List.Inhabited_getElem_eq_getElem! pts.val iter.start.val h_pts_lt
+    rw [h_eq]; clear h_eq h_pts_lt
     apply WP.spec_bind (from_iter_point_at_spec
       (alloc.vec.Vec.deref ((pts.val[iter.start.val]!).value)) h_len_le)
+
     intro pt_vec ⟨h_pt_len, h_pt_elts⟩
     -- Now the goal is the continuation: from_complete_points >>= expect >>= ...
     -- Establish the admissible length for from_complete_points
@@ -450,6 +455,8 @@ theorem body_spec
               simp_all
             · have h_a_eq : a[iter.start]! = poly := by
                 rw [a_post, p2_post1, p2_post2]
+                rw [List.Inhabited_getElem_eq_getElem! polys.val iter.start.val
+                  (by rw [polys.property]; exact h_i_lt_16)]
                 exact array_set_restore_set_getElem! polys iter.start poly (by grind)
               simp_all
               refine ⟨polys_lp, ?_, ?_⟩

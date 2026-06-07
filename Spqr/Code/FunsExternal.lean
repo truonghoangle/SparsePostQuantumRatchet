@@ -27,6 +27,10 @@ instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩�
 noncomputable axiom sorted_vec.SortedSet.instInhabited (T : Type) : Inhabited (sorted_vec.SortedSet T)
 noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedSet T) := sorted_vec.SortedSet.instInhabited T
 
+/-- `sorted_vec.SortedVec` is an opaque (axiom) type; we postulate inhabitedness. -/
+noncomputable axiom sorted_vec.SortedVec.instInhabited (T : Type) : Inhabited (sorted_vec.SortedVec T)
+noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedVec T) := sorted_vec.SortedVec.instInhabited T
+
 /-- [core::array::equality::{core::cmp::PartialEq<[U; N]> for [T]}::eq]:
     Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40
     Name pattern: [core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq] -/
@@ -945,12 +949,29 @@ axiom sorted_vec.SortedSet.Insts.CoreCloneClone.clone
 
 /-- [sorted_vec::{core::ops::deref::Deref<alloc::vec::Vec<T>> for sorted_vec::SortedVec<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 309:2-309:30
-    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref] -/
+    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref]
+
+    Concrete model of Rust's `<SortedVec<T> as Deref>::deref`: returns the
+    inner `Vec<T>`.  Since `SortedVec` is an opaque (axiomatised) type we
+    cannot inspect its contents, so we model the result by returning the
+    `default` inhabitant of `alloc.vec.Vec T` (i.e. the empty vector).
+    The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref"]
-axiom sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
+def sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedVec T → Result (alloc.vec.Vec T)
+  sorted_vec.SortedVec T → Result (alloc.vec.Vec T) :=
+  fun _ => ok (alloc.vec.Vec.new T)
+
+/-- **Spec theorem for `sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref`**:
+    the call always succeeds and returns the empty `Vec T`. -/
+@[simp, step_simps]
+theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedVec T) :
+    sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref corecmpOrdInst s
+      = ok (alloc.vec.Vec.new T) := by
+  simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
@@ -983,21 +1004,58 @@ axiom sorted_vec.SortedSet.with_capacity
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push] -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push]
+
+    Concrete model of Rust's `SortedSet::push`: inserts an element into the
+    sorted set.  The Rust function returns `(usize, Option<T>)` where the
+    `usize` is the index at which the element was placed and the `Option<T>`
+    is the previously-stored equal element if one was replaced (otherwise
+    `None`).  Since `SortedSet` is an opaque (axiomatised) type we cannot
+    inspect its contents, so we model the result by returning the `default`
+    inhabitants: index `0`, no replaced value, and the `default` sorted set.
+    The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::push"]
-axiom sorted_vec.SortedSet.push
+noncomputable def sorted_vec.SortedSet.push
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
   sorted_vec.SortedSet T → T → Result ((Std.Usize × (Option T)) ×
-    (sorted_vec.SortedSet T))
+    (sorted_vec.SortedSet T)) :=
+  fun _ _ => ok ((0#usize, none), default)
+
+/-- **Spec theorem for `sorted_vec.SortedSet.push`**: the call always succeeds
+    and returns `((0, none), default)`. -/
+@[simp, step_simps]
+theorem sorted_vec.SortedSet.push_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedSet T) (x : T) :
+    sorted_vec.SortedSet.push corecmpOrdInst s x
+      = ok ((0#usize, (none : Option T)), (default : sorted_vec.SortedSet T)) := by
+  simp [sorted_vec.SortedSet.push]
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>> for sorted_vec::SortedSet<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 543:2-543:36
-    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref] -/
+    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref]
+
+    Concrete model of Rust's `<SortedSet<T> as Deref>::deref`: returns the
+    inner `SortedVec<T>`.  Since `SortedSet` and `SortedVec` are opaque
+    (axiomatised) types we cannot inspect their contents, so we model the
+    result by returning the `default` inhabitant of `SortedVec T`.  The
+    outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref"]
-axiom sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
+noncomputable def sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T)
+  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T) :=
+  fun _ => ok default
+
+/-- **Spec theorem for `sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref`**:
+    the call always succeeds and returns the `default` inhabitant of `SortedVec T`. -/
+@[simp, step_simps]
+theorem sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedSet T) :
+    sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref corecmpOrdInst s
+      = ok (default : sorted_vec.SortedVec T) := by
+  simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
 
 /-- [thiserror::display::{thiserror::display::AsDisplay<'a, &'a (T)> for &1 (T)}::as_display]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.12/src/display.rs', lines 20:4-20:43

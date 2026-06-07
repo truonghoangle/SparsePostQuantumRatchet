@@ -149,21 +149,6 @@ tweaks:
     - regex: "(def proto\\.pq_ratchet\\.(?:pq_ratchet_state\\.Inner|v1_msg\\.InnerMsg|v1_state\\.InnerState)\\.merge\\n[\\s\\S]*?):= do[\\s\\S]*?(?=\\n/-- )"
       replace: "$1:= sorry"
 
-    # Insert concrete MulAssign body before Mul::mul (opaque because Rust dispatches to SIMD)
-    - find: |
-        /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
-      replace: |
-        /-- [spqr::encoding::gf::{core::ops::arith::MulAssign<&0 (spqr::encoding::gf::GF16)> for spqr::encoding::gf::GF16}::mul_assign]:
-            Source: 'src/encoding/gf.rs', lines 127:4-137:5 -/
-        def encoding.gf.GF16.Insts.CoreOpsArithMulAssignShared0GF16.mul_assign
-          (self : encoding.gf.GF16) (other : encoding.gf.GF16) :
-          Result encoding.gf.GF16
-          := do
-          let i ← encoding.gf.unaccelerated.mul self.value other.value
-          ok { value := i }
-
-        /-- [spqr::encoding::gf::{core::ops::arith::Mul<spqr::encoding::gf::GF16, spqr::encoding::gf::GF16> for spqr::encoding::gf::GF16}::mul]:
-
 
     # Fix ok_or none type inference
     # https://github.com/AeneasVerif/aeneas/issues/1018
@@ -176,35 +161,35 @@ tweaks:
 
     # Fix lagrange_polys_for_complete_points loop: Aeneas generates () instead of Pt
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: "let a ← Array.update ones i ()"
-      replace: "let a ← Array.update ones i ({ x := { value := (UScalar.cast .U16 i) }, y := encoding.gf.GF16.ONE } : encoding.polynomial.Pt)"
+    - find: "let a := index_mut_back { p with x := { value := i1 } }"
+      replace: "let a := index_mut_back { p with x := { value := i1 }, y := encoding.gf.GF16.ONE }"
 
     # Fix from_pb_loop1_loop0 body: return accumulated GF16 vector instead of Unit
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: "encoding.gf.GF16)) Unit)"
-      replace: "encoding.gf.GF16)) (alloc.vec.Vec encoding.gf.GF16))"
+    #- find: "encoding.gf.GF16)) Unit)"
+    #  replace: "encoding.gf.GF16)) (alloc.vec.Vec encoding.gf.GF16))"
 
     # Fix from_pb_loop1_loop0 body: return v on done instead of ()
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: "ok (done ())"
-      replace: "ok (done v)"
+    #- find: "ok (done ())"
+    #  replace: "ok (done v)"
 
     # Fix from_pb_loop1_loop0: return accumulated GF16 vector instead of Unit
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - regex: "(def encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1_loop0\\n[\\s\\S]*?encoding\\.gf\\.GF16\\) :\\n  )Result Unit"
-      replace: "$1Result (alloc.vec.Vec encoding.gf.GF16)"
+    #- regex: "(def encoding\\.polynomial\\.PolyEncoder\\.from_pb_loop1_loop0\\n[\\s\\S]*?encoding\\.gf\\.GF16\\) :\\n  )Result Unit"
+    #  replace: "$1Result (alloc.vec.Vec encoding.gf.GF16)"
 
     # Fix round_robin from_pb loop: Vec.push result discarded, index_mut_back gets () instead of updated vec
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: |
-        let _ ← alloc.vec.Vec.push p1.value g
-            let a := index_mut_back ()
-      replace: |
-        let v ← alloc.vec.Vec.push p1.value g
-            let a := index_mut_back { p1 with value := v }
+    #- find: |
+    #    let _ ← alloc.vec.Vec.push p1.value g
+    #        let a := index_mut_back ()
+    #  replace: |
+    #    let v ← alloc.vec.Vec.push p1.value g
+    #        let a := index_mut_back { p1 with value := v }
 
 
     # Fix from_pb_loop1 outer body: capture inner loop result and construct Point
     # https://github.com/AeneasVerif/aeneas/issues/1046
-    - find: "      encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back p\n      let a \u2190 Array.update out1 i1 ()"
-      replace: "      let v_result \u2190 encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back ({ value := v_result } : encoding.polynomial.Point)\n      let a \u2190 Array.update out1 i1 ({ value := v_result } : encoding.polynomial.Point)"
+    #- find: "      encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back p\n      let a \u2190 Array.update out1 i1 ()"
+    #  replace: "      let v_result \u2190 encoding.polynomial.PolyEncoder.from_pb_loop1_loop0\n        { start := 0#usize, \xABend\xBB := i7 } pts v1\n      massert (i1 < 16#usize)\n      let (p, index_mut_back) \u2190 Array.index_mut_usize out i1\n      let out1 := index_mut_back ({ value := v_result } : encoding.polynomial.Point)\n      let a \u2190 Array.update out1 i1 ({ value := v_result } : encoding.polynomial.Point)"

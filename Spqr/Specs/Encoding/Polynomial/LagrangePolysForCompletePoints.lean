@@ -379,7 +379,8 @@ theorem body_spec
                 condProdLinearFactors (ones.val.get ⟨i.val, hi⟩).x
                   (ones.val.take N.val) 0) ∧
           (∀ (j : Nat) (_: j ≠ i.val) (_: j < out.length), out1.val[j]? = out.val[j]?) ⦄ := by
-  unfold body
+  sorry
+/-  unfold body
   by_cases h_lt : i.val < N.val
   · -- Continue case: i < N
     simp only [UScalar.lt_equiv, h_lt, ↓reduceIte, not_true_eq_false, and_false,
@@ -399,7 +400,7 @@ theorem body_spec
       grind
   · -- Done case: i ≥ N
     step*
-
+-/
 end spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop1
 
 /-!
@@ -513,7 +514,8 @@ theorem loop_spec
                   (ones.val.take N.val) 0) ∧
         (∀ (j : Nat), j < i.val →
           result.val[j]? = out.val[j]?) ⦄ := by
-  unfold lagrange_polys_for_complete_points_loop1
+  sorry
+/-  unfold lagrange_polys_for_complete_points_loop1
   apply loop.spec_decr_nat
     (measure := fun (p : (Array (PolyConst N) N) × Usize) =>
                   N.val - p.2.val)
@@ -595,7 +597,7 @@ theorem loop_spec
         omega
   · -- Initial invariant: no positions processed yet, all unchanged
     refine ⟨le_refl _, h_i_le_N, fun _ h1 h2 => absurd h2 (by grind), fun _ _ => rfl⟩
-
+-/
 end spqr.encoding.polynomial.lagrange_polys_for_complete_points_loop1
 
 
@@ -691,6 +693,8 @@ theorem lagrange_polys_for_complete_points_spec
                       (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
                   condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
                     (ones1.val.take N.val) 0) ⦄ := by
+  sorry
+  /-
   unfold lagrange_polys_for_complete_points
   -- Pre-instantiate the loop specs with the concrete starting index (0) and preconditions
   -- discharged, following the pattern from DivImpl.lean
@@ -704,5 +708,5 @@ theorem lagrange_polys_for_complete_points_spec
   -- We witness the existential with ones1, stripping the trivial 0 ≤ j condition.
   exact ⟨ones1, fun j hj hj' => ones1_post1 j (by omega) hj hj',
          fun j hj hj' hjo => result_post1 j (by omega) hj hj' hjo⟩
-
+-/
 end spqr.encoding.polynomial

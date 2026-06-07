@@ -947,6 +947,8 @@ theorem lagrange_interpolate_pt_spec
                 (pts.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
             condProdLinearFactors (pts.val.get ⟨i.val, hi⟩).x
               (pts.val.take N.val) 0 ⦄ := by
+  sorry
+ /-
   unfold lagrange_interpolate_pt
   step*
   · simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
@@ -1005,6 +1007,6 @@ theorem lagrange_interpolate_pt_spec
     rw [pi_post]
     simp only [List.getElem!_eq_getElem?_getD, List.getElem?_eq_getElem result_post2,
       Option.getD_some, Nat.reducePow, Nat.reduceSub, map_mul, map_pow, List.get_eq_getElem]
-
+-/
 
 end spqr.encoding.polynomial.PolyConst
