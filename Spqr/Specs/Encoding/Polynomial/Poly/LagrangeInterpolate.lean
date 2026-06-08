@@ -5,7 +5,23 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
-import Spqr.Math.Poly
+import Spqr.Math.Poly.Basic.Defs
+import Spqr.Math.Poly.Basic.Zero
+import Spqr.Math.Poly.Coeff.Basic
+import Spqr.Math.Poly.Coeff.ListOps
+import Spqr.Math.Poly.CharTwo.Basic
+import Spqr.Math.Poly.CharTwo.ToGF216
+import Spqr.Math.Poly.Eval
+import Spqr.Math.Poly.LinearFactors.Basic
+import Spqr.Math.Poly.LinearFactors.Degree
+import Spqr.Math.Poly.Lagrange.DenomProd
+import Spqr.Math.Poly.Lagrange.BasisPoly
+import Spqr.Math.Poly.Lagrange.InterpolantSum
+import Spqr.Math.Poly.Horner.Defs
+import Spqr.Math.Poly.Horner.Eval
+import Spqr.Math.Poly.ExpectedTrailing.Defs
+import Spqr.Math.Poly.ExpectedTrailing.Basic
+import Spqr.Math.Poly.Identities.Basic
 import Spqr.Math.Poly.General
 import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
@@ -14,7 +30,7 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
-
+import Spqr.Math.Poly.Coeff.ListOps
 /-!
 # Spec theorem for `lagrange_interpolate`: loop body 1
 
@@ -1299,7 +1315,9 @@ theorem lagrange_interpolate_spec
             lagrangeBasisPoly pts.val i.val).coeff m := by
       intro m ⟨i, hi⟩
       have hpi : i < n := by grind
-      rw [getElem_bang_toGF216_eq_coeff]
+      rw [show ((ws.get ⟨i, hi⟩).coefficients.val[m + 1]!).toGF216 =
+              (listToGF216Poly (ws.get ⟨i, hi⟩).coefficients.val).coeff (m + 1) from
+            getElem_bang_toGF216_eq_coeff _ _]
       change (ws.get ⟨i, hi⟩).toGF216Poly.coeff (m + 1) = _
       rw [hws_poly i hi hpi]
       rw [show X * C (lagrangeScaleGF216 (pts.val.get ⟨i, hpi⟩) pts.val) *

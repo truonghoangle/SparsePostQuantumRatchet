@@ -5,7 +5,23 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
 import Spqr.Math.Gf16.Field
-import Spqr.Math.Poly
+import Spqr.Math.Poly.Basic.Defs
+import Spqr.Math.Poly.Basic.Zero
+import Spqr.Math.Poly.Coeff.Basic
+import Spqr.Math.Poly.Coeff.ListOps
+import Spqr.Math.Poly.CharTwo.Basic
+import Spqr.Math.Poly.CharTwo.ToGF216
+import Spqr.Math.Poly.Eval
+import Spqr.Math.Poly.LinearFactors.Basic
+import Spqr.Math.Poly.LinearFactors.Degree
+import Spqr.Math.Poly.Lagrange.DenomProd
+import Spqr.Math.Poly.Lagrange.BasisPoly
+import Spqr.Math.Poly.Lagrange.InterpolantSum
+import Spqr.Math.Poly.Horner.Defs
+import Spqr.Math.Poly.Horner.Eval
+import Spqr.Math.Poly.ExpectedTrailing.Defs
+import Spqr.Math.Poly.ExpectedTrailing.Basic
+import Spqr.Math.Poly.Identities.Basic
 import Spqr.Math.Poly.General
 import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
@@ -524,7 +540,7 @@ theorem lagrange_interpolate_prepare_spec
           unfold List.resize
           simp
           grind
-        rw [list_getElem_bang_set_self _ _ _ hlen, ONE_toGF216]
+        grind [list_getElem_bang_set_self _ _ _ hlen, ONE_toGF216]
       · intro j hj
         have hj_lt : j < (p.coefficients.val.resize (pts.val.length + 1) ZERO).length := by
           unfold List.resize; simp; omega

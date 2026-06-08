@@ -163,11 +163,7 @@ theorem loop_spec
             have h_len_xp : i'.val < xp.val.length := by
               simp only [List.Vector.length_val]; omega
             -- Chain: xp'[i']! = xp[i']! (unchanged position)
-            have h_eq_orig : xp'.val[i'.val]! = xp.val[i'.val]! := by
-              simp only [getElem!_pos, h_len_xp', h_len_xp]
-              exact list_get_of_getElem?_eq h_unchanged h_len_xp' h_len_xp
-            -- Combine body update with the unchanged chain
-            rw [h_xp_upd hj', h_eq_orig]
+            grind
         · -- Non-processed positions still unchanged
           intro j hj
           have h_ne : j ≠ i'.val := by
