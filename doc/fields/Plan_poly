@@ -232,7 +232,7 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
 | F23 | `const_polys_to_polys` | `encoding.polynomial.const_polys_to_polys` | `ConstPolysToPolys.lean` (+ `ConstPolysToPolys/{CallMut,CallOne,SliceIterMapCollect}.lean`) | ✅ |
-| F24 | `lagrange_polys_for_complete_points` | `encoding.polynomial.lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | ✅ |
+| F24 | `lagrange_polys_for_complete_points` | `encoding.polynomial.lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | ⚠️ (3 `sorry`s in `LagrangePolysForCompletePoints.lean` at lines 337, 460, 639 — top-level and per-loop proofs pending) |
 
 ### Functions: PolyEncoder
 
@@ -241,9 +241,9 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 | F25 | `PolyEncoder::get_encoder_state` | `encoding.polynomial.PolyEncoder.get_encoder_state` | `PolyEncoder/GetEncoderState.lean` | ✅ |
 | F26 | `PolyEncoder::into_pb` | `encoding.polynomial.PolyEncoder.into_pb` | `PolyEncoder/IntoPb.lean` (+ `…Loop{0,1,2}`, `…LoopBody{0,1,2}`) | ✅ |
 | F27 | `PolyEncoder::from_pb` | `encoding.polynomial.PolyEncoder.from_pb` | `PolyEncoder/FromPb.lean` (+ `…Loop{0,1,2}`, `…LoopBody{0,1,2}`) | ✅ |
-| F28 | `PolyEncoder::point_at` | `encoding.polynomial.PolyEncoder.point_at` | `PolyEncoder/PointAtLoopBody0.lean`, `PolyEncoder/PointAt/{CallMut,CallOne,SliceIterEnumMapCollect}.lean` | ⚠️ (1 `sorry` in `PointAtLoopBody0.lean:456`) |
-| F29 | `PolyEncoder::encode_bytes_base` | `encoding.polynomial.PolyEncoder.encode_bytes_base` | — | ⚠️ (`encode_bytes_base_loop.body` itself is `sorry` in `Funs.lean` via tweak) |
-| F30 | `PolyEncoder::chunk_at` | `encoding.polynomial.PolyEncoder.chunk_at` | — | ❌ |
+| F28 | `PolyEncoder::point_at` | `encoding.polynomial.PolyEncoder.point_at` | `PolyEncoder/PointAt.lean`, `PolyEncoder/PointAtLoop0.lean`, `PolyEncoder/PointAtLoopBody0.lean`, `PolyEncoder/PointAt/{CallMut,CallOne,SliceIterEnumMapCollect}.lean` | ⚠️ (2 residual `sorry`s in `PointAt.lean` at lines 142 and 146 — top-level `point_at_spec_nat` case branches) |
+| F29 | `PolyEncoder::encode_bytes_base` | `encoding.polynomial.PolyEncoder.encode_bytes_base` | `PolyEncoder/EncodeBytesBase.lean` (+ `EncodeBytesBaseLoop0.lean`, `EncodeBytesBaseLoopBody0.lean`, `EncodeBytesBase/{CallMut,CallOnce}.lean`) | ✅ (extracted body in `Funs.lean` is now correct — no `sorry`; the legacy tweak at `aeneas-config.yml` lines 93–94 only sorries an unrelated `Buf` `BytesBufBuf_implBuf` shape) |
+| F30 | `PolyEncoder::chunk_at` | `encoding.polynomial.PolyEncoder.chunk_at` | `PolyEncoder/ChunkAt.lean` (+ `ChunkAtLoop0.lean`, `ChunkAtLoopBody0.lean`) | ✅ |
 | F31 | `PolyEncoder::into_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
 | F32 | `PolyEncoder::from_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
 
@@ -251,18 +251,18 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F33 | `{impl Encoder}::encode_bytes` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes` | — | ❌ |
-| F34 | `{impl Encoder}::next_chunk` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk` | — | ❌ |
+| F33 | `{impl Encoder}::encode_bytes` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes` | `PolyEncoder/EncodeBytes.lean` | ✅ |
+| F34 | `{impl Encoder}::next_chunk` | `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk` | `PolyEncoder/NextChunk.lean` | ✅ |
 
 ### Functions: PolyDecoder
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F35 | `PolyDecoder::get_pts_needed` | `encoding.polynomial.PolyDecoder.get_pts_needed` | — | ❌ |
-| F36 | `PolyDecoder::necessary_points` | `encoding.polynomial.PolyDecoder.necessary_points` | — | ❌ |
-| F37 | `PolyDecoder::new_with_poly_count` | `encoding.polynomial.PolyDecoder.new_with_poly_count` | — | ❌ |
-| F38 | `PolyDecoder::into_pb` | `encoding.polynomial.PolyDecoder.into_pb` | — | ❌ |
-| F39 | `PolyDecoder::from_pb` | `encoding.polynomial.PolyDecoder.from_pb` | — | ❌ |
+| F35 | `PolyDecoder::get_pts_needed` | `encoding.polynomial.PolyDecoder.get_pts_needed` | `PolyDecoder/GetPtsNeeded.lean` | ✅ |
+| F36 | `PolyDecoder::necessary_points` | `encoding.polynomial.PolyDecoder.necessary_points` | `PolyDecoder/NecessaryPoints.lean` | ✅ |
+| F37 | `PolyDecoder::new_with_poly_count` | `encoding.polynomial.PolyDecoder.new_with_poly_count` | `PolyDecoder/NewWithPolyCount.lean` | ✅ |
+| F38 | `PolyDecoder::into_pb` | `encoding.polynomial.PolyDecoder.into_pb` | `PolyDecoder/IntoPb.lean` (+ `IntoPbLoop{0,1}.lean`, `IntoPbLoopBody{0,1}.lean`) | ✅ |
+| F39 | `PolyDecoder::from_pb` | `encoding.polynomial.PolyDecoder.from_pb` | `PolyDecoder/FromPb.lean` (+ `FromPbLoop{0,1}.lean`, `FromPbLoopBody{0,1}.lean`) | ✅ |
 | F40 | `PolyDecoder::into_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
 | F41 | `PolyDecoder::from_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
 
@@ -270,8 +270,8 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F42 | `{impl Decoder}::new` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new` | — | ❌ |
-| F43 | `{impl Decoder}::add_chunk` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk` | — | ❌ |
+| F42 | `{impl Decoder}::new` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.new` | `PolyDecoder/New.lean` | ✅ |
+| F43 | `{impl Decoder}::add_chunk` | `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk` | `PolyDecoder/AddChunk.lean` (+ `AddChunkLoop0.lean`, `AddChunkLoopBody0.lean`) | ✅ |
 | F44 | `{impl Decoder}::decoded_message` | axiom in `FunsExternal.lean` | — | ⏭️ Opaque (Aeneas internal error) |
 
 ### Functions: Tests
@@ -359,23 +359,12 @@ possible in the current framework.
 
 ### 2g. Deferred Functions (no spec file yet)
 
-These functions appear in `poly_functions.txt` but currently have no
-spec file in the polynomial spec tree. They are deferred pending
-verification work:
-
-| # | Rust Name | Notes |
-|---|-----------|-------|
-| F29 | `PolyEncoder::encode_bytes_base` | Blocked: the extracted `encode_bytes_base_loop.body` is replaced by `sorry` via the tweak at `aeneas-config.yml` lines 93–94 (Aeneas emits `()` instead of the correct typed return). |
-| F30 | `PolyEncoder::chunk_at` | Depends on F28 (`point_at`). |
-| F33 | `{impl Encoder}::encode_bytes` | Trivial delegation to F29. |
-| F34 | `{impl Encoder}::next_chunk` | Trivial delegation to F30. |
-| F35 | `PolyDecoder::get_pts_needed` | Field access. |
-| F36 | `PolyDecoder::necessary_points` | Pure arithmetic on `pts_needed`. |
-| F37 | `PolyDecoder::new_with_poly_count` | Constructor. |
-| F38 | `PolyDecoder::into_pb` | Depends on `Pt::serialize` (F1) and `SortedSet` iteration. |
-| F39 | `PolyDecoder::from_pb` | Depends on `Pt::deserialize` (F2). |
-| F42 | `{impl Decoder}::new` | Delegates to F37. |
-| F43 | `{impl Decoder}::add_chunk` | Depends on F36. |
+All polynomial-layer functions from `poly_functions.txt` now have spec
+files in the polynomial spec tree.  The only remaining residual
+`sorry`s are inside `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean`
+(2 cases) and inside `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean`
+(3 cases for the top-level theorem and the two loop specs).  See
+Section 2i for details.
 
 ### 2h. Local Axioms Used by Otherwise-Verified Spec Files
 
@@ -387,20 +376,28 @@ are private (file-local) and clearly marked.
 |-------|------|---------------|
 | `vec_remove_zero_spec` | `Poly/LagrangeInterpolatePt.lean:84` | Specifies the behaviour of `Vec.remove_zero` on a vector whose last `GF16` element is zero, in terms of `Vec.pop_back`. Reflects an Aeneas-side surface API not yet given a proved Lean reduction. |
 | `GF16.value_val_eq_zero_of_toGF216` | `PolyConstN/LagrangeInterpolatePt.lean:317` | If a `GF16` element maps to `0 : GF216`, then its underlying `u16` value is `0`. This is provable from `Spqr.Math.Poly.GF16.toGF216_zero_val`, but is exposed locally to keep the proof modular (analogous to the gf-layer precedent `vec_remove_zero_spec`). |
+| `clone_sorted_set_pt_id` | `PolyDecoder/Clone.lean:40` | Specifies that cloning a `SortedSet<Pt>` is the identity on the underlying value set. The Aeneas surface API for `SortedSet.clone` is not yet given a proved Lean reduction, so this bridge axiom is exposed locally to allow the `PolyDecoder::clone` spec to close. |
 
 ### 2i. `sorry` Affecting Polynomial Verification
 
 | Location | Source of the `sorry` | Effect |
 |----------|------------------------|--------|
-| `Spqr/Code/Funs.lean:9398` (`encoding.polynomial.PolyEncoder.encode_bytes_base_loop.body`) | Tweak `aeneas-config.yml` lines 93–94. Aeneas emits `()` rather than the correctly typed `ControlFlow … (Array Point 16#usize)`. | Blocks verification of F29 (`encode_bytes_base`) and transitively F33 (`encode_bytes`). |
-| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAtLoopBody0.lean:456` | One residual hole inside the spec proof of the `point_at` loop body. | Renders F28 (`point_at`) ⚠️ rather than ✅; transitively affects F30 (`chunk_at`) and F34 (`next_chunk`). |
+| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:142` and `:146` | Two residual holes inside the top-level `point_at_spec_nat` theorem, one per `EncoderState` case (`Points` and `Polys`). The underlying loop spec `PointAtLoopBody0.lean` no longer contains a `sorry`. | Renders F28 (`point_at`) ⚠️ rather than ✅.  Because `chunk_at` (F30), `encode_bytes` (F33) and `next_chunk` (F34) are *proved with `sorry`-free Lean specs* that call into `point_at_spec`, those downstream spec files still close — they simply rely on the (partially proved) F28 lemma. |
+| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:337`, `:460`, `:639` | Three residual `sorry`s: one for the inner loop body, one for the outer loop, and one for the top-level theorem. The proof skeletons (commented-out tactic scripts using `loop.spec_decr_nat`) are present below each `sorry`. | Renders F24 (`lagrange_polys_for_complete_points`) ⚠️.  C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) still close because their spec files don't depend on the *content* of F24's postcondition — only on definitional unfolding. |
 
-Other `sorry` instances in `Spqr/Code/Funs.lean` (lines 4655, 2521,
-3017, the various `call_once := sorry`, and `take := sorry` in
-iterator instances) come from the prost-derived protobuf code or
-generic Aeneas iterator scaffolding; they are **not** on the
-polynomial verification path beyond the explicit blockers listed
-above.
+The previously listed blocker at `Spqr/Code/Funs.lean:9398`
+(`encode_bytes_base_loop.body`) has been **resolved**: Aeneas now
+emits the correct typed body for that loop, so F29
+(`encode_bytes_base`) and F33 (`encode_bytes`) are fully verified.
+The tweak at `aeneas-config.yml` lines 93–94 still appears in the
+config but applies only to an unrelated `Shared0SliceU8.Insts.BytesBufBuf_implBuf`
+shape, with no remaining impact on the polynomial layer.
+
+Other `sorry` instances in `Spqr/Code/Funs.lean` (e.g. the various
+`call_once := sorry`, `take := sorry` in iterator instances, and the
+prost-derived `Message` instance bodies) come from the prost-derived
+protobuf code or generic Aeneas iterator scaffolding; they are **not**
+on the polynomial verification path.
 
 Aeneas-config tweaks that **fix** rather than `sorry` polynomial
 extraction issues (and are therefore *not* verification blockers) are:
@@ -582,7 +579,7 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 | 25 | F21 | `PolyConst::mult_xdiff` | `PolyConstN/MultXdiff.lean` (+ loops) | `const_mul`, `const_sub` (Plan_gf); MathPoly (`prodLinearFactors_*`) | ✅ |
 | 26 | F19 | `PolyConst::lagrange_interpolate_pt` | `PolyConstN/LagrangeInterpolatePt.lean` | F20, F21; MathPoly; local axiom `GF16.value_val_eq_zero_of_toGF216` | ✅ |
 | 27 | F22 | `PolyConst::to_poly` | `PolyConstN/ToPoly.lean` | (array → Vec) | ✅ |
-| 28 | F24 | `lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | F19, C11 | ✅ |
+| 28 | F24 | `lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | F19, C11 | ⚠️ 3 `sorry` |
 | 29 | C3 | `COMPLETE_POINTS_POLYS_1` | `COMPLETE_POINTS_POLYS_1.lean` | F24 | ✅ |
 | 30 | C4 | `COMPLETE_POINTS_POLYS_3` | `COMPLETE_POINTS_POLYS_3.lean` | F24 | ✅ |
 | 31 | C5 | `COMPLETE_POINTS_POLYS_5` | `COMPLETE_POINTS_POLYS_5.lean` | F24 | ✅ |
@@ -594,20 +591,20 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 | 37 | F25 | `PolyEncoder::get_encoder_state` | `PolyEncoder/GetEncoderState.lean` | (field access) | ✅ |
 | 38 | F26 | `PolyEncoder::into_pb` | `PolyEncoder/IntoPb.lean` (+ loops) | F25, F17 | ✅ |
 | 39 | F27 | `PolyEncoder::from_pb` | `PolyEncoder/FromPb.lean` (+ loops) | F18 | ✅ |
-| 40 | F28 | `PolyEncoder::point_at` | `PolyEncoder/PointAtLoopBody0.lean` (+ `PointAt/…`) | F16, F14 | ⚠️ 1 `sorry` |
-| 41 | F30 | `PolyEncoder::chunk_at` | — | F28 | ❌ |
-| 42 | F34 | `{impl Encoder}::next_chunk` | — | F30 | ❌ |
-| 43 | F29 | `PolyEncoder::encode_bytes_base` | — | (extracted body is `sorry`) | ⚠️ |
-| 44 | F33 | `{impl Encoder}::encode_bytes` | — | F29 | ❌ |
+| 40 | F28 | `PolyEncoder::point_at` | `PolyEncoder/PointAt.lean` (+ `PointAtLoop0`, `PointAtLoopBody0`, `PointAt/…`) | F16, F14 | ⚠️ 2 `sorry` |
+| 41 | F30 | `PolyEncoder::chunk_at` | `PolyEncoder/ChunkAt.lean` (+ loops) | F28 | ✅ |
+| 42 | F34 | `{impl Encoder}::next_chunk` | `PolyEncoder/NextChunk.lean` | F30 | ✅ |
+| 43 | F29 | `PolyEncoder::encode_bytes_base` | `PolyEncoder/EncodeBytesBase.lean` (+ loops, closures) | F25 | ✅ |
+| 44 | F33 | `{impl Encoder}::encode_bytes` | `PolyEncoder/EncodeBytes.lean` | F29 | ✅ |
 | 45 | F31 | `PolyEncoder::into_pb_test` | — | F26 | ⏭️ feature-gated |
 | 46 | F32 | `PolyEncoder::from_pb_test` | — | F27 | ⏭️ feature-gated |
-| 47 | F35 | `PolyDecoder::get_pts_needed` | — | (field access) | ❌ |
-| 48 | F36 | `PolyDecoder::necessary_points` | — | arithmetic | ❌ |
-| 49 | F37 | `PolyDecoder::new_with_poly_count` | — | (constructor) | ❌ |
-| 50 | F42 | `{impl Decoder}::new` | — | F37 | ❌ |
-| 51 | F43 | `{impl Decoder}::add_chunk` | — | F36 | ❌ |
-| 52 | F38 | `PolyDecoder::into_pb` | — | F1 | ❌ |
-| 53 | F39 | `PolyDecoder::from_pb` | — | F2 | ❌ |
+| 47 | F35 | `PolyDecoder::get_pts_needed` | `PolyDecoder/GetPtsNeeded.lean` | (field access) | ✅ |
+| 48 | F36 | `PolyDecoder::necessary_points` | `PolyDecoder/NecessaryPoints.lean` | arithmetic | ✅ |
+| 49 | F37 | `PolyDecoder::new_with_poly_count` | `PolyDecoder/NewWithPolyCount.lean` | (constructor) | ✅ |
+| 50 | F42 | `{impl Decoder}::new` | `PolyDecoder/New.lean` | F37 | ✅ |
+| 51 | F43 | `{impl Decoder}::add_chunk` | `PolyDecoder/AddChunk.lean` (+ loops) | F36; bridge axiom `clone_sorted_set_pt_id` (via `PolyDecoder/Clone.lean`) | ✅ |
+| 52 | F38 | `PolyDecoder::into_pb` | `PolyDecoder/IntoPb.lean` (+ loops) | F1 | ✅ |
+| 53 | F39 | `PolyDecoder::from_pb` | `PolyDecoder/FromPb.lean` (+ loops) | F2 | ✅ |
 | 54 | F44 | `{impl Decoder}::decoded_message` | — (opaque axiom) | F7, F14, F36 | ⏭️ opaque |
 | 55 | F40 | `PolyDecoder::into_pb_test` | — | F38 | ⏭️ feature-gated |
 | 56 | F41 | `PolyDecoder::from_pb_test` | — | F39 | ⏭️ feature-gated |
@@ -658,20 +655,20 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
                                           point_at(F28) ⚠️ ◄── compute_at(F14)
                                               │
                                               ▼
-                                          chunk_at(F30) ❌
+                                          chunk_at(F30) ✅
                                               │
                                               ▼
-                                          next_chunk(F34) ❌
+                                          next_chunk(F34) ✅
 
    Poly::serialize(F17)  ──► PolyEncoder::into_pb(F26) ──► get_encoder_state(F25)
    Poly::deserialize(F18) ──► PolyEncoder::from_pb(F27)
 
-   encode_bytes_base(F29) ⚠️ (sorry in extracted body) ──► encode_bytes(F33) ❌
+   encode_bytes_base(F29) ✅ ──► encode_bytes(F33) ✅
 
-   PolyDecoder::new_with_poly_count(F37) ──► Decoder::new(F42)
-   PolyDecoder::necessary_points(F36)    ──► add_chunk(F43)
-   Pt::serialize(F1)                     ──► PolyDecoder::into_pb(F38)
-   Pt::deserialize(F2)                   ──► PolyDecoder::from_pb(F39)
+   PolyDecoder::new_with_poly_count(F37) ✅ ──► Decoder::new(F42) ✅
+   PolyDecoder::necessary_points(F36)    ✅ ──► add_chunk(F43) ✅
+   Pt::serialize(F1)                     ──► PolyDecoder::into_pb(F38) ✅
+   Pt::deserialize(F2)                   ──► PolyDecoder::from_pb(F39) ✅
    decoded_message(F44) — OPAQUE AXIOM
 ```
 
@@ -688,7 +685,7 @@ configuration is in [`aeneas-config.yml`](../../aeneas-config.yml).
 | Section | Entry | Purpose |
 |---------|-------|---------|
 | `charon.opaque` (line 54) | `PolyDecoder::decoded_message` | Aeneas internal error — declared opaque; emitted as axiom in `FunsExternal.lean`. |
-| `tweaks` (lines 93–94) | Sorry `encode_bytes_base_loop.body` | Aeneas emits `()` instead of the correct `Array Point 16` value (Aeneas issue [#1046](https://github.com/AeneasVerif/aeneas/issues/1046)). **This is the only polynomial-affecting `sorry` left in `Funs.lean`.** |
+| `tweaks` (lines 93–94) | Legacy `Sorry` shape for `BytesBufBuf_implBuf` | Originally introduced for `encode_bytes_base_loop.body` (Aeneas issue [#1046](https://github.com/AeneasVerif/aeneas/issues/1046)); Aeneas now extracts that loop body correctly, so the tweak's residual effect is limited to an unrelated `Shared0SliceU8` `Buf` shape and **does not** affect the polynomial verification path. |
 | `tweaks` (lines 147–148) | Fix `lagrange_polys_for_complete_points_loop0.body` | Replaces `Array.update ones i ()` with the correct `Pt` constructor. Enables verification of F24 and C3–C8. |
 | `tweaks` (lines 161–179) | Patches `from_pb_loop1` / `from_pb_loop1_loop0` to return the accumulated `GF16` vector and construct a `Point`. Enables verification of F27. |
 | `tweaks` (lines 138–143) | `Option.ok_or` / `ControlFlow.Continue` type-annotation fixes for `PolyDecoder` `from_pb`. |
@@ -700,10 +697,10 @@ Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.d
 
 | Where | What |
 |-------|------|
-| `Spqr/Code/Funs.lean` line 9398 (`encode_bytes_base_loop.body`) | Blocks F29 (`encode_bytes_base`) and transitively F33 (`encode_bytes`). |
-| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAtLoopBody0.lean:456` | One residual hole in the `point_at` loop-body spec; blocks completion of F28 (and downstream F30, F34). |
+| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:142` and `:146` | Two residual holes in the top-level `point_at_spec_nat` theorem (one per `EncoderState` case).  The loop-body spec `PointAtLoopBody0.lean` is now `sorry`-free; downstream functions (F30 `chunk_at`, F33 `encode_bytes`, F34 `next_chunk`) close their specs without `sorry` by depending on the *statement* of F28's spec. |
+| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:337`, `:460`, `:639` | Three residual holes covering the inner loop, outer loop, and top-level theorem for F24. C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) are *not* blocked because their spec files rely on definitional unfolding, not on F24's postcondition. |
 | `Spqr/Code/FunsExternal.lean` axiom `decoded_message` | F44 cannot be verified without an extracted body. |
-| Private axioms `vec_remove_zero_spec` (Poly/LagrangeInterpolatePt.lean) and `GF16.value_val_eq_zero_of_toGF216` (PolyConstN/LagrangeInterpolatePt.lean) | File-local bridge axioms; do not block other functions but must be removed for a fully axiom-free proof. |
+| Private axioms `vec_remove_zero_spec` (Poly/LagrangeInterpolatePt.lean), `GF16.value_val_eq_zero_of_toGF216` (PolyConstN/LagrangeInterpolatePt.lean) and `clone_sorted_set_pt_id` (PolyDecoder/Clone.lean) | File-local bridge axioms; do not block other functions but must be removed for a fully axiom-free proof. |
 
 ---
 
@@ -712,24 +709,28 @@ Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.d
 Based on the 50 functions + 11 constants in `encoding/polynomial.rs`:
 
 - **11 constants**: 11 verified ✅ (all `COMPLETE_POINTS_POLYS_*`
-  constants now have spec files thanks to the `lagrange_polys_for_complete_points_loop0.body`
-  tweak fix).
+  constants now have spec files thanks to the
+  `lagrange_polys_for_complete_points_loop0.body` tweak fix).
 - **50 functions**:
-  - **27 verified** ✅
-    (F1, F2, F6–F19, F20–F26, F27).
-  - **2 with residual `sorry`** ⚠️ (F28 `point_at`; F29
-    `encode_bytes_base`).
-  - **8 not yet verified** ❌ (F30, F33–F39, F42, F43 — modulo the
-    blocking `sorry` for F30/F33/F34).
+  - **35 verified** ✅
+    (F1, F2, F6–F23, F25–F27, F29, F30, F33–F39, F42, F43).
+  - **2 with residual `sorry`** ⚠️ (F24
+    `lagrange_polys_for_complete_points`; F28 `point_at`).
+  - **0 not yet verified** ❌ — every non-skipped polynomial function
+    in `poly_functions.txt` now has a spec file.
   - **13 skipped** ⏭️
     (F3–F5 Pt trait instances; F31–F32, F40–F41 feature-gated;
     F44 opaque axiom; F45–F50 `#[cfg(test)]`).
 - **`sorry` instances affecting polynomial layer**:
-  - 1 in `Spqr/Code/Funs.lean` (`encode_bytes_base_loop.body`).
-  - 1 in `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAtLoopBody0.lean:456`.
+  - 2 in `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean`
+    (lines 142, 146) — top-level `point_at_spec_nat` case branches.
+  - 3 in `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean`
+    (lines 337, 460, 639) — top-level theorem and the two loop specs.
+  - **0 in `Spqr/Code/Funs.lean` on the polynomial path** (the former
+    `encode_bytes_base_loop.body` blocker is fully resolved).
 - **Axioms used by the polynomial layer**:
   - 1 opaque axiom in `FunsExternal.lean` (`decoded_message`).
-  - 2 local bridge axioms in spec files (`vec_remove_zero_spec`,
-    `GF16.value_val_eq_zero_of_toGF216`).
+  - 3 local bridge axioms in spec files (`vec_remove_zero_spec`,
+    `GF16.value_val_eq_zero_of_toGF216`, `clone_sorted_set_pt_id`).
 - **Math foundations** (`Spqr/Math/Poly.lean` + helpers): **0 `sorry`,
   0 axioms** across ~77 lemmas/theorems in 1 606 lines.
