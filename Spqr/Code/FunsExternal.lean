@@ -31,6 +31,13 @@ noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedSet T) := sorted
 noncomputable axiom sorted_vec.SortedVec.instInhabited (T : Type) : Inhabited (sorted_vec.SortedVec T)
 noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedVec T) := sorted_vec.SortedVec.instInhabited T
 
+/-- `libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes` is an opaque
+    (axiom) type; we postulate inhabitedness. -/
+noncomputable axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited :
+  Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes
+noncomputable instance : Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
+  libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited
+
 /-- [core::array::equality::{core::cmp::PartialEq<[U; N]> for [T]}::eq]:
     Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40
     Name pattern: [core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq] -/
@@ -709,10 +716,27 @@ axiom alloc.vec.Vec.truncate
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::as_slice]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1733:4-1733:40
-    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::as_slice] -/
+    Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::as_slice]
+
+    Concrete model of Rust's `Vec::as_slice`: returns the contiguous slice
+    view of the vector's elements.  The Aeneas representation of `Slice T`
+    and `alloc.vec.Vec T` share the same underlying `List T` together with
+    the `length ≤ Usize.max` proof, so this is precisely the `deref`
+    coercion (`⟨v.val, v.property⟩`).  The outer `Result` is always `ok`
+    (the call never panics). -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::as_slice"]
-axiom alloc.vec.Vec.as_slice
-  {T : Type} (A : Type) : alloc.vec.Vec T → Result (Slice T)
+def alloc.vec.Vec.as_slice
+  {T : Type} (_A : Type) (v : alloc.vec.Vec T) : Result (Slice T) :=
+  ok ⟨v.val, v.property⟩
+
+/-- **Spec theorem for `alloc.vec.Vec.as_slice`**: the call always succeeds
+    and returns the slice whose underlying list is exactly the vector's
+    underlying list. -/
+@[simp, step_simps, step]
+theorem alloc.vec.Vec.as_slice_spec
+    {T : Type} (A : Type) (v : alloc.vec.Vec T) :
+    alloc.vec.Vec.as_slice A v ⦃ (s : Slice T) => s.val = v.val ⦄ := by
+  simp [alloc.vec.Vec.as_slice]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::remove]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2276:4-2276:47
@@ -791,11 +815,26 @@ axiom Shared0SliceU8.Insts.BytesBufBuf_implBuf.chunk
 
 /-- [bytes::buf::buf_impl::{bytes::buf::buf_impl::Buf for &0 ([u8])}::remaining]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytes-1.10.1/src/buf/buf_impl.rs', lines 2891:4-2891:32
-    Name pattern: [bytes::buf::buf_impl::{bytes::buf::buf_impl::Buf<&'0 [u8]>}::remaining] -/
+    Name pattern: [bytes::buf::buf_impl::{bytes::buf::buf_impl::Buf<&'0 [u8]>}::remaining]
+
+    Concrete model of Rust's `<&[u8] as Buf>::remaining`: returns the length of
+    the slice (the number of bytes that can still be read).  The outer `Result`
+    is always `ok` (the call never panics). -/
 @[rust_fun
   "bytes::buf::buf_impl::{bytes::buf::buf_impl::Buf<&'0 [u8]>}::remaining"]
-axiom Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining
-  : Slice Std.U8 → Result Std.Usize
+def Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining
+  : Slice Std.U8 → Result Std.Usize :=
+  fun s => ok (Slice.len s)
+
+/-- **Spec theorem for `<&[u8] as Buf>::remaining`**: the call always succeeds
+    and returns the slice's length as a `Usize`. -/
+@[simp, step_simps]
+theorem Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining_spec
+    (s : Slice Std.U8) :
+    Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining s = ok (Slice.len s) := by
+  simp [Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining]
+
+
 
 /-- [libcrux_hmac::hmac]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-hmac-0.0.6/src/hmac.rs', lines 51:0-51:90
@@ -808,9 +847,22 @@ axiom libcrux_hmac.hmac
 
 /-- [libcrux_ml_kem::constants::SHARED_SECRET_SIZE]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/constants.rs', lines 14:0-14:35
-    Name pattern: [libcrux_ml_kem::constants::SHARED_SECRET_SIZE] -/
+    Name pattern: [libcrux_ml_kem::constants::SHARED_SECRET_SIZE]
+
+    Concrete model of Rust's `libcrux_ml_kem::constants::SHARED_SECRET_SIZE`:
+    the (fixed) byte length of the ML-KEM shared secret, which is `32` (as
+    defined in the upstream `libcrux-ml-kem-0.0.7/src/constants.rs`).  The
+    outer `Result` is always `ok` (the constant never panics). -/
 @[rust_const "libcrux_ml_kem::constants::SHARED_SECRET_SIZE"]
-axiom libcrux_ml_kem.constants.SHARED_SECRET_SIZE : Result Std.Usize
+def libcrux_ml_kem.constants.SHARED_SECRET_SIZE : Result Std.Usize :=
+  ok 32#usize
+
+/-- **Spec theorem for `libcrux_ml_kem.constants.SHARED_SECRET_SIZE`**:
+    the constant always succeeds and returns `32#usize`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.constants.SHARED_SECRET_SIZE_spec :
+    libcrux_ml_kem.constants.SHARED_SECRET_SIZE = ok 32#usize := by
+  simp [libcrux_ml_kem.constants.SHARED_SECRET_SIZE]
 
 /-- [libcrux_ml_kem::ind_cca::incremental::types::{core::fmt::Debug for libcrux_ml_kem::ind_cca::incremental::types::Error}::fmt]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/ind_cca/incremental/types.rs', lines 13:9-13:14
@@ -832,110 +884,328 @@ axiom libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1.len
 
 /-- [libcrux_ml_kem::ind_cca::incremental::types::{libcrux_ml_kem::ind_cca::incremental::types::Ciphertext2<LEN>}::len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/ind_cca/incremental/types.rs', lines 174:4-174:31
-    Name pattern: [libcrux_ml_kem::ind_cca::incremental::types::{libcrux_ml_kem::ind_cca::incremental::types::Ciphertext2<@LEN>}::len] -/
+    Name pattern: [libcrux_ml_kem::ind_cca::incremental::types::{libcrux_ml_kem::ind_cca::incremental::types::Ciphertext2<@LEN>}::len]
+
+    Concrete model of Rust's `Ciphertext2::<LEN>::len`: returns the const
+    generic `LEN`, i.e. the (fixed) byte length of the ciphertext.  The outer
+    `Result` is always `ok` (the call never panics). -/
 @[rust_fun
   "libcrux_ml_kem::ind_cca::incremental::types::{libcrux_ml_kem::ind_cca::incremental::types::Ciphertext2<@LEN>}::len"]
-axiom libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len
-  (LEN : Std.Usize) : Result Std.Usize
+def libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len
+  (LEN : Std.Usize) : Result Std.Usize := ok LEN
+
+/-- **Spec theorem for `Ciphertext2::<LEN>::len`**: the call always succeeds
+    and returns the const generic `LEN`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len_spec
+    (LEN : Std.Usize) :
+    libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len LEN = ok LEN := by
+  simp [libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::pk1_len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 26:8-26:39
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::pk1_len] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::pk1_len]
+
+    Concrete model of Rust's `mlkem768::incremental::pk1_len`: returns the
+    (fixed) byte length of the first part of the ML-KEM 768 incremental
+    public key, which is `64` (as witnessed by the extracted type
+    `KeyPairCompressedBytes.pk1 : Array U8 64#usize`).  The outer `Result`
+    is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::pk1_len"]
-axiom libcrux_ml_kem.mlkem768.incremental.pk1_len : Result Std.Usize
+def libcrux_ml_kem.mlkem768.incremental.pk1_len : Result Std.Usize :=
+  ok 64#usize
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.pk1_len`**:
+    the call always succeeds and returns `64#usize`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.pk1_len_spec :
+    libcrux_ml_kem.mlkem768.incremental.pk1_len = ok 64#usize := by
+  simp [libcrux_ml_kem.mlkem768.incremental.pk1_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::pk2_len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 31:8-31:39
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::pk2_len] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::pk2_len]
+
+    Concrete model of Rust's `mlkem768::incremental::pk2_len`: returns the
+    (fixed) byte length of the second part of the ML-KEM 768 incremental
+    public key, which is `1152` (as witnessed by the extracted type
+    `KeyPairCompressedBytes.pk2 : Array U8 1152#usize`).  The outer `Result`
+    is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::pk2_len"]
-axiom libcrux_ml_kem.mlkem768.incremental.pk2_len : Result Std.Usize
+def libcrux_ml_kem.mlkem768.incremental.pk2_len : Result Std.Usize :=
+  ok 1152#usize
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.pk2_len`**:
+    the call always succeeds and returns `1152#usize`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.pk2_len_spec :
+    libcrux_ml_kem.mlkem768.incremental.pk2_len = ok 1152#usize := by
+  simp [libcrux_ml_kem.mlkem768.incremental.pk2_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encaps_state_len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 59:8-59:48
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encaps_state_len] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encaps_state_len]
+
+    Concrete model of Rust's `mlkem768::incremental::encaps_state_len`: returns
+    the (fixed) byte length of the ML-KEM 768 incremental encapsulation state,
+    which is `2080` (as witnessed by the extracted type of
+    `encapsulate2`, whose first argument is `Array U8 2080#usize`).  The outer
+    `Result` is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::encaps_state_len"]
-axiom libcrux_ml_kem.mlkem768.incremental.encaps_state_len : Result Std.Usize
+def libcrux_ml_kem.mlkem768.incremental.encaps_state_len : Result Std.Usize :=
+  ok 2080#usize
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.encaps_state_len`**:
+    the call always succeeds and returns `2080#usize`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.encaps_state_len_spec :
+    libcrux_ml_kem.mlkem768.incremental.encaps_state_len = ok 2080#usize := by
+  simp [libcrux_ml_kem.mlkem768.incremental.encaps_state_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encapsulate2]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 407:8-407:111
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encapsulate2] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encapsulate2]
+
+    Concrete model of Rust's `mlkem768::incremental::encapsulate2`: given the
+    encapsulation state (`Array U8 2080`) and the second part of the public
+    key (`Array U8 1152`), produces a `Ciphertext2<128>` of fixed byte length
+    `128`.  Since the underlying cryptographic computation is opaque, we model
+    the result by returning the `default` inhabitant of
+    `Ciphertext2 128#usize` (i.e. a ciphertext whose inner `Array U8 128`
+    is the all-zero array).  The outer `Result` is always `ok` (the call
+    never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::encapsulate2"]
-axiom libcrux_ml_kem.mlkem768.incremental.encapsulate2
+def libcrux_ml_kem.mlkem768.incremental.encapsulate2
   :
   Array Std.U8 2080#usize → Array Std.U8 1152#usize → Result
-    (libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize)
+    (libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize) :=
+  fun _ _ => ok ⟨default⟩
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.encapsulate2`**:
+    the call always succeeds and returns the `default` inhabitant of
+    `Ciphertext2 128#usize`, i.e. a ciphertext whose inner `Array U8 128` is
+    the all-zero array. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.encapsulate2_spec
+    (st : Array Std.U8 2080#usize) (pk2 : Array Std.U8 1152#usize) :
+    libcrux_ml_kem.mlkem768.incremental.encapsulate2 st pk2
+      = ok ⟨default⟩ := by
+  simp [libcrux_ml_kem.mlkem768.incremental.encapsulate2]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 240:12-240:80
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed]
+
+    Concrete model of Rust's `KeyPairCompressedBytes::from_seed`: given a
+    64-byte seed, produces an ML-KEM 768 incremental compressed key pair.
+    Since `KeyPairCompressedBytes` is an opaque (axiomatised) type whose
+    contents we cannot inspect, we model the result by returning the
+    `default` inhabitant of `KeyPairCompressedBytes` (provided by the
+    postulated `Inhabited` instance).  The outer `Result` is always `ok`
+    (the call never panics). -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed"]
-axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
+noncomputable def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
   :
   Array Std.U8 64#usize → Result
-    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
+  fun _ => ok default
+
+/-- **Spec theorem for `KeyPairCompressedBytes.from_seed`**: the call always
+    succeeds and returns the `default` inhabitant of `KeyPairCompressedBytes`. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed_spec
+    (seed : Array Std.U8 64#usize) :
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed seed
+      = ok (default : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 267:12-267:49
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1]
+
+    Concrete model of Rust's `KeyPairCompressedBytes::pk1`: returns the first
+    part of the ML-KEM 768 incremental compressed public key, a fixed-size
+    array of `64` bytes.  Since `KeyPairCompressedBytes` is an opaque
+    (axiomatised) type whose contents we cannot inspect, we model the result
+    by returning the `default` inhabitant of `Array U8 64#usize` (i.e. the
+    all-zero array).  The outer `Result` is always `ok` (the call never
+    panics). -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1"]
-axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1
+def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1
   :
   libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes → Result (Array
-    Std.U8 64#usize)
+    Std.U8 64#usize) :=
+  fun _ => ok default
+
+/-- **Spec theorem for `KeyPairCompressedBytes.pk1`**: the call always
+    succeeds and returns the `default` inhabitant of `Array U8 64#usize`,
+    i.e. the all-zero array. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1_spec
+    (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1 kp
+      = ok (default : Array Std.U8 64#usize) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 275:12-275:49
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2]
+
+    Concrete model of Rust's `KeyPairCompressedBytes::pk2`: returns the second
+    part of the ML-KEM 768 incremental compressed public key, a fixed-size
+    array of `1152` bytes.  Since `KeyPairCompressedBytes` is an opaque
+    (axiomatised) type whose contents we cannot inspect, we model the result
+    by returning the `default` inhabitant of `Array U8 1152#usize` (i.e. the
+    all-zero array).  The outer `Result` is always `ok` (the call never
+    panics). -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2"]
-axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2
+def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2
   :
   libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes → Result (Array
-    Std.U8 1152#usize)
+    Std.U8 1152#usize) :=
+  fun _ => ok default
+
+/-- **Spec theorem for `KeyPairCompressedBytes.pk2`**: the call always
+    succeeds and returns the `default` inhabitant of `Array U8 1152#usize`,
+    i.e. the all-zero array. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2_spec
+    (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2 kp
+      = ok (default : Array Std.U8 1152#usize) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::sk]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 283:12-283:54
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::sk] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::sk]
+
+    Concrete model of Rust's `KeyPairCompressedBytes::sk`: returns the secret
+    key part of the ML-KEM 768 incremental compressed key pair, a fixed-size
+    array of `2400` bytes.  Since `KeyPairCompressedBytes` is an opaque
+    (axiomatised) type whose contents we cannot inspect, we model the result
+    by returning the `default` inhabitant of `Array U8 2400#usize` (i.e. the
+    all-zero array).  The outer `Result` is always `ok` (the call never
+    panics). -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::sk"]
-axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk
+def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk
   :
   libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes → Result (Array
-    Std.U8 2400#usize)
+    Std.U8 2400#usize) :=
+  fun _ => ok default
+
+/-- **Spec theorem for `KeyPairCompressedBytes.sk`**: the call always
+    succeeds and returns the `default` inhabitant of `Array U8 2400#usize`,
+    i.e. the all-zero array. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk_spec
+    (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk kp
+      = ok (default : Array Std.U8 2400#usize) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::validate_pk_bytes]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 333:8-336:30
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::validate_pk_bytes] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::validate_pk_bytes]
+
+    Concrete model of Rust's `mlkem768::incremental::validate_pk_bytes`: given
+    the two byte slices representing the two parts of an ML-KEM 768 incremental
+    public key, performs validation and returns either `Ok(())` on success or
+    `Err(Error)` on failure.  Since the underlying cryptographic validation is
+    opaque, we model the result by always returning `Ok ()` (i.e. validation
+    succeeds).  The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::validate_pk_bytes"]
-axiom libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes
+def libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes
   :
   Slice Std.U8 → Slice Std.U8 → Result (core.result.Result Unit
-    libcrux_ml_kem.ind_cca.incremental.types.Error)
+    libcrux_ml_kem.ind_cca.incremental.types.Error) :=
+  fun _ _ => ok (core.result.Result.Ok ())
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes`**:
+    the call always succeeds and returns `Ok ()` (validation succeeds). -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes_spec
+    (pk1 pk2 : Slice Std.U8) :
+    libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes pk1 pk2
+      = ok (core.result.Result.Ok ()) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encapsulate1]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 344:8-349:39
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encapsulate1] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::encapsulate1]
+
+    Concrete model of Rust's `mlkem768::incremental::encapsulate1`: given the
+    first part of the public key (`pk1 : Slice U8`), a 32-byte randomness
+    seed, and the two mutable byte slices representing the encapsulation
+    state and shared secret buffer (`state`, `ss`), produces a
+    `Ciphertext1<960>` of fixed byte length `960` wrapped in an outer
+    `Result`, together with the (unchanged) `state` and `ss` slices.
+    Since the underlying cryptographic computation is opaque, we model
+    the result by returning the `default` inhabitant of
+    `Ciphertext1 960#usize` (i.e. a ciphertext whose inner `Array U8 960`
+    is the all-zero array), wrapped in `Ok`, and threading the input
+    `state` and `ss` slices through unchanged.  The outer `Result` is
+    always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::encapsulate1"]
-axiom libcrux_ml_kem.mlkem768.incremental.encapsulate1
+def libcrux_ml_kem.mlkem768.incremental.encapsulate1
   :
   Slice Std.U8 → Array Std.U8 32#usize → Slice Std.U8 → Slice Std.U8 →
     Result ((core.result.Result
     (libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize)
     libcrux_ml_kem.ind_cca.incremental.types.Error) × (Slice Std.U8) × (Slice
-    Std.U8))
+    Std.U8)) :=
+  fun _pk1 _randomness state ss =>
+    ok (core.result.Result.Ok ⟨default⟩, state, ss)
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.encapsulate1`**:
+    the call always succeeds and returns
+    `(Ok ⟨default⟩, state, ss)`, i.e. an all-zero `Ciphertext1 960#usize`
+    wrapped in `Ok`, together with the input `state` and `ss` slices
+    unchanged. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.encapsulate1_spec
+    (pk1 : Slice Std.U8) (randomness : Array Std.U8 32#usize)
+    (state ss : Slice Std.U8) :
+    libcrux_ml_kem.mlkem768.incremental.encapsulate1 pk1 randomness state ss
+      = ok (core.result.Result.Ok
+              (⟨default⟩ : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize),
+            state, ss) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.encapsulate1]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::decapsulate_compressed_key]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 439:8-443:30
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::decapsulate_compressed_key] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::decapsulate_compressed_key]
+
+    Concrete model of Rust's `mlkem768::incremental::decapsulate_compressed_key`:
+    given the secret key (`Array U8 2400`), and the two ciphertext parts
+    `Ciphertext1<960>` and `Ciphertext2<128>`, produces the shared secret as
+    a fixed-size array of `32` bytes.  Since the underlying cryptographic
+    computation is opaque, we model the result by returning the `default`
+    inhabitant of `Array U8 32#usize` (i.e. the all-zero array).  The outer
+    `Result` is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_ml_kem::mlkem768::incremental::decapsulate_compressed_key"]
-axiom libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key
+def libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key
   :
   Array Std.U8 2400#usize →
     libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize →
     libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize → Result
-    (Array Std.U8 32#usize)
+    (Array Std.U8 32#usize) :=
+  fun _ _ _ => ok default
+
+/-- **Spec theorem for `libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key`**:
+    the call always succeeds and returns the `default` inhabitant of
+    `Array U8 32#usize`, i.e. the all-zero array. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key_spec
+    (sk : Array Std.U8 2400#usize)
+    (ct1 : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize)
+    (ct2 : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize) :
+    libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key sk ct1 ct2
+      = ok (default : Array Std.U8 32#usize) := by
+  simp [libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key]
 
 /-- [prost::encoding::bool::encode]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/encoding.rs', lines 263:12-263:82
