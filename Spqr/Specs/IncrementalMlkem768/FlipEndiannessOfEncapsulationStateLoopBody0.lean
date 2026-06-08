@@ -43,6 +43,57 @@ open Aeneas Aeneas.Std Result
 namespace spqr.incremental_mlkem768.flip_endianness_of_encapsulation_state_loop
 
 /--
+Helper lemma: `skipN` on a `Range<usize>` iterator always succeeds (returns `ok`).
+
+The `Range<usize>` iterator's `next` always returns `ok` (it either yields the next element
+or signals exhaustion without error). Since `skipN` only calls `next` repeatedly, it always
+succeeds regardless of the skip count `n`.
+-/
+private theorem skipN_Range_Usize_ok
+    (range : core.ops.range.Range Std.Usize) (n : Nat) :
+    ∃ range', core.iter.adapters.step_by.skipN
+      (core.iter.traits.iterator.IteratorRange core.iter.range.StepUsize)
+      range n = ok range' := by
+  induction n generalizing range with
+  | zero => exact ⟨range, rfl⟩
+  | succ n ih =>
+    simp only [core.iter.adapters.step_by.skipN]
+    obtain ⟨opt, range', hnext, _, _⟩ :=
+      core.iter.range.IteratorRange.next_Usize_spec range
+    rw [hnext]; simp only [bind_tc_ok]
+    cases opt with
+    | none => exact ⟨range', rfl⟩
+    | some _ => exact ih range'
+
+/--
+Helper lemma: double set then getElem? at the first index (not equal to the second set index)
+returns the value written by the first set.
+-/
+private theorem List.getElem?_set_set_ne {α : Type} (l : List α)
+    {i j : Nat} (x y : α)
+    (hi : i < l.length) (_ : j < l.length) (hne : i ≠ j) :
+    ((l.set i x).set j y)[i]? = some x := by
+  grind
+/--
+Helper lemma: double set then getElem? at the second index returns the value written by the
+second set.
+-/
+private theorem List.getElem?_set_set_self {α : Type} (l : List α)
+    {i j : Nat} (x y : α) (hj : j < l.length) :
+    ((l.set i x).set j y)[j]? = some y := by
+  grind
+
+/--
+Helper lemma: double set then getElem? at a position different from both set indices returns
+the original value.
+-/
+private theorem List.getElem?_set_set_other {α : Type} (l : List α)
+    {i j k : Nat} (x y : α)
+    (hi : i < l.length) (_ : j < l.length) (hki : k ≠ i) (hkj : k ≠ j) :
+    ((l.set i x).set j y)[k]? = l[k]? := by
+  grind
+
+/--
 **Spec theorem for `incremental_mlkem768.flip_endianness_of_encapsulation_state_loop.body`**:
 
 One step of the byte-swap loop in `flip_endianness_of_encapsulation_state`, which swaps the
@@ -104,11 +155,36 @@ theorem body_spec
   · -- Continue case: the inner range yields some i = iter.iter.start
     obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    simp only [bind_tc_ok]
     -- i = iter.iter.start, i + 1 is within bounds
     have h_i_lt : iter.iter.start.val < fixed_es.length := by omega
     have h_i1_lt : iter.iter.start.val + 1 < fixed_es.length := by omega
-    sorry
+    -- Handle the skipN call (advancing the underlying Range iterator by step_by - 1)
+    obtain ⟨iter_skip, h_skipN⟩ := skipN_Range_Usize_ok range' (iter.step_by.val - 1)
+    rw [h_skipN]
+    simp only [bind_tc_ok]
+    -- Process the Usize addition (i + 1) and Vec index operations
+    step -- i + 1#usize
+    step -- Vec.index ... fixed_es i1  (read b_hi at position i+1)
+    step -- Vec.index ... fixed_es i   (read b_lo at position i)
+    step -- Vec.index_mut ... fixed_es i  (get mutable ref at position i)
+    -- After index_mut, we have index_mut_back = Vec.set fixed_es iter.iter.start
+    -- Now fixed_es1 := index_mut_back i2 has the same length as fixed_es
+    -- Help scalar_tac know the length of the modified vector
+    have h_set_len : ∀ x, (fixed_es.set iter.iter.start x).length = fixed_es.length :=
+      fun _ => alloc.vec.Vec.set_length ..
+    step -- Vec.index_mut ... fixed_es1 i1  (get mutable ref at position i+1)
+    -- Prove the 5-part postcondition for the cont case
+    · simp_all
+    refine ⟨h_lt, ?_, ?_, ?_, ?_⟩
+    · -- Length preservation: Vec.set preserves length
+      simp [alloc.vec.Vec.set_length]
+      simp_all
+    · -- Swap: fixed_es'[start]? = fixed_es[start + 1]?
+      simp_all [List.getElem?_eq_getElem h_i1_lt]
+    · -- Swap: fixed_es'[start + 1]? = fixed_es[start]?
+      simp_all [List.getElem?_eq_getElem h_i_lt]
+    · -- Other positions unchanged
+      simp_all
   · -- Done case: the inner range is exhausted
     obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
