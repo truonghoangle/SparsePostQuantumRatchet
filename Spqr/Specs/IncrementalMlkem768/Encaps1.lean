@@ -102,19 +102,12 @@ Concretely:
      ∧ result.1.2.1.length = 2080
      ∧ result.1.2.2.length = 32 ⦄`
 
-The proof unfolds the definition of `encaps1` and discharges the five stages of the
-pipeline with the `step*` tactic: the randomness allocation (`Array.repeat`), the
-`Array.to_slice_mut`/back-function pair, the abstract `fill_bytes` step (whose only
-length-relevant content is the type-level fact that the back-function rebuilds an
-`Array U8 32#usize`, plus the axiom `fill_bytes_ok` that the call never panics), the
-`encaps_state_len`/`SHARED_SECRET_SIZE` calls (dispatched via their `_spec` rewrites in
-`Spqr.Code.FunsExternal`), the two `Vec.from_elem` work-buffer allocations (whose lengths
-are exactly the requested `2080` and `32`), the `Vec.as_slice` view of `hdr` and the two
-`Vec.deref_mut` views of `state` and `ss`, the opaque `encapsulate1` call (dispatched via
-`encapsulate1_spec`), the `Result.expect` extraction of the inner `Ciphertext1`, and the
-final `Array.to_slice` → `Slice.to_vec` cloning step (which preserves the 960-byte length)
-together with the two `deref_mut` back-functions (each of which preserves the byte length
-of the corresponding work buffer).
+The proof unfolds the definition of `encaps1`, pre-unfolds `Vec.deref_mut` via
+`simp only [alloc.vec.Vec.deref_mut]` so that `step*` can see through the resulting
+`lift (concrete_pair)` patterns (reduced via whnf + `bind_tc_ok`), and then discharges
+all remaining monadic steps — `Array.to_slice_mut`, `fill_bytes`, `from_elem` (×2),
+`Vec.as_slice`, `encapsulate1`, `Result.expect`, and `Slice.to_vec` — in a single
+`step*` pass.
 
 **Source**: spqr/src/incremental_mlkem768.rs (lines 48:0-66:1)
 -/
@@ -131,7 +124,11 @@ theorem encaps1_spec
            ∧ result.1.2.1.length   = 2080
            ∧ result.1.2.2.length   = 32 ⦄ := by
   unfold incremental_mlkem768.encaps1
-  step*
+  step with Array.to_slice_mut_spec
+  step  -- fill_bytes (private @[step] lemma, found by auto-search)
+  step with alloc.vec.from_elem_spec
+  step with alloc.vec.from_elem_spec
+  step with alloc.vec.Vec.as_slice_spec
   simp only [alloc.vec.Vec.deref_mut, lift, bind_tc_ok]
   step*
 
