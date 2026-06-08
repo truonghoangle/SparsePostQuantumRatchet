@@ -163,6 +163,27 @@ theorem encaps2_spec
   step  -- Option.as_ref (private @[step] lemma, found by auto-search)
   simp only [lift, bind_tc_ok, core.option.Option.unwrap_or]
   split <;> simp <;> step*
-
+  unfold core.array.TryFromSharedArraySlice.try_from
+  split
+  · simp
+    step*
+    split
+    · simp
+      step*
+    · simp
+      step*
+  · simp
+    step*
+  · unfold core.array.TryFromSharedArraySlice.try_from
+    split
+    · simp
+      step*
+      split
+      · simp
+        step*
+      · simp
+        step*
+    · simp
+      step*
 
 end spqr.incremental_mlkem768
