@@ -68,7 +68,7 @@ private theorem skipN_Range_Usize_props
   | zero =>
     intro range' h
     simp only [core.iter.adapters.step_by.skipN] at h
-    subst h; exact ⟨rfl, le_refl _⟩
+    grind
   | succ n ih =>
     intro range' h
     simp only [core.iter.adapters.step_by.skipN] at h
@@ -82,12 +82,13 @@ private theorem skipN_Range_Usize_props
       have h_not_lt : ¬(range.start.val < range.«end».val) := by
         intro hlt; exact absurd (h_some hlt).1 (by simp)
       obtain ⟨_, heq⟩ := h_none h_not_lt
-      subst heq; subst h; exact ⟨rfl, le_refl _⟩
+      grind
     | some _ =>
       -- When next returns some, skipN recurses with range1 for n steps
       simp only at h
       have h_lt : range.start.val < range.«end».val := by
-        by_contra hlt; push_neg at hlt; exact absurd (h_none hlt).1 (by simp)
+        by_contra hlt
+        grind
       obtain ⟨_, h_start1, h_end1⟩ := h_some h_lt
       obtain ⟨h_end', h_ge'⟩ := ih range1 range' h
       exact ⟨by rw [h_end', h_end1], by omega⟩
@@ -119,7 +120,7 @@ private theorem skipN_Range_Usize_advance
     cases opt with
     | none =>
       -- Contradiction: start < end but next returned none
-      exfalso; exact absurd (h_none (by omega)).1 ((h_some h_lt).1 ▸ by simp)
+      exfalso; exact absurd (h_none (by grind)).1 ((h_some h_lt).1 ▸ by grind)
     | some _ =>
       simp only
       obtain ⟨_, h_start1, h_end1⟩ := h_some h_lt
@@ -215,7 +216,7 @@ theorem loop_spec
       have h_i1_lt : iter'.iter.start.val + 1 < fixed_es'.length := by omega
       -- Handle the skipN call (advancing the underlying Range by step_by - 1 = 1)
       have h_room : range'.start.val + (iter'.step_by.val - 1) ≤ range'.«end».val := by
-        rw [h_step', h_step, h_start1, h_end1]; omega
+        rw [h_step', h_step, h_start1, h_end1]; grind
       obtain ⟨iter_skip, h_skipN, h_skip_end, h_skip_start⟩ :=
         skipN_Range_Usize_advance range' (iter'.step_by.val - 1) h_room
       rw [h_skipN]; simp only [bind_tc_ok]
@@ -232,44 +233,13 @@ theorem loop_spec
       constructor
       · -- Invariant for new state
         have h_new_start : iter_skip.start.val = iter'.iter.start.val + 2 := by
-          rw [h_skip_start, h_start1, h_step', h_step]; omega
+          rw [h_skip_start, h_start1, h_step', h_step]
         have h_new_end : iter_skip.«end» = iter.iter.«end» := by
           rw [h_skip_end, h_end1, h_end']
-        refine ⟨h_new_end, h_step', ?_, ?_, ?_, ?_, ?_, ?_, ?_, h_behind'⟩
-        · -- length preserved
-          simp [alloc.vec.Vec.set_length]; simp_all
-        · -- start advanced: iter.start ≤ new_start
-          omega
-        · -- start ≤ end
-          rw [h_new_start, h_new_end]; omega
-        · -- start even
-          rw [h_new_start]; omega
-        · -- bounds preserved
-          simp [alloc.vec.Vec.set_length]; simp_all
-        · -- swap: for even j in [iter.start, new_start)
-          intro j hj1 hj2 hj3
-          rw [h_new_start] at hj2
-          by_cases hj_old : j < iter'.iter.start.val
-          · -- Previously processed pair: body didn't touch these positions
-            obtain ⟨h_sw1, h_sw2⟩ := h_swap' j hj1 hj_old hj3
-            constructor <;> simp_all
-          · -- Newly swapped pair: j = iter'.iter.start
-            have hj_eq : j = iter'.iter.start.val := by omega
-            subst hj_eq
-            constructor
-            · -- result[start] = input[start + 1]
-              simp_all [List.getElem?_eq_getElem h_i1_lt]
-            · -- result[start + 1] = input[start]
-              simp_all [List.getElem?_eq_getElem h_i_lt]
-        · -- frame ahead: for j ≥ new_start
-          intro j hj
-          rw [h_new_start] at hj
-          have hj_ne1 : j ≠ iter'.iter.start.val := by omega
-          have hj_ne2 : j ≠ iter'.iter.start.val + 1 := by omega
-          have h_frame_j := h_frame' j (by omega)
-          simp_all
+        grind
       · -- Measure decreased
-        rw [h_skip_start, h_start1, h_step', h_step, h_skip_end, h_end1]; omega
+        simp_all
+        grind
     · -- Done case: the inner range is exhausted
       obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
       rw [h_opt_eq]
@@ -277,13 +247,13 @@ theorem loop_spec
       refine ⟨h_len', ?_, ?_, h_behind'⟩
       · -- swap: follows from invariant since iter'.start ≥ iter'.end = iter.end
         intro j hj1 hj2 hj3
-        exact h_swap' j hj1 (by omega) hj3
+        exact h_swap' j hj1 (by grind) hj3
       · -- frame: follows from invariant since iter'.start ≥ iter.end
         intro j hj
-        exact h_frame' j (by omega)
+        exact h_frame' j (by grind)
   · -- Base case: initial state satisfies the invariant
     refine ⟨rfl, rfl, rfl, le_refl _, h_start_le, h_start_even, h_in_bounds,
-            fun j _ hj2 _ => absurd hj2 (by omega), fun j hj => rfl,
+            fun j _ hj2 _ => absurd hj2 (by grind), fun j hj => rfl,
             fun j hj => rfl⟩
 
 end spqr.incremental_mlkem768.flip_endianness_of_encapsulation_state_loop
