@@ -15,7 +15,7 @@ lists to polynomial operations in `GF216[X]`.
 
 * `listToGF216Poly_append_singleton` — appending a coefficient adds a top-degree term.
 * `listToGF216Poly_add` — pointwise addition lifts to polynomial addition.
-* `listToGF216Poly_eq_X_mul_drop_one` — if the constant term is zero, divide by `X`.
+* `listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one` — if the constant term is zero, divide by `X`.
 * `listToGF216Poly_eq_of_coeffs` — coefficient-matching characterization.
 -/
 
@@ -89,7 +89,7 @@ lemma listToGF216Poly_add (cs ds : List spqr.encoding.gf.GF16)
 If the constant-term coefficient of a `GF16` list has `toGF216 = 0`, then
 `listToGF216Poly cs = X · listToGF216Poly (cs.drop 1)`.
 -/
-lemma listToGF216Poly_eq_X_mul_drop_one
+lemma listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one
     (cs : List spqr.encoding.gf.GF16)
     (h0 : (listToGF216Poly cs).coeff 0 = 0) :
     listToGF216Poly cs = X * listToGF216Poly (cs.drop 1) := by
@@ -108,6 +108,9 @@ lemma listToGF216Poly_eq_X_mul_drop_one
       grind
     · have hdn : ¬(n < (cs.drop 1).length) := by rw [List.length_drop]; omega
       rw [dif_neg hn, dif_neg hdn]
+
+@[deprecated listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one (since := "2026-06-08")]
+alias listToGF216Poly_eq_X_mul_drop_one := listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one
 
 /--
 If all coefficients of a list, interpreted via `GF16.toGF216`, match those of a polynomial `q`

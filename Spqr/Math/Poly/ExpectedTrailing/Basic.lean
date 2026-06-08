@@ -11,7 +11,7 @@ import Spqr.Math.Poly.LinearFactors.Basic
 
 ## Main statements
 
-* `expectedTrailingPoly_coeff_eq_zero` — high-degree coefficients vanish.
+* `expectedTrailingPoly_coeff_eq_zero_of_lt` — high-degree coefficients vanish.
 * `expectedTrailingPoly_eq_prodLinearFactors` — collapse to `prodLinearFactors` under the
   leading-one / lower-zero hypothesis.
 -/
@@ -22,7 +22,7 @@ open spqr.encoding.gf
 namespace spqr.encoding.polynomial
 
 /-- Coefficients of `expectedTrailingPoly` beyond degree `k` are zero. -/
-lemma expectedTrailingPoly_coeff_eq_zero
+lemma expectedTrailingPoly_coeff_eq_zero_of_lt
     (p_coeffs : List GF16) (pts : List Pt)
     (offset iter_start k n : Nat) (hn : k < n) :
     (expectedTrailingPoly p_coeffs pts offset iter_start k).coeff n = 0 := by
@@ -43,6 +43,9 @@ lemma expectedTrailingPoly_coeff_eq_zero
         rw [coeff_C]; exact if_neg (by omega)
       rw [h1, h2, this]; ring
 
+@[deprecated expectedTrailingPoly_coeff_eq_zero_of_lt (since := "2026-06-08")]
+alias expectedTrailingPoly_coeff_eq_zero := expectedTrailingPoly_coeff_eq_zero_of_lt
+
 /--
 Bridge lemma: when the initial polynomial has `p[offset] = ONE` and `p[j] = ZERO` for `j <
 offset`, the expected trailing polynomial collapses to `prodLinearFactors`.
@@ -58,7 +61,7 @@ lemma expectedTrailingPoly_eq_prodLinearFactors
   intro k hk
   induction k with
   | zero =>
-    rw [expectedTrailingPoly_zero, prodLinearFactors_base pts 0 0 (by omega),
+    rw [expectedTrailingPoly_zero, prodLinearFactors_eq_one_of_not_lt pts 0 0 (by omega),
         h_leading, map_one]
   | succ n ih =>
     rw [expectedTrailingPoly_succ]

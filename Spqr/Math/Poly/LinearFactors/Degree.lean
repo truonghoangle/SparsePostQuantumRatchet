@@ -12,7 +12,7 @@ import Spqr.Math.Poly.LinearFactors.Basic
 
 * `prodLinearFactors_eval_root` — vanishing at any root.
 * `prodLinearFactors_split_at` — splitting the product at a midpoint.
-* `prodLinearFactors_eq_factor_mul_basis` — factoring out the `i`-th linear factor.
+* `prodLinearFactors_eq_X_sub_C_mul` — factoring out the `i`-th linear factor.
 * `natDegree_prodLinearFactors_le` — degree bound.
 * `prodLinearFactors_coeff_eq_zero_high` — vanishing of high coefficients.
 -/
@@ -62,7 +62,7 @@ lemma prodLinearFactors_split_at
       ring
 
 /-- The full product factors as `(X − pts[i].x) · lagrangeBasisPoly pts i`. -/
-lemma prodLinearFactors_eq_factor_mul_basis
+lemma prodLinearFactors_eq_X_sub_C_mul
     (pts : List Pt) (i : Nat)
     (hi : i < pts.length) :
     prodLinearFactors pts 0 pts.length =
@@ -72,6 +72,9 @@ lemma prodLinearFactors_eq_factor_mul_basis
   rw [prodLinearFactors_split_at pts (i + 1) pts.length (by omega) (le_refl _),
       prodLinearFactors_snoc pts 0 i (by omega) hi]
   ring
+
+@[deprecated prodLinearFactors_eq_X_sub_C_mul (since := "2026-06-08")]
+alias prodLinearFactors_eq_factor_mul_basis := prodLinearFactors_eq_X_sub_C_mul
 
 /-- Degree bound for `prodLinearFactors`. -/
 lemma natDegree_prodLinearFactors_le
@@ -106,7 +109,7 @@ lemma prodLinearFactors_coeff_eq_zero_high
   | zero =>
     intro start stop m hd hm'
     have : ¬(start < stop ∧ start < pts.length) := by omega
-    rw [prodLinearFactors_base _ _ _ this, coeff_one]
+    rw [prodLinearFactors_eq_one_of_not_lt _ _ _ this, coeff_one]
     exact if_neg (by omega)
   | succ n ih =>
     intro start stop m hd hm'
@@ -119,7 +122,7 @@ lemma prodLinearFactors_coeff_eq_zero_high
             ih (start + 1) stop (m' + 1) (by omega) (by omega),
             ih (start + 1) stop m' (by omega) (by omega)]
         ring
-    · rw [prodLinearFactors_base _ _ _ h, coeff_one]
+    · rw [prodLinearFactors_eq_one_of_not_lt _ _ _ h, coeff_one]
       exact if_neg (by omega)
 
 end spqr.encoding.polynomial

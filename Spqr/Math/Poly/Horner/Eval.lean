@@ -52,7 +52,7 @@ lemma hornerAccum_zero_eq_eval
       (listToGF216Poly coeffs).eval (g.toGF216) := by
   induction coeffs with
   | nil =>
-    rw [hornerAccum_ge g [] 0 (by simp)]
+    rw [hornerAccum_eq_zero_of_le g [] 0 (by simp)]
     simp
   | cons c cs ih =>
     rw [hornerAccum_unfold g (c :: cs) 0 (by simp)]

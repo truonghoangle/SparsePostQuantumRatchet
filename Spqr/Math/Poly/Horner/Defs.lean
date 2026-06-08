@@ -14,7 +14,7 @@ import Spqr.Math.Poly.Basic.Defs
 
 ## Main statements
 
-* `hornerAccum_ge` — out-of-range index gives `0`.
+* `hornerAccum_eq_zero_of_le` — out-of-range index gives `0`.
 * `hornerAccum_unfold` — one-step unfolding.
 * `hornerAccum_cons` — shifting lemma on a `cons` cell.
 -/
@@ -39,12 +39,15 @@ noncomputable def hornerAccum (g_x : spqr.encoding.gf.GF16)
 termination_by coeffs.length - pos
 
 @[simp]
-lemma hornerAccum_ge (g_x : spqr.encoding.gf.GF16)
+lemma hornerAccum_eq_zero_of_le (g_x : spqr.encoding.gf.GF16)
     (coeffs : List spqr.encoding.gf.GF16) (pos : Nat)
     (h : coeffs.length ≤ pos) :
     hornerAccum g_x coeffs pos = 0 := by
   unfold hornerAccum
   simp [show ¬(pos < coeffs.length) from by omega]
+
+@[deprecated hornerAccum_eq_zero_of_le (since := "2026-06-08")]
+alias hornerAccum_ge := hornerAccum_eq_zero_of_le
 
 lemma hornerAccum_unfold (g_x : spqr.encoding.gf.GF16)
     (coeffs : List spqr.encoding.gf.GF16) (pos : Nat)
@@ -72,8 +75,8 @@ lemma hornerAccum_cons
       simp [List.get_eq_getElem]
     rw [hget]; congr 1; congr 1
     exact hornerAccum_cons g c cs (pos + 1)
-  · rw [hornerAccum_ge g (c :: cs) (pos + 1) (by simp; omega),
-        hornerAccum_ge g cs pos (by omega)]
+  · rw [hornerAccum_eq_zero_of_le g (c :: cs) (pos + 1) (by simp; omega),
+        hornerAccum_eq_zero_of_le g cs pos (by omega)]
 termination_by cs.length - pos
 decreasing_by omega
 

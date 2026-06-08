@@ -17,7 +17,7 @@ import Spqr.Math.Poly.Basic.Defs
 
 ## Main statements
 
-* `lagrangeDenomProd_ge` — out-of-range index gives `1`.
+* `lagrangeDenomProd_eq_one_of_le` — out-of-range index gives `1`.
 * `lagrangeDenomProd_skip`, `lagrangeDenomProd_accum` — one-step unfoldings.
 -/
 
@@ -48,12 +48,15 @@ termination_by pts.length - start
 
 /-- When `start ≥ pts.length`, the product is `1` (empty product). -/
 @[simp]
-lemma lagrangeDenomProd_ge (pi_x : spqr.encoding.gf.GF16)
+lemma lagrangeDenomProd_eq_one_of_le (pi_x : spqr.encoding.gf.GF16)
     (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
     (h : pts.length ≤ start) :
     lagrangeDenomProd pi_x pts start = 1 := by
   unfold lagrangeDenomProd
   simp [show ¬(start < pts.length) from by omega]
+
+@[deprecated lagrangeDenomProd_eq_one_of_le (since := "2026-06-08")]
+alias lagrangeDenomProd_ge := lagrangeDenomProd_eq_one_of_le
 
 /-- One-step unfolding when the current point matches `pi_x`. -/
 lemma lagrangeDenomProd_skip (pi_x : spqr.encoding.gf.GF16)

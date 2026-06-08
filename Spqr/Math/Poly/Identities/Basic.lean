@@ -11,9 +11,9 @@ import Spqr.Math.Poly.CharTwo.Basic
 
 ## Main statements
 
-* `coeff_zero_of_X_mul_identity` — the constant term of a polynomial satisfying a factored
+* `coeff_zero_eq_zero_of_X_mul_identity` — the constant term of a polynomial satisfying a factored
   identity is zero.
-* `list_map_sum_eq_finset_sum` — `List.map`/`List.sum` to `Finset.sum` bridge.
+* `List.map_sum_eq_Finset_sum` — `List.map`/`List.sum` to `Finset.sum` bridge.
 
 ## Instances
 
@@ -38,7 +38,7 @@ the RHS has a factor of `X` and hence zero constant term.
 • When `a = 0`: `(X − C(0)) = X`, and the root hypothesis `P.eval(a) = 0` gives `X ∣ P`,
   from which `p.coeff(0) = 0` follows.
 -/
-lemma coeff_zero_of_X_mul_identity
+lemma coeff_zero_eq_zero_of_X_mul_identity
     (p : GF216Poly) (a s : GF216) (P : GF216Poly)
     (h_id : p * (X - C a) = X * C s * P)
     (h_root : P.eval a = 0) :
@@ -64,10 +64,13 @@ lemma coeff_zero_of_X_mul_identity
     rw [CharTwo.neg_eq] at h0
     exact (mul_eq_zero.mp h0).elim id (absurd · ha)
 
+@[deprecated coeff_zero_eq_zero_of_X_mul_identity (since := "2026-06-08")]
+alias coeff_zero_of_X_mul_identity := coeff_zero_eq_zero_of_X_mul_identity
+
 /-! ## List/Finset sum bridge -/
 
 /-- Converting `List.map/sum` to `Finset.sum` indexed by `Fin`. -/
-lemma list_map_sum_eq_finset_sum
+lemma List.map_sum_eq_Finset_sum
     {α β : Type} [AddCommMonoid β]
     (l : List α) (f : α → β) :
     (l.map f).sum = Finset.sum Finset.univ (fun i : Fin l.length => f (l.get i)) := by
@@ -77,6 +80,9 @@ lemma list_map_sum_eq_finset_sum
     simp only [List.map_cons, List.sum_cons, List.length_cons, List.get_eq_getElem]
     rw [ih, Fin.sum_univ_succ]
     simp [Fin.val_succ, List.get_eq_getElem]
+
+@[deprecated List.map_sum_eq_Finset_sum (since := "2026-06-08")]
+alias list_map_sum_eq_finset_sum := List.map_sum_eq_Finset_sum
 
 /-! ## Remaining `Inhabited` instance -/
 

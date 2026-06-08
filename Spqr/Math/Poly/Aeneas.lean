@@ -155,7 +155,7 @@ theorem poly_identity_from_loop1
         have hsucc : coeffs.length - 1 + 1 = coeffs.length :=
           by omega
         rw [hsucc] at hH_last
-        rw [hornerAccum_ge g coeffs coeffs.length (le_refl _)] at hH_last
+        rw [hornerAccum_eq_zero_of_le g coeffs coeffs.length (le_refl _)] at hH_last
         simp [mul_zero, add_zero] at hH_last
         have hH_last_get : (coeffs.get ⟨coeffs.length - 1, hm1_lt_c⟩).toGF216 =
             hornerAccum g coeffs (coeffs.length - 1) := by
@@ -318,7 +318,7 @@ theorem dot_product_eq_eval
       (v[j]!).toGF216 * x.toGF216 ^ j =
       (listToGF216Poly v).coeff j * x.toGF216 ^ j := by
     intro j hj
-    congr 1; exact getElem_bang_toGF216_eq_coeff v j
+    congr 1; exact getElem!_toGF216_eq_coeff v j
   rw [Finset.sum_congr rfl h_coeff]
   exact (eval_eq_range_sum (listToGF216Poly v) (x.toGF216) v.length
     (fun j hj => listToGF216Poly_coeff_eq_zero v j hj)).symm

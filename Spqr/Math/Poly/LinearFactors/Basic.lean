@@ -17,7 +17,7 @@ import Spqr.Math.Poly.Basic.Defs
 
 ## Main statements
 
-* `prodLinearFactors_base` — empty product equals `1`.
+* `prodLinearFactors_eq_one_of_not_lt` — empty product equals `1`.
 * `prodLinearFactors_step` — left unfolding.
 * `prodLinearFactors_snoc` — right unfolding.
 -/
@@ -43,10 +43,13 @@ termination_by stop - start
 
 /-- When `start ≥ stop` or `start ≥ pts.length`, the product is `1` (empty product). -/
 @[simp]
-lemma prodLinearFactors_base (pts : List Pt) (start stop : Nat)
+lemma prodLinearFactors_eq_one_of_not_lt (pts : List Pt) (start stop : Nat)
     (h : ¬(start < stop ∧ start < pts.length)) :
     prodLinearFactors pts start stop = 1 := by
   unfold prodLinearFactors; rw [dif_neg h]
+
+@[deprecated prodLinearFactors_eq_one_of_not_lt (since := "2026-06-08")]
+alias prodLinearFactors_base := prodLinearFactors_eq_one_of_not_lt
 
 /-- One-step unfolding of `prodLinearFactors` from the left. -/
 lemma prodLinearFactors_step (pts : List Pt) (start stop : Nat)
@@ -71,8 +74,8 @@ private lemma prodLinearFactors_snoc_aux (pts : List Pt) (stop : Nat)
     have hseq : stop = s := by omega
     subst hseq
     rw [prodLinearFactors_step pts stop (stop + 1) (by omega) h2,
-        prodLinearFactors_base pts (stop + 1) (stop + 1) (by omega),
-        prodLinearFactors_base pts stop stop (by omega)]
+        prodLinearFactors_eq_one_of_not_lt pts (stop + 1) (stop + 1) (by omega),
+        prodLinearFactors_eq_one_of_not_lt pts stop stop (by omega)]
     ring
   | succ n ih =>
     intro s hs hle
