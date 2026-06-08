@@ -22,7 +22,8 @@ import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.ExpectedTrailing.Defs
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.Identities.Basic
-import Spqr.Math.Poly.Aeneas
+import Spqr.Math.Poly.Aeneas.DotProduct
+import Spqr.Math.Poly.Aeneas.PowerVector
 import Spqr.Math.Poly.Mathlib
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign

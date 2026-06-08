@@ -9,7 +9,10 @@ import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible
 import Spqr.Math.Gf2Poly.Basic
 import Spqr.Math.Gf2Poly.NatRep
-import Spqr.Math.Poly.Aeneas
+import Spqr.Math.Poly.Aeneas.DotProduct
+import Spqr.Math.Poly.Aeneas.MultXdiff
+import Spqr.Math.Poly.Aeneas.PolyIdentity
+import Spqr.Math.Poly.Aeneas.PowerVector
 import Spqr.Math.Poly.Basic.Defs
 import Spqr.Math.Poly.Basic.Zero
 import Spqr.Math.Poly.CharTwo.Basic

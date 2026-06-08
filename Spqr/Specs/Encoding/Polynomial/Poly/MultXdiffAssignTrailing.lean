@@ -22,7 +22,7 @@ import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.ExpectedTrailing.Defs
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.Identities.Basic
-import Spqr.Math.Poly.Aeneas
+import Spqr.Math.Poly.Aeneas.MultXdiff
 import Spqr.Math.Poly.General
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.SubAssign
