@@ -12,7 +12,6 @@ import Spqr.Specs.Encoding.Gf.GF16.ZERO
 import Spqr.Specs.Encoding.Gf.GF16.ONE
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.SliceIteratorNext
-import Spqr.Specs.Aeneas.IntoIteratorSlice
 import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Mathlib.RingTheory.DedekindDomain.Basic
 /-!

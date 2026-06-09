@@ -580,6 +580,15 @@ def
   {T : Type} : Slice T → Result (core.slice.iter.Iter T) :=
   fun s => ok ⟨s, 0⟩
 
+@[step]
+theorem into_iter_spec {T : Type} (s : Slice T) :
+    SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
+      s
+      ⦃ (iter : core.slice.iter.Iter T) =>
+        iter.slice = s ∧ iter.i = 0 ⦄ := by
+  unfold SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
+  simp [WP.spec_ok]
+
 /-- [core::slice::iter::{core::iter::traits::iterator::Iterator<&'a ([T])> for core::slice::iter::ChunksExact<'a, T>}::collect]:
     Source: '/rustc/library/core/src/slice/iter.rs', lines 1892:0-1892:43
     Name pattern: [core::slice::iter::{core::iter::traits::iterator::Iterator<core::slice::iter::ChunksExact<'a, @T>, &'a [@T]>}::collect] -/

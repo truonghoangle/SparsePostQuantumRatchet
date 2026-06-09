@@ -9,6 +9,7 @@ import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible
 import Spqr.Math.Gf2Poly.Basic
 import Spqr.Math.Gf2Poly.NatRep
+import Spqr.Math.List
 import Spqr.Math.Poly.Aeneas.DotProduct
 import Spqr.Math.Poly.Aeneas.MultXdiff
 import Spqr.Math.Poly.Aeneas.PolyIdentity
@@ -22,7 +23,6 @@ import Spqr.Math.Poly.Coeff.ListOps
 import Spqr.Math.Poly.Eval
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.ExpectedTrailing.Defs
-import Spqr.Math.List
 import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
@@ -37,7 +37,6 @@ import Spqr.Specs.Aeneas.CloneGF16
 import Spqr.Specs.Aeneas.Collect
 import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Spqr.Specs.Aeneas.GF16New
-import Spqr.Specs.Aeneas.IntoIteratorSlice
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
 import Spqr.Specs.Aeneas.SliceChunksExact
@@ -203,3 +202,5 @@ import Spqr.Specs.IncrementalMlkem768.FlipEndiannessOfEncapsulationStateLoop0
 import Spqr.Specs.IncrementalMlkem768.FlipEndiannessOfEncapsulationStateLoopBody0
 import Spqr.Specs.IncrementalMlkem768.Generate
 import Spqr.Specs.IncrementalMlkem768.HEADER_SIZE
+import Spqr.Specs.Lib.EmptyState
+import Spqr.Specs.Lib.Eq
