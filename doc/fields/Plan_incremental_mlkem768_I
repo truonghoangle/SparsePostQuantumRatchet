@@ -1,0 +1,1058 @@
+# TODO: Verification Plan for Incremental ML-KEM-768 Functions — NIST FIPS 203 Grounding
+
+## Overview
+
+This document extends the verification plan in
+[`Plan_incremental_mlkem768`](./Plan_incremental_mlkem768) by grounding
+the expected function specifications in
+[NIST FIPS 203](../field/NIST.FIPS.203.pdf) (*Module-Lattice-Based
+Key-Encapsulation Mechanism Standard*, published August 13, 2024).
+Where `Plan_incremental_mlkem768` documents the *current verification
+status* (spec files, axioms, `sorry` inventory), this companion plan
+traces the **expected byte-length constants and algorithmic contracts**
+back to the normative FIPS 203 parameter tables and algorithm
+specifications.
+
+All functions and constants referenced below are drawn exclusively
+from
+[`doc/truong/incremental_mlkem768_functions.txt`](../truong/incremental_mlkem768_functions.txt).
+The Rust implementation lives in
+[`src/incremental_mlkem768.rs`](../../src/incremental_mlkem768.rs),
+extracted via Aeneas into
+[`Spqr/Code/Funs.lean`](../../Spqr/Code/Funs.lean) with external
+models in
+[`Spqr/Code/FunsExternal.lean`](../../Spqr/Code/FunsExternal.lean).
+
+---
+
+## 0. NIST FIPS 203 — ML-KEM-768 Parameter Set
+
+The incremental ML-KEM-768 layer implements the ML-KEM-768 parameter
+set of FIPS 203 (Section 8, Tables 2–3). All byte-length constants in
+`src/incremental_mlkem768.rs` are derivable from these parameters.
+
+### 0a. ML-KEM-768 Parameters (FIPS 203, Table 2)
+
+| Symbol | Value | Role |
+|--------|-------|------|
+| n | 256 | Polynomial degree (constant across all parameter sets) |
+| q | 3329 | Modulus (constant across all parameter sets; q = 2⁸·13 + 1) |
+| k | 3 | Module rank — determines matrix/vector dimensions |
+| η₁ | 2 | CBD parameter for secret/error vectors (KeyGen, Encrypt) |
+| η₂ | 2 | CBD parameter for encryption noise (Encrypt) |
+| dᵤ | 10 | Compression parameter for ciphertext component c₁ |
+| dᵥ | 4 | Compression parameter for ciphertext component c₂ |
+| RBG strength | ≥ 192 bits | Required randomness-generation security strength |
+| Security category | 3 | NIST security category (≥ AES-192 equivalent) |
+
+### 0b. ML-KEM-768 Key and Ciphertext Sizes (FIPS 203, Table 3)
+
+| Object | Formula (FIPS 203) | Bytes |
+|--------|--------------------|-------|
+| Encapsulation key (ek) | 384·k + 32 = 384·3 + 32 | **1184** |
+| Decapsulation key (dk) | 768·k + 96 = 768·3 + 96 | **2400** |
+| Ciphertext (c = c₁‖c₂) | 32·(dᵤ·k + dᵥ) = 32·(10·3 + 4) | **1088** |
+| Shared secret key (K) | 32 | **32** |
+
+### 0c. Ciphertext Decomposition
+
+FIPS 203 §5.2 (Algorithm 14, K-PKE.Encrypt) defines the ciphertext as
+the concatenation c = c₁‖c₂, where:
+
+| Component | Formula | Bytes | Rust constant |
+|-----------|---------|-------|---------------|
+| c₁ | 32·dᵤ·k = 32·10·3 | **960** | `CIPHERTEXT1_SIZE` |
+| c₂ | 32·dᵥ = 32·4 | **128** | `CIPHERTEXT2_SIZE` |
+| c₁ + c₂ | 960 + 128 | **1088** | (total ciphertext) |
+
+### 0d. Incremental Key Decomposition
+
+The upstream `libcrux_ml_kem::mlkem768::incremental` API splits the
+FIPS 203 keys as follows. The mapping to FIPS 203 entities is:
+
+| Incremental API | FIPS 203 origin | Bytes | Rust constant |
+|----------------|-----------------|-------|---------------|
+| `pk1` (Header) | Seed ρ (32 bytes from K-PKE.KeyGen, Alg. 13 line 2) + hash H(ek) (32 bytes from ML-KEM.KeyGen_internal, Alg. 16 line 3) | **64** | `HEADER_SIZE` |
+| `pk2` (EncapsulationKey) | ByteEncode₁₂(t̂) = first 384·k bytes of ek (FIPS 203 §5.1, Alg. 13 line 10) | **1152** | `ENCAPSULATION_KEY_SIZE` |
+| `sk` (DecapsulationKey) | Full dk (FIPS 203 §6.1, Alg. 16 line 3): dk_PKE‖ek‖H(ek)‖z | **2400** | — |
+| Encapsulation state | Internal libcrux state: r_as_ntt (3 × 512 = 1536 bytes) + error2 (512 bytes) + randomness (32 bytes) | **2080** | — |
+| Shared secret | K = output of ML-KEM.Encaps / ML-KEM.Decaps (FIPS 203 §7.2–7.3) | **32** | — |
+
+### 0e. Decapsulation Failure Rate (FIPS 203, Table 1)
+
+| Parameter set | Failure rate |
+|---------------|-------------|
+| ML-KEM-768 | 2⁻¹⁶⁴·⁸ |
+
+This is the probability that `K' ≠ K` under well-formed inputs and
+successful randomness generation (FIPS 203 §3.2). In the extracted
+model, `decapsulate_compressed_key` always returns a `default` 32-byte
+array, so decapsulation failure is not modelled.
+
+---
+
+## 1. FIPS 203 Derivation of Each Constant
+
+The following table traces each Rust constant in
+`incremental_mlkem768_functions.txt` to its FIPS 203 derivation.
+
+| # | Constant | Value | FIPS 203 Derivation | Spec File |
+|---|----------|-------|---------------------|-----------|
+| C1 | `CIPHERTEXT1_SIZE` | 960 | c₁ byte length = 32·dᵤ·k = 32·10·3 (Alg. 14 line 22; Table 3 ciphertext = c₁ + c₂) | `CIPHERTEXT1_SIZE.lean` ✅ |
+| C2 | `CIPHERTEXT2_SIZE` | 128 | c₂ byte length = 32·dᵥ = 32·4 (Alg. 14 line 23; Table 3) | `CIPHERTEXT2_SIZE.lean` ✅ |
+| C3 | `HEADER_SIZE` | 64 | pk1 byte length = 32 (seed ρ) + 32 (H(ek)) = 64 (incremental decomposition of ek) | `HEADER_SIZE.lean` ✅ |
+| C4 | `ENCAPSULATION_KEY_SIZE` | 1152 | pk2 byte length = 384·k = 384·3 = 1152 (ByteEncode₁₂(t̂) portion of ek, Alg. 13 line 10) | `ENCAPSULATION_KEY_SIZE.lean` ✅ |
+
+### Derived sizes used internally (not Rust constants, but used by external models)
+
+| Size | Value | FIPS 203 Derivation |
+|------|-------|---------------------|
+| Decapsulation key | 2400 | dk = 768·k + 96 = 768·3 + 96 = 2400 (Alg. 16; Table 3) |
+| Encapsulation state | 2080 | libcrux internal: 3 × (256 × 2) + 256 × 2 + 32 = 1536 + 512 + 32 = 2080. The 256×2 factors correspond to encoding each of the n = 256 coefficients of a polynomial in Rq as 16-bit (2-byte) integers. |
+| Shared secret | 32 | K ∈ 𝔹³² (Alg. 17 line 1, Alg. 20 output; Table 3) |
+| Key generation seed | 64 | d‖z, each 32 bytes (Alg. 19 lines 1–2); Rust uses `KEY_GENERATION_SEED_SIZE = 64` |
+
+---
+
+## 2. FIPS 203 Grounding of Function Specifications
+
+This section maps each function from
+`incremental_mlkem768_functions.txt` to the corresponding FIPS 203
+algorithms, states the expected specification properties, and
+identifies any gaps between the FIPS 203 specification and the
+extracted model.
+
+### 2a. `generate<R>(rng)` [F2] — Key Generation
+
+**FIPS 203 reference**: ML-KEM.KeyGen (Algorithm 19) → ML-KEM.KeyGen_internal (Algorithm 16) → K-PKE.KeyGen (Algorithm 13).
+
+**Expected specification (from FIPS 203)**:
+
+1. Sample d ← 𝔹³² and z ← 𝔹³², forming a 64-byte seed (Alg. 19 lines 1–2).
+2. Invoke ML-KEM.KeyGen_internal(d, z) to produce (ek, dk) with:
+   - ek ∈ 𝔹^(384k+32) = 𝔹^1184 (Alg. 16 line 2)
+   - dk ∈ 𝔹^(768k+96) = 𝔹^2400 (Alg. 16 line 3)
+3. The incremental API decomposes ek into pk1 (64 bytes) and pk2 (1152 bytes).
+
+**Rust contract** (`#[hax_lib::ensures]`):
+```
+result.hdr.len() == HEADER_SIZE       (== 64)
+result.ek.len() == ENCAPSULATION_KEY_SIZE  (== 1152)
+result.dk.len() == 2400
+```
+
+**Extracted model**: `generate_spec` in `Generate.lean` verifies the
+byte-length postcondition under the hypothesis `fill_bytes_ok`
+(modelling successful RNG). The concrete models `from_seed`,
+`pk1`, `pk2`, `sk` in `FunsExternal.lean` return `default` arrays of
+the correct sizes (64, 1152, 2400).
+
+**FIPS 203 alignment**: ✅ All byte lengths match Table 3 and Algorithm 16.
+
+### 2b. `encaps1<R>(hdr, rng)` [F3] — Incremental Encapsulation Phase 1
+
+**FIPS 203 reference**: ML-KEM.Encaps (Algorithm 20) → ML-KEM.Encaps_internal (Algorithm 17) → K-PKE.Encrypt (Algorithm 14, lines 1–21).
+
+Incremental encapsulation splits Algorithm 14 into two phases:
+- **Phase 1** (`encaps1`): Computes c₁ and the intermediate encryption
+  state (r_as_ntt, error2, randomness).
+- **Phase 2** (`encaps2`): Completes c₂ from the state and
+  encapsulation key.
+
+**Expected specification (from FIPS 203)**:
+
+1. Sample m ← 𝔹³² (Alg. 20 line 1; `SHARED_SECRET_SIZE = 32`).
+2. Compute (K, r) ← G(m‖H(ek)) and run the first phase of K-PKE.Encrypt to produce:
+   - c₁ ∈ 𝔹^(32·dᵤ·k) = 𝔹^960 (Alg. 14 line 22)
+   - encapsulation state ∈ 𝔹^2080 (libcrux internal encoding)
+   - shared secret K ∈ 𝔹^32 (Alg. 17 line 1)
+
+**Rust contract** (`#[hax_lib::requires]` / `#[hax_lib::ensures]`):
+```
+requires: hdr.len() == 64
+ensures:  ct1.len() == 960 && es.len() == 2080 && ss.len() == 32
+```
+
+**Extracted model**: `encaps1_spec` in `Encaps1.lean` proves the
+postcondition using `encapsulate1`, `encaps_state_len`,
+`SHARED_SECRET_SIZE` concrete models and `fill_bytes_ok` hypothesis.
+
+**FIPS 203 alignment**: ✅ c₁ size matches 32·dᵤ·k = 960.
+Shared secret size matches 𝔹³² = 32 bytes.
+
+### 2c. `encaps2(ek, es)` [F4] — Incremental Encapsulation Phase 2
+
+**FIPS 203 reference**: K-PKE.Encrypt (Algorithm 14, lines 22–24),
+specifically the computation of c₂ = ByteEncode_{dᵥ}(Compress_{dᵥ}(v)).
+
+**Expected specification (from FIPS 203)**:
+
+1. From the encapsulation state and pk2, compute:
+   - c₂ ∈ 𝔹^(32·dᵥ) = 𝔹^128 (Alg. 14 line 23)
+
+**Rust contract**:
+```
+requires: es.len() == 2080 && ek.len() == 1152
+ensures:  result.len() == 128
+```
+
+**Extracted model**: `encaps2_spec` in `Encaps2.lean` proves the
+postcondition under hypotheses `potentially_fix_state_ok` and
+`option_as_ref_id`, using the `encapsulate2` concrete model.
+
+**FIPS 203 alignment**: ✅ c₂ size matches 32·dᵥ = 128.
+
+**Note on η₂ and endianness**: The encapsulation state encodes
+error term e₂ as 16-bit little-endian integers. FIPS 203 §5.2
+(Alg. 14 line 17) specifies that e₂ is sampled from CBD_{η₂}
+with η₂ = 2, meaning all coefficients lie in {−2, −1, 0, 1, 2}.
+The function
+`potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275`
+exploits this range to detect endianness errors: the `i16` encoding
+of values in [−2, 2] has a known pattern that differs between
+little-endian and big-endian representations. This is the Rust
+comment's reference to "η₂ from NIST FIPS 203 page 39 table 2."
+
+### 2d. `decaps(dk, ct1, ct2)` [F5] — Decapsulation
+
+**FIPS 203 reference**: ML-KEM.Decaps (Algorithm 21) → ML-KEM.Decaps_internal (Algorithm 18) → K-PKE.Decrypt (Algorithm 15).
+
+**Expected specification (from FIPS 203)**:
+
+1. Parse dk to extract dk_PKE (384k = 1152 bytes), ek_PKE (384k + 32 = 1184 bytes), h (32 bytes), z (32 bytes). Total: 768k + 96 = 2400 bytes (Alg. 18 lines 1–4).
+2. Decrypt c₁ via K-PKE.Decrypt to recover m' (Alg. 18 line 5).
+3. Re-encrypt and compare (Alg. 18 lines 6–11).
+4. Output K' ∈ 𝔹³² (Alg. 18 line 12; Alg. 21 line 2).
+
+**Rust contract**:
+```
+requires: ct1.len() == 960 && ct2.len() == 128 && dk.len() == 2400
+ensures:  result.len() == 32
+```
+
+**Extracted model**: `decaps_spec` in `Decaps.lean` proves the
+postcondition using `decapsulate_compressed_key` concrete model and
+`TryFromArrayCopySlice.try_from`, `TryFromSharedArraySlice.try_from`,
+`Result.expect` infrastructure.
+
+**FIPS 203 alignment**: ✅ Input sizes match Table 3 (dk = 2400,
+c = c₁‖c₂ = 960 + 128 = 1088). Output shared secret = 32 bytes.
+
+### 2e. `ek_matches_header(ek, hdr)` [F1] — Encapsulation Key Validation
+
+**FIPS 203 reference**: FIPS 203 §7.2 (Encapsulation key check).
+
+FIPS 203 specifies two checks for the encapsulation key:
+1. **Type check**: ek must be a byte array of length 384k + 32 = 1184.
+2. **Modulus check**: ByteEncode₁₂(ByteDecode₁₂(ek[0 : 384k])) must
+   equal ek[0 : 384k], ensuring all encoded integers are in [0, q−1].
+
+**Expected specification**: In the incremental API,
+`validate_pk_bytes(hdr, ek)` performs the FIPS 203 encapsulation key
+check by reassembling the full ek from pk1 (hdr) and pk2 (ek). The
+function returns `Ok(())` if validation passes, `Err(...)` otherwise.
+`ek_matches_header` returns `validate_pk_bytes(hdr, ek).is_ok()`.
+
+**Rust contract**: No explicit `#[hax_lib::ensures]` — the return
+type is `bool`.
+
+**Extracted model**: `ek_matches_header_spec` in `EkMatchesHeader.lean`
+proves correctness using the concrete model
+`validate_pk_bytes _ _ = ok (Ok ())` (validation always succeeds in
+the extracted model) and the local axiom `Result_is_ok_Ok`.
+
+**FIPS 203 alignment**: ✅ The validation semantics correspond to the
+FIPS 203 §7.2 encapsulation key check. In the extracted model,
+validation is trivialised (always succeeds) because `validate_pk_bytes`
+is an opaque upstream function.
+
+### 2f. `flip_endianness_of_encapsulation_state(es)` [F7]
+
+**FIPS 203 reference**: Not directly specified in FIPS 203. This
+function corrects an endianness encoding issue
+(cryspen/libcrux#1275) in the libcrux internal representation of
+the encapsulation state.
+
+**Expected specification**: Byte-swap each consecutive 16-bit word in
+the first `len − 32` bytes of `es`, preserving the last 32 bytes
+(the shared-secret/randomness portion). The 16-bit word structure
+arises because FIPS 203 polynomial coefficients are elements of ℤ_q
+(with q = 3329, requiring 12 bits, stored as 16-bit integers in the
+libcrux encoding).
+
+**Rust contract**:
+```
+requires: es.len() % 2 == 0 && es.len() == 2080
+ensures:  result.len() == es.len()
+```
+
+**Extracted model**: Fully verified with a three-part postcondition in
+`FlipEndiannessOfEncapsulationState.lean` (length preservation,
+byte-swap in [0, len−32), frame/tail in [len−32, len)).
+
+**FIPS 203 alignment**: N/A (workaround for implementation bug, not
+part of the FIPS 203 specification).
+
+### 2g. `potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275(es)` [F6]
+
+**FIPS 203 reference**: Uses the η₂ = 2 bound from FIPS 203 Table 2
+to detect endianness errors. Since e₂ is sampled from CBD_{η₂}
+(Alg. 14 line 17), all coefficients satisfy |e₂[i]| ≤ η₂ = 2. The
+function checks whether the `i16` encoding of coefficients in the
+`error2` portion of the encapsulation state (bytes [1536, 2048))
+falls in {−2, −1, 0, 1, 2} under little-endian interpretation.
+
+**Expected specification**: Returns `Some(fixed_es)` if byte-swapping
+was needed, `None` otherwise. If `Some`, the result has length 2080.
+
+**Extracted model**: Axiomatised in `FunsExternal.lean`. Internal
+logic not verified. Contract captured as `potentially_fix_state_ok`
+hypothesis in `Encaps2.lean`.
+
+**FIPS 203 alignment**: Partial — the η₂ = 2 bound is correctly
+sourced from FIPS 203 Table 2, but the function itself is an
+implementation-level workaround, not a FIPS 203 algorithm.
+
+---
+
+## 3. FIPS 203 Algorithm–to–Function Mapping
+
+The following table maps each FIPS 203 algorithm to the corresponding
+Rust function(s) in `src/incremental_mlkem768.rs`, showing how the
+standard three-algorithm KEM interface (KeyGen, Encaps, Decaps) is
+decomposed into the incremental API.
+
+| FIPS 203 Algorithm | FIPS 203 § | Rust Function(s) | Notes |
+|--------------------|------------|-------------------|-------|
+| ML-KEM.KeyGen (Alg. 19) | §7.1 | `generate` [F2] | Samples 64-byte seed, invokes `KeyPairCompressedBytes::from_seed`, extracts pk1/pk2/sk |
+| ML-KEM.Encaps (Alg. 20) | §7.2 | `encaps1` [F3] + `encaps2` [F4] | Split into two phases; `encaps1` produces c₁ + state + ss; `encaps2` produces c₂ |
+| ML-KEM.Decaps (Alg. 21) | §7.3 | `decaps` [F5] | Reassembles c = c₁‖c₂, invokes `decapsulate_compressed_key` |
+| Encapsulation key check (§7.2) | §7.2 | `ek_matches_header` [F1] | Calls `validate_pk_bytes(hdr, ek).is_ok()` |
+| K-PKE.KeyGen (Alg. 13) | §5.1 | (inside `from_seed`) | Opaque in libcrux; produces encryption/decryption key pair |
+| K-PKE.Encrypt (Alg. 14) | §5.2 | (inside `encapsulate1` + `encapsulate2`) | Split across two opaque libcrux calls |
+| K-PKE.Decrypt (Alg. 15) | §5.3 | (inside `decapsulate_compressed_key`) | Opaque in libcrux |
+| — | — | `flip_endianness_of_encapsulation_state` [F7] | Not in FIPS 203; libcrux endianness workaround |
+| — | — | `potentially_fix_state…` [F6] | Not in FIPS 203; uses η₂ = 2 from Table 2 for detection |
+
+---
+
+## 4. FIPS 203 Size Consistency Verification Matrix
+
+This matrix cross-references every byte-length assertion in the
+verification with its FIPS 203 formula, confirming that the extracted
+model's concrete values are consistent with the standard.
+
+| Assertion in Lean Model | Concrete Value | FIPS 203 Formula | FIPS 203 § | Consistent? |
+|------------------------|----------------|-----------------|------------|-------------|
+| `Ciphertext1.len 960 = ok 960` | 960 | 32·dᵤ·k = 32·10·3 | §5.2, Alg. 14 line 22 | ✅ |
+| `Ciphertext2.len 128 = ok 128` | 128 | 32·dᵥ = 32·4 | §5.2, Alg. 14 line 23 | ✅ |
+| `pk1_len = ok 64` | 64 | Incremental decomposition of ek | (libcrux-specific) | ✅ |
+| `pk2_len = ok 1152` | 1152 | 384·k = 384·3 | §5.1, Alg. 13 line 10 | ✅ |
+| `encaps_state_len = ok 2080` | 2080 | k·(n·2) + n·2 + 32 = 3·512 + 512 + 32 | (libcrux encoding) | ✅ |
+| `SHARED_SECRET_SIZE = ok 32` | 32 | K ∈ 𝔹³² | §7, Alg. 17/20/21 | ✅ |
+| `sk _ = ok (default : Array U8 2400)` | 2400 | dk = 768·k + 96 = 768·3 + 96 | §6.1, Alg. 16; Table 3 | ✅ |
+| `pk1 _ = ok (default : Array U8 64)` | 64 | (see pk1_len above) | (libcrux-specific) | ✅ |
+| `pk2 _ = ok (default : Array U8 1152)` | 1152 | (see pk2_len above) | §5.1 | ✅ |
+| `validate_pk_bytes _ _ = ok (Ok ())` | always Ok | Encapsulation key check | §7.2 | ✅ (trivialised) |
+| `encapsulate1 _ _ state ss = ok (…)` | ct1=960, state=2080, ss=32 | c₁ + state + K | §5.2/§7.2 | ✅ |
+| `encapsulate2 _ _ = ok ⟨default⟩` | ct2=128 | c₂ = 32·dᵥ | §5.2 | ✅ |
+| `decapsulate_compressed_key _ _ _ = ok default` | ss=32 | K' ∈ 𝔹³² | §7.3, Alg. 21 | ✅ |
+
+---
+
+## 5. FIPS 203 Cryptographic Assumptions and Verification Scope
+
+### 5a. What FIPS 203 Properties Are Verified
+
+The incremental ML-KEM-768 verification proves **byte-length
+preservation** through the opaque cryptographic calls. Specifically:
+
+| Property | FIPS 203 Source | Verified? |
+|----------|----------------|-----------|
+| c₁ has length 32·dᵤ·k = 960 | Alg. 14 line 22, Table 3 | ✅ (via `CIPHERTEXT1_SIZE_spec`) |
+| c₂ has length 32·dᵥ = 128 | Alg. 14 line 23, Table 3 | ✅ (via `CIPHERTEXT2_SIZE_spec`) |
+| ek (pk2) has length 384·k = 1152 | Alg. 13 line 10, Table 3 | ✅ (via `ENCAPSULATION_KEY_SIZE_spec`) |
+| dk has length 768·k + 96 = 2400 | Alg. 16, Table 3 | ✅ (via `generate_spec`) |
+| K has length 32 | Alg. 17/20/21, Table 3 | ✅ (via `encaps1_spec`, `decaps_spec`) |
+| Header (pk1) has length 64 | Incremental API | ✅ (via `HEADER_SIZE_spec`, `generate_spec`) |
+| Encapsulation state has length 2080 | libcrux encoding | ✅ (via `encaps1_spec`) |
+| flip_endianness preserves length | — | ✅ (via `flip_endianness_spec`) |
+| ek_matches_header returns bool | §7.2 key check | ✅ (via `ek_matches_header_spec`) |
+
+### 5b. What FIPS 203 Properties Are NOT Verified
+
+The following FIPS 203 properties are **outside the verification
+scope** because the upstream `libcrux_ml_kem` functions are treated
+as opaque:
+
+| Property | FIPS 203 Source | Why Not Verified |
+|----------|----------------|-----------------|
+| Correctness: K' = K with probability ≥ 1 − 2⁻¹⁶⁴·⁸ | §3.2, Table 1 | `decapsulate_compressed_key` is opaque; returns `default` |
+| IND-CCA2 security | §3.2 | Computational security property; not expressible as a Lean type-level theorem |
+| Modulus check: ByteEncode₁₂(ByteDecode₁₂(ek[0:384k])) == ek[0:384k] | §7.2, Eq. 7.1 | `validate_pk_bytes` is opaque; trivialised to always-Ok |
+| NTT correctness: NTT⁻¹(NTT(f)) = f | §4.3, Algs. 9–10 | Internal to opaque libcrux functions |
+| Compression/decompression round-trip | §4.2.1, Eqs. 4.7–4.8 | Internal to opaque libcrux functions |
+| CBD sampling distribution: coefficients in {−η, …, η} | §4.2.2, Alg. 8 | Used only in η₂ detection logic (F6, opaque) |
+| Seed expansion via SHA3-512 / SHAKE256 | §4.1, Eqs. 4.3–4.5 | Internal to opaque libcrux functions |
+| Destruction of intermediate values | §3.3 | Runtime memory-safety property; not modelled in extraction |
+
+### 5c. Implicit Rejection (FIPS 203 §6.3, Alg. 18 lines 6–11)
+
+FIPS 203 specifies that ML-KEM.Decaps_internal performs an
+"implicit rejection" when the re-encrypted ciphertext c' does not
+match the input ciphertext c (Alg. 18, lines 9–11). In this case,
+the output K' is replaced with K̄ = J(z‖c), a pseudorandom value
+derived from the decapsulation key's random component z and the
+ciphertext c.
+
+This behaviour is entirely internal to the opaque
+`decapsulate_compressed_key` function and is not modelled in the
+extraction (which returns `default`). The verification therefore does
+**not** prove that implicit rejection is correctly implemented.
+
+---
+
+## 6. Inter-Function Spec Theorems: FIPS 203 KEM Chain
+
+FIPS 203 §3.1 (Figure 1) defines the canonical KEM protocol as a
+three-step chain: **KeyGen → Encaps → Decaps**. The incremental
+ML-KEM-768 API decomposes this into five callable functions
+(`generate`, `ek_matches_header`, `encaps1`, `encaps2`, `decaps`).
+The spec theorems in the Lean verification must not only prove each
+function correct in isolation, but also establish that **the output
+of each function satisfies the preconditions of the next function in
+the chain**, ensuring composability.
+
+This section enumerates the inter-function spec theorems that link
+these functions together, grounded in FIPS 203.
+
+### 6a. The FIPS 203 KEM Protocol Chain
+
+```
+FIPS 203 Figure 1 (§3.1):
+
+  Alice                                    Bob
+  ─────                                    ───
+  (ek, dk) ← ML-KEM.KeyGen()              │
+       │                                   │
+       ├──── ek ────────────────────────────►
+       │                                   │
+       │                    (K, c) ← ML-KEM.Encaps(ek)
+       │                                   │
+       ◄──── c ────────────────────────────┤
+       │                                   │
+  K' ← ML-KEM.Decaps(dk, c)               │
+       │                                   │
+  assert K' = K                            │
+```
+
+In the incremental API, this becomes:
+
+```
+  Alice                                    Bob
+  ─────                                    ───
+  keys ← generate(rng)                    │
+  hdr  = keys.hdr   (64 bytes)            │
+  ek   = keys.ek    (1152 bytes)           │
+  dk   = keys.dk    (2400 bytes)           │
+       │                                   │
+       ├──── hdr, ek ──────────────────────►
+       │                                   │
+       │              assert ek_matches_header(ek, hdr) = true
+       │              (ct1, es, ss) ← encaps1(hdr, rng)
+       │              ct2 ← encaps2(ek, es)
+       │                                   │
+       ◄──── ct1, ct2 ─────────────────────┤
+       │                                   │
+  ss' ← decaps(dk, ct1, ct2)              │
+       │                                   │
+  assert |ss'| = |ss| = 32                │
+  (and K' = K, not verified — opaque)      │
+```
+
+### 6b. Existing Spec Theorems (per-function)
+
+The following spec theorems are already proved in the Lean spec tree.
+Each establishes byte-length postconditions for a single function:
+
+| Theorem | File | Postcondition |
+|---------|------|---------------|
+| `generate_spec` | `Generate.lean:147` | `hdr.length = 64 ∧ ek.length = 1152 ∧ dk.length = 2400` |
+| `ek_matches_header_spec` | `EkMatchesHeader.lean:88` | `result = true` |
+| `encaps1_spec` | `Encaps1.lean:113` | `ct1.length = 960 ∧ es.length = 2080 ∧ ss.length = 32` |
+| `encaps2_spec` | `Encaps2.lean:152` | `result.length = 128` |
+| `decaps_spec` | `Decaps.lean:93` | `result.length = 32` |
+| `flip_endianness_of_encapsulation_state_spec` | `FlipEndianness…State.lean:70` | `result.length = es.length ∧ (byte-swap ∧ frame)` |
+| `CIPHERTEXT1_SIZE_spec` | `CIPHERTEXT1_SIZE.lean:75` | `result.val = 960` |
+| `CIPHERTEXT2_SIZE_spec` | `CIPHERTEXT2_SIZE.lean:68` | `result.val = 128` |
+| `HEADER_SIZE_spec` | `HEADER_SIZE.lean:67` | `result.val = 64` |
+| `ENCAPSULATION_KEY_SIZE_spec` | `ENCAPSULATION_KEY_SIZE.lean:70` | `result.val = 1152` |
+
+### 6c. Inter-Function Precondition–Postcondition Linkages
+
+The following table shows how the postcondition of each function
+satisfies the preconditions of the next function in the FIPS 203 KEM
+chain. Each row documents a **composability link** — the spec theorem
+that produces the output, the downstream function that consumes it,
+and the FIPS 203 justification for why the sizes match.
+
+#### Link 1: `generate` → `encaps1` (FIPS 203: Alice sends ek to Bob; Bob runs Encaps)
+
+| Producer | Postcondition | Consumer | Precondition | FIPS 203 | Match? |
+|----------|--------------|----------|--------------|----------|--------|
+| `generate_spec` | `hdr.length = 64` | `encaps1` | `hdr.len() == 64` (Rust `#[requires]`) | Alice's ek includes pk1 = 64 bytes (incremental decomposition); Bob uses pk1 for Encaps phase 1 | ✅ |
+
+**Lean linkage**: The `generate_spec` postcondition `result.1.hdr.length = 64`
+directly satisfies the implicit precondition of `encaps1` (which expects
+a header vector; the `#[hax_lib::requires(hdr.len() == 64)]` Rust
+annotation is not yet enforced in the Lean extraction, but the produced
+length matches).
+
+**FIPS 203**: ML-KEM.KeyGen (Alg. 19) produces ek ∈ 𝔹^(384k+32) = 𝔹^1184.
+The incremental API decomposes ek into pk1 (64 bytes) and pk2 (1152 bytes).
+ML-KEM.Encaps (Alg. 20) takes ek as input; incrementally, phase 1 takes pk1.
+
+#### Link 2: `generate` → `ek_matches_header` (FIPS 203 §7.2: key validation)
+
+| Producer | Postcondition | Consumer | Postcondition | FIPS 203 |
+|----------|--------------|----------|---------------|----------|
+| `generate_spec` | `hdr.length = 64 ∧ ek.length = 1152` | `ek_matches_header_spec` | `result = true` | §7.2: encapsulation key check must pass before Encaps |
+
+**Lean linkage**: `ek_matches_header_spec` is unconditional (the
+trivialised `validate_pk_bytes` model always returns `Ok`), so
+composability is automatic. In a non-trivialised model, one would
+need to show that `generate`'s output satisfies the FIPS 203 §7.2
+type check (length = 384k + 32 = 1184, decomposed as 64 + 1152 by
+the incremental API) and modulus check (Eq. 7.1).
+
+**FIPS 203**: §7.2 requires that ML-KEM.Encaps shall not be run with
+an encapsulation key that has not been checked. The `ek_matches_header`
+call models this check.
+
+#### Link 3: `generate` + `encaps1` → `encaps2` (FIPS 203: Encaps phase 2)
+
+| Producer | Postcondition | Consumer | Precondition | FIPS 203 |
+|----------|--------------|----------|--------------|----------|
+| `generate_spec` | `ek.length = 1152` | `encaps2` | `ek.len() == 1152` | pk2 = 384·k bytes |
+| `encaps1_spec` | `es.length = 2080` | `encaps2` | `es.len() == 2080` | Encaps state from phase 1 |
+
+**Lean linkage**: `encaps2_spec` requires hypotheses `hes : es.length = 2080`
+and `hek : ek.length = 1152`. These are exactly the postconditions of
+`encaps1_spec` (for `es`) and `generate_spec` (for `ek`).
+
+**FIPS 203**: Encapsulation is a single algorithm (Alg. 20) that
+internally runs K-PKE.Encrypt (Alg. 14). The incremental API splits
+this into two phases; the intermediate state (2080 bytes) encodes the
+NTT representations of r (k × n × 2 = 1536 bytes), e₂ (n × 2 = 512
+bytes), and the 32-byte randomness.
+
+#### Link 4: `generate` + `encaps1` + `encaps2` → `decaps` (FIPS 203: Decaps)
+
+| Producer | Postcondition | Consumer | Precondition | FIPS 203 |
+|----------|--------------|----------|--------------|----------|
+| `generate_spec` | `dk.length = 2400` | `decaps` | `dk.len() == 2400` | dk = 768·k + 96 (Table 3) |
+| `encaps1_spec` | `ct1.length = 960` | `decaps` | `ct1.len() == 960` | c₁ = 32·dᵤ·k (Alg. 14) |
+| `encaps2_spec` | `ct2.length = 128` | `decaps` | `ct2.len() == 128` | c₂ = 32·dᵥ (Alg. 14) |
+
+**Lean linkage**: `decaps_spec` requires hypotheses `hdk : dk.length = 2400`,
+`hct1 : ct1.length = 960`, and `hct2 : ct2.length = 128`. These are
+exactly the postconditions of `generate_spec` (for `dk`), `encaps1_spec`
+(for `ct1`), and `encaps2_spec` (for `ct2`).
+
+**FIPS 203**: ML-KEM.Decaps (Alg. 21) takes dk ∈ 𝔹^(768k+96) and
+c ∈ 𝔹^(32(dᵤk+dᵥ)) as input. The incremental API passes c as two
+separate vectors c₁ and c₂; the combined size is
+960 + 128 = 1088 = 32·(10·3 + 4) = 32·(dᵤ·k + dᵥ), matching Table 3.
+
+#### Link 5: `encaps1` shared secret ↔ `decaps` shared secret (FIPS 203 §3.2: correctness)
+
+| Producer | Postcondition | Consumer | Postcondition | FIPS 203 |
+|----------|--------------|----------|---------------|----------|
+| `encaps1_spec` | `ss.length = 32` | `decaps_spec` | `result.length = 32` | K, K' ∈ 𝔹³² (Alg. 17/21) |
+
+**Lean linkage**: Both `encaps1_spec` and `decaps_spec` produce
+32-byte shared secrets, matching the FIPS 203 requirement that
+K, K' ∈ 𝔹³² (Alg. 17 line 1 and Alg. 21 output).
+
+**FIPS 203 correctness (NOT verified)**: FIPS 203 §3.2 and Table 1
+guarantee that K' = K with probability ≥ 1 − 2⁻¹⁶⁴·⁸ under
+well-formed inputs. This *functional correctness* property is not
+verified because `encapsulate1`, `encapsulate2`, and
+`decapsulate_compressed_key` are opaque (they return `default`
+values in the extracted model). Only the *size equality* |K| = |K'| = 32
+is established.
+
+### 6d. Composite Spec Theorem Sketch: Full KEM Round-Trip
+
+Composing the individual spec theorems along the FIPS 203 chain, one
+obtains the following composite property (stated informally — not yet
+a Lean theorem):
+
+```
+-- Informal composite spec (not yet in Lean)
+theorem kem_round_trip_sizes
+    {R : Type} (rngInst : rand.rng.Rng R)
+    (cryptoRngInst : rand_core.CryptoRng R) (rng : R)
+    (hfb : fill_bytes_ok rngInst.rand_coreRngCoreInst)
+    (hpfs : potentially_fix_state_ok)
+    (har : option_as_ref_id) :
+    -- Step 1: KeyGen (FIPS 203 Alg. 19)
+    generate rngInst cryptoRngInst rng ⦃ (keys_rng : Keys × R) =>
+      let keys := keys_rng.1
+      let rng1 := keys_rng.2
+      -- keys.hdr.length = 64  ∧  keys.ek.length = 1152  ∧  keys.dk.length = 2400
+      -- Step 2: Key validation (FIPS 203 §7.2)
+      ek_matches_header keys.ek keys.hdr ⦃ (valid : Bool) =>
+        valid = true ∧
+        -- Step 3: Encaps phase 1 (FIPS 203 Alg. 20, first half)
+        encaps1 rngInst cryptoRngInst keys.hdr rng1 ⦃ (enc1_rng : _ × R) =>
+          let (ct1, es, ss) := enc1_rng.1
+          -- ct1.length = 960  ∧  es.length = 2080  ∧  ss.length = 32
+          -- Step 4: Encaps phase 2 (FIPS 203 Alg. 20, second half)
+          encaps2 keys.ek es ⦃ (ct2 : Vec U8) =>
+            ct2.length = 128 ∧
+            -- Step 5: Decaps (FIPS 203 Alg. 21)
+            decaps keys.dk ct1 ct2 ⦃ (ss' : Vec U8) =>
+              -- Size consistency with FIPS 203 Table 3:
+              ss'.length = 32     -- |K'| = 32 (Alg. 21 output)
+              -- ∧ ss' = ss       -- K' = K  (FIPS 203 correctness — NOT VERIFIED)
+            ⦄ ⦄ ⦄ ⦄ ⦄
+```
+
+**Status**: This composite theorem is a **sketch** — it captures the
+logical structure of the FIPS 203 KEM protocol but is not yet
+formalised in Lean. Each individual step within the chain is already
+verified by the per-function spec theorems listed in §6b. The
+composability of these steps (§6c) is established by showing that
+postconditions match preconditions at each link. A formal composite
+theorem would require threading the monadic `Result` type through all
+five steps and handling the RNG state plumbing.
+
+### 6e. Ciphertext Completeness Theorem (FIPS 203 Table 3)
+
+The combined ciphertext in FIPS 203 is c = c₁‖c₂ with total size
+32·(dᵤ·k + dᵥ). The incremental API produces c₁ and c₂ separately.
+The following composition of spec theorems establishes that the
+combined size matches FIPS 203 Table 3:
+
+```
+-- From encaps1_spec:  ct1.length = 960
+-- From encaps2_spec:  ct2.length = 128
+-- Combined:           ct1.length + ct2.length = 1088
+--                   = 32·(dᵤ·k + dᵥ) = 32·(10·3 + 4) = 32·34
+--                   = FIPS 203 Table 3 ciphertext size for ML-KEM-768  ✅
+```
+
+This follows from pure arithmetic on the postconditions of
+`encaps1_spec` and `encaps2_spec`. It confirms that the incremental
+decomposition of encapsulation into two phases preserves the FIPS 203
+total ciphertext size.
+
+### 6f. Key Pair Completeness Theorem (FIPS 203 Table 3)
+
+Similarly, the incremental key decomposition satisfies the FIPS 203
+key size constraints:
+
+```
+-- From generate_spec:
+--   keys.hdr.length = 64   (pk1)
+--   keys.ek.length  = 1152 (pk2)
+--   keys.dk.length  = 2400
+--
+-- FIPS 203 Table 3:
+--   |ek| = 384·k + 32 = 1184
+--   |dk| = 768·k + 96 = 2400
+--
+-- Incremental decomposition:
+--   pk1 + pk2 = 64 + 1152 = 1216 ≠ 1184
+--   This is because the incremental API's pk1 includes additional
+--   data beyond the FIPS 203 encapsulation key (H(ek) = 32 bytes).
+--   The FIPS 203 encapsulation key is:
+--     pk2 (1152 = 384·k) + ρ (32 bytes, part of pk1) = 1184 = 384·k + 32  ✅
+--
+--   dk = 2400 = 768·k + 96  ✅  (matches Table 3 directly)
+```
+
+### 6h. FIPS 203 Origin Decomposition Theorems
+
+The §0d table maps each incremental API component to its FIPS 203
+origin. The following specification theorems formalize these
+relationships, expressing the structural decomposition of keys,
+ciphertexts, and state as byte-vector concatenations with
+FIPS-203-derived sub-lengths.
+
+#### Origin Theorem O1: `pk1` (Header) = ρ‖H(ek) (FIPS 203 Alg. 13 line 2, Alg. 16 line 3)
+
+FIPS 203 specifies that K-PKE.KeyGen (Alg. 13) produces a seed
+ρ ∈ 𝔹³² (line 2), and ML-KEM.KeyGen_internal (Alg. 16) computes
+h = H(ek) ∈ 𝔹³² (line 3, where H = SHA3-256). The incremental API
+concatenates these to form pk1:
+
+```lean
+/-- **FIPS 203 origin decomposition for pk1 (Header)**.
+
+pk1 is the concatenation of two 32-byte components:
+  - ρ : the seed from K-PKE.KeyGen (FIPS 203 Alg. 13 line 2)
+  - H(ek) : the SHA3-256 hash of the encapsulation key
+            (FIPS 203 Alg. 16 line 3)
+
+This theorem states that any pk1 produced by `generate` can be
+decomposed as pk1 = ρ‖H(ek) with |ρ| = 32 and |H(ek)| = 32.
+
+FIPS 203 §: Alg. 13 line 2 (ρ), Alg. 16 line 3 (H(ek))
+-/
+theorem pk1_origin_decomposition
+    (pk1 : alloc.vec.Vec Std.U8) (hlen : pk1.length = 64) :
+    ∃ (ρ h_ek : alloc.vec.Vec Std.U8),
+      ρ.length = 32 ∧ h_ek.length = 32
+      ∧ pk1.val = ρ.val ++ h_ek.val := by
+  sorry -- Requires non-opaque model of from_seed/pk1
+```
+
+**Status**: Sketch (requires non-opaque model of `pk1`).
+The current opaque model returns `default : Array U8 64`, so the
+internal structure (ρ vs H(ek)) is not observable. This theorem
+would become provable if `from_seed` were modelled concretely with
+the FIPS 203 Alg. 13/16 decomposition.
+
+#### Origin Theorem O2: `pk2` (EncapsulationKey) = ByteEncode₁₂(t̂) (FIPS 203 §5.1, Alg. 13 line 10)
+
+FIPS 203 §5.1 (K-PKE.KeyGen, Alg. 13 line 10) defines the
+encapsulation key as ek_PKE = ByteEncode₁₂(t̂)‖ρ, where t̂ ∈ ℤ_q^(k×n)
+is the public matrix and ByteEncode₁₂ encodes each coefficient in
+12 bits. The incremental API extracts the ByteEncode₁₂(t̂) portion
+as pk2:
+
+```lean
+/-- **FIPS 203 origin decomposition for pk2 (EncapsulationKey)**.
+
+pk2 = ByteEncode₁₂(t̂), the first 384·k = 1152 bytes of the
+FIPS 203 encapsulation key ek_PKE.
+
+ByteEncode₁₂ encodes k vectors of n = 256 coefficients in ℤ_q,
+each coefficient taking 12 bits. The byte length is:
+  k · n · 12/8 = 3 · 256 · 1.5 = 3 · 384 = 1152
+
+FIPS 203 §: §5.1, Alg. 13 line 10
+             ByteEncode₁₂ defined in §4.2.1, Alg. 5
+-/
+theorem pk2_origin_byte_encode_12
+    (pk2 : alloc.vec.Vec Std.U8) (hlen : pk2.length = 1152) :
+    -- pk2 encodes k = 3 vectors of n = 256 coefficients at 12 bits each
+    pk2.length = 3 * (256 * 12 / 8)  -- = 3 * 384 = 1152
+    := by
+  omega
+```
+
+**Status**: The byte-length identity `1152 = 3 * 384 = k * n * 12/8`
+is a pure arithmetic fact derivable from the FIPS 203 parameters.
+The actual ByteEncode₁₂ encoding semantics are inside the opaque
+`pk2` accessor.
+
+#### Origin Theorem O3: `sk` (DecapsulationKey) = dk_PKE‖ek‖H(ek)‖z (FIPS 203 §6.1, Alg. 16 line 3)
+
+FIPS 203 Alg. 16 (ML-KEM.KeyGen_internal) line 3 defines:
+  dk = dk_PKE ‖ ek ‖ H(ek) ‖ z
+
+where:
+  - dk_PKE = ByteEncode₁₂(ŝ) ∈ 𝔹^(384k) = 𝔹^1152 (Alg. 13 line 9)
+  - ek ∈ 𝔹^(384k+32) = 𝔹^1184 (Alg. 13 line 10 + seed ρ)
+  - H(ek) ∈ 𝔹³² (SHA3-256 hash)
+  - z ∈ 𝔹³² (Alg. 19 line 2, implicit rejection seed)
+
+```lean
+/-- **FIPS 203 origin decomposition for sk (DecapsulationKey)**.
+
+The decapsulation key dk is the concatenation of four components
+(FIPS 203 Alg. 16 line 3):
+  dk = dk_PKE ‖ ek ‖ H(ek) ‖ z
+
+with sub-lengths:
+  |dk_PKE| = 384·k = 1152  (ByteEncode₁₂(ŝ), Alg. 13 line 9)
+  |ek|     = 384·k + 32 = 1184  (Alg. 13 line 10)
+  |H(ek)|  = 32  (SHA3-256 output)
+  |z|      = 32  (implicit rejection seed, Alg. 19 line 2)
+
+Total: 1152 + 1184 + 32 + 32 = 2400 = 768·k + 96
+
+FIPS 203 §: §6.1, Alg. 16 line 3; Table 3
+-/
+theorem sk_origin_decomposition
+    (dk : alloc.vec.Vec Std.U8) (hlen : dk.length = 2400) :
+    ∃ (dk_pke ek_full h_ek z : alloc.vec.Vec Std.U8),
+      dk_pke.length = 1152      -- 384·k = ByteEncode₁₂(ŝ)
+      ∧ ek_full.length = 1184   -- 384·k + 32 = ek
+      ∧ h_ek.length = 32        -- H(ek) = SHA3-256(ek)
+      ∧ z.length = 32           -- implicit rejection seed
+      ∧ dk.val = dk_pke.val ++ ek_full.val ++ h_ek.val ++ z.val
+      -- Sub-length consistency with Table 3:
+      ∧ 1152 + 1184 + 32 + 32 = 2400  -- 768·k + 96
+    := by
+  sorry -- Requires non-opaque model of from_seed/sk
+```
+
+**Status**: Sketch. The sub-length arithmetic `1152 + 1184 + 32 + 32 = 2400`
+is a provable fact. The actual concatenation structure requires a
+non-opaque model of `sk`.
+
+**FIPS 203 size verification**:
+```
+dk_PKE: 384·k     = 384·3  = 1152
+ek:     384·k+32  = 384·3+32 = 1184
+H(ek):  32
+z:      32
+─────────────────────────────────────
+Total:  768·k+96  = 768·3+96 = 2400  ✅
+```
+
+#### Origin Theorem O4: Encapsulation State = r_as_ntt‖e₂‖randomness (libcrux encoding, FIPS 203 Alg. 14)
+
+The encapsulation state is an internal libcrux encoding of three
+components produced during K-PKE.Encrypt (FIPS 203 Alg. 14):
+
+- **r_as_ntt** (lines 6–8): The secret vector r sampled from CBD_{η₁}
+  and transformed via NTT. Encoded as k = 3 polynomials, each with
+  n = 256 coefficients stored as 16-bit integers:
+  k × n × 2 = 3 × 256 × 2 = 1536 bytes.
+
+- **e₂** (line 17): The noise polynomial sampled from CBD_{η₂} (η₂ = 2,
+  Table 2). Encoded as n = 256 coefficients × 2 bytes = 512 bytes.
+
+- **randomness** (line 1, via Alg. 17): The 32-byte randomness m used
+  to derive the shared secret K via G(m‖H(ek)).
+
+```lean
+/-- **FIPS 203 origin decomposition for encapsulation state**.
+
+The encapsulation state is a libcrux-internal encoding of three
+components from K-PKE.Encrypt (FIPS 203 Alg. 14):
+
+  state = r_as_ntt ‖ e₂ ‖ randomness
+
+with sub-lengths:
+  |r_as_ntt|   = k·n·2 = 3·256·2 = 1536  (NTT(r), Alg. 14 lines 6–8)
+  |e₂|         = n·2   = 256·2   = 512   (CBD_{η₂} noise, Alg. 14 line 17)
+  |randomness| = 32                       (m from Alg. 17 line 1)
+
+Total: 1536 + 512 + 32 = 2080
+
+FIPS 203 §: Alg. 14 lines 6–8 (r), line 17 (e₂);
+            Table 2 (n=256, k=3, η₂=2);
+            Alg. 17 line 1 (m ∈ 𝔹³²)
+-/
+theorem encaps_state_origin_decomposition
+    (es : alloc.vec.Vec Std.U8) (hlen : es.length = 2080) :
+    ∃ (r_ntt e2 rand : alloc.vec.Vec Std.U8),
+      r_ntt.length = 1536   -- k·n·2 = 3·256·2 (NTT coefficients of r)
+      ∧ e2.length = 512     -- n·2 = 256·2 (CBD_{η₂} noise coefficients)
+      ∧ rand.length = 32    -- randomness m ∈ 𝔹³²
+      ∧ es.val = r_ntt.val ++ e2.val ++ rand.val
+      -- Sub-length consistency:
+      ∧ 1536 + 512 + 32 = 2080
+    := by
+  sorry -- Requires non-opaque model of encapsulate1 state layout
+```
+
+**Status**: Sketch. The sub-length arithmetic is provable. The actual
+concatenation structure requires knowledge of the libcrux internal
+encoding, which is opaque. The `flip_endianness_of_encapsulation_state`
+function indirectly confirms this layout: it byte-swaps the first
+`len − 32 = 2048` bytes (the r_as_ntt + e₂ portion, which consists
+of 16-bit integers) and leaves the last 32 bytes (randomness)
+untouched.
+
+**Cross-reference with `flip_endianness_of_encapsulation_state_spec`**:
+The verified spec `flip_endianness_of_encapsulation_state_spec`
+implicitly validates the O4 decomposition boundary: it swaps bytes
+in positions `[0, es.length − 32)` = `[0, 2048)` and preserves
+positions `[2048, 2080)`. This matches the boundary between the
+polynomial coefficient region (r_as_ntt‖e₂ = 1536 + 512 = 2048 bytes)
+and the randomness region (32 bytes).
+
+#### Origin Theorem O5: Shared Secret K ∈ 𝔹³² (FIPS 203 Alg. 17/20/21)
+
+FIPS 203 defines the shared secret as a 32-byte value K produced by:
+- ML-KEM.Encaps_internal (Alg. 17 line 1): (K, r) ← G(m‖H(ek)),
+  where G = SHA3-512 outputs 64 bytes, and K is the first 32.
+- ML-KEM.Decaps_internal (Alg. 18 line 12): K' output is 32 bytes.
+
+```lean
+/-- **FIPS 203 origin theorem for shared secret K**.
+
+The shared secret K is a 32-byte value derived from G(m‖H(ek))
+where G = SHA3-512 (FIPS 203 §4.1, Eq. 4.3):
+  G : 𝔹* → 𝔹⁶⁴, and K = G(m‖H(ek))[0:32]
+
+Both encaps1 and decaps produce 32-byte shared secrets, matching
+the FIPS 203 requirement K, K' ∈ 𝔹³².
+
+FIPS 203 §: Alg. 17 line 1 (Encaps_internal),
+            Alg. 18 line 12 (Decaps_internal),
+            §4.1 Eq. 4.3 (G = SHA3-512),
+            Table 3 (shared secret length = 32)
+-/
+theorem shared_secret_origin_size :
+    -- From encaps1_spec: ss.length = 32
+    -- From decaps_spec:  ss'.length = 32
+    -- Both match FIPS 203 Table 3: shared secret ∈ 𝔹³²
+    (32 : ℕ) = 32 := by rfl
+```
+
+**Status**: The size fact is trivially true. The derivation
+K = G(m‖H(ek))[0:32] is inside the opaque `encapsulate1` /
+`decapsulate_compressed_key` functions.
+
+#### Origin Theorem O6: Incremental ek Reconstruction (pk1, pk2 → FIPS 203 ek)
+
+The FIPS 203 encapsulation key ek ∈ 𝔹^(384k+32) decomposes as:
+  ek = ByteEncode₁₂(t̂) ‖ ρ  (Alg. 13 line 10)
+
+The incremental API splits this differently:
+  pk2 = ByteEncode₁₂(t̂)  (1152 bytes)
+  pk1 = ρ ‖ H(ek)         (64 bytes)
+
+Therefore, the FIPS 203 ek can be reconstructed as:
+  ek = pk2 ‖ pk1[0:32]    (1152 + 32 = 1184 bytes)
+
+```lean
+/-- **FIPS 203 ek reconstruction from incremental key components**.
+
+The FIPS 203 encapsulation key ek ∈ 𝔹^(384k+32) = 𝔹^1184 is:
+  ek = ByteEncode₁₂(t̂) ‖ ρ  (Alg. 13 line 10)
+
+The incremental API decomposes this as:
+  pk2 = ByteEncode₁₂(t̂)   |pk2| = 1152 = 384·k
+  pk1 = ρ ‖ H(ek)          |pk1| = 64
+
+The FIPS 203 ek is reconstructable:
+  ek = pk2 ‖ pk1[0:32]     |ek| = 1152 + 32 = 1184
+
+This reconstruction is what `validate_pk_bytes(hdr, ek)` performs
+internally (FIPS 203 §7.2 key check).
+
+FIPS 203 §: Alg. 13 line 10, §7.2
+-/
+theorem ek_reconstruction_size
+    (pk1 pk2 : alloc.vec.Vec Std.U8)
+    (hpk1 : pk1.length = 64) (hpk2 : pk2.length = 1152) :
+    -- The FIPS 203 ek has length 384·k + 32 = 1184
+    -- Reconstructed as pk2 (1152) ++ pk1[0:32] (32)
+    pk2.length + 32 = 1184
+    := by omega
+```
+
+**Status**: The arithmetic identity is provable. The actual
+reconstruction (slicing pk1 to extract ρ) requires non-opaque
+modelling of `validate_pk_bytes`.
+
+### 6i. Summary of FIPS 203 Origin Decomposition Theorems
+
+| # | Component | FIPS 203 Decomposition | Sub-lengths | Total | Status |
+|---|-----------|----------------------|-------------|-------|--------|
+| O1 | pk1 (Header) | ρ ‖ H(ek) | 32 + 32 | 64 | Sketch (opaque `pk1`) |
+| O2 | pk2 (EncapsulationKey) | ByteEncode₁₂(t̂) | 3 × 384 | 1152 | ✅ (arithmetic) |
+| O3 | sk (DecapsulationKey) | dk_PKE ‖ ek ‖ H(ek) ‖ z | 1152 + 1184 + 32 + 32 | 2400 | Sketch (opaque `sk`) |
+| O4 | Encapsulation state | r_as_ntt ‖ e₂ ‖ randomness | 1536 + 512 + 32 | 2080 | Sketch (opaque `encapsulate1`) |
+| O5 | Shared secret | G(m‖H(ek))[0:32] | 32 | 32 | ✅ (trivial) |
+| O6 | ek reconstruction | pk2 ‖ pk1[0:32] | 1152 + 32 | 1184 | ✅ (arithmetic) |
+
+**Note**: Theorems O1, O3, O4 are stated as sketches (`sorry`) because
+the internal structure of the key/state byte vectors is not observable
+through the opaque `from_seed`, `pk1`, `pk2`, `sk`, and `encapsulate1`
+external models. They would become provable if these functions were
+modelled concretely with FIPS 203 Alg. 13/14/16 decompositions.
+The sub-length arithmetic (O2, O5, O6) is independently verifiable
+from the FIPS 203 ML-KEM-768 parameter set (k=3, n=256, dᵤ=10, dᵥ=4).
+
+### 6g. Summary of Inter-Function Linkages
+
+| Chain Link | Producer → Consumer | Linking Postcondition → Precondition | FIPS 203 § | Verified? |
+|-----------|---------------------|--------------------------------------|------------|-----------|
+| KeyGen → key check | `generate` → `ek_matches_header` | `hdr.len=64, ek.len=1152` → (unconditional) | §7.1 → §7.2 | ✅ |
+| KeyGen → Encaps₁ | `generate` → `encaps1` | `hdr.len=64` → `hdr.len()==64` | §7.1 → §7.2 (Alg. 20) | ✅ |
+| KeyGen + Encaps₁ → Encaps₂ | `generate` + `encaps1` → `encaps2` | `ek.len=1152, es.len=2080` → `ek.len()==1152, es.len()==2080` | §7.2 (Alg. 20) | ✅ |
+| KeyGen + Encaps → Decaps | `generate` + `encaps1` + `encaps2` → `decaps` | `dk.len=2400, ct1.len=960, ct2.len=128` → `dk.len()==2400, ct1.len()==960, ct2.len()==128` | §7.1 + §7.2 → §7.3 (Alg. 21) | ✅ |
+| Shared secret sizes | `encaps1` ↔ `decaps` | `ss.len=32` ↔ `ss'.len=32` | K, K' ∈ 𝔹³² (Alg. 17/21) | ✅ (sizes only) |
+| Ciphertext completeness | `encaps1` + `encaps2` | `960 + 128 = 1088 = 32·(dᵤ·k + dᵥ)` | Table 3 | ✅ |
+| Correctness: K' = K | `encaps1` ↔ `decaps` | — | §3.2, Table 1 | ❌ (opaque) |
+
+---
+
+## 7. Combined Inventory with FIPS 203 Annotations
+
+This table reproduces the inventory from `Plan_incremental_mlkem768`
+§1 with an additional column showing the FIPS 203 algorithm reference.
+
+### Constants
+
+| # | Rust Name | Value | FIPS 203 Source | Status |
+|---|-----------|-------|-----------------|--------|
+| C1 | `CIPHERTEXT1_SIZE` | 960 | 32·dᵤ·k (Table 2/3) | ✅ |
+| C2 | `CIPHERTEXT2_SIZE` | 128 | 32·dᵥ (Table 2/3) | ✅ |
+| C3 | `HEADER_SIZE` | 64 | pk1_len (incremental API) | ✅ |
+| C4 | `ENCAPSULATION_KEY_SIZE` | 1152 | 384·k (Table 3) | ✅ |
+
+### Functions
+
+| # | Rust Name | FIPS 203 Algorithm | Spec File | Status |
+|---|-----------|-------------------|-----------|--------|
+| F1 | `ek_matches_header` | §7.2 key check | `EkMatchesHeader.lean` | ✅ |
+| F2 | `generate` | Alg. 19 (KeyGen) | `Generate.lean` | ✅ |
+| F3 | `encaps1` | Alg. 20 (Encaps), phase 1 | `Encaps1.lean` | ✅ |
+| F4 | `encaps2` | Alg. 20 (Encaps), phase 2 | `Encaps2.lean` | ✅ |
+| F5 | `decaps` | Alg. 21 (Decaps) | `Decaps.lean` | ✅ |
+| F6 | `potentially_fix_state…` | η₂ = 2 from Table 2 | — (opaque axiom) | ⏭️ |
+| F7 | `flip_endianness…` | — (not in FIPS 203) | `FlipEndianness…State.lean` | ✅ |
+| F8 | `test::incremental_mlkem768_round_trip` | — | — (not extracted) | ⏭️ |
+
+---
+
+## 8. Summary
+
+This plan grounds the incremental ML-KEM-768 verification in
+NIST FIPS 203 as follows:
+
+- **All 4 constants** (C1–C4) have values derivable from the FIPS 203
+  ML-KEM-768 parameter set (Table 2, k = 3, dᵤ = 10, dᵥ = 4) and the
+  key/ciphertext size formulas in Table 3. All are verified (✅).
+
+- **All 5 public functions** (F1–F5) map to FIPS 203 algorithms
+  (KeyGen → Alg. 19, Encaps → Alg. 20, Decaps → Alg. 21, key
+  check → §7.2). Their byte-length postconditions are consistent
+  with Table 3. All are verified (✅).
+
+- **1 private function** (F7 `flip_endianness…`) addresses a
+  libcrux-specific encoding issue not present in FIPS 203.
+  Verified (✅).
+
+- **1 private function** (F6 `potentially_fix_state…`) uses the
+  η₂ = 2 bound from FIPS 203 Table 2 for endianness detection.
+  Axiomatised (⏭️).
+
+- **1 test function** (F8) is not extracted (⏭️).
+
+- **Inter-function composability** (§6c–6g): The spec theorems compose
+  along the FIPS 203 KEM chain (KeyGen → key check → Encaps₁ →
+  Encaps₂ → Decaps). Each function's postcondition satisfies the
+  next function's preconditions. The combined ciphertext size
+  (960 + 128 = 1088) matches FIPS 203 Table 3. A composite
+  round-trip theorem sketch (§6d) shows the full chain structure.
+
+- **FIPS 203 origin decomposition** (§6h–6i): Six specification
+  theorems (O1–O6) formalize the structural decomposition of each
+  incremental API component back to its FIPS 203 origin: pk1 = ρ‖H(ek),
+  pk2 = ByteEncode₁₂(t̂), dk = dk_PKE‖ek‖H(ek)‖z,
+  state = r_as_ntt‖e₂‖randomness, K = G(m‖H(ek))[0:32], and
+  ek = pk2‖pk1[0:32]. Three arithmetic identities (O2, O5, O6) are
+  provable; three structural decompositions (O1, O3, O4) are sketches
+  pending non-opaque models of the libcrux cryptographic functions.
+
+- **Verification scope**: Byte-length preservation through opaque
+  cryptographic calls. **Not in scope**: correctness (K' = K),
+  IND-CCA2 security, NTT/compression internals, implicit rejection,
+  intermediate-value destruction.
+
+- **FIPS 203 consistency**: All 13 concrete models in
+  `FunsExternal.lean` produce values whose byte lengths are
+  consistent with the FIPS 203 ML-KEM-768 parameter set. The
+  size consistency matrix (§4) confirms all 13 assertions.
