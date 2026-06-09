@@ -194,8 +194,13 @@ import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.IncrementalMlkem768.CIPHERTEXT1_SIZE
 import Spqr.Specs.IncrementalMlkem768.CIPHERTEXT2_SIZE
+import Spqr.Specs.IncrementalMlkem768.Decaps
 import Spqr.Specs.IncrementalMlkem768.ENCAPSULATION_KEY_SIZE
 import Spqr.Specs.IncrementalMlkem768.EkMatchesHeader
 import Spqr.Specs.IncrementalMlkem768.Encaps1
+import Spqr.Specs.IncrementalMlkem768.Encaps2
+import Spqr.Specs.IncrementalMlkem768.FlipEndiannessOfEncapsulationState
+import Spqr.Specs.IncrementalMlkem768.FlipEndiannessOfEncapsulationStateLoop0
+import Spqr.Specs.IncrementalMlkem768.FlipEndiannessOfEncapsulationStateLoopBody0
 import Spqr.Specs.IncrementalMlkem768.Generate
 import Spqr.Specs.IncrementalMlkem768.HEADER_SIZE
