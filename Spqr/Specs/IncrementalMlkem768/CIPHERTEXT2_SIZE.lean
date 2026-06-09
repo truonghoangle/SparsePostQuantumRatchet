@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Code.FunsExternal
 
 /-!
 # Spec theorem for `spqr::incremental_mlkem768::CIPHERTEXT2_SIZE`

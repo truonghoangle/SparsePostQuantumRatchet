@@ -3,10 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Coeff.Basic
-import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.General
+import Spqr.Math.List
 
 /-!
 # Polynomial identity for `mult_xdiff_assign_trailing`

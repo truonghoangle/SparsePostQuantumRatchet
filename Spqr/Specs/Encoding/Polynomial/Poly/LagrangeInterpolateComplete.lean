@@ -3,30 +3,9 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
-import Spqr.Math.Gf16.Field
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Basic.Zero
-import Spqr.Math.Poly.Coeff.Basic
-import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.CharTwo.Basic
-import Spqr.Math.Poly.CharTwo.ToGF216
-import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.LinearFactors.Basic
-import Spqr.Math.Poly.LinearFactors.Degree
-import Spqr.Math.Poly.Lagrange.DenomProd
-import Spqr.Math.Poly.Lagrange.BasisPoly
-import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Horner.Defs
-import Spqr.Math.Poly.Horner.Eval
-import Spqr.Math.Poly.ExpectedTrailing.Defs
-import Spqr.Math.Poly.ExpectedTrailing.Basic
-import Spqr.Math.Poly.Identities.Basic
-import Spqr.Math.Poly.General
-import Spqr.Math.Poly.Mathlib
+import Spqr.Math.List
 import Spqr.Math.Poly.Aeneas.PolyIdentity
 import Spqr.Specs.Encoding.Gf.GF16.Sub
-import Spqr.Specs.Encoding.Gf.GF16.MulAssign
 import Spqr.Specs.Encoding.Gf.GF16.Div
 import Spqr.Specs.Encoding.Gf.GF16.Eq
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
@@ -255,7 +234,7 @@ theorem loop0_spec
       simp only [bind_tc_ok]
       have hge' : iter.slice.val.length ≤ iter'.i := by
         simp only [Slice.len_val, hslice] at hnlt; grind
-      rw [lagrangeDenomProd_ge pi.x iter.slice.val iter'.i hge', mul_one] at hinv
+      rw [lagrangeDenomProd_eq_one_of_le pi.x iter.slice.val iter'.i hge', mul_one] at hinv
       grind
   · grind
 
@@ -458,7 +437,7 @@ theorem loop1_spec
     · intro hcur
       rw [hornerAccum_unfold g v.val (v.val.length - 1) hcur]
       have hlen_eq : v.val.length - 1 + 1 = v.val.length := by omega
-      rw [hlen_eq, hornerAccum_ge g v.val v.val.length (le_refl _)]
+      rw [hlen_eq, hornerAccum_eq_zero_of_le g v.val v.val.length (le_refl _)]
       simp [mul_zero, add_zero]
     · intro _ _; trivial
 
@@ -632,7 +611,7 @@ theorem lagrange_interpolate_complete_spec
         have := congr_arg UScalar.val hlv_zero
         simp only [gf.GF16.ZERO, UScalar.ofNatCore_val_eq] at this
         exact this
-      exact GF16.toGF216_zero_val left_val hval_zero
+      exact spqr.encoding.gf.GF16.toGF216_eq_zero left_val hval_zero
     have hscale_eq : scale.toGF216 =
         lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩)
           pts.val := by

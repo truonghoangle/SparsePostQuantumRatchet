@@ -60,4 +60,15 @@ lemma hornerAccum_zero_eq_eval
     rw [hornerAccum_cons g c cs 0, ih, listToGF216Poly_cons]
     simp [eval_add, eval_mul, eval_C, eval_X]
 
+theorem hornerAccum_eq_of_idx_eq
+    {g_x : GF16} {v_list xs : List GF16}
+    {a b : Nat} {ha : a < xs.length} {hb : b < xs.length}
+    (h_eq : a = b)
+    (hsuff : (xs.get ⟨b, hb⟩).toGF216 =
+      hornerAccum g_x v_list b) :
+    (xs.get ⟨a, ha⟩).toGF216 =
+      hornerAccum g_x v_list a := by
+  subst h_eq; exact hsuff
+
+
 end spqr.encoding.polynomial

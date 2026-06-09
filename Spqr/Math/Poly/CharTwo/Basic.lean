@@ -60,3 +60,13 @@ the Rust implementation is identical to `GF16::add` (both are XOR).
 -/
 lemma GF216Poly.sub_eq_add (a b : GF216Poly) : a - b = a + b := by
   rw [sub_eq_add_neg, GF216Poly.neg_eq]
+
+/-! ## Characteristic-2 equality from cancellation -/
+
+/-- In `GF(2¹⁶)`, `a + b = 0` implies `a = b`.
+This follows from `a + b = 0  ⟹  a = a + 0 = a + (b + b) = (a + b) + b = 0 + b = b`,
+using the characteristic-2 identity `b + b = 0`. -/
+theorem GF216_eq_of_add_eq_zero {a b : GF216} (h : a + b = 0) : a = b := by
+  have : b + b = 0 := GF216.add_self_eq_zero b
+  have hab : a = a + 0 := by ring
+  rw [hab, ← this, ← add_assoc, h, zero_add]

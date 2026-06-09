@@ -3,34 +3,10 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
-import Spqr.Math.Gf16.Field
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Basic.Zero
-import Spqr.Math.Poly.Coeff.Basic
-import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.CharTwo.Basic
-import Spqr.Math.Poly.CharTwo.ToGF216
-import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.LinearFactors.Basic
-import Spqr.Math.Poly.LinearFactors.Degree
-import Spqr.Math.Poly.Lagrange.DenomProd
-import Spqr.Math.Poly.Lagrange.BasisPoly
-import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Horner.Defs
-import Spqr.Math.Poly.Horner.Eval
-import Spqr.Math.Poly.ExpectedTrailing.Defs
-import Spqr.Math.Poly.ExpectedTrailing.Basic
-import Spqr.Math.Poly.Identities.Basic
-import Spqr.Math.Poly.General
-import Spqr.Math.Poly.Mathlib
-import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
-import Spqr.Specs.Aeneas.RangeIteratorNext
-import Spqr.Specs.Encoding.Gf.GF16.AddAssign
-import Spqr.Math.Poly.Coeff.ListOps
+
 /-!
 # Spec theorem for `lagrange_interpolate`: loop body 1
 
@@ -1292,7 +1268,7 @@ theorem lagrange_interpolate_spec
             lagrangeBasisPoly pts.val i := by
       intro i hi hpi
       have h_id := hws_id i hi hpi
-      rw [prodLinearFactors_eq_factor_mul_basis pts.val i hpi,
+      rw [prodLinearFactors_eq_X_sub_C_mul pts.val i hpi,
           show prodLinearFactors pts.val 0 i *
               prodLinearFactors pts.val (i + 1) pts.val.length =
               lagrangeBasisPoly pts.val i from by
@@ -1317,7 +1293,7 @@ theorem lagrange_interpolate_spec
       have hpi : i < n := by grind
       rw [show ((ws.get ⟨i, hi⟩).coefficients.val[m + 1]!).toGF216 =
               (listToGF216Poly (ws.get ⟨i, hi⟩).coefficients.val).coeff (m + 1) from
-            getElem_bang_toGF216_eq_coeff _ _]
+            getElem!_toGF216_eq_coeff _ _]
       change (ws.get ⟨i, hi⟩).toGF216Poly.coeff (m + 1) = _
       rw [hws_poly i hi hpi]
       rw [show X * C (lagrangeScaleGF216 (pts.val.get ⟨i, hpi⟩) pts.val) *
@@ -1329,7 +1305,7 @@ theorem lagrange_interpolate_spec
     ext m
     rw [listToGF216Poly_coeff]
     by_cases hm : m < result.coefficients.val.length
-    · rw [dif_pos hm, hws_coeff m hm, list_map_sum_eq_finset_sum]
+    · rw [dif_pos hm, hws_coeff m hm, List.map_sum_eq_Finset_sum]
       rw [Finset.sum_congr rfl (fun i _ => h_term_eq m i)]
       rw [lagrangeInterpolantSum_eq_finset_sum pts.val n (le_refl _)]
       rw [Polynomial.finset_sum_coeff]

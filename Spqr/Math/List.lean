@@ -3,21 +3,11 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Basic.Zero
-import Spqr.Math.Poly.Coeff.Basic
 import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.CharTwo.Basic
 import Spqr.Math.Poly.CharTwo.ToGF216
 import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.LinearFactors.Basic
-import Spqr.Math.Poly.LinearFactors.Degree
-import Spqr.Math.Poly.Lagrange.DenomProd
-import Spqr.Math.Poly.Lagrange.BasisPoly
 import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
-import Spqr.Math.Poly.ExpectedTrailing.Defs
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.Identities.Basic
 
@@ -99,17 +89,5 @@ theorem getElem?_append_of_lt {α : Type}
     (l₁ ++ l₂)[i]? = l₁[i]? := by
   simp [List.getElem?_append_left h]
 
-/-! ## Arithmetic utilities -/
-
-/-- Index-shifting helper for `hornerAccum` equality: if `a = b` as indices, the evaluations agree. -/
-theorem hornerAccum_eq_of_idx_eq
-    {g_x : GF16} {v_list xs : List GF16}
-    {a b : Nat} {ha : a < xs.length} {hb : b < xs.length}
-    (h_eq : a = b)
-    (hsuff : (xs.get ⟨b, hb⟩).toGF216 =
-      hornerAccum g_x v_list b) :
-    (xs.get ⟨a, ha⟩).toGF216 =
-      hornerAccum g_x v_list a := by
-  subst h_eq; exact hsuff
 
 end spqr.encoding.polynomial

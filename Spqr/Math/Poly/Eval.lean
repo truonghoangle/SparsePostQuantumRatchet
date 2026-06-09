@@ -48,4 +48,27 @@ lemma listToGF216Poly_eval (cs : List spqr.encoding.gf.GF16) (a : GF216) :
   unfold listToGF216Poly
   simp [eval_finset_sum, eval_mul, eval_C, eval_pow, eval_X]
 
+/-! ## Polynomial evaluation as finite range sum -/
+
+/--
+If all coefficients of `p` at positions `≥ n` are zero, then `p.eval a` equals the finite sum
+`∑ j ∈ Finset.range n, p.coeff j * a ^ j`.  This extends `Polynomial.eval_eq_sum_range`
+(which uses `natDegree + 1` as the upper bound) to any upper bound `n` beyond which all
+coefficients vanish.
+-/
+theorem eval_eq_range_sum (p : GF216Poly) (a : GF216) (n : ℕ)
+    (h : ∀ j, n ≤ j → p.coeff j = 0) :
+    p.eval a = ∑ j ∈ Finset.range n, p.coeff j * a ^ j := by
+  rw [Polynomial.eval_eq_sum, Polynomial.sum_def]
+  apply Finset.sum_subset
+  · intro j hj
+    rw [Finset.mem_range]
+    by_contra h_ge; push Not at h_ge
+    exact (Polynomial.mem_support_iff.mp hj) (h j h_ge)
+  · intro j _ hj
+    have : p.coeff j = 0 := by
+      by_contra h_ne
+      exact hj (Polynomial.mem_support_iff.mpr h_ne)
+    rw [this, zero_mul]
+
 end spqr.encoding.polynomial

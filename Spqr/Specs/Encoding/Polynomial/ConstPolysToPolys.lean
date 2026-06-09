@@ -3,29 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
-import Spqr.Math.Gf16.Field
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Basic.Zero
-import Spqr.Math.Poly.Coeff.Basic
-import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.CharTwo.Basic
-import Spqr.Math.Poly.CharTwo.ToGF216
-import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.LinearFactors.Basic
-import Spqr.Math.Poly.LinearFactors.Degree
-import Spqr.Math.Poly.Lagrange.DenomProd
-import Spqr.Math.Poly.Lagrange.BasisPoly
-import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Horner.Defs
-import Spqr.Math.Poly.Horner.Eval
-import Spqr.Math.Poly.ExpectedTrailing.Defs
-import Spqr.Math.Poly.ExpectedTrailing.Basic
-import Spqr.Math.Poly.Identities.Basic
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOne
 import Spqr.Specs.Aeneas.SliceIter
-import Spqr.Specs.Aeneas.SliceIterMap
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
 
 /-!

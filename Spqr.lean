@@ -22,7 +22,7 @@ import Spqr.Math.Poly.Coeff.ListOps
 import Spqr.Math.Poly.Eval
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.ExpectedTrailing.Defs
-import Spqr.Math.Poly.General
+import Spqr.Math.List
 import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
@@ -31,7 +31,6 @@ import Spqr.Math.Poly.Lagrange.DenomProd
 import Spqr.Math.Poly.Lagrange.InterpolantSum
 import Spqr.Math.Poly.LinearFactors.Basic
 import Spqr.Math.Poly.LinearFactors.Degree
-import Spqr.Math.Poly.Mathlib
 import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Aeneas.CloneFromSlice
 import Spqr.Specs.Aeneas.CloneGF16

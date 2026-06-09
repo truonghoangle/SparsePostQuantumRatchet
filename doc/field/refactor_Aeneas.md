@@ -296,7 +296,7 @@ Authors: Hoang Le Truong
 import Spqr.Math.Poly.Basic.Defs
 import Spqr.Math.Poly.Coeff.Basic
 import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.General
+import Spqr.Math.List
 
 /-!
 # Polynomial identity for `mult_xdiff_assign_trailing`

@@ -3,8 +3,6 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
 /-!

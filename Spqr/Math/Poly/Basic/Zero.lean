@@ -19,7 +19,7 @@ consequence, a `Poly` with empty coefficient vector represents `0 : GF216[X]`.
 -/
 
 open Polynomial
-open spqr.encoding.gf
+open spqr.math.gf spqr.encoding.gf
 
 namespace spqr.encoding.polynomial
 
@@ -52,5 +52,17 @@ theorem Poly.toGF216Poly_eq_zero (p : Poly)
 lemma listToGF216Poly_empty :
     listToGF216Poly ([] : List spqr.encoding.gf.GF16) = 0 :=
   listToGF216Poly_nil
+
+/-! ## Replicate-zero polynomial -/
+
+/-- A `List` of `n` copies of `GF16.ZERO` represents the zero polynomial in `GF216[X]`.
+Since `GF16.ZERO.toGF216 = 0`, every term `C (cs[i].toGF216) * X ^ i` vanishes. -/
+theorem listToGF216Poly_replicate_ZERO (n : Nat) :
+    listToGF216Poly (List.replicate n GF16.ZERO) = 0 := by
+  simp only [listToGF216Poly]
+  apply Finset.sum_eq_zero
+  intro i _
+  simp only [List.get_eq_getElem, List.getElem_replicate, GF16.ZERO]
+  simp [GF16.toGF216, Nat.toGF216, natToBinaryPoly_zero, map_zero]
 
 end spqr.encoding.polynomial

@@ -3,11 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Poly.Basic.Defs
-import Spqr.Math.Poly.Coeff.Basic
 import Spqr.Math.Poly.CharTwo.ToGF216
 import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.Mathlib
 
 /-!
 # Dot-product to evaluation bridge

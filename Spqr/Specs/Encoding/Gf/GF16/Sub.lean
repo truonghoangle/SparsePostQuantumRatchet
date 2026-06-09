@@ -3,7 +3,6 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
 import Spqr.Specs.Encoding.Gf.GF16.SubAssign
 /-!
 # Spec theorem for `spqr::encoding::gf::{impl ops::Sub for GF16}::sub`

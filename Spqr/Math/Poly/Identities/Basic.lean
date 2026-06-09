@@ -25,6 +25,24 @@ open Polynomial
 
 namespace spqr.encoding.polynomial
 
+/-! ## Generic polynomial coefficient lemmas -/
+
+/-- Constant term of `C(a) + (X − C(b)) · P` is `a − b · P.coeff 0`. -/
+theorem coeff_zero_C_add_X_sub_C_mul {R : Type*} [CommRing R]
+    (a b : R) (P : R[X]) :
+    (C a + (X - C b) * P).coeff 0 = a - b * P.coeff 0 := by
+  rw [sub_mul, coeff_add, coeff_sub, coeff_C_zero, coeff_X_mul_zero, coeff_C_mul]
+  ring
+
+/-- Higher coefficients of `C(a) + (X − C(b)) · P`:
+  `(C(a) + (X − C(b)) · P).coeff (n + 1) = P.coeff n − b · P.coeff (n + 1)`. -/
+theorem coeff_succ_C_add_X_sub_C_mul {R : Type*} [CommRing R]
+    (a b : R) (P : R[X]) (n : ℕ) :
+    (C a + (X - C b) * P).coeff (n + 1) = P.coeff n - b * P.coeff (n + 1) := by
+  rw [sub_mul, coeff_add, coeff_sub, coeff_X_mul, coeff_C_mul]
+  have : (C a).coeff (n + 1) = 0 := by rw [coeff_C]; exact if_neg (by omega)
+  rw [this]; ring
+
 /-! ## Advanced polynomial identity helpers -/
 
 /--
