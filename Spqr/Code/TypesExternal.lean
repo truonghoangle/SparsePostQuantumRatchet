@@ -40,9 +40,16 @@ axiom bytes.buf.uninit_slice.UninitSlice : Type
 
 /-- [libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 233:8-233:41
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes] -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes]
+
+    Concrete model: the Rust struct holds the first public-key part (`pk1`,
+    64 bytes), the second public-key part (`pk2`, 1152 bytes), and the
+    secret key (`sk`, 2400 bytes). -/
 @[rust_type "libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes"]
-axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes : Type
+structure libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes where
+  pk1_val : Array Std.U8 64#usize
+  pk2_val : Array Std.U8 1152#usize
+  sk_val  : Array Std.U8 2400#usize
 
 /-- [prost::encoding::DecodeContext]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/encoding.rs', lines 36:0-36:24

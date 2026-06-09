@@ -62,6 +62,71 @@ open Aeneas Aeneas.Std Result
 
 namespace spqr.SecretOutput
 
+/-- `core.cmp.PartialEqU8.eq x y` reduces to `ok (decide (x = y))`. -/
+private lemma PartialEqU8_eq_unfold (x y : Std.U8) :
+    core.cmp.PartialEqU8.eq x y = ok (decide (x = y)) := by
+  simp [core.cmp.PartialEqU8, liftFun2]
+
+private lemma allM_zip_U8_post
+    (xs ys : List Std.U8) (h_len : xs.length = ys.length) :
+    ∃ b : Bool,
+      List.allM
+          (fun (p : Std.U8 × Std.U8) =>
+            core.cmp.PartialEqU8.eq p.1 p.2)
+          (List.zip xs ys) = ok b ∧
+      (b = true ↔ xs = ys) := by
+  induction xs generalizing ys with
+  | nil =>
+    cases ys with
+    | nil =>
+      refine ⟨true, ?_, ?_⟩
+      · rfl
+      · simp
+    | cons y ys =>
+      simp at h_len
+  | cons x xs ih =>
+    cases ys with
+    | nil =>
+      simp at h_len
+    | cons y ys =>
+      have h_len' : xs.length = ys.length := by
+        simpa [List.length_cons] using h_len
+      obtain ⟨b, hb_eq, hb_iff⟩ := ih ys h_len'
+      simp only [PartialEqU8_eq_unfold] at hb_eq
+      simp only [List.zip_cons_cons, List.allM,
+        PartialEqU8_eq_unfold, bind_tc_ok]
+      by_cases hxy : x = y
+      · subst hxy
+        simp only [decide_true, hb_eq]
+        refine ⟨b, by grind, ?_⟩
+        rw [hb_iff]
+        constructor
+        · intro h_tails; rw [h_tails]
+        · intro h_cons; exact (List.cons.inj h_cons).2
+      · simp only [decide_eq_false_iff_not.mpr hxy]
+        refine ⟨false, rfl, ?_⟩
+        simp only [Bool.false_eq_true, false_iff]
+        intro h_cons
+        exact hxy (List.cons.inj h_cons).1
+
+/--
+Two `SecretOutput` elements are equal (as inductive values) if and only if they are the same
+variant and, for `Send`/`Recv`, the inner `Vec U8` payloads have the same backing list. This
+connects propositional equality of `SecretOutput` to the observable data it carries.
+-/
+theorem secretOutput_eq_iff (a b : spqr.SecretOutput) :
+    a = b ↔
+      match a, b with
+      | .None, .None => True
+      | .Send va, .Send vb => va.val = vb.val
+      | .Recv va, .Recv vb => va.val = vb.val
+      | _, _ => False := by
+  constructor
+  · intro h; subst h; cases a <;> simp
+  · intro h
+    cases a <;> cases b <;> simp_all only [Send.injEq, Recv.injEq]
+    all_goals (rename_i h; exact Subtype.ext h)
+
 /--
 **Spec theorem for `SecretOutput.Insts.CoreCmpPartialEqSecretOutput.eq`**:
 
@@ -83,24 +148,61 @@ theorem eq_spec (self other : spqr.SecretOutput) :
     spqr.SecretOutput.Insts.CoreCmpPartialEqSecretOutput.eq self other
       ⦃ (result : Bool) =>
         result = true ↔ self = other ⦄ := by
-  sorry
-
-/--
-Two `SecretOutput` elements are equal (as inductive values) if and only if they are the same
-variant and, for `Send`/`Recv`, the inner `Vec U8` payloads have the same backing list. This
-connects propositional equality of `SecretOutput` to the observable data it carries.
--/
-theorem secretOutput_eq_iff (a b : spqr.SecretOutput) :
-    a = b ↔
-      match a, b with
-      | .None, .None => True
-      | .Send va, .Send vb => va.val = vb.val
-      | .Recv va, .Recv vb => va.val = vb.val
-      | _, _ => False := by
-  constructor
-  · intro h; subst h; cases a <;> simp
-  · intro h
-    cases a <;> cases b <;> simp_all
-    all_goals (rename_i h; exact Subtype.ext h)
+  -- Use rcases (not cases) to avoid dependent elimination issues with the WP/theta
+  -- match on the Result. This follows the pattern from EncodingError/Eq.lean.
+  rcases self with _ | ⟨a⟩ | ⟨a⟩
+  -- self = None
+  · rcases other with _ | ⟨b⟩ | ⟨b⟩ <;>
+      simp [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant, WP.spec_ok]
+  -- self = Send a
+  · rcases other with _ | ⟨b⟩ | ⟨b⟩
+    -- other = None
+    · simp [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant, WP.spec_ok]
+    -- other = Send b
+    · simp only [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant,
+        alloc.vec.partial_eq.PartialEqVec.eq, ite_true]
+      split
+      · rename_i h_len
+        have h_len' : a.val.length = b.val.length := h_len
+        obtain ⟨r, hr_eq, hr_iff⟩ := allM_zip_U8_post a.val b.val h_len'
+        rw [hr_eq]
+        simp only [WP.spec_ok]
+        rw [hr_iff]
+        exact (secretOutput_eq_iff (.Send a) (.Send b)).symm
+      · rename_i h_len
+        simp only [WP.spec_ok]
+        have h_len' : ¬ a.val.length = b.val.length := h_len
+        constructor
+        · intro h_eq; cases h_eq
+        · intro h_eq
+          have := (secretOutput_eq_iff (.Send a) (.Send b)).mp h_eq
+          exact absurd (congrArg List.length this) h_len'
+    -- other = Recv b
+    · simp [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant, WP.spec_ok]
+  -- self = Recv a
+  · rcases other with _ | ⟨b⟩ | ⟨b⟩
+    -- other = None
+    · simp [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant, WP.spec_ok]
+    -- other = Send b
+    · simp [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant, WP.spec_ok]
+    -- other = Recv b
+    · simp only [Insts.CoreCmpPartialEqSecretOutput.eq, read_discriminant,
+        alloc.vec.partial_eq.PartialEqVec.eq, ite_true]
+      split
+      · rename_i h_len
+        have h_len' : a.val.length = b.val.length := h_len
+        obtain ⟨r, hr_eq, hr_iff⟩ := allM_zip_U8_post a.val b.val h_len'
+        rw [hr_eq]
+        simp only [WP.spec_ok]
+        rw [hr_iff]
+        exact (secretOutput_eq_iff (.Recv a) (.Recv b)).symm
+      · rename_i h_len
+        simp only [WP.spec_ok]
+        have h_len' : ¬ a.val.length = b.val.length := h_len
+        constructor
+        · intro h_eq; cases h_eq
+        · intro h_eq
+          have := (secretOutput_eq_iff (.Recv a) (.Recv b)).mp h_eq
+          exact absurd (congrArg List.length this) h_len'
 
 end spqr.SecretOutput

@@ -32,6 +32,11 @@ import Spqr.Math.Poly.Lagrange.InterpolantSum
 import Spqr.Math.Poly.LinearFactors.Basic
 import Spqr.Math.Poly.LinearFactors.Degree
 import Spqr.Math.Poly.ModByMonic
+import Spqr.Specs.Authenticator.Error.Fmt
+import Spqr.Specs.Authenticator.MACSIZE
+import Spqr.Specs.Authenticator.New
+import Spqr.Specs.Authenticator.Serialize.FromPb
+import Spqr.Specs.Authenticator.Serialize.IntoPb
 import Spqr.Specs.Aeneas.CloneFromSlice
 import Spqr.Specs.Aeneas.CloneGF16
 import Spqr.Specs.Aeneas.Collect
@@ -204,3 +209,9 @@ import Spqr.Specs.IncrementalMlkem768.Generate
 import Spqr.Specs.IncrementalMlkem768.HEADER_SIZE
 import Spqr.Specs.Lib.EmptyState
 import Spqr.Specs.Lib.Eq
+import Spqr.Specs.Lib.Fmt
+import Spqr.Specs.Lib.From
+import Spqr.Specs.Lib.HasSecret
+import Spqr.Specs.Lib.RecvSecret
+import Spqr.Specs.Lib.Secret
+import Spqr.Specs.Lib.SendSecret

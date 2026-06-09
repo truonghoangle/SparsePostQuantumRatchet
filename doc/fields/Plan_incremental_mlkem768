@@ -1,0 +1,504 @@
+# TODO: Verification Plan for Incremental ML-KEM-768 Functions
+
+## Overview
+
+This document describes the TODO plan for verifying the functions and constants
+listed in [`doc/truong/incremental_mlkem768_functions.txt`](../truong/incremental_mlkem768_functions.txt),
+which enumerates all fully qualified function and constant names from
+`src/incremental_mlkem768.rs` (Rust source). These are extracted into
+`Spqr/Code/Funs.lean` (Lean 4 / Aeneas extraction).
+
+All extractable functions are configured via
+[`aeneas-config.yml`](../../aeneas-config.yml). Functions not appearing in
+that configuration (e.g. `#[cfg(test)]` or `#[hax_lib::opaque]` items) are
+either not extracted or emitted as axioms and therefore cannot be fully
+verified in the current framework.
+
+The current Lean specification tree for the incremental ML-KEM-768 layer
+lives at
+[`Spqr/Specs/IncrementalMlkem768/`](../../Spqr/Specs/IncrementalMlkem768/)
+and is grounded by external (opaque) function models in
+[`Spqr/Code/FunsExternal.lean`](../../Spqr/Code/FunsExternal.lean).
+
+---
+
+## 0. External (Opaque) Function Models — Statistics and Analysis
+
+The incremental ML-KEM-768 module operates over opaque cryptographic
+primitives provided by the upstream `libcrux_ml_kem` crate. Unlike the
+polynomial or GF(2¹⁶) layers, there is no internal mathematical
+foundation to verify — the module's correctness reduces to
+*byte-length preservation* through opaque cryptographic calls. All
+external models are consolidated in
+[`Spqr/Code/FunsExternal.lean`](../../Spqr/Code/FunsExternal.lean).
+
+### 0a. Axiomatised Types
+
+| Type | Declaration | Role |
+|------|-------------|------|
+| `KeyPairCompressedBytes` | `axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited` | Opaque ML-KEM-768 compressed key pair type; inhabitedness postulated. |
+
+### 0b. Axiomatised Functions (no concrete model)
+
+| Function | Declaration | Role |
+|----------|-------------|------|
+| `Ciphertext1.len` | `axiom libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1.len` | Returns the const-generic length `LEN` of `Ciphertext1<LEN>`. Semantically the identity on `LEN`, but Aeneas emits it as an axiom because it is a `const fn` from the upstream crate. |
+| `core.result.Result.is_ok` | `axiom core.result.Result.is_ok` | Boolean discriminator on `Result<T,E>`: returns `true` on `Ok`, `false` on `Err`. Aeneas leaves it as an axiom because it is a generic standard-library method. |
+| `potentially_fix_state…` | `axiom incremental_mlkem768.potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` | Opaque endianness workaround (cryspen/libcrux#1275); `#[hax_lib::opaque]` + `aeneas-config.yml` opaque entry. |
+| `core.option.Option.as_ref` | `axiom core.option.Option.as_ref` | Models Rust's `Option::as_ref(&self)` borrow conversion; identity on pure values in the erased-reference model. |
+
+### 0c. Concrete Models with Spec Theorems
+
+| Function | Concrete Model | Spec Theorem | Value |
+|----------|---------------|--------------|-------|
+| `Ciphertext2.len` | `fun LEN => ok LEN` | `Ciphertext2.len_spec` | Returns const-generic `LEN` |
+| `pk1_len` | `ok 64#usize` | `pk1_len_spec` | `64` (header / pk1 byte length) |
+| `pk2_len` | `ok 1152#usize` | `pk2_len_spec` | `1152` (encapsulation key / pk2 byte length) |
+| `encaps_state_len` | `ok 2080#usize` | `encaps_state_len_spec` | `2080` (encapsulation state byte length) |
+| `SHARED_SECRET_SIZE` | `ok 32#usize` | `SHARED_SECRET_SIZE_spec` | `32` (shared secret byte length) |
+| `KeyPairCompressedBytes.from_seed` | `fun _ => ok default` | `from_seed_spec` | Returns `default` inhabitant |
+| `KeyPairCompressedBytes.pk1` | `fun _ => ok default` | `pk1_spec` | Returns default `Array U8 64#usize` |
+| `KeyPairCompressedBytes.pk2` | `fun _ => ok default` | `pk2_spec` | Returns default `Array U8 1152#usize` |
+| `KeyPairCompressedBytes.sk` | `fun _ => ok default` | `sk_spec` | Returns default `Array U8 2400#usize` |
+| `validate_pk_bytes` | `fun _ _ => ok (Ok ())` | `validate_pk_bytes_spec` | Validation always succeeds |
+| `encapsulate1` | `fun _ _ state ss => ok (Ok ⟨default⟩, state, ss)` | `encapsulate1_spec` | Returns default `Ciphertext1 960`, threads state/ss unchanged |
+| `encapsulate2` | `fun _ _ => ok ⟨default⟩` | `encapsulate2_spec` | Returns default `Ciphertext2 128` |
+| `decapsulate_compressed_key` | `fun _ _ _ => ok default` | `decapsulate_compressed_key_spec` | Returns default `Array U8 32#usize` |
+
+### 0d. `sorry` Inventory in External Models
+
+| File | `sorry` | Axioms |
+|------|---------|--------|
+| `Spqr/Code/FunsExternal.lean` (incremental ML-KEM-768 portion) | **0** | 5 (see §0b + `instInhabited`) |
+
+All concrete models in `FunsExternal.lean` carry complete `@[simp, step_simps]`
+spec theorems — **no `sorry`** in the external model layer.
+
+### 0e. Statistics Summary
+
+| Metric | Count |
+|--------|-------|
+| Axiomatised types | 1 (`KeyPairCompressedBytes`) |
+| Axiomatised functions (no concrete model) | 4 |
+| Concrete models with spec theorems | 13 |
+| `sorry` instances in external models | **0** |
+| Axioms declared (total, including `instInhabited`) | **5** |
+
+---
+
+## 1. Combined Function and Constant Inventory
+
+The following tables list every function and constant from
+`incremental_mlkem768_functions.txt`, together with its Lean name in
+`Spqr/Code/Funs.lean`, its current spec file under
+`Spqr/Specs/IncrementalMlkem768/` (if any), and verification status.
+
+Legend: ✅ = verified (spec file present, no `sorry`), ⚠️ = spec
+exists but contains `sorry`, ❌ = not yet verified (no spec file),
+⏭️ = skipped (see Section 2).
+
+### Constants
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| C1 | `CIPHERTEXT1_SIZE` | `incremental_mlkem768.CIPHERTEXT1_SIZE` | `CIPHERTEXT1_SIZE.lean` | ✅ |
+| C2 | `CIPHERTEXT2_SIZE` | `incremental_mlkem768.CIPHERTEXT2_SIZE` | `CIPHERTEXT2_SIZE.lean` | ✅ |
+| C3 | `HEADER_SIZE` | `incremental_mlkem768.HEADER_SIZE` | `HEADER_SIZE.lean` | ✅ |
+| C4 | `ENCAPSULATION_KEY_SIZE` | `incremental_mlkem768.ENCAPSULATION_KEY_SIZE` | `ENCAPSULATION_KEY_SIZE.lean` | ✅ |
+
+### Functions: Free Functions (pub)
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F1 | `ek_matches_header` | `incremental_mlkem768.ek_matches_header` | `EkMatchesHeader.lean` | ✅ (uses local axiom `Result_is_ok_Ok` — Section 2c) |
+| F2 | `generate` | `incremental_mlkem768.generate` | `Generate.lean` | ✅ (uses hypothesis `fill_bytes_ok` — Section 2c) |
+| F3 | `encaps1` | `incremental_mlkem768.encaps1` | `Encaps1.lean` | ✅ (uses hypothesis `fill_bytes_ok` — Section 2c) |
+| F4 | `encaps2` | `incremental_mlkem768.encaps2` | `Encaps2.lean` | ✅ (uses hypotheses `potentially_fix_state_ok`, `option_as_ref_id` — Section 2c) |
+| F5 | `decaps` | `incremental_mlkem768.decaps` | `Decaps.lean` | ✅ |
+
+### Functions: Free Functions (private)
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F6 | `potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` | `incremental_mlkem768.potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` | — (opaque axiom in `FunsExternal.lean`) | ⏭️ Opaque (`#[hax_lib::opaque]` + `aeneas-config.yml`) |
+| F7 | `flip_endianness_of_encapsulation_state` | `incremental_mlkem768.flip_endianness_of_encapsulation_state` | `FlipEndiannessOfEncapsulationState.lean` (+ `…Loop0.lean`, `…LoopBody0.lean`) | ✅ |
+
+### Functions: Test Functions
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F8 | `test::incremental_mlkem768_round_trip` | — (not extracted) | — | ⏭️ `#[cfg(test)]` |
+
+---
+
+## 2. Skipped Functions and Reasons
+
+### 2a. Opaque / `#[hax_lib::opaque]` Functions
+
+The function
+`potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275`
+is marked `#[hax_lib::opaque]` in Rust and is listed in
+`aeneas-config.yml` (under `charon.opaque`) as:
+
+```yaml
+- "spqr::incremental_mlkem768::potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275"
+  # has log calls; kept opaque so encaps2 can call it
+```
+
+This causes the function to be emitted as an axiom in
+`Spqr/Code/FunsExternal.lean` rather than being extracted into
+`Spqr/Code/Funs.lean`. Its internal logic — the endianness-checking
+match on `i16` chunks of the encapsulation state — is not itself
+verified. Its contract is captured as the definition
+`potentially_fix_state_ok` in `Encaps2.lean` and taken as a hypothesis
+by `encaps2_spec`.
+
+| # | Rust Name | Why Skipped |
+|---|-----------|-------------|
+| F6 | `potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` | `#[hax_lib::opaque]` — contains `log` calls; emitted as axiom; internal logic (endianness detection) not verified. |
+
+**Note**: The companion function
+`flip_endianness_of_encapsulation_state` is *also*
+`#[hax_lib::opaque]` in the Rust source but is **not** listed in
+`aeneas-config.yml`; instead it is extracted into `Funs.lean` and
+fully verified (see F7, with spec file
+`FlipEndiannessOfEncapsulationState.lean` and its loop specs).
+
+### 2b. Test Functions (`#[cfg(test)]`, not extracted)
+
+| # | Rust Name | Why Skipped |
+|---|-----------|-------------|
+| F8 | `test::incremental_mlkem768_round_trip` | `#[cfg(test)]` — unit test, not part of the library API. |
+
+### 2c. Local Axioms and Hypotheses Used by Verified Spec Files
+
+The following axioms and hypotheses are declared or assumed inside spec
+files to bridge between the extracted model and the expected Rust
+semantics. They are clearly marked and do not affect other functions
+beyond the specific spec file in which they appear.
+
+| Axiom / Hypothesis | File | Justification |
+|--------------------|------|---------------|
+| `Ciphertext1_len_id` | `CIPHERTEXT1_SIZE.lean:41` | Postulates `Ciphertext1.len LEN = ok LEN` because Aeneas emits `Ciphertext1.len` as an external axiom (the upstream `const fn` returns the const-generic length `LEN`). The `Ciphertext2` counterpart has a concrete model in `FunsExternal.lean` and does not need this axiom. |
+| `Result_is_ok_Ok` | `EkMatchesHeader.lean:53` | Postulates `core.result.Result.is_ok (Ok v) = ok true` because `is_ok` is an external axiom in the Aeneas extraction (a generic standard-library method). Only the `Ok` branch is reachable from `ek_matches_header` since `validate_pk_bytes` always returns `Ok ()` in the extracted model. |
+| `fill_bytes_ok` (hypothesis) | `Generate.lean:85` | Definition of the proposition that `RngCore::fill_bytes` always returns `ok (rng', s')`. Taken as a hypothesis by `generate_spec` and `encaps1_spec`, not an axiom. |
+| `potentially_fix_state_ok` (hypothesis) | `Encaps2.lean:78` | Definition of the proposition that the opaque `potentially_fix_state…` call always succeeds and any `Some v` result preserves the input length. Taken as a hypothesis by `encaps2_spec`, not an axiom. |
+| `option_as_ref_id` (hypothesis) | `Encaps2.lean:93` | Definition of the proposition that `core.option.Option.as_ref o = ok o` (identity on pure values). Taken as a hypothesis by `encaps2_spec`, not an axiom. |
+
+### 2d. `sorry` Affecting Incremental ML-KEM-768 Verification
+
+| Location | Source of the `sorry` | Effect |
+|----------|------------------------|--------|
+| (none) | — | — |
+
+There are **zero** `sorry` instances across all 12 spec files in the
+`Spqr/Specs/IncrementalMlkem768/` tree.
+
+---
+
+## 3. Function Descriptions
+
+### Constants
+
+- **`CIPHERTEXT1_SIZE` (960)** [C1] — Byte length of the first
+  ciphertext (`Ciphertext1`) produced by the incremental ML-KEM-768
+  encapsulation. Computed as `incremental::Ciphertext1::len()`, which
+  returns the const-generic `LEN = 960`.
+
+- **`CIPHERTEXT2_SIZE` (128)** [C2] — Byte length of the second
+  ciphertext (`Ciphertext2`) produced by the incremental ML-KEM-768
+  encapsulation. Computed as `incremental::Ciphertext2::len()`, which
+  returns the const-generic `LEN = 128`.
+
+- **`HEADER_SIZE` (64)** [C3] — Byte length of the header (`Header`,
+  i.e. the `pk1` part of the public key). Computed as
+  `incremental::pk1_len()`, which returns `64`.
+
+- **`ENCAPSULATION_KEY_SIZE` (1152)** [C4] — Byte length of the
+  encapsulation key (`EncapsulationKey`, i.e. the `pk2` part of the
+  public key). Computed as `incremental::pk2_len()`, which returns
+  `1152`.
+
+### Free Functions (pub)
+
+- **`ek_matches_header(ek, hdr)`** [F1] — Validates that an
+  encapsulation key is consistent with a header by calling
+  `incremental::validate_pk_bytes(hdr, ek).is_ok()`. In the extracted
+  model, validation always succeeds (returns `true`).
+
+- **`generate<R>(rng)`** [F2] — Key generation: samples 64 bytes of
+  randomness via `RngCore::fill_bytes`, derives a
+  `KeyPairCompressedBytes` via `from_seed`, and extracts the three
+  fixed-size byte arrays (`pk1`/`pk2`/`sk`) into a `Keys` record with
+  byte lengths 64/1152/2400.
+
+- **`encaps1<R>(hdr, rng)`** [F3] — First half of incremental
+  encapsulation: samples 32 bytes of randomness, allocates work buffers
+  (`state` of length 2080, `ss` of length 32), invokes `encapsulate1`,
+  and returns the triple `(ct1, es, ss)` with byte lengths 960/2080/32.
+
+- **`encaps2(ek, es)`** [F4] — Second half of incremental
+  encapsulation: applies the endianness workaround
+  (`potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275`),
+  converts inputs to fixed-size arrays, invokes `encapsulate2`, and
+  returns `ct2` with byte length 128.
+
+- **`decaps(dk, ct1, ct2)`** [F5] — Decapsulation: converts the three
+  input byte vectors (`dk`, `ct1`, `ct2`) to fixed-size arrays, invokes
+  `decapsulate_compressed_key`, and returns the shared secret with byte
+  length 32.
+
+### Free Functions (private)
+
+- **`potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275(es)`**
+  [F6] — Opaque workaround for cryspen/libcrux#1275: inspects the
+  `error2` portion of the encapsulation state to detect endianness
+  mismatch and returns `Some(fixed_es)` if byte-swapping was needed, or
+  `None` otherwise. Axiomatised in the Aeneas extraction; its contract
+  is captured as the proposition `potentially_fix_state_ok`.
+
+- **`flip_endianness_of_encapsulation_state(es)`** [F7] — Byte-swaps
+  each consecutive 16-bit word in the first `len − 32` positions of the
+  encapsulation state byte vector, leaving the last 32 bytes (the
+  shared-secret portion) untouched. Fully verified with a three-part
+  postcondition (length preservation, byte-swap, frame/tail).
+
+### Test Functions (not extracted)
+
+- **F8** — `test::incremental_mlkem768_round_trip` — Unit test for
+  key generation + encapsulation + decapsulation round trip. Not
+  extracted by Aeneas.
+
+---
+
+## 4. Verification Order (Dependency Table)
+
+The table below lists every function and constant from
+`incremental_mlkem768_functions.txt` in **dependency order**: to
+verify A, every prerequisite B must already be verified. External
+models from `Spqr/Code/FunsExternal.lean` are listed as a single
+prerequisite block ("ExtModels") because they carry complete spec
+theorems with no `sorry`.
+
+Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
+❌ not verified, ⏭️ skipped (Section 2).
+
+| Order | # | Function / Constant | Spec File | Depends On | Status |
+|-------|---|---------------------|-----------|------------|--------|
+|  1 | ExtModels | `Spqr/Code/FunsExternal.lean` (incremental ML-KEM-768 portion) | — | — | ✅ |
+|  2 | C1 | `CIPHERTEXT1_SIZE` | `CIPHERTEXT1_SIZE.lean` | `Ciphertext1.len` axiom (ExtModels) + local axiom `Ciphertext1_len_id` | ✅ |
+|  3 | C2 | `CIPHERTEXT2_SIZE` | `CIPHERTEXT2_SIZE.lean` | `Ciphertext2.len` concrete model (ExtModels) | ✅ |
+|  4 | C3 | `HEADER_SIZE` | `HEADER_SIZE.lean` | `pk1_len` concrete model (ExtModels) | ✅ |
+|  5 | C4 | `ENCAPSULATION_KEY_SIZE` | `ENCAPSULATION_KEY_SIZE.lean` | `pk2_len` concrete model (ExtModels) | ✅ |
+|  6 | F1 | `ek_matches_header` | `EkMatchesHeader.lean` | `validate_pk_bytes` concrete model, `Result.is_ok` axiom + local axiom `Result_is_ok_Ok` | ✅ |
+|  7 | F2 | `generate` | `Generate.lean` | `fill_bytes_ok` hypothesis, `KeyPairCompressedBytes.from_seed`/`.pk1`/`.pk2`/`.sk` concrete models (ExtModels) | ✅ |
+|  8 | F7-body | `flip_endianness…_loop.body` | `FlipEndiannessOfEncapsulationStateLoopBody0.lean` | `RangeIteratorNext` (Aeneas spec) | ✅ |
+|  9 | F7-loop | `flip_endianness…_loop` | `FlipEndiannessOfEncapsulationStateLoop0.lean` | F7-body | ✅ |
+| 10 | F7 | `flip_endianness_of_encapsulation_state` | `FlipEndiannessOfEncapsulationState.lean` | F7-loop | ✅ |
+| 11 | F3 | `encaps1` | `Encaps1.lean` | F2 (imports `Generate.lean` for `fill_bytes_ok`), `encapsulate1` concrete model, `alloc.vec.from_elem`, `Result.expect` (ExtModels) | ✅ |
+| 12 | F6 | `potentially_fix_state…` | — (opaque axiom in `FunsExternal.lean`) | — | ⏭️ Opaque |
+| 13 | F4 | `encaps2` | `Encaps2.lean` | `potentially_fix_state_ok` hypothesis, `option_as_ref_id` hypothesis, `encapsulate2` concrete model, `Result.expect` (ExtModels) | ✅ |
+| 14 | F5 | `decaps` | `Decaps.lean` | `TryFromArrayCopySlice.try_from`, `TryFromSharedArraySlice.try_from`, `Result.expect`, `decapsulate_compressed_key` concrete model (ExtModels) | ✅ |
+| 15 | F8 | `test::incremental_mlkem768_round_trip` | — | F2, F3, F4, F5 | ⏭️ `#[cfg(test)]` |
+
+### Dependency DAG (ASCII)
+
+```
+                     Spqr.Code.FunsExternal  (ExtModels)
+                      │
+    ┌─────────────────┼─────────────────┬────────────────────┐
+    ▼                 ▼                 ▼                    ▼
+  Ciphertext1.len   Ciphertext2.len   pk1_len   pk2_len   SHARED_SECRET_SIZE
+  (axiom)           (concrete)        (concrete) (concrete) (concrete)
+    │                 │                 │          │
+    ▼                 ▼                 ▼          ▼
+  CIPHERTEXT1_SIZE  CIPHERTEXT2_SIZE  HEADER_SIZE  ENCAPSULATION_KEY_SIZE
+  (C1) ✅           (C2) ✅           (C3) ✅      (C4) ✅
+
+  validate_pk_bytes ──► Result.is_ok ──► ek_matches_header (F1) ✅
+  (concrete)            (axiom)
+
+  KeyPairCompressedBytes.from_seed ──► .pk1 ──► .pk2 ──► .sk
+  (concrete)                          (concrete)
+    │
+    ▼
+  generate (F2) ✅ ◄── fill_bytes_ok (hypothesis)
+    │
+    ▼
+  encaps1 (F3) ✅ ◄── encapsulate1 (concrete), fill_bytes_ok
+    │
+    ▼
+  potentially_fix_state… (F6) ⏭️ OPAQUE AXIOM
+    │
+    ▼
+  encaps2 (F4) ✅ ◄── encapsulate2 (concrete),
+                      potentially_fix_state_ok (hypothesis),
+                      option_as_ref_id (hypothesis)
+
+  decapsulate_compressed_key ──► decaps (F5) ✅
+  (concrete)
+
+  flip_endianness…_loop.body ──► …_loop ──► flip_endianness… (F7) ✅
+
+  test::incremental_mlkem768_round_trip (F8) ⏭️
+```
+
+---
+
+## 5. Source Code Modification Links
+
+All incremental ML-KEM-768 functions are extracted from
+`src/incremental_mlkem768.rs` via the Aeneas toolchain. The extraction
+configuration is in [`aeneas-config.yml`](../../aeneas-config.yml).
+
+### Incremental-ML-KEM-768-relevant entries in `aeneas-config.yml`
+
+| Section | Entry | Purpose |
+|---------|-------|---------|
+| `charon.opaque` | `spqr::incremental_mlkem768::potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` | Contains `log` calls; marked `#[hax_lib::opaque]` in Rust; kept opaque so `encaps2` can call it. Emitted as axiom in `FunsExternal.lean`. |
+
+There are **no `tweaks` entries** in `aeneas-config.yml` for the
+incremental ML-KEM-768 module. The companion function
+`flip_endianness_of_encapsulation_state` is also `#[hax_lib::opaque]`
+in the Rust source but is **not** listed in `aeneas-config.yml`;
+instead it is extracted into `Funs.lean` and fully verified.
+
+Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.diff).
+
+### Residual `sorry` impact summary
+
+| Where | What |
+|-------|------|
+| (none) | There are **zero** `sorry` instances in the `Spqr/Specs/IncrementalMlkem768/` spec tree. |
+
+### Axiom impact summary
+
+| Where | What | Effect |
+|-------|------|--------|
+| `Spqr/Code/FunsExternal.lean` axiom `potentially_fix_state…` | F6 cannot be verified without an extracted body. | `encaps2_spec` takes `potentially_fix_state_ok` as a hypothesis instead. |
+| `Spqr/Code/FunsExternal.lean` axiom `core.option.Option.as_ref` | Generic Rust borrow conversion not modelled concretely. | `encaps2_spec` takes `option_as_ref_id` as a hypothesis instead. |
+| `Spqr/Code/FunsExternal.lean` axiom `core.result.Result.is_ok` | Generic Rust standard-library discriminator not modelled concretely. | `EkMatchesHeader.lean` postulates the `Ok` branch locally as `Result_is_ok_Ok`. |
+| `Spqr/Code/FunsExternal.lean` axiom `Ciphertext1.len` | Const-generic accessor not modelled concretely. | `CIPHERTEXT1_SIZE.lean` postulates the defining equation locally as `Ciphertext1_len_id`. |
+| `Spqr/Code/FunsExternal.lean` axiom `KeyPairCompressedBytes.instInhabited` | Inhabitedness for opaque type. | Required by `from_seed` concrete model; no downstream verification impact. |
+
+---
+
+## 6. Background Knowledge for Specification Theorem Properties
+
+The specification theorems in the incremental ML-KEM-768 layer are
+principally **byte-length preservation** theorems: they verify that
+each function's output byte vectors have the exact lengths specified
+by the Rust `#[hax_lib::ensures]` annotations. The following
+background knowledge supports the derivation of the full properties
+of these specification theorems.
+
+### 6a. Byte-Length Properties from External Models
+
+The concrete models in `FunsExternal.lean` pin down the following
+size-critical facts:
+
+| Concrete Model | Property | Used By |
+|----------------|----------|---------|
+| `pk1_len = ok 64#usize` | Header byte length is 64 | `HEADER_SIZE_spec`, `generate_spec` |
+| `pk2_len = ok 1152#usize` | Encapsulation key byte length is 1152 | `ENCAPSULATION_KEY_SIZE_spec`, `generate_spec` |
+| `encaps_state_len = ok 2080#usize` | Encapsulation state byte length is 2080 | `encaps1_spec` |
+| `SHARED_SECRET_SIZE = ok 32#usize` | Shared secret byte length is 32 | `encaps1_spec` |
+| `Ciphertext1.len 960 = ok 960` | First ciphertext byte length is 960 | `CIPHERTEXT1_SIZE_spec` |
+| `Ciphertext2.len 128 = ok 128` | Second ciphertext byte length is 128 | `CIPHERTEXT2_SIZE_spec` |
+| `from_seed _ = ok default` | Key derivation always succeeds | `generate_spec` |
+| `pk1 _ = ok (default : Array U8 64)` | pk1 accessor always succeeds with 64-byte array | `generate_spec` |
+| `pk2 _ = ok (default : Array U8 1152)` | pk2 accessor always succeeds with 1152-byte array | `generate_spec` |
+| `sk _ = ok (default : Array U8 2400)` | sk accessor always succeeds with 2400-byte array | `generate_spec` |
+| `encapsulate1 _ _ state ss = ok (Ok ⟨default⟩, state, ss)` | First encapsulation succeeds, threads state/ss | `encaps1_spec` |
+| `encapsulate2 _ _ = ok ⟨default⟩` | Second encapsulation succeeds | `encaps2_spec` |
+| `decapsulate_compressed_key _ _ _ = ok default` | Decapsulation succeeds with 32-byte array | `decaps_spec` |
+| `validate_pk_bytes _ _ = ok (Ok ())` | Validation always succeeds | `ek_matches_header_spec` |
+
+### 6b. Aeneas Infrastructure Lemmas
+
+The following Aeneas-side infrastructure lemmas are used across
+multiple spec files:
+
+| Lemma / Spec | Source | Used By |
+|-------------|--------|---------|
+| `Array.to_slice_mut_spec` | Aeneas standard library | `generate_spec`, `encaps1_spec` |
+| `Array.to_slice_spec` | Aeneas standard library | `generate_spec`, `encaps1_spec`, `encaps2_spec`, `decaps_spec` |
+| `alloc.vec.Vec.as_slice_spec` | `FunsExternal.lean` | `encaps1_spec`, `encaps2_spec`, `decaps_spec` |
+| `alloc.vec.from_elem_spec` | Aeneas standard library | `encaps1_spec` |
+| `Slice.to_vec_spec` | Aeneas standard library | All function specs (clone array → Vec) |
+| `Result.expect_spec` | `Spqr/Specs/Aeneas/ResultExpect.lean` | `encaps1_spec`, `encaps2_spec`, `decaps_spec` |
+| `TryFromArrayCopySlice.try_from` | `Spqr/Specs/Aeneas/TryFromSliceToArray.lean` | `decaps_spec` |
+| `TryFromSharedArraySlice.try_from` | Aeneas standard library | `encaps2_spec`, `decaps_spec` |
+| `core.iter.range.IteratorRange.next_Usize_spec` | `Spqr/Specs/Aeneas/RangeIteratorNext.lean` | `FlipEndiannessOfEncapsulationStateLoopBody0.lean`, `…Loop0.lean` |
+| `core.iter.range.IteratorRange.step_by` | Aeneas standard library | `FlipEndiannessOfEncapsulationState.lean` |
+| `Slice.clone_spec` | Aeneas standard library | `FlipEndiannessOfEncapsulationState.lean` |
+
+### 6c. Flip-Endianness Loop Invariant Properties
+
+The `flip_endianness_of_encapsulation_state` function is the only
+function in the module with non-trivial internal logic (a byte-swap
+loop). Its verification requires the following supporting lemmas,
+all proved in the loop spec files:
+
+| Lemma | File | Property |
+|-------|------|----------|
+| `skipN_Range_Usize_ok` | `…LoopBody0.lean:51` | `skipN` on a `Range<usize>` iterator always succeeds. |
+| `skipN_Range_Usize_props` | `…Loop0.lean:60` | `skipN` preserves the range's `end` field and yields `start ≥ original start`. |
+| `skipN_Range_Usize_advance` | `…Loop0.lean:102` | When room exists (`start + n ≤ end`), `skipN n` advances `start` by exactly `n`. |
+| `List.getElem?_set_set_ne` | `…LoopBody0.lean:71` | Double set then getElem? at the first index (≠ second) returns the first written value. |
+| `List.getElem?_set_set_self` | `…LoopBody0.lean:80` | Double set then getElem? at the second index returns the second written value. |
+| `List.getElem?_set_set_other` | `…LoopBody0.lean:89` | Double set then getElem? at a position ≠ both indices returns the original value. |
+| `clone_U8_spec` | `…FlipEndiannessOfEncapsulationState.lean:37` | `CloneVec.clone` for `U8` always succeeds and returns the vector unchanged. |
+
+### 6d. Spec ↔ External Model Dependency Map
+
+| Spec file | Key external model(s) used |
+|-----------|---------------------------|
+| `CIPHERTEXT1_SIZE.lean` | `Ciphertext1.len` axiom + local `Ciphertext1_len_id` |
+| `CIPHERTEXT2_SIZE.lean` | `Ciphertext2.len` concrete model |
+| `HEADER_SIZE.lean` | `pk1_len` concrete model |
+| `ENCAPSULATION_KEY_SIZE.lean` | `pk2_len` concrete model |
+| `EkMatchesHeader.lean` | `validate_pk_bytes` concrete model, `Result.is_ok` axiom + local `Result_is_ok_Ok` |
+| `Generate.lean` | `SHARED_SECRET_SIZE`, `from_seed`, `pk1`, `pk2`, `sk` concrete models; `fill_bytes_ok` hypothesis |
+| `Encaps1.lean` | `encaps_state_len`, `SHARED_SECRET_SIZE`, `encapsulate1` concrete models; `fill_bytes_ok` hypothesis; `Result.expect` spec |
+| `Encaps2.lean` | `encapsulate2` concrete model; `potentially_fix_state…` axiom via `potentially_fix_state_ok` hypothesis; `Option.as_ref` axiom via `option_as_ref_id` hypothesis |
+| `Decaps.lean` | `decapsulate_compressed_key` concrete model; `TryFromArrayCopySlice.try_from`, `TryFromSharedArraySlice.try_from`, `Result.expect` specs |
+| `FlipEndianness…LoopBody0.lean` | `IteratorRange.next_Usize_spec` |
+| `FlipEndianness…Loop0.lean` | `FlipEndianness…LoopBody0` body spec |
+| `FlipEndianness…State.lean` | `FlipEndianness…Loop0` loop spec, `CloneVec.clone` |
+
+---
+
+## 7. Summary
+
+Based on the 8 functions + 4 constants in `incremental_mlkem768.rs`:
+
+- **4 constants**: 4 verified ✅ (C1–C4).
+- **8 functions**:
+  - **6 verified** ✅
+    (F1 `ek_matches_header`, F2 `generate`, F3 `encaps1`, F4 `encaps2`,
+    F5 `decaps`, F7 `flip_endianness_of_encapsulation_state`).
+  - **0 with residual `sorry`** ⚠️.
+  - **0 not yet verified** ❌ — every non-skipped function in
+    `incremental_mlkem768_functions.txt` has a spec file.
+  - **2 skipped** ⏭️
+    (F6 `potentially_fix_state…` — opaque axiom;
+    F8 `test::incremental_mlkem768_round_trip` — `#[cfg(test)]`).
+- **`sorry` instances affecting incremental ML-KEM-768 layer**: **0**.
+- **Axioms used by the incremental ML-KEM-768 layer**:
+  - 1 opaque axiom in `FunsExternal.lean`
+    (`potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275`).
+  - 3 generic standard-library axioms in `FunsExternal.lean`
+    (`core.result.Result.is_ok`, `core.option.Option.as_ref`,
+    `Ciphertext1.len`).
+  - 1 type inhabitedness axiom in `FunsExternal.lean`
+    (`KeyPairCompressedBytes.instInhabited`).
+  - 2 local axioms in spec files (`Ciphertext1_len_id`,
+    `Result_is_ok_Ok`).
+  - 3 local hypotheses (not axioms) in spec files (`fill_bytes_ok`,
+    `potentially_fix_state_ok`, `option_as_ref_id`).
+- **External models** (`FunsExternal.lean`): **0 `sorry`**, 5 axioms,
+  13 concrete models with spec theorems.
+- **Spec files** (`Spqr/Specs/IncrementalMlkem768/`): 12 files,
+  1 536 lines total, **0 `sorry`**, **0 axioms other than the 2 local
+  axioms listed above**.

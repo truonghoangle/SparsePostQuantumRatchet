@@ -31,12 +31,23 @@ noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedSet T) := sorted
 noncomputable axiom sorted_vec.SortedVec.instInhabited (T : Type) : Inhabited (sorted_vec.SortedVec T)
 noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedVec T) := sorted_vec.SortedVec.instInhabited T
 
-/-- `libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes` is an opaque
-    (axiom) type; we postulate inhabitedness. -/
-noncomputable axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited :
-  Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes
-noncomputable instance : Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
+/-- `libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes` is a concrete
+    structure with `pk1_val`, `pk2_val`, and `sk_val` fields (all fixed-size
+    byte arrays).  Inhabitedness follows from all fields being `Inhabited`. -/
+def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited :
+  Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
+  ⟨⟨default, default, default⟩⟩
+instance : Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
   libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited
+
+/-- **Spec theorem for `KeyPairCompressedBytes.instInhabited`**: the `default`
+    value is the structure with all-zero `pk1_val`, `pk2_val`, and `sk_val`
+    arrays. -/
+@[simp, step_simps]
+theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited_spec :
+    (default : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) =
+      ⟨default, default, default⟩ := by
+  rfl
 
 /-- [core::array::equality::{core::cmp::PartialEq<[U; N]> for [T]}::eq]:
     Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40
@@ -1007,14 +1018,13 @@ theorem libcrux_ml_kem.mlkem768.incremental.encapsulate2_spec
 
     Concrete model of Rust's `KeyPairCompressedBytes::from_seed`: given a
     64-byte seed, produces an ML-KEM 768 incremental compressed key pair.
-    Since `KeyPairCompressedBytes` is an opaque (axiomatised) type whose
-    contents we cannot inspect, we model the result by returning the
-    `default` inhabitant of `KeyPairCompressedBytes` (provided by the
-    postulated `Inhabited` instance).  The outer `Result` is always `ok`
-    (the call never panics). -/
+    Since the underlying cryptographic computation is opaque, we model the
+    result by returning the `default` inhabitant of `KeyPairCompressedBytes`
+    (i.e. a structure with all-zero byte arrays).  The outer `Result` is
+    always `ok` (the call never panics). -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed"]
-noncomputable def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
+def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
   :
   Array Std.U8 64#usize → Result
     libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
