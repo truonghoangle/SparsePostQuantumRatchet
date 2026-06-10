@@ -297,7 +297,7 @@ Since `g.value.val < 2^16` and `polyGF2` has degree 16, the underlying binary po
 We expose this as a private axiom (following the precedent of `vec_remove_zero_spec` in
 `LagrangeInterpolatePt.lean`) to avoid a lengthy detour through Mathlib's `AdjoinRoot` and
 `natToBinaryPoly` machinery.  The converse, `g.value.val = 0 → g.toGF216 = 0`, is already a
-proven lemma `GF16.toGF216_zero_val` in `Spqr.Math.Poly`.
+proven lemma `GF16.toGF216_eq_zero` in `Spqr.Math.Poly`.
 -/
 
 /--
@@ -472,10 +472,10 @@ theorem loop_spec
       have h_coeff :
           (listToGF216Poly p'.coefficients.val).coeff (N.val - 1) = 0 :=
         Polynomial.coeff_eq_zero_of_natDegree_lt h_nd
-      -- Bridge to the array value via getElem_bang_toGF216_eq_coeff
+      -- Bridge to the array value via getElem!_toGF216_eq_coeff
       have h_toGF216 :
           (p'.coefficients.val[N.val - 1]!).toGF216 = 0 := by
-        rw [getElem_bang_toGF216_eq_coeff]; exact h_coeff
+        rw [getElem!_toGF216_eq_coeff]; exact h_coeff
       -- Bridge from GF216 zero to u16 zero via the axiom
       exact GF16.value_val_eq_zero_of_toGF216 _ h_toGF216
     -- Apply the body spec with the derived leading-zero hypothesis
@@ -497,7 +497,7 @@ theorem loop_spec
         rw [h_take_len]; omega
       have h_denom_eq_one :
           lagrangeDenomProd pi.x (pts.val.take N.val) j'.val = 1 := by
-        apply lagrangeDenomProd_ge
+        apply lagrangeDenomProd_eq_one_of_le
         rw [h_take_len]; omega
       refine ⟨hpi_eq, ?_, ?_⟩
       · rw [hp_eq]
@@ -710,7 +710,7 @@ namespace spqr.encoding.polynomial.PolyConst
 
 After `let a := Array.repeat N GF16.ZERO` and `a1 := Array.update a 0 GF16.ONE`, the underlying
 list is `[ONE, ZERO, ZERO, …, ZERO]` with `N` entries.  Mapping through `listToGF216Poly` and
-using `GF16.toGF216_zero_val` / `GF16.toGF216_one_val` at each coefficient position, every
+using `GF16.toGF216_eq_zero` / `GF16.toGF216_eq_one` at each coefficient position, every
 coefficient at degree `≥ 1` is zero and the constant coefficient is `1`, so the resulting
 `GF216[X]` element is `C 1 = 1`.
 -/
@@ -723,19 +723,19 @@ private theorem listToGF216Poly_init_one
   -- We compare coefficient-by-coefficient.  At every position `m`:
   -- * `(1 : GF216Poly).coeff m` is `1` if `m = 0` and `0` otherwise.
   -- * `(listToGF216Poly a1.val).coeff m` is `(a1.val[m]!).toGF216` (via
-  --   `getElem_bang_toGF216_eq_coeff`, which folds the out-of-bounds case to the
+  --   `getElem!_toGF216_eq_coeff`, which folds the out-of-bounds case to the
   --   `GF16` default — whose `toGF216` is also `0`).
   -- The hypotheses `h0` and `h_rest` exactly say that the underlying `value.val`
-  -- equals `1` at position `0` and `0` elsewhere, so `GF16.toGF216_one_val` /
-  -- `GF16.toGF216_zero_val` close each case.
+  -- equals `1` at position `0` and `0` elsewhere, so `GF16.toGF216_eq_one` /
+  -- `GF16.toGF216_eq_zero` close each case.
   apply Polynomial.ext
   intro m
   cases m with
   | zero =>
     -- `(1 : GF216Poly).coeff 0 = 1` and the LHS coefficient is
     -- `(a1.val[0]!).toGF216 = 1` by `h0`.
-    rw [Polynomial.coeff_one_zero, ← getElem_bang_toGF216_eq_coeff]
-    exact GF16.toGF216_one_val _ h0
+    rw [Polynomial.coeff_one_zero, ← getElem!_toGF216_eq_coeff]
+    exact GF16.toGF216_eq_one _ h0
   | succ n =>
     -- The RHS coefficient is `0`.
     have h_one : (1 : GF216Poly).coeff (n + 1) = 0 := by
@@ -743,8 +743,8 @@ private theorem listToGF216Poly_init_one
     rw [h_one]
     by_cases hlt : n + 1 < a1.val.length
     · -- In-bounds: use `h_rest`.
-      rw [← getElem_bang_toGF216_eq_coeff]
-      apply GF16.toGF216_zero_val
+      rw [← getElem!_toGF216_eq_coeff]
+      apply GF16.toGF216_eq_zero
       exact h_rest (n + 1) (Nat.succ_pos n) (h_len ▸ hlt)
     · -- Out-of-bounds: the coefficient is zero by length bound.
       push Not at hlt

@@ -109,7 +109,7 @@ the function returns a polynomial `result : Poly` satisfying:
   equals the scaled product of all linear factors.
 
   Since `prodLinearFactors pts 0 n = (X − pts[i].x) · lagrangeBasisPoly pts i` (see
-  `prodLinearFactors_eq_factor_mul_basis` in `LagrangeInterpolate.lean`), cancelling the common
+  `prodLinearFactors_eq_X_sub_C_mul` in `LagrangeInterpolate.lean`), cancelling the common
   factor
   `(X − pts[i].x)` in the integral domain `GF216[X]` gives the cleaner form:
     `result.toGF216Poly =
@@ -163,7 +163,7 @@ theorem lagrange_interpolate_pt_spec
       unfold Poly.evalAt at this
       rwa [h_template_eq] at this
     have h_r1_coeff0 : result1.toGF216Poly.coeff 0 = 0 :=
-      coeff_zero_of_X_mul_identity result1.toGF216Poly
+      coeff_zero_eq_zero_of_X_mul_identity result1.toGF216Poly
         (GF16.toGF216 (pts.val.get ⟨i.val, hi⟩).x)
         (lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩) pts.val)
         (prodLinearFactors pts.val 0 pts.val.length)
@@ -171,7 +171,7 @@ theorem lagrange_interpolate_pt_spec
     have h_r1_X_factor : result1.toGF216Poly =
         X * listToGF216Poly (result1.coefficients.val.drop 1) := by
       unfold Poly.toGF216Poly
-      exact listToGF216Poly_eq_X_mul_drop_one result1.coefficients.val h_r1_coeff0
+      exact listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one result1.coefficients.val h_r1_coeff0
     unfold Poly.toGF216Poly
     rw [h_v_drop]
     have h_X_ne_zero : (X : GF216Poly) ≠ 0 := Polynomial.X_ne_zero

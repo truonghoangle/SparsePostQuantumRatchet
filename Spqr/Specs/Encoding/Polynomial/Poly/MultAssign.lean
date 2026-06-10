@@ -79,7 +79,7 @@ theorem mult_assign_spec
   simp only [Poly.toGF216Poly]
   apply listToGF216Poly_eq_of_coeffs
   · intro j hj
-    rw [coeff_C_mul, ← getElem_bang_toGF216_eq_coeff]
+    rw [coeff_C_mul, ← getElem!_toGF216_eq_coeff]
     simp only [List.get_eq_getElem, Slice.length] at *
     simp_all
     grind

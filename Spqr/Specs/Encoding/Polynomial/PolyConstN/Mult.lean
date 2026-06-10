@@ -76,7 +76,7 @@ private lemma mult_result_eq
     have h_j_result : j < result.val.length := by
       simp [List.Vector.length_val]; omega
     rw [h_scaled j (by omega) (by omega) h_j_result]
-    rw [coeff_C_mul, ← getElem_bang_toGF216_eq_coeff]
+    rw [coeff_C_mul, ← getElem!_toGF216_eq_coeff]
     ring
   · -- h_out: for j ≥ N, the polynomial coefficient is zero
     intro j hj
@@ -105,7 +105,7 @@ private lemma mult_result_eq
   The bridging from element-wise properties to the polynomial identity uses
   `listToGF216Poly_eq_of_coeffs`, matching each coefficient of the result to the
   corresponding coefficient of `C (m.toGF216) * listToGF216Poly self.coefficients.val`
-  via `getElem_bang_toGF216_eq_coeff`.
+  via `getElem!_toGF216_eq_coeff`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 398:4-410:5)
 -/

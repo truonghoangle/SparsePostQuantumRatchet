@@ -411,7 +411,7 @@ theorem loop_spec
                 congr 1; exact Fin.ext (by grind)
               grind
             rw [htr_k_val]
-            rw [expectedTrailingPoly_coeff_eq_zero _ _ _ _ _ _ (by omega : k < k + 1)]
+            rw [expectedTrailingPoly_coeff_eq_zero_of_lt _ _ _ _ _ _ (by omega : k < k + 1)]
             ring
       · grind
   · refine ⟨rfl, le_refl _, h_le, rfl, rfl, ?_, ?_, ?_⟩

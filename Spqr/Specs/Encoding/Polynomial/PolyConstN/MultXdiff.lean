@@ -133,7 +133,7 @@ private lemma mult_xdiff_result_eq
     -- Goal: (xp1[m]!).toGF216 - (a[m]!).toGF216 * d.toGF216 =
     --       ((X - C d.toGF216) * p).coeff m
     -- Step 3: Expand the RHS polynomial coefficient
-    rw [sub_mul, coeff_sub, coeff_C_mul, ← getElem_bang_toGF216_eq_coeff]
+    rw [sub_mul, coeff_sub, coeff_C_mul, ← getElem!_toGF216_eq_coeff]
     -- Goal: (xp1[m]!).toGF216 - (a[m]!).toGF216 * d.toGF216 =
     --       (X * p).coeff m - d.toGF216 * (a[m]!).toGF216
     -- Step 4: Case split on m for the X * p coefficient
@@ -156,7 +156,7 @@ private lemma mult_xdiff_result_eq
       rw [h_xp1_0]; ring
     | succ n =>
       -- m = n + 1: (X * p).coeff (n + 1) = p.coeff n
-      rw [coeff_X_mul, ← getElem_bang_toGF216_eq_coeff]
+      rw [coeff_X_mul, ← getElem!_toGF216_eq_coeff]
       -- Goal: (xp1[n+1]!).toGF216 - (a[n+1]!).toGF216 * d.toGF216 =
       --       (a[n]!).toGF216 - d.toGF216 * (a[n+1]!).toGF216
       -- Show xp1[n+1] = a[n]! (shifted from loop 0)
@@ -189,8 +189,8 @@ private lemma mult_xdiff_result_eq
         have h_eq : n = N.val - 1 := by omega
         subst h_eq
         -- Need: (a.val.get ⟨N.val - 1, _⟩).toGF216 = 0
-        -- This follows from h_leading_zero via GF16.toGF216_zero_val
-        apply GF16.toGF216_zero_val
+        -- This follows from h_leading_zero via GF16.toGF216_eq_zero
+        apply GF16.toGF216_eq_zero
         simp only [List.get_eq_getElem]
         rw [← getElem!_pos a.val (N.val - 1) (by simp [List.Vector.length_val]; omega)]
         exact h_leading_zero
@@ -227,7 +227,7 @@ private lemma mult_xdiff_result_eq
 
   The bridging from element-wise properties to the polynomial identity uses
   `listToGF216Poly_eq_of_coeffs`, matching each coefficient of `xp2` to the corresponding
-  coefficient of `(X − C d) * p` via `getElem_bang_toGF216_eq_coeff`.
+  coefficient of `(X − C d) * p` via `getElem!_toGF216_eq_coeff`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 415:4-454:5)
 -/

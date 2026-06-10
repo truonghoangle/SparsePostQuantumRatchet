@@ -141,7 +141,7 @@ In GF(2¹⁶) (characteristic 2), subtraction coincides with addition:
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
-open spqr.encoding.polynomial (lagrangeDenomProd lagrangeDenomProd_ge
+open spqr.encoding.polynomial (lagrangeDenomProd lagrangeDenomProd_eq_one_of_le
   lagrangeDenomProd_skip lagrangeDenomProd_accum)
 
 /-! ### Helper lemma for element access across equal slices -/
@@ -244,7 +244,7 @@ end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop0
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop1
 
-open spqr.encoding.polynomial (hornerAccum hornerAccum_ge hornerAccum_unfold)
+open spqr.encoding.polynomial (hornerAccum hornerAccum_eq_zero_of_le hornerAccum_unfold)
 
 instance : Inhabited spqr.encoding.gf.GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 

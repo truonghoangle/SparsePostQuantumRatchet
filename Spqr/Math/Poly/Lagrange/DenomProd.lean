@@ -55,9 +55,6 @@ lemma lagrangeDenomProd_eq_one_of_le (pi_x : spqr.encoding.gf.GF16)
   unfold lagrangeDenomProd
   simp [show ¬(start < pts.length) from by omega]
 
-@[deprecated lagrangeDenomProd_eq_one_of_le (since := "2026-06-08")]
-alias lagrangeDenomProd_ge := lagrangeDenomProd_eq_one_of_le
-
 /-- One-step unfolding when the current point matches `pi_x`. -/
 lemma lagrangeDenomProd_skip (pi_x : spqr.encoding.gf.GF16)
     (pts : List spqr.encoding.polynomial.Pt) (start : Nat)
