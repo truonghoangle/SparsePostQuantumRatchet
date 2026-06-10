@@ -1,0 +1,338 @@
+# Verification Plan for Authenticator Functions
+
+## Overview
+
+This document describes the verification plan for the functions and constants
+listed in [`doc/truong/authenticator_functions.txt`](../truong/authenticator_functions.txt), which
+enumerates all fully qualified function and constant names from
+`src/authenticator.rs` and `src/authenticator/serialize.rs` (Rust source). These are extracted into
+`Spqr/Code/Funs.lean` (Lean 4 / Aeneas extraction).
+
+All extractable functions are configured via
+[`aeneas-config.yml`](../../aeneas-config.yml). Functions not appearing in
+that configuration (e.g. `#[cfg(test)]` items) are not extracted and therefore
+cannot be verified in the current framework.
+
+---
+
+## 0. External (Opaque) Function Models — Statistics and Analysis
+
+The authenticator module depends on two external cryptographic primitives that
+are axiomatised in [`Spqr/Code/FunsExternal.lean`](../../Spqr/Code/FunsExternal.lean):
+
+### 0a. Axioms in `FunsExternal.lean`
+
+| # | Axiom | Type Signature | Role in Authenticator |
+|---|-------|----------------|----------------------|
+| A1 | `libcrux_hmac.hmac` | `Algorithm → Slice U8 → Slice U8 → Option Usize → Result (Vec U8)` | Used by `mac_ct` and `mac_hdr` to compute HMAC-SHA-256 tags. |
+| A2 | `kdf.hkdf_to_slice` | (opaque — listed in `aeneas-config.yml`) | Used transitively by `update` (via `kdf.hkdf_to_vec`) for HKDF-SHA-256 key derivation. |
+
+Both axioms represent external cryptographic library functions (`libcrux-hmac`
+and the SPQR KDF wrapper) whose internal implementations are not extracted by
+Aeneas. They are **genuine opacity points**: verifying them would require
+reasoning about the HMAC and HKDF algorithms themselves, which is out of scope
+for the authenticator layer.
+
+### 0b. Local Hypotheses in Spec Files
+
+| # | Hypothesis | Location | Definition | Role |
+|---|-----------|----------|------------|------|
+| H1 | `update_ok` | `Update.lean:51`, `New.lean:51` | `∀ self ep k, ∃ a, update self ep k = ok a` | Asserts that `update` never panics. Used as a hypothesis by `update_spec` and `new_spec`. |
+
+The `update_ok` hypothesis is a `def … : Prop` (not a Lean `axiom`). It is
+taken as an explicit `(h : update_ok)` parameter by the `update_spec` and
+`new_spec` theorems, making those specs *conditional* on the assumption that
+the underlying HKDF-based key derivation always succeeds. This is a reasonable
+modelling assumption: the Rust `update` function calls deterministic
+cryptographic operations with no failure path.
+
+### 0c. Known `sorry` in Spec Files
+
+**None.** All existing spec files under `Spqr/Specs/Authenticator/` are
+`sorry`-free.
+
+### 0d. Math Foundations
+
+The authenticator module does **not** depend on any files under `Spqr/Math/`.
+It operates purely on byte vectors and delegates all cryptographic computation
+to external primitives (HMAC, HKDF). No mathematical library is needed.
+
+### 0e. Statistics Summary
+
+| Metric | Count |
+|--------|-------|
+| Axioms in `FunsExternal.lean` relevant to authenticator | 2 (`libcrux_hmac.hmac`, `kdf.hkdf_to_slice`) |
+| Concrete models with specs | 0 |
+| Local hypotheses in spec files | 1 (`update_ok`) |
+| `sorry` instances in spec files | **0** |
+| Math lemmas used | 0 |
+
+---
+
+## 1. Combined Function and Constant Inventory
+
+The following tables list every function and constant from
+`authenticator_functions.txt`, combined with its corresponding Lean name
+in `Spqr/Code/Funs.lean`, its spec file (if any), and verification status.
+
+### Constants
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| C1 | `spqr::authenticator::Authenticator::MACSIZE` | `authenticator.Authenticator.MACSIZE` | `Spqr/Specs/Authenticator/MACSIZE.lean` | ✅ Verified |
+
+### Functions
+
+| # | Rust Name | Lean Name | Spec File | Status |
+|---|-----------|-----------|-----------|--------|
+| F1 | `{impl fmt::Display for Error}::fmt` | `authenticator.Error.Insts.CoreFmtDisplay.fmt` | `Spqr/Specs/Authenticator/Error/Fmt.lean` | ✅ Verified |
+| F2 | `Authenticator::new` | `authenticator.Authenticator.new` | `Spqr/Specs/Authenticator/New.lean` | ⚠️ Partial (conditional on `update_ok`) |
+| F3 | `Authenticator::update` | `authenticator.Authenticator.update` | `Spqr/Specs/Authenticator/Update.lean` | ⚠️ Partial (conditional on `update_ok`) |
+| F4 | `Authenticator::verify_ct` | `authenticator.Authenticator.verify_ct` | — | ❌ Not started |
+| F5 | `Authenticator::mac_ct` | `authenticator.Authenticator.mac_ct` | — | ❌ Not started |
+| F6 | `Authenticator::verify_hdr` | `authenticator.Authenticator.verify_hdr` | — | ❌ Not started |
+| F7 | `Authenticator::mac_hdr` | `authenticator.Authenticator.mac_hdr` | — | ❌ Not started |
+| F8 | `serialize::Authenticator::into_pb` | `authenticator.serialize.Authenticator.into_pb` | `Spqr/Specs/Authenticator/Serialize/IntoPb.lean` | ✅ Verified |
+| F9 | `serialize::Authenticator::from_pb` | `authenticator.serialize.Authenticator.from_pb` | `Spqr/Specs/Authenticator/Serialize/FromPb.lean` | ✅ Verified |
+| F10 | `serialize::test::round_trip` | — (not extracted) | — | ⏭️ Skipped |
+
+---
+
+## 2. Functions Skipped (Not Verified) and Reasons
+
+### 2a. Test Functions (Not Extracted by Aeneas)
+
+These are `#[cfg(test)]` functions used only in unit tests. Aeneas
+does not extract test modules; they have no security relevance and
+are not part of the library's public API.
+
+| # | Rust Name | Why Skipped |
+|---|-----------|-------------|
+| F10 | `serialize::test::round_trip` | `#[cfg(test)]` — unit test, not extracted |
+
+### 2b. Functions Not Yet Started
+
+The following functions have been extracted by Aeneas and have Lean
+definitions in `Spqr/Code/Funs.lean`, but **no spec file** exists yet
+under `Spqr/Specs/Authenticator/`. They are deferred because they depend
+on the opaque `libcrux_hmac.hmac` axiom (for `mac_ct`/`mac_hdr`) and on
+`util.compare` (for `verify_ct`/`verify_hdr`), requiring external-model
+specifications to be established first.
+
+| # | Rust Name | Why Deferred |
+|---|-----------|-------------|
+| F4 | `Authenticator::verify_ct` | Depends on `mac_ct` (F5) and `util.compare`; no spec file exists |
+| F5 | `Authenticator::mac_ct` | Depends on opaque `libcrux_hmac.hmac` axiom; no spec file exists |
+| F6 | `Authenticator::verify_hdr` | Depends on `mac_hdr` (F7) and `util.compare`; no spec file exists |
+| F7 | `Authenticator::mac_hdr` | Depends on opaque `libcrux_hmac.hmac` axiom; no spec file exists |
+
+---
+
+## 3. Function Descriptions
+
+### Constants
+
+- **`Authenticator::MACSIZE`** (C1): The associated constant `32 : usize`, recording the byte
+  length of every HMAC-SHA-256 tag produced or verified by the `Authenticator`. The value `32`
+  matches the output length of SHA-256 (256 bits = 32 bytes). Used in `hax_lib` annotations to
+  constrain the length of MAC slices in `verify_ct`, `verify_hdr`, `mac_ct`, and `mac_hdr`.
+
+### Core Authenticator Operations
+
+- **`Authenticator::update`** (F3): Derives fresh `root_key` and `mac_key` from the current state
+  and caller-supplied key material via HKDF-SHA-256. Concatenates `self.root_key` with `k` as IKM,
+  uses `"Signal_PQCKA_V1_MLKEM768:Authenticator Update" ++ ep.to_be_bytes()` as info, derives 64
+  bytes with a zero salt, and splits into `root_key := kdf_out[..32]` and `mac_key := kdf_out[32..]`.
+  The underlying `kdf.hkdf_to_slice` is axiomatised. The spec takes an `update_ok` hypothesis
+  asserting the function never panics.
+
+- **`Authenticator::new`** (F2): Constructs a new `Authenticator` from caller-supplied key material
+  (`root_key : Vec<u8>`) and an epoch. Allocates a 32-byte zero vector, creates a seed
+  authenticator `{ root_key := zeros, mac_key := zeros }`, and delegates to `update` with the
+  caller's key material. The spec establishes `new_eq_update` (definitional equality to `update`)
+  and a step lemma with the `update_ok` hypothesis.
+
+- **`Authenticator::mac_ct`** (F5): Computes an HMAC-SHA-256 tag over a ciphertext. Concatenates
+  the domain-separation string `"Signal_PQCKA_V1_MLKEM768:ciphertext"`, the epoch (big-endian),
+  and the ciphertext `ct` to form the MAC data. Calls `libcrux_hmac.hmac` with `Algorithm::Sha256`,
+  `self.mac_key` as the key, the MAC data, and `Some(MACSIZE)` as the output length. Returns a
+  `Vec<u8>` of length `MACSIZE = 32`.
+
+- **`Authenticator::mac_hdr`** (F7): Computes an HMAC-SHA-256 tag over an encapsulation-key header.
+  Identical to `mac_ct` except uses the domain-separation string
+  `"Signal_PQCKA_V1_MLKEM768:ekheader"` and takes `hdr` instead of `ct`.
+
+- **`Authenticator::verify_ct`** (F4): Verifies a ciphertext MAC by computing `mac_ct(ep, ct)` and
+  comparing it with `expected_mac` via `util.compare`. If the comparison is non-zero, returns
+  `Err(Error::InvalidCtMac)`; otherwise returns `Ok(())`. Requires
+  `expected_mac.len() == MACSIZE`.
+
+- **`Authenticator::verify_hdr`** (F6): Verifies a header MAC by computing `mac_hdr(ep, hdr)` and
+  comparing it with `expected_mac` via `util.compare`. If the comparison is non-zero, returns
+  `Err(Error::InvalidHdrMac)`; otherwise returns `Ok(())`. Requires
+  `expected_mac.len() == MACSIZE`.
+
+### Error Formatting
+
+- **`{impl fmt::Display for Error}::fmt`** (F1): The `thiserror::Error`-derived display formatter
+  for `authenticator.Error`. Matches on the six unit variants and writes the corresponding
+  human-readable error message string to the formatter via `core.fmt.Formatter.write_str`. The
+  function is total: it never panics and always succeeds. The spec file also covers the
+  `#[derive(Debug)]`-generated `CoreFmtDebug.fmt` (which writes variant *names* rather than error
+  messages).
+
+### Serialization
+
+- **`serialize::Authenticator::into_pb`** (F8): Serializes an `Authenticator` into the protobuf
+  representation `proto.pq_ratchet.Authenticator` by moving the `root_key` and `mac_key` fields
+  unchanged. The function is total and the postcondition captures the field-level identity:
+  `result.root_key = self.root_key ∧ result.mac_key = self.mac_key`.
+
+- **`serialize::Authenticator::from_pb`** (F9): Deserializes a protobuf
+  `proto.pq_ratchet.Authenticator` back into the internal `Authenticator` representation by
+  cloning the `root_key` and `mac_key` fields unchanged. The function is total and the
+  postcondition captures the field-level identity:
+  `result.root_key = pb.root_key ∧ result.mac_key = pb.mac_key`.
+
+### Test Functions (Not Extracted)
+
+- **`serialize::test::round_trip`** (F10): Unit test that constructs an `Authenticator`, computes a
+  MAC, serializes and deserializes via `into_pb`/`from_pb`, and asserts the MAC is identical. Not
+  extracted by Aeneas (`#[cfg(test)]`). Its formal content is captured by the field-level
+  postconditions of `into_pb_spec` and `from_pb_spec`, which together establish the round-trip
+  identity `from_pb(into_pb(auth)).root_key = auth.root_key ∧ from_pb(into_pb(auth)).mac_key = auth.mac_key`.
+
+---
+
+## 4. Verification Order (Dependency Table)
+
+The following table lists **all 10 functions and 1 constant** from
+`authenticator_functions.txt` in **dependency order**: to complete
+the verification of function A, all functions listed as its
+dependencies (column "Depends On") must be verified first. Functions
+are ordered so that dependencies always appear before dependents.
+
+| Order | # | Function | Spec File | Depends On | Status |
+|-------|---|----------|-----------|------------|--------|
+| 1 | C1 | `MACSIZE` | `MACSIZE.lean` | (none — base constant) | ✅ |
+| 2 | F1 | `{impl fmt::Display for Error}::fmt` | `Error/Fmt.lean` | (none — pure case analysis) | ✅ |
+| 3 | F8 | `serialize::Authenticator::into_pb` | `Serialize/IntoPb.lean` | (none — field move) | ✅ |
+| 4 | F9 | `serialize::Authenticator::from_pb` | `Serialize/FromPb.lean` | (none — field clone) | ✅ |
+| 5 | F3 | `Authenticator::update` | `Update.lean` | `kdf.hkdf_to_slice` (axiom A2) | ⚠️ Conditional on `update_ok` |
+| 6 | F2 | `Authenticator::new` | `New.lean` | F3 (`update`) | ⚠️ Conditional on `update_ok` |
+| 7 | F5 | `Authenticator::mac_ct` | — | C1 (`MACSIZE`), `libcrux_hmac.hmac` (axiom A1) | ❌ Not started |
+| 8 | F7 | `Authenticator::mac_hdr` | — | C1 (`MACSIZE`), `libcrux_hmac.hmac` (axiom A1) | ❌ Not started |
+| 9 | F4 | `Authenticator::verify_ct` | — | F5 (`mac_ct`), `util.compare` | ❌ Not started |
+| 10 | F6 | `Authenticator::verify_hdr` | — | F7 (`mac_hdr`), `util.compare` | ❌ Not started |
+| 11 | F10 | `serialize::test::round_trip` | — | — | ⏭️ Not extracted (`#[cfg(test)]`) |
+
+### Dependency DAG (ASCII)
+
+```
+MACSIZE (C1)                     kdf.hkdf_to_slice (axiom A2)
+    │                                    │
+    │                              update (F3) ─── [update_ok hypothesis]
+    │                                    │
+    │                                 new (F2)
+    │
+    ├──────────────┐
+    ▼              ▼
+mac_ct (F5)    mac_hdr (F7)         into_pb (F8)    from_pb (F9)
+    │              │
+    ▼              ▼
+verify_ct (F4) verify_hdr (F6)     fmt (F1)
+    │              │
+    └──────────────┘
+         │
+    util.compare (cross-module)
+    libcrux_hmac.hmac (axiom A1)
+```
+
+### Cross-Module Dependencies
+
+The authenticator functions depend on the following cross-module items:
+
+| External Dependency | Type | Used By |
+|---------------------|------|---------|
+| `libcrux_hmac.hmac` | Axiom (`FunsExternal.lean`) | `mac_ct` (F5), `mac_hdr` (F7) |
+| `kdf.hkdf_to_slice` | Axiom (`FunsExternal.lean`, opaque in `aeneas-config.yml`) | `update` (F3) via `kdf.hkdf_to_vec` |
+| `kdf.hkdf_to_vec` | Defined (`Funs.lean`) | `update` (F3) |
+| `util.compare` | Defined (`Funs.lean`) | `verify_ct` (F4), `verify_hdr` (F6) |
+| `core.fmt.Formatter.write_str` | Defined (Aeneas model) | `fmt` (F1) |
+| `alloc.vec.CloneVec.clone` | Defined (Aeneas model) | `from_pb` (F9) |
+
+---
+
+## 5. Source Code Modification Links
+
+All authenticator functions are extracted from `src/authenticator.rs` and
+`src/authenticator/serialize.rs` via the Aeneas toolchain. The extraction
+configuration is defined in [`aeneas-config.yml`](../../aeneas-config.yml).
+
+### Extraction Configuration (`aeneas-config.yml`)
+
+The following entries in `aeneas-config.yml` are relevant to the authenticator
+module:
+
+| Section | Entry | Effect on Authenticator |
+|---------|-------|------------------------|
+| `charon.start_from` | `authenticator` | The authenticator module is included in the extraction scope. |
+| `charon.opaque` | `spqr::kdf::hkdf_to_slice` | The HKDF function used by `update` is extracted as an opaque axiom (type signature only, no body). |
+
+No authenticator-specific entries appear in `charon.exclude` or `tweaks`.
+The authenticator functions are extracted with their full bodies intact.
+
+The source modifications applied before extraction are documented in
+[`src-modifications.diff`](../../src-modifications.diff).
+
+---
+
+## 6. Summary
+
+Based on the 10 functions + 1 constant in `authenticator_functions.txt`:
+
+| Metric | Count |
+|--------|-------|
+| Total functions + constants | 11 (10 functions + 1 constant) |
+| Verified (✅) | 4 (C1 `MACSIZE`, F1 `fmt`, F8 `into_pb`, F9 `from_pb`) |
+| Partial (⚠️) — conditional on hypothesis | 2 (F2 `new`, F3 `update` — conditional on `update_ok`) |
+| Skipped (⏭️) | 1 (F10 `round_trip` — `#[cfg(test)]`, not extracted) |
+| Not started (❌) | 4 (F4 `verify_ct`, F5 `mac_ct`, F6 `verify_hdr`, F7 `mac_hdr`) |
+| `sorry` instances in spec files | **0** |
+| Axioms used (in `FunsExternal.lean`) | 2 (`libcrux_hmac.hmac`, `kdf.hkdf_to_slice`) |
+| Local hypotheses in spec files | 1 (`update_ok` — asserts `update` never panics) |
+| Math foundations (`Spqr/Math/`) required | 0 |
+
+### Verification Progress by Category
+
+| Category | Functions | Verified | Partial | Not Started | Skipped |
+|----------|-----------|----------|---------|-------------|---------|
+| Constants | 1 | 1 | 0 | 0 | 0 |
+| Error formatting | 1 | 1 | 0 | 0 | 0 |
+| Core operations (new/update) | 2 | 0 | 2 | 0 | 0 |
+| MAC computation | 2 | 0 | 0 | 2 | 0 |
+| MAC verification | 2 | 0 | 0 | 2 | 0 |
+| Serialization | 2 | 2 | 0 | 0 | 0 |
+| Test functions | 1 | 0 | 0 | 0 | 1 |
+
+### Path to Full Verification
+
+The four not-started functions (`mac_ct`, `mac_hdr`, `verify_ct`, `verify_hdr`)
+all depend on the opaque `libcrux_hmac.hmac` axiom. Completing their
+verification requires one of:
+
+1. **Hypothesis-based approach** (like `update_ok`): Define an `hmac_ok`
+   proposition asserting that `libcrux_hmac.hmac` always succeeds and produces
+   a vector of the requested length. Take this as a hypothesis in the `mac_ct`
+   and `mac_hdr` specs. This enables proving that `mac_ct`/`mac_hdr` always
+   succeed and return a vector of length `MACSIZE = 32`, and that
+   `verify_ct`/`verify_hdr` correctly compare MACs.
+
+2. **Concrete model approach**: Add a concrete model for `libcrux_hmac.hmac`
+   in `FunsExternal.lean` that captures the HMAC-SHA-256 computation (at least
+   its length guarantee). This would eliminate the need for a hypothesis.
+
+The two partial functions (`new`, `update`) could be upgraded to fully verified
+by either discharging the `update_ok` hypothesis (proving that `kdf.hkdf_to_vec`
+always succeeds) or by adding a concrete model for `kdf.hkdf_to_slice` in
+`FunsExternal.lean`.

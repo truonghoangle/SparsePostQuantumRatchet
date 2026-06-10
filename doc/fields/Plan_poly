@@ -16,9 +16,9 @@ framework.
 
 The current Lean specification tree for the polynomial layer lives at
 [`Spqr/Specs/Encoding/Polynomial/`](../../Spqr/Specs/Encoding/Polynomial/)
-and is grounded mathematically by
-[`Spqr/Math/Poly.lean`](../../Spqr/Math/Poly.lean) (with helpers in
-[`Spqr/Math/Poly/`](../../Spqr/Math/Poly/)).
+and is grounded mathematically by the files under
+[`Spqr/Math/Poly/`](../../Spqr/Math/Poly/) (with auxiliary list lemmas in
+[`Spqr/Math/List.lean`](../../Spqr/Math/List.lean)).
 
 ---
 
@@ -28,124 +28,223 @@ The polynomial encoding module operates over `GF(2¹⁶)` using the `GF16`
 type from `encoding/gf.rs`. All polynomial arithmetic (addition,
 multiplication, subtraction, division of coefficients and evaluation
 points) reduces to GF(2¹⁶) operations, whose foundations are in
-`Spqr/Math/Gf.lean` (see [`Plan_gf`](Plan_gf)).
+[`Spqr/Math/Gf16/`](../../Spqr/Math/Gf16/) (see [`Plan_gf`](Plan_gf)).
 
 On top of the GF(2¹⁶) layer, the polynomial verification needs
 algebraic facts about polynomials over GF(2¹⁶): Horner evaluation,
 products of linear factors, Lagrange basis polynomials, and
-characteristic-2 identities. These are consolidated in
-[`Spqr/Math/Poly.lean`](../../Spqr/Math/Poly.lean) together with the
-helper files in [`Spqr/Math/Poly/`](../../Spqr/Math/Poly/).
+characteristic-2 identities. These are organised across the modular
+file tree at [`Spqr/Math/Poly/`](../../Spqr/Math/Poly/) with helper
+list lemmas in [`Spqr/Math/List.lean`](../../Spqr/Math/List.lean).
 
 ### 0a. Files
 
+The mathematical foundations have been refactored from a monolithic
+`Spqr/Math/Poly.lean` into a modular directory structure with 22 files
+across 8 subdirectories, plus a standalone list-lemma helper.
+
 | File | Lines | Role |
 |------|-------|------|
-| [`Spqr/Math/Poly.lean`](../../Spqr/Math/Poly.lean) | 982 | Top-level bridge module: `GF216Poly`, `listToGF216Poly`, `Poly.toGF216Poly`, `Poly.evalAt`, Lagrange support, Horner accumulator, expected trailing polynomial. |
-| [`Spqr/Math/Poly/Aeneas.lean`](../../Spqr/Math/Poly/Aeneas.lean) | 331 | Bridges Aeneas-side numeric identities and loop invariants to the abstract polynomial layer. |
-| [`Spqr/Math/Poly/General.lean`](../../Spqr/Math/Poly/General.lean) | 99 | Generic `List` / `getElem!` lemmas reused across spec files. |
-| [`Spqr/Math/Poly/Mathlib.lean`](../../Spqr/Math/Poly/Mathlib.lean) | 161 | Reusable Mathlib lemmas about `GF216`, coefficients of `C a + X·…`, and range sums. |
-| [`Spqr/Math/Poly/ModByMonic.lean`](../../Spqr/Math/Poly/ModByMonic.lean) | 33 | Generic `ringHom_modByMonic`: vanishing of `φ P` lifts `φ` to the quotient. |
-| **Total** | **1606** | |
+| **`Spqr/Math/Poly/Basic/Defs.lean`** | 86 | `GF216Poly` abbreviation, `listToGF216Poly`, `Poly.toGF216Poly`. |
+| **`Spqr/Math/Poly/Basic/Zero.lean`** | 68 | Zero-polynomial lemmas: `listToGF216Poly_nil`, `Poly.toGF216Poly_eq_zero`, `listToGF216Poly_replicate_ZERO`. |
+| **`Spqr/Math/Poly/Eval.lean`** | 74 | `Poly.evalAt`, `listToGF216Poly_eval`, `eval_eq_range_sum`. |
+| **`Spqr/Math/Poly/CharTwo/Basic.lean`** | 72 | Characteristic-2 identities: `GF216.two_eq_zero`, `GF216.add_self_eq_zero`, `GF216Poly.neg_eq`, `GF216Poly.sub_eq_add`, `GF216_eq_of_add_eq_zero`. |
+| **`Spqr/Math/Poly/CharTwo/ToGF216.lean`** | 131 | `GF16.toGF216` bridge lemmas: `toGF216_eq_zero`, `toGF216_eq_one`, `getElem!_toGF216_eq_coeff`, `Nat_toGF216_eq_zero`, `GF16_toGF216_eq_zero_imp`. |
+| **`Spqr/Math/Poly/Coeff/Basic.lean`** | 91 | Coefficient access: `listToGF216Poly_coeff`, `listToGF216Poly_coeff_eq_zero`, `listToGF216Poly_singleton`, `listToGF216Poly_cons`. |
+| **`Spqr/Math/Poly/Coeff/ListOps.lean`** | 132 | List-level polynomial operations: `listToGF216Poly_append_singleton`, `listToGF216Poly_add`, `listToGF216Poly_eq_X_mul_…_drop_one`, `listToGF216Poly_eq_of_coeffs`. |
+| **`Spqr/Math/Poly/Horner/Defs.lean`** | 83 | `hornerAccum` definition, `hornerAccum_eq_zero_of_le`, `hornerAccum_unfold`, `hornerAccum_cons`. |
+| **`Spqr/Math/Poly/Horner/Eval.lean`** | 74 | Evaluation bridge: `hornerAccum_cancel`, `hornerAccum_zero_eq_eval`, `hornerAccum_eq_of_idx_eq`. |
+| **`Spqr/Math/Poly/LinearFactors/Basic.lean`** | 94 | `prodLinearFactors` definition, base/step/snoc unfolding lemmas. |
+| **`Spqr/Math/Poly/LinearFactors/Degree.lean`** | 128 | `prodLinearFactors_eval_root`, `prodLinearFactors_split_at`, `prodLinearFactors_eq_X_sub_C_mul`, degree bound, high-coefficient vanishing. |
+| **`Spqr/Math/Poly/Lagrange/DenomProd.lean`** | 82 | `lagrangeDenomProd` definition and unfolding lemmas. |
+| **`Spqr/Math/Poly/Lagrange/BasisPoly.lean`** | 70 | `lagrangeScaleGF216`, `lagrangeBasisPoly` definitions, degree bound. |
+| **`Spqr/Math/Poly/Lagrange/InterpolantSum.lean`** | 74 | `lagrangeInterpolantSum` definition, Finset.sum equivalence, high-coefficient vanishing. |
+| **`Spqr/Math/Poly/ExpectedTrailing/Defs.lean`** | 61 | `expectedTrailingPoly` definition and base/step unfolding. |
+| **`Spqr/Math/Poly/ExpectedTrailing/Basic.lean`** | 80 | `expectedTrailingPoly_coeff_eq_zero_of_lt`, `expectedTrailingPoly_eq_prodLinearFactors`. |
+| **`Spqr/Math/Poly/Identities/Basic.lean`** | 110 | Coefficient identities for `C a + (X − C b) · p`, `coeff_zero_eq_zero_of_X_mul_identity`, `List.map_sum_eq_Finset_sum`. |
+| **`Spqr/Math/Poly/Aeneas/DotProduct.lean`** | 86 | `dot_product_eq_eval`, `zero_toGF216_eq_empty_sum`, `max_two_succ_le_usize_max`. |
+| **`Spqr/Math/Poly/Aeneas/MultXdiff.lean`** | 80 | `mult_xdiff_poly_identity`. |
+| **`Spqr/Math/Poly/Aeneas/PolyIdentity.lean`** | 141 | `poly_identity_from_loop1`. |
+| **`Spqr/Math/Poly/Aeneas/PowerVector.lean`** | 85 | `div2_add_sum_eq`, `power_invariant_step`, `initial_power_invariant`. |
+| **`Spqr/Math/Poly/ModByMonic.lean`** | 33 | Generic `ringHom_modByMonic`. |
+| **`Spqr/Math/List.lean`** | 93 | List / `getElem!` lemmas reused across spec files. |
+| **Total** | **2 028** | |
 
 ### 0b. Core Definitions
 
 | Definition | Source | Description |
 |------------|--------|-------------|
-| `GF216Poly` | `Poly.lean` | Abbreviation `GF216[X]` — polynomials over `GF(2¹⁶)`. |
-| `listToGF216Poly` | `Poly.lean` | Canonical map from `List GF16` to `GF216Poly` (ascending degree). |
-| `Poly.toGF216Poly` | `Poly.lean` | Bridge from the Aeneas-extracted `Poly` to `GF216Poly`. |
-| `Poly.evalAt` | `Poly.lean` | Evaluation of an Aeneas `Poly` at a `GF16` point as an element of `GF216`. |
-| `prodLinearFactors` | `Poly.lean` | Product `∏_{i=start..stop} (X − ptsᵢ.x)` of linear factors. |
-| `lagrangeDenomProd` | `Poly.lean` | Lagrange denominator `∏_{j ≠ i} (xᵢ − xⱼ)` in `GF216`. |
-| `lagrangeScaleGF216` | `Poly.lean` | The scalar `pᵢ.y / lagrangeDenomProd` used for the i-th basis. |
-| `lagrangeBasisPoly` | `Poly.lean` | The i-th Lagrange basis polynomial scaled by its `y` value. |
-| `lagrangeInterpolantSum` | `Poly.lean` | `Σ_i lagrangeBasisPoly i` — the full Lagrange interpolant. |
-| `hornerAccum` | `Poly.lean` | Tail accumulator `g_x · Σ_{i≥k} aᵢ·xⁱ⁻ᵏ` used by `compute_at`. |
-| `expectedTrailingPoly` | `Poly.lean` | Expected state of the trailing coefficients during `lagrange_interpolate_prepare`. |
+| `GF216Poly` | `Basic/Defs.lean` | Abbreviation `GF216[X]` — polynomials over `GF(2¹⁶)`. |
+| `listToGF216Poly` | `Basic/Defs.lean` | Canonical map from `List GF16` to `GF216Poly` (ascending degree). |
+| `Poly.toGF216Poly` | `Basic/Defs.lean` | Bridge from the Aeneas-extracted `Poly` to `GF216Poly`. |
+| `Poly.evalAt` | `Eval.lean` | Evaluation of an Aeneas `Poly` at a `GF16` point as an element of `GF216`. |
+| `prodLinearFactors` | `LinearFactors/Basic.lean` | Product `∏_{i=start..stop} (X − ptsᵢ.x)` of linear factors. |
+| `lagrangeDenomProd` | `Lagrange/DenomProd.lean` | Lagrange denominator `∏_{j ≠ i} (xᵢ − xⱼ)` in `GF216`. |
+| `lagrangeScaleGF216` | `Lagrange/BasisPoly.lean` | The scalar `pᵢ.y / lagrangeDenomProd` used for the i-th basis. |
+| `lagrangeBasisPoly` | `Lagrange/BasisPoly.lean` | The i-th Lagrange basis polynomial scaled by its `y` value. |
+| `lagrangeInterpolantSum` | `Lagrange/InterpolantSum.lean` | `Σ_i lagrangeBasisPoly i` — the full Lagrange interpolant. |
+| `hornerAccum` | `Horner/Defs.lean` | Tail accumulator `g_x · Σ_{i≥k} aᵢ·xⁱ⁻ᵏ` used by `compute_at`. |
+| `expectedTrailingPoly` | `ExpectedTrailing/Defs.lean` | Expected state of the trailing coefficients during `lagrange_interpolate_prepare`. |
 
 ### 0c. Verified Lemmas and Theorems
 
 All lemmas and theorems below carry a complete Lean proof (no `sorry`).
 
-#### `Spqr/Math/Poly.lean` — 53 declarations
-Selected key facts (full list in the file):
+#### `Spqr/Math/Poly/Basic/` — 4 lemmas
+
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `listToGF216Poly_nil`, `listToGF216Poly_empty` | `Zero.lean` | All spec files involving `Poly.coefficients = []`. |
+| `Poly.toGF216Poly_eq_zero` | `Zero.lean` | `Poly/Zero.lean`, `Poly/ComputeAt.lean`. |
+| `listToGF216Poly_replicate_ZERO` | `Zero.lean` | `PolyConstN/ZEROS.lean`. |
+
+#### `Spqr/Math/Poly/CharTwo/` — 10 lemmas
+
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `GF216.two_eq_zero`, `GF216.add_self_eq_zero` | `Basic.lean` | Characteristic-2 simplifications throughout. |
+| `GF216Poly.neg_eq`, `GF216Poly.sub_eq_add` | `Basic.lean` | `Poly/AddAssign.lean`. |
+| `GF216_eq_of_add_eq_zero` | `Basic.lean` | Various spec files. |
+| `GF16.toGF216_eq_zero`, `GF16.toGF216_eq_one` | `ToGF216.lean` | `PolyConstN/LagrangeInterpolatePt.lean`. |
+| `getElem!_toGF216_eq_coeff` | `ToGF216.lean` | `Poly/ComputeAt.lean`. |
+| `Nat_toGF216_eq_zero` | `ToGF216.lean` | Various spec files. |
+| `GF16_toGF216_eq_zero_imp` | `ToGF216.lean` | `PolyConstN/LagrangeInterpolatePt.lean`. |
+
+#### `Spqr/Math/Poly/Coeff/` — 8 lemmas
+
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `listToGF216Poly_coeff`, `listToGF216Poly_coeff_eq_zero` | `Basic.lean` | `Poly/ComputeAt.lean`, `Poly/MultXdiffAssignTrailing.lean`. |
+| `listToGF216Poly_singleton`, `listToGF216Poly_cons` | `Basic.lean` | `PolyConstN/LagrangeInterpolatePt.lean`. |
+| `listToGF216Poly_append_singleton`, `listToGF216Poly_add` | `ListOps.lean` | `Poly/AddAssign.lean`, `Poly/LagrangeSum.lean`. |
+| `listToGF216Poly_eq_X_mul_…_drop_one` | `ListOps.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+| `listToGF216Poly_eq_of_coeffs` | `ListOps.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+
+#### `Spqr/Math/Poly/Eval.lean` — 3 lemmas
 
 | Lemma / Theorem | Used By |
 |------------------|---------|
-| `listToGF216Poly_nil`, `listToGF216Poly_empty` | All spec files involving `Poly.coefficients = []`. |
-| `listToGF216Poly_coeff`, `listToGF216Poly_coeff_eq_zero` | `Poly/ComputeAt.lean`, `Poly/MultXdiffAssignTrailing.lean`. |
-| `listToGF216Poly_singleton`, `listToGF216Poly_cons` | `PolyConstN/LagrangeInterpolatePt.lean`. |
-| `Poly.toGF216Poly_eq_zero`, `Poly.evalAt_zero_poly` | `Poly/Zero.lean`, `Poly/ComputeAt.lean`. |
-| `GF216.two_eq_zero`, `GF216.add_self_eq_zero`, `GF216Poly.neg_eq`, `GF216Poly.sub_eq_add` | Characteristic-2 simplifications throughout. |
+| `Poly.evalAt_zero_poly` | `Poly/Zero.lean`, `Poly/ComputeAt.lean`. |
 | `listToGF216Poly_eval` | `Poly/ComputeAt.lean` (closes the bridge to `Polynomial.eval`). |
-| `listToGF216Poly_append_singleton`, `listToGF216Poly_add` | `Poly/AddAssign.lean`, `Poly/LagrangeSum.lean`. |
-| `listToGF216Poly_eq_X_mul_drop_one`, `listToGF216Poly_eq_of_coeffs` | `Poly/LagrangeInterpolatePrepare.lean`. |
-| `prodLinearFactors_{base,step,snoc,eval_root,split_at,eq_factor_mul_basis}` | `Poly/MultXdiffAssignTrailing.lean`, `Poly/LagrangeInterpolatePrepare.lean`. |
-| `natDegree_prodLinearFactors_le`, `prodLinearFactors_coeff_eq_zero_high` | `Poly/LagrangeInterpolatePrepare.lean`. |
-| `lagrangeDenomProd_{ge,skip,accum}` | `PolyConstN/LagrangeInterpolatePt.lean`. |
-| `natDegree_lagrangeBasisPoly_le`, `lagrangeInterpolantSum_{eq_finset_sum,coeff_high}` | `Poly/LagrangeInterpolate.lean`, `Poly/LagrangeSum.lean`. |
-| `hornerAccum_{ge,unfold,cons,cancel,zero_eq_eval}` | `Poly/ComputeAt.lean`. |
-| `expectedTrailingPoly_{zero,succ,coeff_eq_zero,eq_prodLinearFactors}` | `Poly/LagrangeInterpolatePrepare.lean`. |
-| `coeff_zero_of_X_mul_identity` | `Poly/MultXdiffAssignTrailing.lean`. |
-| `list_map_sum_eq_finset_sum` | `Poly/LagrangeSum.lean`, `PolyEncoder/PointAtLoopBody0.lean`. |
+| `eval_eq_range_sum` | `Poly/ComputeAt.lean`. |
 
-#### `Spqr/Math/Poly/Aeneas.lean` — 8 theorems
-`poly_identity_from_loop1`, `mult_xdiff_poly_identity`, `div2_add_sum_eq`,
-`power_invariant_step`, `initial_power_invariant`, `dot_product_eq_eval`,
-`zero_toGF216_eq_empty_sum`, `max_two_succ_le_usize_max`.
+#### `Spqr/Math/Poly/Horner/` — 6 lemmas
 
-These tie the loop-state invariants emitted by Aeneas (e.g. the
-`x², x⁴, …` powers in `compute_at`, the running dot-product in
-`mult_xdiff_assign_trailing`) to the abstract `hornerAccum` /
-`prodLinearFactors` machinery.
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `hornerAccum_eq_zero_of_le`, `hornerAccum_unfold`, `hornerAccum_cons` | `Defs.lean` | `Poly/ComputeAt.lean`. |
+| `hornerAccum_cancel`, `hornerAccum_zero_eq_eval` | `Eval.lean` | `Poly/ComputeAt.lean`. |
+| `hornerAccum_eq_of_idx_eq` | `Eval.lean` | `Poly/ComputeAt.lean`. |
 
-#### `Spqr/Math/Poly/General.lean` — 8 theorems
-List / `getElem!` lemmas: `list_get_of_getElem?_eq`, `getElem_bang_eq`,
-`list_get_drop_eq`, `list_getElem_bang_set_self`,
-`list_double_set_getElem_fst`, `list_getElem?_getD_eq_getElem`,
-`getElem?_append_of_lt`, `hornerAccum_eq_of_idx_eq`.
+#### `Spqr/Math/Poly/LinearFactors/` — 9 lemmas
 
-#### `Spqr/Math/Poly/Mathlib.lean` — 7 theorems
-`GF216_eq_of_add_eq_zero`, `coeff_zero_C_add_X_sub_C_mul`,
-`coeff_succ_C_add_X_sub_C_mul`, `eval_eq_range_sum`,
-`Nat_toGF216_eq_zero`, `GF16_toGF216_eq_zero_imp`,
-`listToGF216Poly_replicate_ZERO`.
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `prodLinearFactors_eq_one_of_not_lt`, `prodLinearFactors_step`, `prodLinearFactors_snoc` | `Basic.lean` | `Poly/MultXdiffAssignTrailing.lean`, `Poly/LagrangeInterpolatePrepare.lean`. |
+| `prodLinearFactors_eval_root` | `Degree.lean` | `Poly/LagrangeInterpolateComplete.lean`. |
+| `prodLinearFactors_split_at` | `Degree.lean` | `Poly/LagrangeInterpolateComplete.lean`. |
+| `prodLinearFactors_eq_X_sub_C_mul` | `Degree.lean` | `Poly/LagrangeInterpolateComplete.lean`. |
+| `natDegree_prodLinearFactors_le` | `Degree.lean` | `Lagrange/BasisPoly.lean`. |
+| `prodLinearFactors_coeff_eq_zero_high` | `Degree.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+
+#### `Spqr/Math/Poly/Lagrange/` — 6 lemmas
+
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `lagrangeDenomProd_eq_one_of_le`, `lagrangeDenomProd_skip`, `lagrangeDenomProd_accum` | `DenomProd.lean` | `PolyConstN/LagrangeInterpolatePt.lean`. |
+| `natDegree_lagrangeBasisPoly_le` | `BasisPoly.lean` | `Lagrange/InterpolantSum.lean`. |
+| `lagrangeInterpolantSum_eq_finset_sum`, `lagrangeInterpolantSum_coeff_high` | `InterpolantSum.lean` | `Poly/LagrangeInterpolate.lean`, `Poly/LagrangeSum.lean`. |
+
+#### `Spqr/Math/Poly/ExpectedTrailing/` — 4 lemmas
+
+| Lemma / Theorem | File | Used By |
+|------------------|------|---------|
+| `expectedTrailingPoly_zero`, `expectedTrailingPoly_succ` | `Defs.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+| `expectedTrailingPoly_coeff_eq_zero_of_lt` | `Basic.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+| `expectedTrailingPoly_eq_prodLinearFactors` | `Basic.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+
+#### `Spqr/Math/Poly/Identities/Basic.lean` — 4 lemmas
+
+| Lemma / Theorem | Used By |
+|------------------|---------|
+| `coeff_zero_C_add_X_sub_C_mul`, `coeff_succ_C_add_X_sub_C_mul` | `Poly/MultXdiffAssignTrailing.lean`. |
+| `coeff_zero_eq_zero_of_X_mul_identity` | `Poly/MultXdiffAssignTrailing.lean`. |
+| `List.map_sum_eq_Finset_sum` | `Poly/LagrangeSum.lean`, `PolyEncoder/PointAtLoopBody0.lean`. |
+
+#### `Spqr/Math/Poly/Aeneas/` — 8 theorems
+
+| Theorem | File | Used By |
+|----------|------|---------|
+| `dot_product_eq_eval` | `DotProduct.lean` | `Poly/ComputeAt.lean`. |
+| `zero_toGF216_eq_empty_sum` | `DotProduct.lean` | `Poly/ComputeAt.lean`. |
+| `max_two_succ_le_usize_max` | `DotProduct.lean` | `Poly/ComputeAt.lean`. |
+| `mult_xdiff_poly_identity` | `MultXdiff.lean` | `Poly/MultXdiffAssignTrailing.lean`. |
+| `poly_identity_from_loop1` | `PolyIdentity.lean` | `Poly/LagrangeInterpolatePrepare.lean`. |
+| `div2_add_sum_eq` | `PowerVector.lean` | `Poly/ComputeAt.lean`. |
+| `power_invariant_step` | `PowerVector.lean` | `Poly/ComputeAt.lean`. |
+| `initial_power_invariant` | `PowerVector.lean` | `Poly/ComputeAt.lean`. |
 
 #### `Spqr/Math/Poly/ModByMonic.lean` — 1 lemma
+
 `ringHom_modByMonic` — generic transport of a ring hom through a
-monic-polynomial quotient. Re-used by both `Spqr/Math/Gf.lean` and
-`Spqr/Math/Poly.lean`.
+monic-polynomial quotient. Re-used by both `Spqr/Math/Gf16/` and
+`Spqr/Math/Poly/`.
+
+#### `Spqr/Math/List.lean` — 7 theorems
+
+`list_get_of_getElem`, `getElem_bang_eq`, `list_get_drop_eq`,
+`list_getElem_bang_set_self`, `list_double_set_getElem_fst`,
+`list_getElem!_getD_eq_getElem`, `getElem?_append_of_lt`.
+
+These are generic `List` / `getElem!` lemmas reused across spec files.
 
 ### 0d. Spec ↔ Math Dependency Map
 
 | Polynomial spec file | Key math lemma(s) used |
 |----------------------|-------------------------|
 | `Poly/Zero.lean` | `Poly.toGF216Poly_eq_zero`, `listToGF216Poly_nil` |
-| `Poly/ComputeAt.lean` | `hornerAccum_zero_eq_eval`, `hornerAccum_{ge,unfold,cons,cancel}`, `listToGF216Poly_eval`, `dot_product_eq_eval`, `initial_power_invariant`, `power_invariant_step` |
+| `Poly/ComputeAt.lean` | `hornerAccum_zero_eq_eval`, `hornerAccum_{eq_zero_of_le,unfold,cons,cancel}`, `listToGF216Poly_eval`, `dot_product_eq_eval`, `initial_power_invariant`, `power_invariant_step` |
 | `Poly/AddAssign.lean` | `listToGF216Poly_append_singleton`, `listToGF216Poly_add`, `GF216Poly.sub_eq_add` |
 | `Poly/MultAssign.lean` | `listToGF216Poly_coeff`, `GF216.add_self_eq_zero` (via `parallel_mult`) |
-| `Poly/MultXdiffAssignTrailing.lean` | `prodLinearFactors_snoc`, `coeff_zero_of_X_mul_identity`, `mult_xdiff_poly_identity` |
-| `Poly/LagrangeInterpolatePrepare.lean` | `expectedTrailingPoly_eq_prodLinearFactors`, `expectedTrailingPoly_{zero,succ,coeff_eq_zero}`, `prodLinearFactors_coeff_eq_zero_high`, `listToGF216Poly_eq_X_mul_drop_one` |
-| `Poly/LagrangeInterpolateComplete.lean` | `prodLinearFactors_eq_factor_mul_basis`, `lagrangeBasisPoly` |
+| `Poly/MultXdiffAssignTrailing.lean` | `prodLinearFactors_snoc`, `coeff_zero_eq_zero_of_X_mul_identity`, `mult_xdiff_poly_identity` |
+| `Poly/LagrangeInterpolatePrepare.lean` | `expectedTrailingPoly_eq_prodLinearFactors`, `expectedTrailingPoly_{zero,succ,coeff_eq_zero_of_lt}`, `prodLinearFactors_coeff_eq_zero_high`, `listToGF216Poly_eq_X_mul_…_drop_one` |
+| `Poly/LagrangeInterpolateComplete.lean` | `prodLinearFactors_eq_X_sub_C_mul`, `lagrangeBasisPoly` |
 | `Poly/LagrangeInterpolatePt.lean` | `lagrangeBasisPoly`, `lagrangeScaleGF216` |
 | `Poly/LagrangeInterpolate.lean` | `lagrangeInterpolantSum_{eq_finset_sum,coeff_high}` |
-| `Poly/LagrangeSum.lean` | `list_map_sum_eq_finset_sum`, `lagrangeInterpolantSum_eq_finset_sum` |
+| `Poly/LagrangeSum.lean` | `List.map_sum_eq_Finset_sum`, `lagrangeInterpolantSum_eq_finset_sum` |
 | `Poly/FromCompletePoints*.lean` | `lagrangeBasisPoly`, `prodLinearFactors_*` |
 | `Poly/Serialize.lean`, `Poly/Deserialize.lean` | `listToGF216Poly_coeff` (round-trip) |
-| `PolyConstN/LagrangeInterpolatePt.lean` | `lagrangeDenomProd_{ge,skip,accum}`, `listToGF216Poly_singleton`, `listToGF216Poly_cons` |
+| `PolyConstN/LagrangeInterpolatePt.lean` | `lagrangeDenomProd_{eq_one_of_le,skip,accum}`, `listToGF216Poly_singleton`, `listToGF216Poly_cons` |
 | `PolyConstN/Mult.lean`, `MultXdiff.lean` | `listToGF216Poly_coeff`, `prodLinearFactors_*` |
-| `PolyEncoder/PointAtLoopBody0.lean` | `list_map_sum_eq_finset_sum`, `hornerAccum_zero_eq_eval` |
+| `PolyEncoder/PointAtLoopBody0.lean` | `List.map_sum_eq_Finset_sum`, `hornerAccum_zero_eq_eval` |
 
 ### 0e. `sorry` / axiom inventory in the math foundations
 
 | File | `sorry` | Axioms |
 |------|---------|--------|
-| `Spqr/Math/Poly.lean` | **0** | — |
-| `Spqr/Math/Poly/Aeneas.lean` | **0** | — |
-| `Spqr/Math/Poly/General.lean` | **0** | — |
-| `Spqr/Math/Poly/Mathlib.lean` | **0** | — |
+| `Spqr/Math/Poly/Basic/Defs.lean` | **0** | — |
+| `Spqr/Math/Poly/Basic/Zero.lean` | **0** | — |
+| `Spqr/Math/Poly/CharTwo/Basic.lean` | **0** | — |
+| `Spqr/Math/Poly/CharTwo/ToGF216.lean` | **0** | — |
+| `Spqr/Math/Poly/Coeff/Basic.lean` | **0** | — |
+| `Spqr/Math/Poly/Coeff/ListOps.lean` | **0** | — |
+| `Spqr/Math/Poly/Eval.lean` | **0** | — |
+| `Spqr/Math/Poly/Horner/Defs.lean` | **0** | — |
+| `Spqr/Math/Poly/Horner/Eval.lean` | **0** | — |
+| `Spqr/Math/Poly/LinearFactors/Basic.lean` | **0** | — |
+| `Spqr/Math/Poly/LinearFactors/Degree.lean` | **0** | — |
+| `Spqr/Math/Poly/Lagrange/DenomProd.lean` | **0** | — |
+| `Spqr/Math/Poly/Lagrange/BasisPoly.lean` | **0** | — |
+| `Spqr/Math/Poly/Lagrange/InterpolantSum.lean` | **0** | — |
+| `Spqr/Math/Poly/ExpectedTrailing/Defs.lean` | **0** | — |
+| `Spqr/Math/Poly/ExpectedTrailing/Basic.lean` | **0** | — |
+| `Spqr/Math/Poly/Identities/Basic.lean` | **0** | — |
+| `Spqr/Math/Poly/Aeneas/DotProduct.lean` | **0** | — |
+| `Spqr/Math/Poly/Aeneas/MultXdiff.lean` | **0** | — |
+| `Spqr/Math/Poly/Aeneas/PolyIdentity.lean` | **0** | — |
+| `Spqr/Math/Poly/Aeneas/PowerVector.lean` | **0** | — |
 | `Spqr/Math/Poly/ModByMonic.lean` | **0** | — |
+| `Spqr/Math/List.lean` | **0** | — |
 
 The math foundations are **fully proved** (no `sorry`, no local axioms).
 
@@ -153,10 +252,12 @@ The math foundations are **fully proved** (no `sorry`, no local axioms).
 
 | Metric | Count |
 |--------|-------|
-| Total math files (`Spqr/Math/Poly*`) | 5 |
-| Total lines | 1 606 |
-| Top-level definitions (`def` / `noncomputable def`) | 11 |
-| Lemmas + theorems | ~ 77 |
+| Total math files (`Spqr/Math/Poly/` + `Spqr/Math/List.lean`) | 23 |
+| Math subdirectories (`Aeneas/`, `Basic/`, `CharTwo/`, `Coeff/`, `ExpectedTrailing/`, `Horner/`, `Identities/`, `Lagrange/`, `LinearFactors/`) | 9 |
+| Total lines | 2 028 |
+| Top-level definitions (`def` / `noncomputable def` / `abbrev`) | 11 |
+| Lemmas + theorems | 63 |
+| Deprecated aliases (`@[deprecated]`) | 11 |
 | `sorry` instances in math foundations | **0** |
 | Axioms declared in math foundations | **0** |
 | GF(2¹⁶) operations transitively required (verified in `Plan_gf`) | 13 |
@@ -209,7 +310,7 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 | F8 | `Poly::lagrange_interpolate_prepare` | `encoding.polynomial.Poly.lagrange_interpolate_prepare` | `Poly/LagrangeInterpolatePrepare.lean` | ✅ |
 | F9 | `Poly::mult_xdiff_assign_trailing` | `encoding.polynomial.Poly.mult_xdiff_assign_trailing` | `Poly/MultXdiffAssignTrailing.lean` | ✅ |
 | F10 | `Poly::lagrange_interpolate_complete` | `encoding.polynomial.Poly.lagrange_interpolate_complete` | `Poly/LagrangeInterpolateComplete.lean` | ✅ |
-| F11 | `Poly::lagrange_interpolate_pt` | `encoding.polynomial.Poly.lagrange_interpolate_pt` | `Poly/LagrangeInterpolatePt.lean` | ✅ (uses local axiom `vec_remove_zero_spec` — Section 2g) |
+| F11 | `Poly::lagrange_interpolate_pt` | `encoding.polynomial.Poly.lagrange_interpolate_pt` | `Poly/LagrangeInterpolatePt.lean` | ✅ (uses local axiom `vec_remove_zero_spec` — Section 2h) |
 | F12 | `Poly::add_assign` | `encoding.polynomial.Poly.add_assign` | `Poly/AddAssign.lean` | ✅ |
 | F13 | `Poly::mult_assign` | `encoding.polynomial.Poly.mult_assign` | `Poly/MultAssign.lean` | ✅ |
 | F14 | `Poly::compute_at` | `encoding.polynomial.Poly.compute_at` | `Poly/ComputeAt.lean` | ✅ |
@@ -222,7 +323,7 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F19 | `PolyConst::lagrange_interpolate_pt` | `encoding.polynomial.PolyConst.lagrange_interpolate_pt` | `PolyConstN/LagrangeInterpolatePt.lean` | ✅ (uses local axiom `GF16.value_val_eq_zero_of_toGF216` — Section 2g) |
+| F19 | `PolyConst::lagrange_interpolate_pt` | `encoding.polynomial.PolyConst.lagrange_interpolate_pt` | `PolyConstN/LagrangeInterpolatePt.lean` | ✅ (uses local axiom `GF16.value_val_eq_zero_of_toGF216` — Section 2h) |
 | F20 | `PolyConst::mult` | `encoding.polynomial.PolyConst.mult` | `PolyConstN/Mult.lean` (+ `…Loop0`, `…LoopBody0`) | ✅ |
 | F21 | `PolyConst::mult_xdiff` | `encoding.polynomial.PolyConst.mult_xdiff` | `PolyConstN/MultXdiff.lean` (+ `…Loop0`, `…Loop1`, `…LoopBody0`, `…LoopBody1`) | ✅ |
 | F22 | `PolyConst::to_poly` | `encoding.polynomial.PolyConst.to_poly` | `PolyConstN/ToPoly.lean` | ✅ |
@@ -231,8 +332,8 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F23 | `const_polys_to_polys` | `encoding.polynomial.const_polys_to_polys` | `ConstPolysToPolys.lean` (+ `ConstPolysToPolys/{CallMut,CallOne,SliceIterMapCollect}.lean`) | ✅ |
-| F24 | `lagrange_polys_for_complete_points` | `encoding.polynomial.lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | ⚠️ (3 `sorry`s in `LagrangePolysForCompletePoints.lean` at lines 337, 460, 639 — top-level and per-loop proofs pending) |
+| F23 | `const_polys_to_polys` | `encoding.polynomial.const_polys_to_polys` | `ConstPolysToPolys.lean` (+ `ConstPolysToPolys/{CallMut,CallOne,SliceIter,SliceIterMap,SliceIterMapCollect}.lean`) | ✅ |
+| F24 | `lagrange_polys_for_complete_points` | `encoding.polynomial.lagrange_polys_for_complete_points` | `LagrangePolysForCompletePoints.lean` | ⚠️ (3 `sorry`s at lines 332, 455, 634 — top-level and per-loop proofs pending) |
 
 ### Functions: PolyEncoder
 
@@ -241,8 +342,8 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 | F25 | `PolyEncoder::get_encoder_state` | `encoding.polynomial.PolyEncoder.get_encoder_state` | `PolyEncoder/GetEncoderState.lean` | ✅ |
 | F26 | `PolyEncoder::into_pb` | `encoding.polynomial.PolyEncoder.into_pb` | `PolyEncoder/IntoPb.lean` (+ `…Loop{0,1,2}`, `…LoopBody{0,1,2}`) | ✅ |
 | F27 | `PolyEncoder::from_pb` | `encoding.polynomial.PolyEncoder.from_pb` | `PolyEncoder/FromPb.lean` (+ `…Loop{0,1,2}`, `…LoopBody{0,1,2}`) | ✅ |
-| F28 | `PolyEncoder::point_at` | `encoding.polynomial.PolyEncoder.point_at` | `PolyEncoder/PointAt.lean`, `PolyEncoder/PointAtLoop0.lean`, `PolyEncoder/PointAtLoopBody0.lean`, `PolyEncoder/PointAt/{CallMut,CallOne,SliceIterEnumMapCollect}.lean` | ⚠️ (2 residual `sorry`s in `PointAt.lean` at lines 142 and 146 — top-level `point_at_spec_nat` case branches) |
-| F29 | `PolyEncoder::encode_bytes_base` | `encoding.polynomial.PolyEncoder.encode_bytes_base` | `PolyEncoder/EncodeBytesBase.lean` (+ `EncodeBytesBaseLoop0.lean`, `EncodeBytesBaseLoopBody0.lean`, `EncodeBytesBase/{CallMut,CallOnce}.lean`) | ✅ (extracted body in `Funs.lean` is now correct — no `sorry`; the legacy tweak at `aeneas-config.yml` lines 93–94 only sorries an unrelated `Buf` `BytesBufBuf_implBuf` shape) |
+| F28 | `PolyEncoder::point_at` | `encoding.polynomial.PolyEncoder.point_at` | `PolyEncoder/PointAt.lean`, `PolyEncoder/PointAtLoop0.lean`, `PolyEncoder/PointAtLoopBody0.lean`, `PolyEncoder/PointAt/{CallMut,CallOne,SliceIterEnumMapCollect}.lean` | ⚠️ (2 residual `sorry`s in `PointAt.lean` at lines 139 and 143 — top-level `point_at_spec_nat` case branches) |
+| F29 | `PolyEncoder::encode_bytes_base` | `encoding.polynomial.PolyEncoder.encode_bytes_base` | `PolyEncoder/EncodeBytesBase.lean` (+ `EncodeBytesBaseLoop0.lean`, `EncodeBytesBaseLoopBody0.lean`, `EncodeBytesBase/{CallMut,CallOnce}.lean`) | ✅ |
 | F30 | `PolyEncoder::chunk_at` | `encoding.polynomial.PolyEncoder.chunk_at` | `PolyEncoder/ChunkAt.lean` (+ `ChunkAtLoop0.lean`, `ChunkAtLoopBody0.lean`) | ✅ |
 | F31 | `PolyEncoder::into_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
 | F32 | `PolyEncoder::from_pb_test` | — (not extracted) | — | ⏭️ Feature-gated |
@@ -316,6 +417,16 @@ verification work is owed by this plan.
 | `Poly/Clone.lean` | Auto-derived `Clone` for `Poly`; delegates to `Vec::clone`. |
 | `Poly/Eq.lean` | Auto-derived structural `PartialEq` / `Eq`. |
 | `Poly/VecDeref.lean` | Auto-derived `Deref<Target=Vec<GF16>>`. |
+| `PolyDecoder/Clone.lean` | `Clone` for `PolyDecoder`; delegation wrapper. |
+| `PolyDecoder/CallMut.lean` | Closure `FnMut` instance for iterator. |
+| `PolyDecoder/CallOnce.lean` | Closure `FnOnce` instance for iterator. |
+| `Chunk/Clone.lean` | Auto-derived `Clone` for `Chunk`. |
+| `Chunk/Fmt.lean` | Auto-derived `Display` for `Chunk`. |
+| `EncodingError/Clone.lean` | Auto-derived `Clone` for `EncodingError`. |
+| `EncodingError/Eq.lean` | Auto-derived `Eq` for `EncodingError`. |
+| `EncodingError/Fmt.lean` | Auto-derived `Display` for `EncodingError`. |
+| `PolynomialError/Eq.lean` | Auto-derived `Eq` for `PolynomialError`. |
+| `PolynomialError/From.lean` | Auto-derived `From` for `PolynomialError`. |
 
 ### 2c. Hardware-Accelerated Functions (not extracted by Aeneas)
 
@@ -342,10 +453,10 @@ extract feature-gated code.
 ### 2e. Opaque Function (Aeneas Internal Error)
 
 `decoded_message` is declared as an opaque axiom in
-`Spqr/Code/FunsExternal.lean` because Aeneas encountered an internal
-error during extraction (configured as opaque in `aeneas-config.yml`,
-line 54). Without an extracted body, formal verification is not
-possible in the current framework.
+`Spqr/Code/FunsExternal.lean` (line 2578) because Aeneas encountered
+an internal error during extraction (configured as opaque in
+`aeneas-config.yml`, line 49). Without an extracted body, formal
+verification is not possible in the current framework.
 
 | # | Rust Name | Lean Declaration | Why Skipped |
 |---|-----------|-----------------|-------------|
@@ -368,30 +479,27 @@ Section 2i for details.
 
 ### 2h. Local Axioms Used by Otherwise-Verified Spec Files
 
-Two private axioms are declared inside spec files to bridge between
+Three private axioms are declared inside spec files to bridge between
 the abstract `GF216` view and the concrete `u16` representation. They
 are private (file-local) and clearly marked.
 
 | Axiom | File | Justification |
 |-------|------|---------------|
-| `vec_remove_zero_spec` | `Poly/LagrangeInterpolatePt.lean:84` | Specifies the behaviour of `Vec.remove_zero` on a vector whose last `GF16` element is zero, in terms of `Vec.pop_back`. Reflects an Aeneas-side surface API not yet given a proved Lean reduction. |
-| `GF16.value_val_eq_zero_of_toGF216` | `PolyConstN/LagrangeInterpolatePt.lean:317` | If a `GF16` element maps to `0 : GF216`, then its underlying `u16` value is `0`. This is provable from `Spqr.Math.Poly.GF16.toGF216_zero_val`, but is exposed locally to keep the proof modular (analogous to the gf-layer precedent `vec_remove_zero_spec`). |
+| `vec_remove_zero_spec` | `Poly/LagrangeInterpolatePt.lean:81` | Specifies the behaviour of `Vec.remove_zero` on a vector whose last `GF16` element is zero, in terms of `Vec.pop_back`. Reflects an Aeneas-side surface API not yet given a proved Lean reduction. |
+| `GF16.value_val_eq_zero_of_toGF216` | `PolyConstN/LagrangeInterpolatePt.lean:309` | If a `GF16` element maps to `0 : GF216`, then its underlying `u16` value is `0`. This is provable from `Spqr.Math.Poly.CharTwo.ToGF216.GF16_toGF216_eq_zero_imp`, but is exposed locally to keep the proof modular. |
 | `clone_sorted_set_pt_id` | `PolyDecoder/Clone.lean:40` | Specifies that cloning a `SortedSet<Pt>` is the identity on the underlying value set. The Aeneas surface API for `SortedSet.clone` is not yet given a proved Lean reduction, so this bridge axiom is exposed locally to allow the `PolyDecoder::clone` spec to close. |
 
 ### 2i. `sorry` Affecting Polynomial Verification
 
 | Location | Source of the `sorry` | Effect |
 |----------|------------------------|--------|
-| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:142` and `:146` | Two residual holes inside the top-level `point_at_spec_nat` theorem, one per `EncoderState` case (`Points` and `Polys`). The underlying loop spec `PointAtLoopBody0.lean` no longer contains a `sorry`. | Renders F28 (`point_at`) ⚠️ rather than ✅.  Because `chunk_at` (F30), `encode_bytes` (F33) and `next_chunk` (F34) are *proved with `sorry`-free Lean specs* that call into `point_at_spec`, those downstream spec files still close — they simply rely on the (partially proved) F28 lemma. |
-| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:337`, `:460`, `:639` | Three residual `sorry`s: one for the inner loop body, one for the outer loop, and one for the top-level theorem. The proof skeletons (commented-out tactic scripts using `loop.spec_decr_nat`) are present below each `sorry`. | Renders F24 (`lagrange_polys_for_complete_points`) ⚠️.  C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) still close because their spec files don't depend on the *content* of F24's postcondition — only on definitional unfolding. |
+| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:139` and `:143` | Two residual holes inside the top-level `point_at_spec_nat` theorem, one per `EncoderState` case (`Points` and `Polys`). The underlying loop spec `PointAtLoopBody0.lean` no longer contains a `sorry`. | Renders F28 (`point_at`) ⚠️ rather than ✅.  Because `chunk_at` (F30), `encode_bytes` (F33) and `next_chunk` (F34) are *proved with `sorry`-free Lean specs* that call into `point_at_spec`, those downstream spec files still close — they simply rely on the (partially proved) F28 lemma. |
+| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:332`, `:455`, `:634` | Three residual `sorry`s: one for the inner loop body, one for the outer loop, and one for the top-level theorem. The proof skeletons (commented-out tactic scripts using `loop.spec_decr_nat`) are present below each `sorry`. | Renders F24 (`lagrange_polys_for_complete_points`) ⚠️.  C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) still close because their spec files don't depend on the *content* of F24's postcondition — only on definitional unfolding. |
 
-The previously listed blocker at `Spqr/Code/Funs.lean:9398`
+The previously listed blocker at `Spqr/Code/Funs.lean`
 (`encode_bytes_base_loop.body`) has been **resolved**: Aeneas now
 emits the correct typed body for that loop, so F29
 (`encode_bytes_base`) and F33 (`encode_bytes`) are fully verified.
-The tweak at `aeneas-config.yml` lines 93–94 still appears in the
-config but applies only to an unrelated `Shared0SliceU8.Insts.BytesBufBuf_implBuf`
-shape, with no remaining impact on the polynomial layer.
 
 Other `sorry` instances in `Spqr/Code/Funs.lean` (e.g. the various
 `call_once := sorry`, `take := sorry` in iterator instances, and the
@@ -404,9 +512,14 @@ extraction issues (and are therefore *not* verification blockers) are:
 
 | Tweak | Effect |
 |-------|--------|
-| `aeneas-config.yml` lines 147–148 | Replaces `Array.update ones i ()` with a proper `Pt` constructor inside `lagrange_polys_for_complete_points_loop0.body`. This is what makes F24 and C3–C8 verifiable. |
-| `aeneas-config.yml` lines 161–179 | Patches `from_pb_loop1` / `from_pb_loop1_loop0` to return the accumulated `GF16` vector instead of `Unit`, and to construct a `Point` correctly. Makes F27 verifiable. |
-| `aeneas-config.yml` lines 138–143 | Fixes `Option.ok_or` type inference and a control-flow type-annotation issue inside `PolyDecoder::from_pb` / `into_pb`. |
+| `aeneas-config.yml` line 155–156 | `Option.ok_or` type annotation fix for `PolyDecoder::from_pb`. |
+| `aeneas-config.yml` lines 157–160 | `ControlFlow.Continue` type annotation for `PolyDecoder.from_pb` pattern matches. |
+| `aeneas-config.yml` lines 164–165 | Replaces `Array.update ones i ()` with a proper `Pt` constructor inside `lagrange_polys_for_complete_points_loop0.body`. This is what makes F24 and C3–C8 verifiable. |
+| `aeneas-config.yml` (Pt trait impls → `Types.lean`) | Moves `PartialEq`, `Eq`, `PartialOrd`, `Ord` for `Pt` to `Types.lean` because `PolyDecoder`'s type signature references `Pt.Insts.CoreCmpOrd`. |
+
+Note: Several `from_pb_loop1` / `from_pb_loop1_loop0` tweaks
+(lines 167–195) that were previously active are now **commented out**,
+indicating that the Aeneas extraction has improved for those cases.
 
 ---
 
@@ -544,7 +657,7 @@ extraction issues (and are therefore *not* verification blockers) are:
 The table below lists every function and constant from
 `poly_functions.txt` in **dependency order**: to verify A, every
 prerequisite B must already be verified. Math foundations from
-`Spqr/Math/Poly.lean` are listed as a single prerequisite block
+`Spqr/Math/Poly/` are listed as a single prerequisite block
 ("MathPoly") because they are fully proved with no internal `sorry`.
 
 Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
@@ -552,7 +665,7 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 
 | Order | # | Function / Constant | Spec File | Depends On | Status |
 |-------|---|---------------------|-----------|------------|--------|
-|  1 | MathPoly | `Spqr/Math/Poly{,/Aeneas,/General,/Mathlib,/ModByMonic}.lean` | — | — | ✅ |
+|  1 | MathPoly | `Spqr/Math/Poly/` (22 files) + `Spqr/Math/List.lean` | — | — | ✅ |
 |  2 | C1 | `MAX_STORED_POLYNOMIAL_DEGREE_V1` | `MAX_STORED_…lean` | (irreducible) | ✅ |
 |  3 | C2 | `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` | `MAX_INTERMEDIATE_…lean` | (irreducible) | ✅ |
 |  4 | C9 | `CHUNK_SIZE` | `CHUNK_SIZE.lean` | (irreducible) | ✅ |
@@ -564,15 +677,15 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 | 10 | F1 | `Pt::serialize` | `Pt/Serialize.lean` | byte conversions | ✅ |
 | 11 | F2 | `Pt::deserialize` | `Pt/Deserialize.lean` | byte conversions | ✅ |
 | 12 | F6 | `Poly::zero` | `Poly/Zero.lean` | MathPoly | ✅ |
-| 13 | F9 | `Poly::mult_xdiff_assign_trailing` | `Poly/MultXdiffAssignTrailing.lean` | MathPoly (`prodLinearFactors_snoc`, `coeff_zero_of_X_mul_identity`) | ✅ |
+| 13 | F9 | `Poly::mult_xdiff_assign_trailing` | `Poly/MultXdiffAssignTrailing.lean` | MathPoly (`prodLinearFactors_snoc`, `coeff_zero_eq_zero_of_X_mul_identity`) | ✅ |
 | 14 | F12 | `Poly::add_assign` | `Poly/AddAssign.lean` | MathPoly | ✅ |
 | 15 | F13 | `Poly::mult_assign` | `Poly/MultAssign.lean` | `parallel_mult` (Plan_gf) | ✅ |
 | 16 | F17 | `Poly::serialize` | `Poly/Serialize.lean` (+ loops) | MathPoly | ✅ |
 | 17 | F18 | `Poly::deserialize` | `Poly/Deserialize.lean` (+ loops) | MathPoly | ✅ |
 | 18 | F14 | `Poly::compute_at` | `Poly/ComputeAt.lean` | MathPoly (`hornerAccum_zero_eq_eval` etc.) | ✅ |
 | 19 | F8 | `Poly::lagrange_interpolate_prepare` | `Poly/LagrangeInterpolatePrepare.lean` | F6, F9; MathPoly (`expectedTrailingPoly_eq_prodLinearFactors`) | ✅ |
-| 20 | F15 | `Poly::lagrange_sum` | `Poly/LagrangeSum.lean` | F12, F13, F14; MathPoly (`list_map_sum_eq_finset_sum`) | ✅ |
-| 21 | F10 | `Poly::lagrange_interpolate_complete` | `Poly/LagrangeInterpolateComplete.lean` | F8 (template); MathPoly (`prodLinearFactors_eq_factor_mul_basis`) | ✅ |
+| 20 | F15 | `Poly::lagrange_sum` | `Poly/LagrangeSum.lean` | F12, F13, F14; MathPoly (`List.map_sum_eq_Finset_sum`) | ✅ |
+| 21 | F10 | `Poly::lagrange_interpolate_complete` | `Poly/LagrangeInterpolateComplete.lean` | F8 (template); MathPoly (`prodLinearFactors_eq_X_sub_C_mul`) | ✅ |
 | 22 | F11 | `Poly::lagrange_interpolate_pt` | `Poly/LagrangeInterpolatePt.lean` | F8, F10 (+ local axiom `vec_remove_zero_spec`) | ✅ |
 | 23 | F7 | `Poly::lagrange_interpolate` | `Poly/LagrangeInterpolate.lean` | F8, F10, F12 | ✅ |
 | 24 | F20 | `PolyConst::mult` | `PolyConstN/Mult.lean` (+ loops) | `const_mul` (Plan_gf) | ✅ |
@@ -613,7 +726,7 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 ### Dependency DAG (ASCII)
 
 ```
-                 Spqr.Math.Poly{,/Aeneas,/General,/Mathlib,/ModByMonic}
+                 Spqr.Math.Poly/ (22 files) + Spqr.Math.List
                                        │
                                        ▼
    CHUNK_SIZE(C9) ─► NUM_POLYS(C10)                 PolyConst::ZEROS(C11)
@@ -684,11 +797,12 @@ configuration is in [`aeneas-config.yml`](../../aeneas-config.yml).
 
 | Section | Entry | Purpose |
 |---------|-------|---------|
-| `charon.opaque` (line 54) | `PolyDecoder::decoded_message` | Aeneas internal error — declared opaque; emitted as axiom in `FunsExternal.lean`. |
-| `tweaks` (lines 93–94) | Legacy `Sorry` shape for `BytesBufBuf_implBuf` | Originally introduced for `encode_bytes_base_loop.body` (Aeneas issue [#1046](https://github.com/AeneasVerif/aeneas/issues/1046)); Aeneas now extracts that loop body correctly, so the tweak's residual effect is limited to an unrelated `Shared0SliceU8` `Buf` shape and **does not** affect the polynomial verification path. |
-| `tweaks` (lines 147–148) | Fix `lagrange_polys_for_complete_points_loop0.body` | Replaces `Array.update ones i ()` with the correct `Pt` constructor. Enables verification of F24 and C3–C8. |
-| `tweaks` (lines 161–179) | Patches `from_pb_loop1` / `from_pb_loop1_loop0` to return the accumulated `GF16` vector and construct a `Point`. Enables verification of F27. |
-| `tweaks` (lines 138–143) | `Option.ok_or` / `ControlFlow.Continue` type-annotation fixes for `PolyDecoder` `from_pb`. |
+| `charon.opaque` (line 49) | `PolyDecoder::decoded_message` | Aeneas internal error — declared opaque; emitted as axiom in `FunsExternal.lean`. |
+| `tweaks` (lines 80–81) | `Sorry` shape for `BytesBufBuf_implBuf` | Sorrys a self-referential struct literal for the `Buf` instance. Not on the polynomial verification path. |
+| `tweaks` (lines 155–156) | `Option.ok_or` type annotation fix | Fixes `none` type inference for `PolyDecoder::from_pb`. |
+| `tweaks` (lines 157–160) | `ControlFlow.Continue` type annotations | Adds explicit `proto.pq_ratchet.PolynomialDecoder` type annotations to pattern-match variables in `PolyDecoder::from_pb`. |
+| `tweaks` (lines 164–165) | Fix `lagrange_polys_for_complete_points_loop0.body` | Replaces `Array.update ones i ()` with the correct `Pt` constructor (adds `y := encoding.gf.GF16.ONE`). Enables verification of F24 and C3–C8. |
+| `tweaks` (lines 167–195) | Commented-out `from_pb_loop1` patches | Previously active fixes for `from_pb_loop1_loop0` body (return type `Unit` → `Vec GF16`, `done ()` → `done v`, `Point` construction). Now **commented out**, indicating Aeneas extraction has improved. |
 | `tweaks` (Pt trait impls → `Types.lean`) | Moves `PartialEq`, `Eq`, `PartialOrd`, `Ord` for `Pt` to `Types.lean` because `PolyDecoder`'s type signature references `Pt.Insts.CoreCmpOrd`. |
 
 Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.diff).
@@ -697,10 +811,10 @@ Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.d
 
 | Where | What |
 |-------|------|
-| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:142` and `:146` | Two residual holes in the top-level `point_at_spec_nat` theorem (one per `EncoderState` case).  The loop-body spec `PointAtLoopBody0.lean` is now `sorry`-free; downstream functions (F30 `chunk_at`, F33 `encode_bytes`, F34 `next_chunk`) close their specs without `sorry` by depending on the *statement* of F28's spec. |
-| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:337`, `:460`, `:639` | Three residual holes covering the inner loop, outer loop, and top-level theorem for F24. C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) are *not* blocked because their spec files rely on definitional unfolding, not on F24's postcondition. |
+| `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean:139` and `:143` | Two residual holes in the top-level `point_at_spec_nat` theorem (one per `EncoderState` case).  The loop-body spec `PointAtLoopBody0.lean` is now `sorry`-free; downstream functions (F30 `chunk_at`, F33 `encode_bytes`, F34 `next_chunk`) close their specs without `sorry` by depending on the *statement* of F28's spec. |
+| `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean:332`, `:455`, `:634` | Three residual holes covering the inner loop, outer loop, and top-level theorem for F24. C3–C8 (the `COMPLETE_POINTS_POLYS_*` constants) are *not* blocked because their spec files rely on definitional unfolding, not on F24's postcondition. |
 | `Spqr/Code/FunsExternal.lean` axiom `decoded_message` | F44 cannot be verified without an extracted body. |
-| Private axioms `vec_remove_zero_spec` (Poly/LagrangeInterpolatePt.lean), `GF16.value_val_eq_zero_of_toGF216` (PolyConstN/LagrangeInterpolatePt.lean) and `clone_sorted_set_pt_id` (PolyDecoder/Clone.lean) | File-local bridge axioms; do not block other functions but must be removed for a fully axiom-free proof. |
+| Private axioms `vec_remove_zero_spec` (Poly/LagrangeInterpolatePt.lean:81), `GF16.value_val_eq_zero_of_toGF216` (PolyConstN/LagrangeInterpolatePt.lean:309) and `clone_sorted_set_pt_id` (PolyDecoder/Clone.lean:40) | File-local bridge axioms; do not block other functions but must be removed for a fully axiom-free proof. |
 
 ---
 
@@ -723,14 +837,16 @@ Based on the 50 functions + 11 constants in `encoding/polynomial.rs`:
     F44 opaque axiom; F45–F50 `#[cfg(test)]`).
 - **`sorry` instances affecting polynomial layer**:
   - 2 in `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean`
-    (lines 142, 146) — top-level `point_at_spec_nat` case branches.
+    (lines 139, 143) — top-level `point_at_spec_nat` case branches.
   - 3 in `Spqr/Specs/Encoding/Polynomial/LagrangePolysForCompletePoints.lean`
-    (lines 337, 460, 639) — top-level theorem and the two loop specs.
+    (lines 332, 455, 634) — top-level theorem and the two loop specs.
   - **0 in `Spqr/Code/Funs.lean` on the polynomial path** (the former
     `encode_bytes_base_loop.body` blocker is fully resolved).
 - **Axioms used by the polynomial layer**:
   - 1 opaque axiom in `FunsExternal.lean` (`decoded_message`).
   - 3 local bridge axioms in spec files (`vec_remove_zero_spec`,
     `GF16.value_val_eq_zero_of_toGF216`, `clone_sorted_set_pt_id`).
-- **Math foundations** (`Spqr/Math/Poly.lean` + helpers): **0 `sorry`,
-  0 axioms** across ~77 lemmas/theorems in 1 606 lines.
+- **Math foundations** (`Spqr/Math/Poly/` + `Spqr/Math/List.lean`):
+  **0 `sorry`, 0 axioms** across 63 lemmas/theorems (+ 11 deprecated
+  aliases) in 2 028 lines across 23 files organised into 9
+  subdirectories.
