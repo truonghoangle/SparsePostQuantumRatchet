@@ -1,0 +1,7 @@
+Fully Qualified Function Names in src/kdf.rs
+=============================================
+
+# Free functions
+
+spqr::kdf::hkdf_to_vec
+spqr::kdf::hkdf_to_slice
