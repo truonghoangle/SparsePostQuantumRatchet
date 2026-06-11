@@ -112,10 +112,11 @@ theorem body_spec
   · -- cont case: enough bytes remain; perform deserialize + push + advance
     grind
   · -- done case: insufficient bytes
-    simp_all only
+    simp_all
     use p
     simp_all
     simp[Array.make]
+    simp [sorted_vec.SortedSet.push]
     grind
 
 

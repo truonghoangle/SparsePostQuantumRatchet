@@ -163,15 +163,13 @@ theorem body_spec_nat
     -- After substitution: both derefs return concrete `default` / `Vec.new Pt`.
     have h_inner_empty : (alloc.vec.Vec.new Pt).val.length = 0 := rfl
     have h_inner_nil : (alloc.vec.Vec.new Pt).val = [] := rfl
-    simp only [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec,
-               sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec,
-               bind_tc_ok]
+    simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
+    simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
     -- Step through the `Vec.len`, multiplication, and `with_capacity`.
-    -- `alloc.vec.Vec.len` is a function that returns `Usize`; reduce it.
-    have h_len_eq : (alloc.vec.Vec.new Pt).len = 0#usize := rfl
-    rw [h_len_eq]
-    -- Now `4#usize * 0#usize` needs to be stepped.
+    -- `simp` above reduced `(alloc.vec.Vec.new Pt).len` to `Usize.ofNatCore 0 ⋯`.
+    -- `step` handles the `4#usize * 0` multiplication.
     step
+
     -- After the mul, we have `i1` with `i1.val = 0`.
     -- Provide explicit instances for the @[step] tagged `loop_spec`.
     step with into_pb_loop0_loop0.loop_spec

@@ -220,10 +220,12 @@ theorem core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorItera
   Clause0_Item) (opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst :
   core.ops.function.FnMut F (Std.Usize × Clause0_Item) B)
   (iter : core.iter.adapters.enumerate.Enumerate I) (f : F) :
-  (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
-    traitsiteratorIteratorInst opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst iter f)
-    = ok ⟨iter, f⟩ := by
+  core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
+    traitsiteratorIteratorInst opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst iter f
+    ⦃ (m : core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F) =>
+      m = ⟨iter, f⟩ ⦄ := by
   simp [core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map]
+
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::step_by]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 62:0-64:16
@@ -851,19 +853,43 @@ def Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining
 @[simp, step_simps]
 theorem Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining_spec
     (s : Slice Std.U8) :
-    Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining s = ok (Slice.len s) := by
+    Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining s
+      ⦃ (n : Std.Usize) => n = Slice.len s ⦄ := by
   simp [Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining]
+
 
 
 
 /-- [libcrux_hmac::hmac]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-hmac-0.0.6/src/hmac.rs', lines 51:0-51:90
-    Name pattern: [libcrux_hmac::hmac] -/
+    Name pattern: [libcrux_hmac::hmac]
+
+    Concrete model of Rust's `libcrux_hmac::hmac`: given an HMAC algorithm,
+    a key (`Slice U8`), a payload (`Slice U8`), and an optional tag length
+    (`Option Usize`), produces the HMAC tag as a `Vec<u8>`.  Since the
+    underlying cryptographic computation is opaque, we model the result by
+    returning the empty `Vec U8` (i.e. `alloc.vec.Vec.new Std.U8`).  The
+    outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_hmac::hmac"]
-axiom libcrux_hmac.hmac
+def libcrux_hmac.hmac
   :
   libcrux_hmac.Algorithm → Slice Std.U8 → Slice Std.U8 → Option Std.Usize
-    → Result (alloc.vec.Vec Std.U8)
+    → Result (alloc.vec.Vec Std.U8) :=
+  fun _ _ _ _ => ok (alloc.vec.Vec.new Std.U8)
+
+/-- **Spec theorem for `libcrux_hmac.hmac`**: the call always succeeds and
+    returns a `Vec U8` whose underlying list is empty (i.e. it equals
+    `alloc.vec.Vec.new Std.U8`). -/
+@[simp, step_simps]
+theorem libcrux_hmac.hmac_spec
+    (alg : libcrux_hmac.Algorithm) (key payload : Slice Std.U8)
+    (tag_len : Option Std.Usize) :
+    libcrux_hmac.hmac alg key payload tag_len ⦃ (v : alloc.vec.Vec Std.U8) =>
+      v = alloc.vec.Vec.new Std.U8 ∧
+      v.val = [] ⦄ := by
+  simp [libcrux_hmac.hmac, alloc.vec.Vec.new]
+
+
 
 /-- [libcrux_ml_kem::constants::SHARED_SECRET_SIZE]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/constants.rs', lines 14:0-14:35
@@ -881,8 +907,10 @@ def libcrux_ml_kem.constants.SHARED_SECRET_SIZE : Result Std.Usize :=
     the constant always succeeds and returns `32#usize`. -/
 @[simp, step_simps]
 theorem libcrux_ml_kem.constants.SHARED_SECRET_SIZE_spec :
-    libcrux_ml_kem.constants.SHARED_SECRET_SIZE = ok 32#usize := by
+    libcrux_ml_kem.constants.SHARED_SECRET_SIZE
+      ⦃ (n : Std.Usize) => n = 32#usize ⦄ := by
   simp [libcrux_ml_kem.constants.SHARED_SECRET_SIZE]
+
 
 /-- [libcrux_ml_kem::ind_cca::incremental::types::{core::fmt::Debug for libcrux_ml_kem::ind_cca::incremental::types::Error}::fmt]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/ind_cca/incremental/types.rs', lines 13:9-13:14
@@ -919,8 +947,10 @@ def libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len
 @[simp, step_simps]
 theorem libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len_spec
     (LEN : Std.Usize) :
-    libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len LEN = ok LEN := by
+    libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len LEN
+      ⦃ (n : Std.Usize) => n = LEN ⦄ := by
   simp [libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2.len]
+
 
 /-- [libcrux_ml_kem::mlkem768::incremental::pk1_len]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 26:8-26:39
@@ -939,7 +969,8 @@ def libcrux_ml_kem.mlkem768.incremental.pk1_len : Result Std.Usize :=
     the call always succeeds and returns `64#usize`. -/
 @[simp, step_simps]
 theorem libcrux_ml_kem.mlkem768.incremental.pk1_len_spec :
-    libcrux_ml_kem.mlkem768.incremental.pk1_len = ok 64#usize := by
+    libcrux_ml_kem.mlkem768.incremental.pk1_len
+      ⦃ (n : Std.Usize) => n = 64#usize ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.pk1_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::pk2_len]:
@@ -959,7 +990,8 @@ def libcrux_ml_kem.mlkem768.incremental.pk2_len : Result Std.Usize :=
     the call always succeeds and returns `1152#usize`. -/
 @[simp, step_simps]
 theorem libcrux_ml_kem.mlkem768.incremental.pk2_len_spec :
-    libcrux_ml_kem.mlkem768.incremental.pk2_len = ok 1152#usize := by
+    libcrux_ml_kem.mlkem768.incremental.pk2_len
+      ⦃ (n : Std.Usize) => n = 1152#usize ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.pk2_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encaps_state_len]:
@@ -979,7 +1011,8 @@ def libcrux_ml_kem.mlkem768.incremental.encaps_state_len : Result Std.Usize :=
     the call always succeeds and returns `2080#usize`. -/
 @[simp, step_simps]
 theorem libcrux_ml_kem.mlkem768.incremental.encaps_state_len_spec :
-    libcrux_ml_kem.mlkem768.incremental.encaps_state_len = ok 2080#usize := by
+    libcrux_ml_kem.mlkem768.incremental.encaps_state_len
+      ⦃ (n : Std.Usize) => n = 2080#usize ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.encaps_state_len]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encapsulate2]:
@@ -1009,7 +1042,8 @@ def libcrux_ml_kem.mlkem768.incremental.encapsulate2
 theorem libcrux_ml_kem.mlkem768.incremental.encapsulate2_spec
     (st : Array Std.U8 2080#usize) (pk2 : Array Std.U8 1152#usize) :
     libcrux_ml_kem.mlkem768.incremental.encapsulate2 st pk2
-      = ok ⟨default⟩ := by
+      ⦃ (ct : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize) =>
+        ct = ⟨default⟩ ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.encapsulate2]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed]:
@@ -1036,7 +1070,8 @@ def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
 theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed_spec
     (seed : Array Std.U8 64#usize) :
     libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed seed
-      = ok (default : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) := by
+      ⦃ (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) =>
+        kp = default ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1]:
@@ -1065,7 +1100,7 @@ def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1
 theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1_spec
     (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
     libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1 kp
-      = ok (default : Array Std.U8 64#usize) := by
+      ⦃ (a : Array Std.U8 64#usize) => a = default ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2]:
@@ -1094,7 +1129,7 @@ def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2
 theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2_spec
     (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
     libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2 kp
-      = ok (default : Array Std.U8 1152#usize) := by
+      ⦃ (a : Array Std.U8 1152#usize) => a = default ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk2]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::sk]:
@@ -1123,7 +1158,7 @@ def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk
 theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk_spec
     (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
     libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk kp
-      = ok (default : Array Std.U8 2400#usize) := by
+      ⦃ (a : Array Std.U8 2400#usize) => a = default ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.sk]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::validate_pk_bytes]:
@@ -1149,7 +1184,8 @@ def libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes
 theorem libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes_spec
     (pk1 pk2 : Slice Std.U8) :
     libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes pk1 pk2
-      = ok (core.result.Result.Ok ()) := by
+      ⦃ (r : core.result.Result Unit libcrux_ml_kem.ind_cca.incremental.types.Error) =>
+        r = core.result.Result.Ok () ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.validate_pk_bytes]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::encapsulate1]:
@@ -1189,9 +1225,12 @@ theorem libcrux_ml_kem.mlkem768.incremental.encapsulate1_spec
     (pk1 : Slice Std.U8) (randomness : Array Std.U8 32#usize)
     (state ss : Slice Std.U8) :
     libcrux_ml_kem.mlkem768.incremental.encapsulate1 pk1 randomness state ss
-      = ok (core.result.Result.Ok
-              (⟨default⟩ : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize),
-            state, ss) := by
+      ⦃ (res : (core.result.Result
+          (libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize)
+          libcrux_ml_kem.ind_cca.incremental.types.Error) × (Slice Std.U8) × (Slice Std.U8)) =>
+        res = (core.result.Result.Ok
+                (⟨default⟩ : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize),
+              state, ss) ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.encapsulate1]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::decapsulate_compressed_key]:
@@ -1223,7 +1262,7 @@ theorem libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key_spec
     (ct1 : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext1 960#usize)
     (ct2 : libcrux_ml_kem.ind_cca.incremental.types.Ciphertext2 128#usize) :
     libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key sk ct1 ct2
-      = ok (default : Array Std.U8 32#usize) := by
+      ⦃ (a : Array Std.U8 32#usize) => a = default ⦄ := by
   simp [libcrux_ml_kem.mlkem768.incremental.decapsulate_compressed_key]
 
 /-- [prost::encoding::bool::encode]:
@@ -1290,7 +1329,7 @@ theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T)
     (s : sorted_vec.SortedVec T) :
     sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref corecmpOrdInst s
-      = ok (alloc.vec.Vec.new T) := by
+      ⦃ (v : alloc.vec.Vec T) => v = alloc.vec.Vec.new T ⦄ := by
   simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
@@ -1311,7 +1350,8 @@ noncomputable def sorted_vec.SortedSet.new
 @[simp, step_simps]
 theorem sorted_vec.SortedSet.new_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-    sorted_vec.SortedSet.new corecmpOrdInst = ok (default : sorted_vec.SortedSet T) := by
+    sorted_vec.SortedSet.new corecmpOrdInst
+      ⦃ (s : sorted_vec.SortedSet T) => s = default ⦄ := by
   simp [sorted_vec.SortedSet.new]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::with_capacity]:
@@ -1348,7 +1388,8 @@ theorem sorted_vec.SortedSet.push_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T)
     (s : sorted_vec.SortedSet T) (x : T) :
     sorted_vec.SortedSet.push corecmpOrdInst s x
-      = ok ((0#usize, (none : Option T)), (default : sorted_vec.SortedSet T)) := by
+      ⦃ (res : (Std.Usize × (Option T)) × (sorted_vec.SortedSet T)) =>
+        res = ((0#usize, (none : Option T)), (default : sorted_vec.SortedSet T)) ⦄ := by
   simp [sorted_vec.SortedSet.push]
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>> for sorted_vec::SortedSet<T>}::deref]:
@@ -1374,7 +1415,7 @@ theorem sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T)
     (s : sorted_vec.SortedSet T) :
     sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref corecmpOrdInst s
-      = ok (default : sorted_vec.SortedVec T) := by
+      ⦃ (v : sorted_vec.SortedVec T) => v = default ⦄ := by
   simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
 
 /-- [thiserror::display::{thiserror::display::AsDisplay<'a, &'a (T)> for &1 (T)}::as_display]:

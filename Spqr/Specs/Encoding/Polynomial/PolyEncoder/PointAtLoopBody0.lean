@@ -400,6 +400,12 @@ theorem body_spec
     have h_pts_lt : iter.start.val < pts.val.length := by rw [pts.property]; exact h_i_lt_16
     have h_eq : pts.val[iter.start.val] = pts.val[iter.start.val]! :=
       List.Inhabited_getElem_eq_getElem! pts.val iter.start.val h_pts_lt
+    -- The goal still mentions the opaque `m`; substitute it using `m_post`
+    -- (and the fact that `m.f : Unit` is `()`).
+    obtain ⟨iter_m, f_m⟩ := m
+    cases f_m
+    simp only at m_post
+    subst m_post
     rw [h_eq]; clear h_eq h_pts_lt
     apply WP.spec_bind (from_iter_point_at_spec
       (alloc.vec.Vec.deref ((pts.val[iter.start.val]!).value)) h_len_le)

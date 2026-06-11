@@ -141,6 +141,7 @@ theorem from_pb_spec_nat
   -- appropriate clause of the disjunction; the valid branch is discharged by
   -- `from_pb_loop0.loop_spec` (registered as `@[step]`).
   unfold from_pb
+  simp [sorted_vec.SortedSet.new]
   step*
   -- All goals (16 Err-branches + 1 Ok-branch) are now closed structural
   -- post-conditions over a triple-conjunction.  The Err-branches each carry a
@@ -149,7 +150,8 @@ theorem from_pb_spec_nat
   -- the first/second Err conjuncts).  The Ok-branch packages the loop's
   -- output through `out_pts_post`.
   · simp_all
-    grind
+    intro x hx
+    interval_cases x <;> assumption
   · simp_all
     grind
   · simp_all
@@ -181,16 +183,7 @@ theorem from_pb_spec_nat
   · simp_all
     grind
   · simp_all
-    constructor
-    · grind
-    · constructor
-      · intro _ x hx
-        interval_cases x <;> assumption
-      · intro hlen _ j hj
-        have h := out_pts_post j hj
-        have hjlt : j < pb.pts.val.length := by omega
-        simp only [List.getElem?_eq_getElem hjlt, Option.getD_some] at h
-        exact h
+    grind
 
 
 

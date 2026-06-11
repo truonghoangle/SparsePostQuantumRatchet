@@ -157,6 +157,14 @@ theorem body_spec
       have := chunk.index.hBounds; grind
     -- Discharge the opaque derefs using the supplied witnesses
     step*
+    simp [sorted_vec.SortedSet.push]
+    step*
+    simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
+    step*
+    simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
+    step*
+    simp [sorted_vec.SortedSet.push]
+    step*
   · -- done case: iterator exhausted
     obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
