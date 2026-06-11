@@ -28,17 +28,19 @@ namespace Aeneas.Std.core.slice.Slice
 **Spec theorem for `core.slice.Slice.clone_from_slice` specialised to `U8`**:
 
 `clone_from_slice` for `u8` copies the source slice into the destination, returning a slice whose
-contents and length equal those of the source.
+contents and length equal those of the source.  Requires the destination and source to have equal
+length (Rust panics otherwise).
 
 **Source**: core/src/slice/mod.rs (Slice::clone_from_slice)
 -/
 @[step]
 theorem clone_from_slice_U8_spec
-    (dst src : Slice Std.U8) :
+    (dst src : Slice Std.U8) (hlen : dst.length = src.length) :
     core.slice.Slice.clone_from_slice core.clone.CloneU8 dst src
     ⦃ result =>
       result.val = src.val ∧ result.length = src.length ⦄ := by
   unfold core.slice.Slice.clone_from_slice
+  rw [if_pos hlen]
   apply WP.spec_mono (Slice.clone_spec (fun x _ => by simp))
   intro s' h
   subst h

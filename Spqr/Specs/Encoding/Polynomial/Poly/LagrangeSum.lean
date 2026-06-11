@@ -389,7 +389,7 @@ theorem lagrange_sum_spec
         result.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
           C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly ⦄ := by
   unfold lagrange_sum
-  step with zero_spec' (Slice.len pts) as ⟨out, h_out_len, h_out_zero⟩
+  step with zero_spec (Slice.len pts) as ⟨out, h_out_len, h_out_zero⟩
   have h_end_le_pts : (Slice.len pts).val ≤ pts.val.length := by simp
   have h_end_le_polys : (Slice.len pts).val ≤ polys.val.length := by
     grind

@@ -174,7 +174,7 @@ theorem lagrange_interpolate_pt_spec
       exact listToGF216Poly_eq_X_mul_listToGF216Poly_drop_one result1.coefficients.val h_r1_coeff0
     unfold Poly.toGF216Poly
     rw [h_v_drop]
-    have h_X_ne_zero : (X : GF216Poly) ≠ 0 := Polynomial.X_ne_zero
+    have h_X_ne_zero : (X : GF216[X]) ≠ 0 := Polynomial.X_ne_zero
     have h_cancel : X * listToGF216Poly (result1.coefficients.val.drop 1) *
         (X - C (GF16.toGF216 (pts.val.get ⟨i.val, hi⟩).x)) =
         X * C (lagrangeScaleGF216 (pts.val.get ⟨i.val, hi⟩) pts.val) *

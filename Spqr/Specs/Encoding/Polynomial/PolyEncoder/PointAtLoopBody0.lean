@@ -7,6 +7,8 @@ import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
 import Spqr.Specs.Aeneas.Collect
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
+
+
 /-!
 # Spec theorem for `PolyEncoder::point_at`: loop body 0
 

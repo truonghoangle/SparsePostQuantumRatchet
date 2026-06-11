@@ -1063,7 +1063,7 @@ theorem lagrange_interpolate_formula
               (ws.map (fun w =>
                 (w.coefficients.val[j + 1]!).toGF216)).sum)) ⦄ := by
   unfold lagrange_interpolate
-  step with zero_spec' pts.len as ⟨out, h_out_len, h_out_zero⟩
+  step with zero_spec pts.len as ⟨out, h_out_len, h_out_zero⟩
   step with slice_is_empty_spec pts as ⟨b, hb_eq⟩
   split
   · rename_i hb_true
@@ -1273,7 +1273,7 @@ theorem lagrange_interpolate_spec
               prodLinearFactors pts.val (i + 1) pts.val.length =
               lagrangeBasisPoly pts.val i from by
             unfold lagrangeBasisPoly; rw [if_pos hpi]] at h_id
-      have hne : (X : GF216Poly) - C (GF16.toGF216 (pts.val.get ⟨i, hpi⟩).x) ≠ 0 :=
+      have hne : (X : GF216[X]) - C (GF16.toGF216 (pts.val.get ⟨i, hpi⟩).x) ≠ 0 :=
         (Polynomial.monic_X_sub_C _).ne_zero
       have h_rhs_rw :
           X * C (lagrangeScaleGF216 (pts.val.get ⟨i, hpi⟩) pts.val) *
