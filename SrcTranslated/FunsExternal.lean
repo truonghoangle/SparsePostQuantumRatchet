@@ -2,7 +2,7 @@
 -- [spqr]: external functions.
 -- This is a template file: rename it to "FunsExternal.lean" and fill the holes.
 import Aeneas
-import Spqr.Code.Types
+import SrcTranslated.Types
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
@@ -48,15 +48,41 @@ theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited
     (default : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) =
       ⟨default, default, default⟩ := by
   rfl
+/-- Implementation helper for `Slice.Insts.CoreCmpPartialEqArray.eq`
+(`[core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq]`,
+Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40).
+
+Element-wise equality of two lists, delegating per-element to the `PartialEq`
+instance and short-circuiting on the first inequality; lists of different lengths
+are unequal. -/
+private def Slice.partialEqAux {T U : Type} (cmpPartialEqInst : core.cmp.PartialEq T U) :
+    List T → List U → Result Bool
+  | [], [] => ok true
+  | a :: xs, b :: ys => do
+    let e ← cmpPartialEqInst.eq a b
+    if e then Slice.partialEqAux cmpPartialEqInst xs ys else ok false
+  | _, _ => ok false
 
 /-- [core::array::equality::{core::cmp::PartialEq<[U; N]> for [T]}::eq]:
     Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40
     Name pattern: [core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq] -/
 @[rust_fun "core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq"]
-axiom Slice.Insts.CoreCmpPartialEqArray.eq
+def Slice.Insts.CoreCmpPartialEqArray.eq
   {T : Type} {U : Type} {N : Std.Usize} (cmpPartialEqInst : core.cmp.PartialEq
   T U) :
-  Slice T → Array U N → Result Bool
+  Slice T → Array U N → Result Bool :=
+  fun s arr => Slice.partialEqAux cmpPartialEqInst s.val arr.val
+
+/-- **Spec theorem for `PartialEq<[U; N]>::eq` on `[T]`**: element-wise comparison of
+the slice against the array. The per-element behaviour is definitional in the
+`PartialEq` instance, so this exposes the comparison as the list helper
+`Slice.partialEqAux`. -/
+@[simp]
+theorem Slice.Insts.CoreCmpPartialEqArray.eq_eq
+    {T U : Type} {N : Std.Usize} (cmpPartialEqInst : core.cmp.PartialEq T U)
+    (s : Slice T) (arr : Array U N) :
+    Slice.Insts.CoreCmpPartialEqArray.eq cmpPartialEqInst s arr =
+      Slice.partialEqAux cmpPartialEqInst s.val arr.val := rfl
 
 /-- [core::array::from_fn]:
     Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52
@@ -127,7 +153,16 @@ axiom Shared0T.Insts.CoreFmtDisplay.fmt
     Source: '/rustc/library/core/src/hint.rs', lines 490:0-490:40
     Name pattern: [core::hint::black_box] -/
 @[rust_fun "core::hint::black_box"]
-axiom core.hint.black_box {T : Type} : T → Result T
+def core.hint.black_box {T : Type} : T → Result T :=
+  fun x => ok x
+
+/-- **Spec theorem for `core::hint::black_box`**: `black_box` is documented as
+an identity function on values; its compile-time effect in Rust is making its
+argument opaque to the optimiser, which has no semantic content in the Lean model. -/
+@[step]
+theorem core.hint.black_box_spec {T : Type} (x : T) :
+    core.hint.black_box x ⦃ (r : T) => r = x ⦄ := by
+  simp [core.hint.black_box]
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::next]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 79:4-79:64
@@ -338,29 +373,68 @@ axiom I32.Insts.CoreIterRangeStep.steps_between
     Name pattern: [core::ops::range::{core::ops::range::RangeBounds<core::ops::range::RangeFrom<@T>, @T>}::end_bound] -/
 @[rust_fun
   "core::ops::range::{core::ops::range::RangeBounds<core::ops::range::RangeFrom<@T>, @T>}::end_bound"]
-axiom core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.end_bound
-  {T : Type} : core.ops.range.RangeFrom T → Result (core.ops.range.Bound T)
+def core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.end_bound
+  {T : Type} : core.ops.range.RangeFrom T → Result (core.ops.range.Bound T) :=
+  fun _ => ok .Unbounded
+
+/-- **Spec theorem for `RangeBounds<RangeFrom>::end_bound`**: a `start..` range is
+unbounded above. -/
+@[step]
+theorem core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.end_bound_spec
+    {T : Type} (rf : core.ops.range.RangeFrom T) :
+    core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.end_bound rf
+      ⦃ b => b = .Unbounded ⦄ := by
+  simp [core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.end_bound]
 
 /-- [core::ops::range::{core::ops::range::RangeBounds<T> for core::ops::range::RangeFrom<T>}::start_bound]:
     Source: '/rustc/library/core/src/ops/range.rs', lines 1068:4-1068:38
     Name pattern: [core::ops::range::{core::ops::range::RangeBounds<core::ops::range::RangeFrom<@T>, @T>}::start_bound] -/
 @[rust_fun
   "core::ops::range::{core::ops::range::RangeBounds<core::ops::range::RangeFrom<@T>, @T>}::start_bound"]
-axiom core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.start_bound
-  {T : Type} : core.ops.range.RangeFrom T → Result (core.ops.range.Bound T)
+def core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.start_bound
+  {T : Type} : core.ops.range.RangeFrom T → Result (core.ops.range.Bound T) :=
+  fun rf => ok (.Included rf.start)
+
+/-- **Spec theorem for `RangeBounds<RangeFrom>::start_bound`**: a `start..` range is
+bounded below, inclusively, by `start`. -/
+@[step]
+theorem core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.start_bound_spec
+    {T : Type} (rf : core.ops.range.RangeFrom T) :
+    core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.start_bound rf
+      ⦃ b => b = .Included rf.start ⦄ := by
+  simp [core.ops.range.RangeFrom.Insts.CoreOpsRangeRangeBounds.start_bound]
 
 /-- [core::option::{core::option::Option<T>}::as_ref]:
     Source: '/rustc/library/core/src/option.rs', lines 744:4-744:44
     Name pattern: [core::option::{core::option::Option<@T>}::as_ref] -/
 @[rust_fun "core::option::{core::option::Option<@T>}::as_ref"]
-axiom core.option.Option.as_ref {T : Type} : Option T → Result (Option T)
+def core.option.Option.as_ref {T : Type} : Option T → Result (Option T) :=
+  fun o => ok o
+
+/-- **Spec theorem for `Option::as_ref`**: references are transparent in the Lean
+model, so `as_ref` is the identity. -/
+@[step]
+theorem core.option.Option.as_ref_spec {T : Type} (o : Option T) :
+    core.option.Option.as_ref o ⦃ r => r = o ⦄ := by
+  simp [core.option.Option.as_ref]
 
 /-- [core::option::{core::option::Option<T>}::ok_or]:
     Source: '/rustc/library/core/src/option.rs', lines 1337:4-1337:73
     Name pattern: [core::option::{core::option::Option<@T>}::ok_or] -/
 @[rust_fun "core::option::{core::option::Option<@T>}::ok_or"]
-axiom core.option.Option.ok_or
-  {T : Type} {E : Type} : Option T → E → Result (core.result.Result T E)
+def core.option.Option.ok_or
+  {T : Type} {E : Type} : Option T → E → Result (core.result.Result T E) :=
+  fun o e =>
+    match o with
+    | some v => ok (.Ok v)
+    | none => ok (.Err e)
+
+/-- **Spec theorem for `Option::ok_or`**: `some v` becomes `Ok v`; `none` becomes
+`Err e`. -/
+@[step]
+theorem core.option.Option.ok_or_spec {T E : Type} (o : Option T) (e : E) :
+    core.option.Option.ok_or o e ⦃ r => r = o.elim (.Err e) .Ok ⦄ := by
+  rcases o with _ | v <;> simp [core.option.Option.ok_or]
 
 /-- [core::option::{core::clone::Clone for core::option::Option<T>}::clone]:
     Source: '/rustc/library/core/src/option.rs', lines 2261:4-2261:27
@@ -384,16 +458,45 @@ axiom core.option.Option.Insts.CoreDefaultDefault.default
     Name pattern: [core::option::{core::cmp::PartialEq<core::option::Option<@T>, core::option::Option<@T>>}::eq] -/
 @[rust_fun
   "core::option::{core::cmp::PartialEq<core::option::Option<@T>, core::option::Option<@T>>}::eq"]
-axiom core.option.Option.Insts.CoreCmpPartialEqOption.eq
+def core.option.Option.Insts.CoreCmpPartialEqOption.eq
   {T : Type} (cmpPartialEqInst : core.cmp.PartialEq T T) :
-  Option T → Option T → Result Bool
+  Option T → Option T → Result Bool :=
+  fun o1 o2 =>
+    match o1, o2 with
+    | some a, some b => cmpPartialEqInst.eq a b
+    | none, none => ok true
+    | _, _ => ok false
+
+/-- **Spec theorem for `PartialEq::eq` on `Option<T>`**: structural equality —
+`none = none` is `true`, a `some`/`none` mismatch is `false`, and `some a = some b`
+delegates to the element instance `cmpPartialEqInst.eq a b`. -/
+@[simp]
+theorem core.option.Option.Insts.CoreCmpPartialEqOption.eq_eq
+    {T : Type} (cmpPartialEqInst : core.cmp.PartialEq T T) (o1 o2 : Option T) :
+    core.option.Option.Insts.CoreCmpPartialEqOption.eq cmpPartialEqInst o1 o2 =
+      match o1, o2 with
+      | some a, some b => cmpPartialEqInst.eq a b
+      | none, none => ok true
+      | _, _ => ok false := by
+  rfl
 
 /-- [core::result::{core::result::Result<T, E>}::is_ok]:
     Source: '/rustc/library/core/src/result.rs', lines 593:4-593:37
     Name pattern: [core::result::{core::result::Result<@T, @E>}::is_ok] -/
 @[rust_fun "core::result::{core::result::Result<@T, @E>}::is_ok"]
-axiom core.result.Result.is_ok
-  {T : Type} {E : Type} : core.result.Result T E → Result Bool
+def core.result.Result.is_ok
+  {T : Type} {E : Type} : core.result.Result T E → Result Bool :=
+  fun r =>
+    match r with
+    | .Ok _ => ok true
+    | .Err _ => ok false
+
+/-- **Spec theorem for `Result::is_ok`**: `true` on `Ok`, `false` on `Err`. -/
+@[step]
+theorem core.result.Result.is_ok_spec {T E : Type} (r : core.result.Result T E) :
+    core.result.Result.is_ok r ⦃ b =>
+      b = match r with | .Ok _ => true | .Err _ => false ⦄ := by
+  rcases r with v | e <;> simp [core.result.Result.is_ok]
 
 /-- [core::result::{core::result::Result<T, E>}::map]:
     Source: '/rustc/library/core/src/result.rs', lines 831:4-833:53
@@ -408,17 +511,50 @@ axiom core.result.Result.map
     Source: '/rustc/library/core/src/result.rs', lines 962:4-964:53
     Name pattern: [core::result::{core::result::Result<@T, @E>}::map_err] -/
 @[rust_fun "core::result::{core::result::Result<@T, @E>}::map_err"]
-axiom core.result.Result.map_err
+def core.result.Result.map_err
   {T : Type} {E : Type} {F : Type} {O : Type} (opsfunctionFnOnceOTupleEFInst :
   core.ops.function.FnOnce O E F) :
-  core.result.Result T E → O → Result (core.result.Result T F)
+  core.result.Result T E → O → Result (core.result.Result T F) :=
+  fun r op =>
+    match r with
+    | .Ok v => ok (.Ok v)
+    | .Err e => do
+      let f ← opsfunctionFnOnceOTupleEFInst.call_once op e
+      ok (.Err f)
+
+/-- **Spec theorems for `Result::map_err`**: `Ok` is unchanged; `Err e` applies the
+closure to `e` via `FnOnce::call_once`. The `Err` behaviour is definitional in the
+closure, so these are stated as unfolding lemmas on the constructors. -/
+@[simp]
+theorem core.result.Result.map_err_Ok
+    {T E F O : Type} (inst : core.ops.function.FnOnce O E F) (v : T) (op : O) :
+    core.result.Result.map_err inst (.Ok v) op = ok (.Ok v) := rfl
+
+@[simp]
+theorem core.result.Result.map_err_Err
+    {T E F O : Type} (inst : core.ops.function.FnOnce O E F) (e : E) (op : O) :
+    core.result.Result.map_err (T := T) inst (.Err e) op =
+      (do let f ← inst.call_once op e; ok (.Err f)) := rfl
 
 /-- [core::result::{core::result::Result<T, E>}::unwrap_or]:
     Source: '/rustc/library/core/src/result.rs', lines 1590:4-1593:28
     Name pattern: [core::result::{core::result::Result<@T, @E>}::unwrap_or] -/
 @[rust_fun "core::result::{core::result::Result<@T, @E>}::unwrap_or"]
-axiom core.result.Result.unwrap_or
-  {T : Type} {E : Type} : core.result.Result T E → T → Result T
+def core.result.Result.unwrap_or
+  {T : Type} {E : Type} : core.result.Result T E → T → Result T :=
+  fun r default =>
+    match r with
+    | .Ok v => ok v
+    | .Err _ => ok default
+
+/-- **Spec theorem for `Result::unwrap_or`**: returns the `Ok` payload, or the
+supplied default on `Err`. -/
+@[step]
+theorem core.result.Result.unwrap_or_spec {T E : Type}
+    (r : core.result.Result T E) (default : T) :
+    core.result.Result.unwrap_or r default ⦃ x =>
+      x = match r with | .Ok v => v | .Err _ => default ⦄ := by
+  rcases r with v | e <;> simp [core.result.Result.unwrap_or]
 
 /-- [core::result::{core::ops::try_trait::Try<T, core::result::Result<core::convert::Infallible, E>> for core::result::Result<T, E>}::branch]:
     Source: '/rustc/library/core/src/result.rs', lines 2172:4-2172:64
@@ -498,24 +634,60 @@ theorem core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.f
     ok (core.result.Result.Err f)) := by
   rfl
 
+/-- Implementation helper for `Slice.Insts.CoreCmpOrd.cmp`
+(`[core::slice::cmp::{core::cmp::Ord<[@T]>}::cmp]`,
+Source: '/rustc/library/core/src/slice/cmp.rs', lines 37:4-37:42).
+
+Lexicographic comparison of two lists, delegating per-element to the `Ord`
+instance: the first non-`Equal` element comparison decides the result; if one
+list is a prefix of the other, the shorter list compares as `Less`. -/
+private def Slice.lexCmpAux {T : Type} (cmpOrdInst : core.cmp.Ord T) :
+    List T → List T → Result Ordering
+  | [], [] => ok .eq
+  | [], _ :: _ => ok .lt
+  | _ :: _, [] => ok .gt
+  | a :: xs, b :: ys => do
+    let o ← cmpOrdInst.cmp a b
+    if o = Ordering.eq then Slice.lexCmpAux cmpOrdInst xs ys else ok o
+
 /-- [core::slice::cmp::{core::cmp::Ord for [T]}::cmp]:
     Source: '/rustc/library/core/src/slice/cmp.rs', lines 37:4-37:42
     Name pattern: [core::slice::cmp::{core::cmp::Ord<[@T]>}::cmp] -/
 @[rust_fun "core::slice::cmp::{core::cmp::Ord<[@T]>}::cmp"]
-axiom Slice.Insts.CoreCmpOrd.cmp
+def Slice.Insts.CoreCmpOrd.cmp
   {T : Type} (cmpOrdInst : core.cmp.Ord T) :
-  Slice T → Slice T → Result Ordering
+  Slice T → Slice T → Result Ordering :=
+  fun s1 s2 => Slice.lexCmpAux cmpOrdInst s1.val s2.val
+
+/-- **Spec theorem for `Ord::cmp` on `[T]`**: lexicographic comparison over the
+elements. The per-element behaviour is definitional in the `Ord` instance, so this
+exposes the comparison as the list helper `Slice.lexCmpAux`. -/
+@[simp]
+theorem Slice.Insts.CoreCmpOrd.cmp_eq
+    {T : Type} (cmpOrdInst : core.cmp.Ord T) (s1 s2 : Slice T) :
+    Slice.Insts.CoreCmpOrd.cmp cmpOrdInst s1 s2 =
+      Slice.lexCmpAux cmpOrdInst s1.val s2.val := rfl
 
 /-- [core::slice::index::{core::slice::index::SliceIndex<[T], [T]> for core::ops::range::RangeFull}::index_mut]:
     Source: '/rustc/library/core/src/slice/index.rs', lines 660:4-660:51
     Name pattern: [core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::index_mut] -/
 @[rust_fun
   "core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::index_mut"]
-axiom
+def
   core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index_mut
   {T : Type} :
   core.ops.range.RangeFull → Slice T → Result ((Slice T) × (Slice T →
-    Slice T))
+    Slice T)) :=
+  fun _ s => ok (s, fun s' => s')
+
+/-- **Spec theorem for `SliceIndex<RangeFull>::index_mut`**: the whole-slice
+mutable borrow returns the slice unchanged with an identity write-back. -/
+@[step]
+theorem core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index_mut_spec
+    {T : Type} (r : core.ops.range.RangeFull) (s : Slice T) :
+    core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index_mut r s
+      ⦃ (s', back) => s' = s ∧ ∀ x, back x = x ⦄ := by
+  simp [core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index_mut]
 
 /-- [core::slice::index::{core::slice::index::SliceIndex<[T], [T]> for core::ops::range::RangeFull}::index]:
     Source: '/rustc/library/core/src/slice/index.rs', lines 655:4-655:39
@@ -525,6 +697,15 @@ axiom
 def core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index
   {T : Type} : core.ops.range.RangeFull → Slice T → Result (Slice T) :=
   fun _ s => ok s
+
+/-- **Spec theorem for `SliceIndex<RangeFull>::index`**: indexing by `..` returns
+the whole slice unchanged. -/
+@[step]
+theorem core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index_spec
+    {T : Type} (r : core.ops.range.RangeFull) (s : Slice T) :
+    core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index r s
+      ⦃ r' => r' = s ⦄ := by
+  simp [core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index]
 
 /-- [core::slice::index::{core::slice::index::SliceIndex<[T], [T]> for core::ops::range::RangeFull}::get_unchecked_mut]:
     Source: '/rustc/library/core/src/slice/index.rs', lines 650:4-650:66
@@ -553,19 +734,40 @@ axiom
     Name pattern: [core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::get_mut] -/
 @[rust_fun
   "core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::get_mut"]
-axiom core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_mut
+def core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_mut
   {T : Type} :
   core.ops.range.RangeFull → Slice T → Result ((Option (Slice T)) ×
-    (Option (Slice T) → Slice T))
+    (Option (Slice T) → Slice T)) :=
+  fun _ s => ok (some s, fun o => o.getD s)
+
+/-- **Spec theorem for `SliceIndex<RangeFull>::get_mut`**: the whole slice is always
+in bounds, so this returns `some s` plus a write-back that installs the new slice
+(keeping the original when given `none`). -/
+@[step]
+theorem core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_mut_spec
+    {T : Type} (r : core.ops.range.RangeFull) (s : Slice T) :
+    core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_mut r s
+      ⦃ (o, back) => o = some s ∧ ∀ x, back x = x.getD s ⦄ := by
+  simp [core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_mut]
 
 /-- [core::slice::index::{core::slice::index::SliceIndex<[T], [T]> for core::ops::range::RangeFull}::get]:
     Source: '/rustc/library/core/src/slice/index.rs', lines 635:4-635:45
     Name pattern: [core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::get] -/
 @[rust_fun
   "core::slice::index::{core::slice::index::SliceIndex<core::ops::range::RangeFull, [@T], [@T]>}::get"]
-axiom core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get
+def core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get
   {T : Type} :
-  core.ops.range.RangeFull → Slice T → Result (Option (Slice T))
+  core.ops.range.RangeFull → Slice T → Result (Option (Slice T)) :=
+  fun _ s => ok (some s)
+
+/-- **Spec theorem for `SliceIndex<RangeFull>::get`**: the whole slice is always in
+bounds, so `get` by `..` returns `some s`. -/
+@[step]
+theorem core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get_spec
+    {T : Type} (r : core.ops.range.RangeFull) (s : Slice T) :
+    core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get r s
+      ⦃ o => o = some s ⦄ := by
+  simp [core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.get]
 
 /-- [core::slice::iter::{core::iter::traits::iterator::Iterator<&'a (T)> for core::slice::iter::Iter<'a, T>}::map]:
     Source: '/rustc/library/core/src/slice/iter/macros.rs', lines 153:8-153:45
@@ -632,24 +834,99 @@ def core.result.Result.ok {T E : Type} (r : core.result.Result T E) :
   | core.result.Result.Ok v => _root_.Aeneas.Std.Result.ok (some v)
   | core.result.Result.Err _ => _root_.Aeneas.Std.Result.ok none
 
+namespace core.slice.Slice
+
 /-- [core::slice::{[T]}::clone_from_slice]:
     Source: '/rustc/library/core/src/slice/mod.rs', lines 4254:4-4256:44
     Name pattern: [core::slice::{[@T]}::clone_from_slice] -/
 @[rust_fun "core::slice::{[@T]}::clone_from_slice"]
-def core.slice.Slice.clone_from_slice
-  {T : Type} (cloneCloneInst : core.clone.Clone T) :
+def clone_from_slice {T : Type} (cloneCloneInst : core.clone.Clone T) :
   Slice T → Slice T → Result (Slice T) :=
-  fun dst src => Slice.clone cloneCloneInst.clone src
+  fun dst src =>
+    -- Rust panics when the destination and source lengths differ.
+    if dst.length = src.length then Slice.clone cloneCloneInst.clone src
+    else fail .panic
+
+/-- **Spec theorem for `<[T]>::clone_from_slice`**: requires the destination and source to have
+equal length (Rust panics otherwise); when the element `Clone` instance acts as the identity
+(the usual case), the destination becomes a copy of the source. -/
+@[step]
+theorem clone_from_slice_spec {T : Type} (cloneCloneInst : core.clone.Clone T) (dst src : Slice T)
+    (hlen : dst.length = src.length) (h : ∀ x ∈ src.val, cloneCloneInst.clone x = ok x) :
+    clone_from_slice cloneCloneInst dst src ⦃ (r : Slice T) => src = r ⦄ := by
+  simpa [clone_from_slice, if_pos hlen] using Slice.clone_spec h
+
+/-- `clone_from_slice` for `u8` copies the source slice into the destination, returning a slice
+whose contents and length equal those of the source. Requires the destination and source to have
+equal length (Rust panics otherwise). -/
+@[step]
+lemma clone_from_slice_U8_spec (dst src : Slice Std.U8) (hlen : dst.length = src.length) :
+    clone_from_slice core.clone.CloneU8 dst src ⦃ (result : Slice U8) =>
+      result.val = src.val ∧ result.length = src.length ⦄ := by
+  unfold clone_from_slice
+  step*
+
+end core.slice.Slice
+
+/-- Implementation helper for `core.slice.Slice.copy_within`
+(`[core::slice::{[@T]}::copy_within]`,
+Source: '/rustc/library/core/src/slice/mod.rs', lines 4354:4-4356:16).
+
+Resolve a `RangeBounds` lower bound to a concrete start index. -/
+private def Slice.copyWithinStart (b : core.ops.range.Bound Std.Usize) : Nat :=
+  match b with
+  | .Included i => i.val
+  | .Excluded i => i.val + 1
+  | .Unbounded => 0
+
+/-- Implementation helper for `core.slice.Slice.copy_within`
+(`[core::slice::{[@T]}::copy_within]`,
+Source: '/rustc/library/core/src/slice/mod.rs', lines 4354:4-4356:16).
+
+Resolve a `RangeBounds` upper bound to a concrete end index (`len` when open). -/
+private def Slice.copyWithinEnd (b : core.ops.range.Bound Std.Usize) (len : Nat) : Nat :=
+  match b with
+  | .Included i => i.val + 1
+  | .Excluded i => i.val
+  | .Unbounded => len
 
 /-- [core::slice::{[T]}::copy_within]:
     Source: '/rustc/library/core/src/slice/mod.rs', lines 4354:4-4356:16
     Name pattern: [core::slice::{[@T]}::copy_within] -/
 @[rust_fun "core::slice::{[@T]}::copy_within"]
-axiom core.slice.Slice.copy_within
+def core.slice.Slice.copy_within
   {T : Type} {R : Type} (opsrangeRangeBoundsRUsizeInst :
   core.ops.range.RangeBounds R Std.Usize) (markerCopyInst : core.marker.Copy T)
   :
-  Slice T → R → Std.Usize → Result (Slice T)
+  Slice T → R → Std.Usize → Result (Slice T) :=
+  fun self src dest => do
+    let sb ← opsrangeRangeBoundsRUsizeInst.start_bound src
+    let eb ← opsrangeRangeBoundsRUsizeInst.end_bound src
+    let s := Slice.copyWithinStart sb
+    let e := Slice.copyWithinEnd eb self.length
+    -- Rust panics if the source range is invalid or the copy runs past the end.
+    if s ≤ e ∧ e ≤ self.length ∧ dest.val + (e - s) ≤ self.length then
+      ok (self.setSlice! dest.val ((self.val.drop s).take (e - s)))
+    else
+      fail .panic
+
+/-- **Spec theorem for `<[T]>::copy_within`**: the source range is resolved through
+the `RangeBounds` instance, then the segment `self[s, e)` is copied to start at
+`dest` (via `Slice.setSlice!`). The bound resolution is definitional in the instance,
+so this is stated as an unfolding lemma. -/
+@[simp]
+theorem core.slice.Slice.copy_within_eq
+    {T R : Type} (rbInst : core.ops.range.RangeBounds R Std.Usize)
+    (copyInst : core.marker.Copy T) (self : Slice T) (src : R) (dest : Std.Usize) :
+    core.slice.Slice.copy_within rbInst copyInst self src dest =
+      (do
+        let sb ← rbInst.start_bound src
+        let eb ← rbInst.end_bound src
+        let s := Slice.copyWithinStart sb
+        let e := Slice.copyWithinEnd eb self.length
+        if s ≤ e ∧ e ≤ self.length ∧ dest.val + (e - s) ≤ self.length then
+          ok (self.setSlice! dest.val ((self.val.drop s).take (e - s)))
+        else fail .panic) := rfl
 
 /-- [alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<T, A>}::len]:
     Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 1633:4-1633:30
@@ -705,21 +982,70 @@ axiom
     Source: '/rustc/library/alloc/src/slice.rs', lines 578:4-580:27
     Name pattern: [alloc::slice::{[@T]}::concat] -/
 @[rust_fun "alloc::slice::{[@T]}::concat"]
-axiom alloc.slice.Slice.concat
+def alloc.slice.Slice.concat
   {T : Type} {Item : Type} {Clause0_Output : Type}
   (ConcatSliceItemClause0_OutputInst : alloc.slice.Concat (Slice T) Item
   Clause0_Output) :
-  Slice T → Result Clause0_Output
+  Slice T → Result Clause0_Output :=
+  fun s => ConcatSliceItemClause0_OutputInst.concat s
+
+/-- **Spec theorem for `<[T]>::concat`**: the free function delegates to the
+`Concat` trait instance. -/
+@[simp]
+theorem alloc.slice.Slice.concat_eq
+    {T Item Clause0_Output : Type}
+    (inst : alloc.slice.Concat (Slice T) Item Clause0_Output) (s : Slice T) :
+    alloc.slice.Slice.concat inst s = inst.concat s := rfl
+
+/-- Implementation helper for `Slice.Insts.AllocSliceConcatTVec.concat`
+(`[alloc::slice::{alloc::slice::Concat<[@V], @T, alloc::vec::Vec<@T>>}::concat]`,
+Source: '/rustc/library/alloc/src/slice.rs', lines 730:4-730:37).
+
+Package an element list as a `Vec`, failing if it would exceed `Usize.max`. -/
+private def Slice.listToVec {T : Type} (l : List T) : Result (alloc.vec.Vec T) :=
+  if h : l.length ≤ Std.Usize.max then ok ⟨l, h⟩ else fail .panic
+
+/-- Implementation helper for `Slice.Insts.AllocSliceConcatTVec.concat`
+(`[alloc::slice::{alloc::slice::Concat<[@V], @T, alloc::vec::Vec<@T>>}::concat]`,
+Source: '/rustc/library/alloc/src/slice.rs', lines 730:4-730:37).
+
+Flatten a list of borrowable chunks: borrow each `V` to a `Slice T`, clone its
+elements, and concatenate the results into one element list. -/
+private def Slice.concatListAux {T V : Type} (corecloneCloneInst : core.clone.Clone T)
+    (coreborrowBorrowVSliceInst : core.borrow.Borrow V (Slice T)) :
+    List V → Result (List T)
+  | [] => ok []
+  | v :: vs => do
+    let s ← coreborrowBorrowVSliceInst.borrow v
+    let cs ← Slice.clone corecloneCloneInst.clone s
+    let rest ← Slice.concatListAux corecloneCloneInst coreborrowBorrowVSliceInst vs
+    ok (cs.val ++ rest)
 
 /-- [alloc::slice::{alloc::slice::Concat<T, alloc::vec::Vec<T>> for [V]}::concat]:
     Source: '/rustc/library/alloc/src/slice.rs', lines 730:4-730:37
     Name pattern: [alloc::slice::{alloc::slice::Concat<[@V], @T, alloc::vec::Vec<@T>>}::concat] -/
 @[rust_fun
   "alloc::slice::{alloc::slice::Concat<[@V], @T, alloc::vec::Vec<@T>>}::concat"]
-axiom Slice.Insts.AllocSliceConcatTVec.concat
+def Slice.Insts.AllocSliceConcatTVec.concat
   {T : Type} {V : Type} (corecloneCloneInst : core.clone.Clone T)
   (coreborrowBorrowVSliceInst : core.borrow.Borrow V (Slice T)) :
-  Slice V → Result (alloc.vec.Vec T)
+  Slice V → Result (alloc.vec.Vec T) :=
+  fun sv => do
+    let l ← Slice.concatListAux corecloneCloneInst coreborrowBorrowVSliceInst sv.val
+    Slice.listToVec l
+
+/-- **Spec theorem for `Concat<[V], T, Vec<T>>::concat`**: the result is the
+flattening produced by `Slice.concatListAux`, packaged as a `Vec`. The chunk
+contents are definitional in the `Borrow`/`Clone` instances. -/
+@[simp]
+theorem Slice.Insts.AllocSliceConcatTVec.concat_eq
+    {T V : Type} (corecloneCloneInst : core.clone.Clone T)
+    (coreborrowBorrowVSliceInst : core.borrow.Borrow V (Slice T)) (sv : Slice V) :
+    Slice.Insts.AllocSliceConcatTVec.concat corecloneCloneInst
+        coreborrowBorrowVSliceInst sv =
+      (do
+        let l ← Slice.concatListAux corecloneCloneInst coreborrowBorrowVSliceInst sv.val
+        Slice.listToVec l) := rfl
 
 /-- [alloc::str::{alloc::borrow::ToOwned<alloc::string::String> for str}::to_owned]:
     Source: '/rustc/library/alloc/src/str.rs', lines 210:4-210:32
@@ -732,9 +1058,18 @@ axiom Str.Insts.AllocBorrowToOwnedString.to_owned : Str → Result String
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1696:4-1696:42
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::truncate] -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::truncate"]
-axiom alloc.vec.Vec.truncate
+def alloc.vec.Vec.truncate
   {T : Type} (A : Type) :
-  alloc.vec.Vec T → Std.Usize → Result (alloc.vec.Vec T)
+  alloc.vec.Vec T → Std.Usize → Result (alloc.vec.Vec T) :=
+  fun v n => ok ⟨v.val.take n.val, by
+    have := v.property; simp only [List.length_take]; omega⟩
+
+/-- **Spec theorem for `Vec::truncate`**: keeps the first `n` elements. -/
+@[step]
+theorem alloc.vec.Vec.truncate_spec
+    {T : Type} (A : Type) (v : alloc.vec.Vec T) (n : Std.Usize) :
+    alloc.vec.Vec.truncate A v n ⦃ nv => nv.val = v.val.take n.val ⦄ := by
+  simp [alloc.vec.Vec.truncate]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::as_slice]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 1733:4-1733:40
@@ -764,25 +1099,66 @@ theorem alloc.vec.Vec.as_slice_spec
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2276:4-2276:47
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::remove] -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::remove"]
-axiom alloc.vec.Vec.remove
+def alloc.vec.Vec.remove
   {T : Type} (A : Type) :
-  alloc.vec.Vec T → Std.Usize → Result (T × (alloc.vec.Vec T))
+  alloc.vec.Vec T → Std.Usize → Result (T × (alloc.vec.Vec T)) :=
+  fun v i =>
+    if h : i.val < v.val.length then
+      ok (v.val[i.val]'h, ⟨v.val.eraseIdx i.val, by
+        have := v.property; have := List.length_eraseIdx_le v.val i.val; omega⟩)
+    else
+      fail .arrayOutOfBounds
+
+/-- **Spec theorem for `Vec::remove`**: removes (and returns) the element at index
+`i`, shifting the remaining elements left. Panics (here: fails) when out of bounds. -/
+@[step]
+theorem alloc.vec.Vec.remove_spec
+    {T : Type} (A : Type) (v : alloc.vec.Vec T) (i : Std.Usize)
+    (hbound : i.val < v.val.length) :
+    alloc.vec.Vec.remove A v i ⦃ (x, nv) =>
+      x = v.val[i.val] ∧ nv.val = v.val.eraseIdx i.val ⦄ := by
+  simp [alloc.vec.Vec.remove, hbound]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::append]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2802:4-2802:46
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::append] -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::append"]
-axiom alloc.vec.Vec.append
+def alloc.vec.Vec.append
   {T : Type} (A : Type) :
   alloc.vec.Vec T → alloc.vec.Vec T → Result ((alloc.vec.Vec T) ×
-    (alloc.vec.Vec T))
+    (alloc.vec.Vec T)) :=
+  fun v1 v2 =>
+    if h : v1.val.length + v2.val.length ≤ Std.Usize.max then
+      ok (⟨v1.val ++ v2.val, by simp only [List.length_append]; omega⟩,
+          alloc.vec.Vec.new T)
+    else
+      fail .panic
+
+/-- **Spec theorem for `Vec::append`**: drains all of `v2` onto the end of `v1`;
+following Aeneas's mutable-reference convention it returns both the extended `v1`
+and the now-empty `v2`. -/
+@[step]
+theorem alloc.vec.Vec.append_spec
+    {T : Type} (A : Type) (v1 v2 : alloc.vec.Vec T)
+    (h : v1.val.length + v2.val.length ≤ Std.Usize.max) :
+    alloc.vec.Vec.append A v1 v2 ⦃ (r1, r2) =>
+      r1.val = v1.val ++ v2.val ∧ r2.val = [] ⦄ := by
+  simp [alloc.vec.Vec.append, h, alloc.vec.Vec.new]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::clear]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2903:4-2903:27
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::clear] -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::clear"]
-axiom alloc.vec.Vec.clear
-  {T : Type} (A : Type) : alloc.vec.Vec T → Result (alloc.vec.Vec T)
+def alloc.vec.Vec.clear
+  {T : Type} (A : Type) : alloc.vec.Vec T → Result (alloc.vec.Vec T) :=
+  fun _ => ok (alloc.vec.Vec.new T)
+
+/-- **Spec theorem for `Vec::clear`**: empties the vector. -/
+@[step]
+theorem alloc.vec.Vec.clear_spec
+    {T : Type} (A : Type) (v : alloc.vec.Vec T) :
+    alloc.vec.Vec.clear A v ⦃ nv => nv.val = [] ⦄ := by
+  simp [alloc.vec.Vec.clear, alloc.vec.Vec.new]
 
 /-- [alloc::vec::{alloc::vec::Vec<T>}::is_empty]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2956:4-2956:40
@@ -806,18 +1182,47 @@ theorem alloc.vec.Vec.is_empty_spec
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 2989:4-2991:17
     Name pattern: [alloc::vec::{alloc::vec::Vec<@T>}::split_off] -/
 @[rust_fun "alloc::vec::{alloc::vec::Vec<@T>}::split_off"]
-axiom alloc.vec.Vec.split_off
+def alloc.vec.Vec.split_off
   {T : Type} {A : Type} (corecloneCloneInst : core.clone.Clone A) :
   alloc.vec.Vec T → Std.Usize → Result ((alloc.vec.Vec T) × (alloc.vec.Vec
-    T))
+    T)) :=
+  fun v at_ =>
+    if h : at_.val ≤ v.val.length then
+      -- Aeneas `&mut self` convention: `(return_value, updated_self)`.
+      -- `split_off` returns the suffix `[at_, len)` and leaves `self = [0, at_)`.
+      ok (⟨v.val.drop at_.val, by
+            have := v.property; simp only [List.length_drop]; omega⟩,
+          ⟨v.val.take at_.val, by
+            have := v.property; simp only [List.length_take]; omega⟩)
+    else
+      fail .panic
+
+/-- **Spec theorem for `Vec::split_off`**: splits at index `at_`. Following Aeneas's
+mutable-reference convention `(return_value, updated_self)`, the first component is
+the returned suffix `[at_, len)` and the second is the truncated `self` `[0, at_)`.
+Panics (here: fails) when `at_` exceeds the length. -/
+@[step]
+theorem alloc.vec.Vec.split_off_spec
+    {T A : Type} (corecloneCloneInst : core.clone.Clone A)
+    (v : alloc.vec.Vec T) (at_ : Std.Usize) (hbound : at_.val ≤ v.val.length) :
+    alloc.vec.Vec.split_off corecloneCloneInst v at_ ⦃ (r1, r2) =>
+      r1.val = v.val.drop at_.val ∧ r2.val = v.val.take at_.val ⦄ := by
+  simp [alloc.vec.Vec.split_off, hbound]
 
 /-- [alloc::vec::{core::default::Default for alloc::vec::Vec<T>}::default]:
     Source: '/rustc/library/alloc/src/vec/mod.rs', lines 4171:4-4171:26
     Name pattern: [alloc::vec::{core::default::Default<alloc::vec::Vec<@T>>}::default] -/
 @[rust_fun
   "alloc::vec::{core::default::Default<alloc::vec::Vec<@T>>}::default"]
-axiom alloc.vec.Vec.Insts.CoreDefaultDefault.default
-  (T : Type) : Result (alloc.vec.Vec T)
+def alloc.vec.Vec.Insts.CoreDefaultDefault.default
+  (T : Type) : Result (alloc.vec.Vec T) :=
+  ok (alloc.vec.Vec.new T)
+
+/-- **Spec theorem for `Default for Vec<T>`**: the default vector is empty. -/
+@[step]
+theorem alloc.vec.Vec.Insts.CoreDefaultDefault.default_spec (T : Type) :
+    alloc.vec.Vec.Insts.CoreDefaultDefault.default T ⦃ v => v.val = [] ⦄ := by
+  simp [alloc.vec.Vec.Insts.CoreDefaultDefault.default, alloc.vec.Vec.new]
 
 /-- [bytes::buf::buf_impl::{bytes::buf::buf_impl::Buf for &0 ([u8])}::advance]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytes-1.10.1/src/buf/buf_impl.rs', lines 2901:4-2901:37

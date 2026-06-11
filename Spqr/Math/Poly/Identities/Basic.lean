@@ -57,18 +57,18 @@ the RHS has a factor of `X` and hence zero constant term.
   from which `p.coeff(0) = 0` follows.
 -/
 lemma coeff_zero_eq_zero_of_X_mul_identity
-    (p : GF216Poly) (a s : GF216) (P : GF216Poly)
+    (p : GF216[X]) (a s : GF216) (P : GF216[X])
     (h_id : p * (X - C a) = X * C s * P)
     (h_root : P.eval a = 0) :
     p.coeff 0 = 0 := by
   by_cases ha : a = 0
   · subst ha
     simp only [map_zero, sub_zero] at h_id
-    have h_X_dvd_P : (X : GF216Poly) ∣ P := by
+    have h_X_dvd_P : (X : GF216[X]) ∣ P := by
       have h_div : (X - C (0 : GF216)) ∣ P := dvd_iff_isRoot.mpr h_root
       rwa [map_zero, sub_zero] at h_div
     obtain ⟨Q, hQ⟩ := h_X_dvd_P
-    have hX_ne : (X : GF216Poly) ≠ 0 := X_ne_zero
+    have hX_ne : (X : GF216[X]) ≠ 0 := X_ne_zero
     have hp_eq : p = C s * P := by
       have h1 : p * X = (C s * P) * X := by
         ring_nf; ring_nf at h_id; exact h_id

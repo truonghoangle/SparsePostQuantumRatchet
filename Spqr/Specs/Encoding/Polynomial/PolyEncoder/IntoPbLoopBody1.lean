@@ -44,6 +44,20 @@ private theorem array_index_rangeFull_ok {T : Type} {N : Usize}
     ok a.to_slice :=
   rfl
 
+/-! ## Helper: big-endian byte arithmetic for a `u16` value -/
+
+/-- If `[b0, b1]` is the 2-byte big-endian encoding of a `u16` value `x`, then
+`b0 * 256 + b1 = x`. -/
+private theorem be_bytes_arith (x : Std.U16) (b0 b1 : Std.U8)
+    (h : List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes = [b0, b1]) :
+    b0.val * 256 + b1.val = x.val := by
+  have h0 : b0 = (List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes)[0]! := by rw [h]; simp
+  have h1 : b1 = (List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes)[1]! := by rw [h]; simp
+  subst h0 h1
+  simp only [Std.UScalar.val]
+  simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
+  grind
+
 /-! ## Spec theorem for the into_pb inner loop body -/
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop0_loop0.body`**:
@@ -109,7 +123,8 @@ theorem body_spec
       match a.val, a.property with | [b0, b1], _ => ⟨b0, b1, rfl⟩
     refine ⟨h_lt, h_start1, h_end1, b0, b1, ?_, ?_⟩
     · simp_all [Array.to_slice]
-    · simp_all [Array.to_slice]
+    · simp_all only [List.getElem!_eq_getElem?_getD]
+      grind [be_bytes_arith]
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩

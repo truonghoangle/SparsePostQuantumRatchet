@@ -3,8 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Specs.Aeneas.U16ToBeBytes
-import Spqr.Specs.Aeneas.CloneFromSlice
+import SrcTranslated.Funs
 
 /-!
 # Spec Theorem for `Pt::serialize`
@@ -59,7 +58,6 @@ natural language specs:
     `Pt::deserialize(pt.serialize()) = ok pt`
 -/
 
-
 /-- `RangeFull` indexing on a slice is the identity: `slice[..] = slice`. -/
 private theorem rangeFull_index_eq {T : Type}
     (r : core.ops.range.RangeFull) (s : Slice T) :
@@ -93,5 +91,9 @@ theorem serialize_spec (self : spqr.encoding.polynomial.Pt) :
   unfold serialize
   step*
   simp_all [List.setSlice!]
+  constructor <;>
+  · simp only [Std.UScalar.val]
+    simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
+    grind
 
 end spqr.encoding.polynomial.Pt

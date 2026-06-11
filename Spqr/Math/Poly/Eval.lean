@@ -56,7 +56,7 @@ If all coefficients of `p` at positions `≥ n` are zero, then `p.eval a` equals
 (which uses `natDegree + 1` as the upper bound) to any upper bound `n` beyond which all
 coefficients vanish.
 -/
-theorem eval_eq_range_sum (p : GF216Poly) (a : GF216) (n : ℕ)
+theorem eval_eq_range_sum (p : GF216[X]) (a : GF216) (n : ℕ)
     (h : ∀ j, n ≤ j → p.coeff j = 0) :
     p.eval a = ∑ j ∈ Finset.range n, p.coeff j * a ^ j := by
   rw [Polynomial.eval_eq_sum, Polynomial.sum_def]

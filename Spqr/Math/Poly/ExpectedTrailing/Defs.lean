@@ -36,7 +36,7 @@ sub-polynomial rooted at position `offset`.
 -/
 noncomputable def expectedTrailingPoly
     (p_coeffs : List GF16) (pts : List Pt)
-    (offset iter_start : Nat) : Nat → GF216Poly
+    (offset iter_start : Nat) : Nat → GF216[X]
   | 0 => C (p_coeffs[offset]!.toGF216)
   | k + 1 =>
     C (p_coeffs[offset - (k + 1)]!.toGF216) +

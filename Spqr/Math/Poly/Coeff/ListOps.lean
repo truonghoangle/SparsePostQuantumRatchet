@@ -115,7 +115,7 @@ at in-range positions, and `q` has zero coefficients beyond the list length, the
 `listToGF216Poly cs = q`.
 -/
 lemma listToGF216Poly_eq_of_coeffs
-    (cs : List GF16) (q : GF216Poly)
+    (cs : List GF16) (q : GF216[X])
     (h_in : ∀ (m : Nat) (hm : m < cs.length),
       (cs.get ⟨m, hm⟩).toGF216 = q.coeff m)
     (h_out : ∀ m, cs.length ≤ m → q.coeff m = 0) :

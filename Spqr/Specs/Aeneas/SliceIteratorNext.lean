@@ -3,7 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
+import SrcTranslated.Funs
 
 /-!
 # Spec theorems for `core::slice::iter::{Iterator for Iter<'_, T>}::next`
@@ -46,34 +46,33 @@ theorem next_spec {T : Type}
     (iter : core.slice.iter.Iter T) :
     core.slice.iter.IteratorSliceIter.next iter
       ⦃ (opt, iter') =>
-        (¬ iter.i < iter.slice.len →
-            opt = none ∧ iter' = iter) ∧
-        (iter.i < iter.slice.len →
-            ∃ x, opt = some x ∧
+        match opt with
+        | none => ¬ iter.i < iter.slice.len ∧ iter' = iter
+        | some _ =>
+            iter.i < iter.slice.len ∧
             iter'.slice = iter.slice ∧
-            iter'.i = iter.i + 1) ⦄ := by
+            iter'.i = iter.i + 1 ⦄ := by
   suffices h : ∃ opt iter',
       core.slice.iter.IteratorSliceIter.next iter
         = ok (opt, iter') ∧
-      (¬ iter.i < iter.slice.len → opt = none ∧ iter' = iter) ∧
-      (iter.i < iter.slice.len →
-          ∃ x, opt = some x ∧
+      match opt with
+      | none => ¬ iter.i < iter.slice.len ∧ iter' = iter
+      | some _ =>
+          iter.i < iter.slice.len ∧
           iter'.slice = iter.slice ∧
-          iter'.i = iter.i + 1) by
-    obtain ⟨opt, iter', heq, h1, h2⟩ := h
+          iter'.i = iter.i + 1 by
+    obtain ⟨opt, iter', heq, hpost⟩ := h
     rw [heq]; simp only [WP.spec_ok]
-    exact ⟨h1, h2⟩
+    exact hpost
   simp only [core.slice.iter.IteratorSliceIter.next]
   by_cases hlt : iter.i < iter.slice.len
   · rw [dif_pos hlt]
     exact ⟨some (iter.slice[iter.i]),
            { iter with i := iter.i + 1 }, rfl,
-           fun h => absurd hlt h,
-           fun _ => ⟨_, rfl, rfl, rfl⟩⟩
+           hlt, rfl, rfl⟩
   · rw [dif_neg hlt]
     exact ⟨none, iter, rfl,
-           fun _ => ⟨rfl, rfl⟩,
-           fun h => absurd h hlt⟩
+           hlt, rfl⟩
 
 /--
 **Totality lemma for `core.slice.iter.IteratorSliceIter.next`**:

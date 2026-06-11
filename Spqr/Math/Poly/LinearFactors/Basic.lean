@@ -34,7 +34,7 @@ This is the target polynomial that `lagrange_interpolate_prepare` constructs.  I
 when `start ≥ stop` or `start ≥ pts.length` (empty product).
 -/
 noncomputable def prodLinearFactors
-    (pts : List Pt) (start stop : Nat) : GF216Poly :=
+    (pts : List Pt) (start stop : Nat) : GF216[X] :=
   if h : start < stop ∧ start < pts.length then
     (X - C ((pts.get ⟨start, h.2⟩).x.toGF216)) *
       prodLinearFactors pts (start + 1) stop

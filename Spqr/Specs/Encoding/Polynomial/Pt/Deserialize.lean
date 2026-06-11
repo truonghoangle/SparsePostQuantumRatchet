@@ -3,8 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+import SrcTranslated.Funs
 import Spqr.Specs.Aeneas.U16FromBeBytes
-import Spqr.Specs.Aeneas.TryFromSliceToArray
 
 
 /-!
@@ -77,9 +77,19 @@ theorem deserialize_spec (s : Array Std.U8 4#usize) :
   unfold deserialize encoding.gf.GF16.new core.result.Result.unwrap
   step*
   simp_all only
-  step*
-  simp_all only
-  step*
-  simp_all
+  split
+  · -- `try_from` on `s[0..2]` returned `Ok`
+    simp_all only
+    step*
+    simp_all only
+    split
+    · -- `try_from` on `s[2..4]` returned `Ok`
+      simp_all only
+      step*
+      simp_all
+    · -- `try_from` on `s[2..4]` returned `Err`: contradiction
+      simp_all
+  · -- `try_from` on `s[0..2]` returned `Err`: contradiction
+    simp_all
 
 end spqr.encoding.polynomial.Pt

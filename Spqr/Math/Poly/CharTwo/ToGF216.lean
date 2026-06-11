@@ -5,7 +5,6 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Math.Poly.Coeff.Basic
 import Mathlib.RingTheory.DedekindDomain.Basic
-
 /-!
 # `GF16.toGF216` at distinguished values, and the `getElem!`/`coeff` bridge
 

@@ -205,7 +205,7 @@ Returns `1` when `start ≥ pts.length` (empty product).  Skips index `start` wh
 `(X − C(pts[start].x.toGF216))` otherwise.
 -/
 noncomputable def condProdLinearFactors (pi_x : spqr.encoding.gf.GF16)
-    (pts : List spqr.encoding.polynomial.Pt) (start : Nat) : GF216Poly :=
+    (pts : List spqr.encoding.polynomial.Pt) (start : Nat) : GF216[X] :=
   if h : start < pts.length then
     if pi_x.value = (pts.get ⟨start, h⟩).x.value
     then condProdLinearFactors pi_x pts (start + 1)
@@ -603,7 +603,7 @@ theorem loop_spec
             calc ((X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216)) *
                     listToGF216Poly p'.coefficients.val).natDegree
                 ≤ (X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216) :
-                    GF216Poly).natDegree +
+                    GF216[X]).natDegree +
                   (listToGF216Poly p'.coefficients.val).natDegree :=
                   Polynomial.natDegree_mul_le
               _ = 1 + (listToGF216Poly p'.coefficients.val).natDegree := by
@@ -719,7 +719,7 @@ private theorem listToGF216Poly_init_one
     (h_len : a1.val.length = N.val)
     (h0 : (a1.val[0]!).value.val = 1)
     (h_rest : ∀ j, 0 < j → j < N.val → (a1.val[j]!).value.val = 0) :
-    listToGF216Poly a1.val = (1 : GF216Poly) := by
+    listToGF216Poly a1.val = (1 : GF216[X]) := by
   -- We compare coefficient-by-coefficient.  At every position `m`:
   -- * `(1 : GF216Poly).coeff m` is `1` if `m = 0` and `0` otherwise.
   -- * `(listToGF216Poly a1.val).coeff m` is `(a1.val[m]!).toGF216` (via
@@ -738,7 +738,7 @@ private theorem listToGF216Poly_init_one
     exact GF16.toGF216_eq_one _ h0
   | succ n =>
     -- The RHS coefficient is `0`.
-    have h_one : (1 : GF216Poly).coeff (n + 1) = 0 := by
+    have h_one : (1 : GF216[X]).coeff (n + 1) = 0 := by
       rw [Polynomial.coeff_one]; simp
     rw [h_one]
     by_cases hlt : n + 1 < a1.val.length
@@ -782,7 +782,7 @@ private lemma listToGF216Poly_replicate_zero_set_one
     listToGF216Poly ((List.replicate N GF16.ZERO).set 0 GF16.ONE) = 1 := by
   ext m
   rw [listToGF216Poly_coeff, Polynomial.coeff_one]
-  simp [List.length_set, List.length_replicate]
+  simp only [List.length_set, List.length_replicate, List.get_eq_getElem]
   cases m
   · simp [h_N_pos, GF16.ONE_toGF216]
   · rename_i n

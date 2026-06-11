@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Math.Gf16.Irreducible
-import Spqr.Code.Types
+import SrcTranslated.Types
 import Mathlib.FieldTheory.Finite.GaloisField
 
 /-!
@@ -75,3 +75,5 @@ noncomputable def toGF216 (g : GF16) : GF216 := g.value.val.toGF216
 instance : Inhabited GF16 := ⟨⟨⟨0, by scalar_tac⟩⟩⟩
 
 end spqr.encoding.gf.GF16
+
+deriving instance Inhabited for spqr.encoding.gf.GF16

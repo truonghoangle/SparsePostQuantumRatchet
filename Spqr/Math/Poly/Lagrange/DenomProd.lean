@@ -21,9 +21,6 @@ import Spqr.Math.Poly.Basic.Defs
 * `lagrangeDenomProd_skip`, `lagrangeDenomProd_accum` — one-step unfoldings.
 -/
 
-open Polynomial
-open spqr.encoding.gf
-
 namespace spqr.encoding.polynomial
 
 /--

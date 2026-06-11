@@ -3,9 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Code.Funs
-/-!
-# Spec theorem for `spqr::encoding::gf::GF16::eq`
+import SrcTranslated.Funs
+/-! # Spec Theorem for `GF16::eq` (PartialEq / Eq)
 
 Specification and proof for `encoding.gf.GF16.Insts.CoreCmpPartialEqGF16.eq`, which implements
 `PartialEq<GF16> for GF16` via the derived `#[derive(Eq, PartialEq)]` attribute.

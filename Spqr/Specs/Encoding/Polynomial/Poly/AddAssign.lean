@@ -147,7 +147,7 @@ theorem body_spec
     have h_i_lt_len : i.val < self.coefficients.val.length →
         i.val < self.coefficients.val.length := id
     step*
-    simp_all only [implies_true, getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set,
+    simp_all only [implies_true, alloc.vec.Vec.set_val_eq, List.length_set,
       forall_true_left, true_and]
     use i
     use v
@@ -245,7 +245,7 @@ private lemma poly_update_extension
   exact listToGF216Poly_append_singleton self.coefficients.val v
 
 private lemma step_invariant_preservation
-    (orig_poly : GF216Poly)
+    (orig_poly : GF216[X])
     (self self' : Poly)
     (other_coeffs : List GF16)
     (k : Nat) (v : GF16)
@@ -332,7 +332,7 @@ private theorem body_cont_spec
   have h_i_lt_len : iter'.count.val < self'.coefficients.val.length →
       iter'.count.val < self'.coefficients.val.length := id
   step*
-  simp_all only [implies_true, alloc.vec.Vec.len, UScalar.lt_equiv, Usize.ofNatCore_val_eq,
+  simp_all only [implies_true,
     getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set, List.get_eq_getElem,
     forall_true_left, ne_eq, true_and, not_lt]
   grind

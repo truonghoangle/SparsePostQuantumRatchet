@@ -525,7 +525,7 @@ theorem lagrange_interpolate_prepare_spec
         have h_p_coeff_zero : ∀ k (hk : k < p.coefficients.val.length),
             (p.coefficients.val.get ⟨k, hk⟩).toGF216 = 0 := by
           intro k hk
-          have h0 : (p.toGF216Poly).coeff k = 0 := by rw [p_post]; simp
+          have h0 : (p.toGF216Poly).coeff k = 0 := by grind
           simp only [Poly.toGF216Poly, listToGF216Poly_coeff, hk, ↓reduceDIte] at h0
           exact h0
         unfold List.resize at hj_lt ⊢

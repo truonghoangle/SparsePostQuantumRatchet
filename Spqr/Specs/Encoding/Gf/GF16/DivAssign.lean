@@ -3,6 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+import SrcTranslated.Funs
+import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Gf.GF16.DivImpl
 
 /-! # Spec theorem for `spqr.encoding.gf.GF16.Insts.CoreOpsArithDivAssignShared0GF16.div_assign`

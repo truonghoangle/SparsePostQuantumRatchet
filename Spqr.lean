@@ -1,9 +1,5 @@
 import Spqr.Aux.Aeneas.StdNextCoreIterRangeStep
 import Spqr.Aux.Aeneas.StdNextStepUsize
-import Spqr.Code.Funs
-import Spqr.Code.FunsExternal
-import Spqr.Code.Types
-import Spqr.Code.TypesExternal
 import Spqr.Math.Gf16.Basic
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible
@@ -37,6 +33,7 @@ import Spqr.Specs.Aeneas.CloneGF16
 import Spqr.Specs.Aeneas.Collect
 import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Spqr.Specs.Aeneas.GF16New
+import Spqr.Specs.Aeneas.IntoIteratorSlice
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
 import Spqr.Specs.Aeneas.SliceChunksExact
@@ -206,3 +203,6 @@ import Spqr.Specs.Lib.SecretOutput.RecvSecret
 import Spqr.Specs.Lib.SecretOutput.Secret
 import Spqr.Specs.Lib.SecretOutput.SendSecret
 import Spqr.Specs.Lib.TryFrom
+import Spqr.Specs.Util.Compare
+import Spqr.Specs.Util.Inz
+import Spqr.Specs.Util.IsNonZero
