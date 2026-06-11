@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
-import Spqr.Specs.Authenticator.JointDerivation
+import Spqr.Specs.Authenticator.Update
 
 /-!
 # Spec theorem for `spqr::authenticator::serialize::Authenticator::from_pb`

@@ -50,7 +50,6 @@ import Spqr.Specs.Aeneas.U16ToBeBytes
 import Spqr.Specs.Aeneas.VecExtendFromSlice
 import Spqr.Specs.Aeneas.VecIndexRangeFull
 import Spqr.Specs.Authenticator.Error.Fmt
-import Spqr.Specs.Authenticator.JointDerivation
 import Spqr.Specs.Authenticator.MACSIZE
 import Spqr.Specs.Authenticator.Serialize.FromPb
 import Spqr.Specs.Authenticator.Serialize.IntoPb
