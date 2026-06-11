@@ -199,8 +199,8 @@ import Spqr.Specs.Lib.EmptyState
 import Spqr.Specs.Lib.Eq
 import Spqr.Specs.Lib.Fmt
 import Spqr.Specs.Lib.From
-import Spqr.Specs.Lib.HasSecret
-import Spqr.Specs.Lib.RecvSecret
-import Spqr.Specs.Lib.Secret
-import Spqr.Specs.Lib.SendSecret
+import Spqr.Specs.Lib.SecretOutput.HasSecret
+import Spqr.Specs.Lib.SecretOutput.RecvSecret
+import Spqr.Specs.Lib.SecretOutput.Secret
+import Spqr.Specs.Lib.SecretOutput.SendSecret
 import Spqr.Specs.Lib.TryFrom
