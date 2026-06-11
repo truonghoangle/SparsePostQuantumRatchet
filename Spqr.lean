@@ -50,10 +50,11 @@ import Spqr.Specs.Aeneas.U16ToBeBytes
 import Spqr.Specs.Aeneas.VecExtendFromSlice
 import Spqr.Specs.Aeneas.VecIndexRangeFull
 import Spqr.Specs.Authenticator.Error.Fmt
+import Spqr.Specs.Authenticator.JointDerivation
 import Spqr.Specs.Authenticator.MACSIZE
-import Spqr.Specs.Authenticator.New
 import Spqr.Specs.Authenticator.Serialize.FromPb
 import Spqr.Specs.Authenticator.Serialize.IntoPb
+import Spqr.Specs.Authenticator.Update
 import Spqr.Specs.Encoding.Encoder.NextChunk
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
@@ -195,10 +196,12 @@ import Spqr.Specs.Encoding.Polynomial.PolynomialError.Eq
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
+import Spqr.Specs.Kdf.HkdfToVec
 import Spqr.Specs.Lib.EmptyState
 import Spqr.Specs.Lib.Eq
 import Spqr.Specs.Lib.Fmt
 import Spqr.Specs.Lib.From
+import Spqr.Specs.Lib.InitialState
 import Spqr.Specs.Lib.SecretOutput.HasSecret
 import Spqr.Specs.Lib.SecretOutput.RecvSecret
 import Spqr.Specs.Lib.SecretOutput.Secret

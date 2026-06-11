@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Code.Funs
+import Spqr.Specs.Authenticator.JointDerivation
 
 /-!
 # Spec theorem for `spqr::authenticator::serialize::Authenticator::into_pb`
@@ -59,5 +60,22 @@ theorem into_pb_spec (self : authenticator.Authenticator) :
         result.root_key = self.root_key ∧ result.mac_key = self.mac_key ⦄ := by
   unfold authenticator.serialize.Authenticator.into_pb
   step*
+
+/-- **`into_pb` preserves the joint-derivation invariant.**
+
+If the input authenticator's `root_key` and `mac_key` satisfy
+`jointly_derived`, then the output protobuf's `root_key` and `mac_key`
+also satisfy `jointly_derived`. This follows directly from `into_pb_spec`
+(which establishes field-level equality) and `jointly_derived_of_eq`. -/
+@[step]
+theorem into_pb_preserves_jointly_derived
+    (self : authenticator.Authenticator)
+    (h : authenticator.jointly_derived self.root_key self.mac_key) :
+    authenticator.serialize.Authenticator.into_pb self
+      ⦃ (result : proto.pq_ratchet.Authenticator) =>
+        authenticator.jointly_derived result.root_key result.mac_key ⦄ := by
+  apply WP.spec_mono (into_pb_spec self)
+  intro result hres
+  exact authenticator.jointly_derived_of_eq h hres.1 hres.2
 
 end spqr.authenticator.serialize.Authenticator.into_pb
