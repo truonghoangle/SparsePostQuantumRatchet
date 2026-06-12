@@ -1,5 +1,17 @@
 import Spqr.Aux.Aeneas.StdNextCoreIterRangeStep
 import Spqr.Aux.Aeneas.StdNextStepUsize
+import Spqr.Aux.LibcruxHmac.BlockLen
+import Spqr.Aux.LibcruxHmac.HashLen
+import Spqr.Aux.LibcruxHmac.HmacBytes
+import Spqr.Aux.LibcruxHmac.Pad
+import Spqr.Aux.LibcruxHmac.Parse
+import Spqr.Aux.LibcruxHmac.Sha1.Constants
+import Spqr.Aux.LibcruxHmac.Sha1.Round
+import Spqr.Aux.LibcruxHmac.Sha2.Constants
+import Spqr.Aux.LibcruxHmac.Sha2.Round
+import Spqr.Aux.LibcruxHmac.Word
+
+
 import Spqr.Math.Gf16.Basic
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible

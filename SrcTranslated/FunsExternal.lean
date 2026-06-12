@@ -3,6 +3,7 @@
 -- This is a template file: rename it to "FunsExternal.lean" and fill the holes.
 import Aeneas
 import SrcTranslated.Types
+import Spqr.Aux.LibcruxHmac.HmacBytes
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
@@ -1271,28 +1272,63 @@ theorem Shared0SliceU8.Insts.BytesBufBuf_implBuf.remaining_spec
 
     Concrete model of Rust's `libcrux_hmac::hmac`: given an HMAC algorithm,
     a key (`Slice U8`), a payload (`Slice U8`), and an optional tag length
-    (`Option Usize`), produces the HMAC tag as a `Vec<u8>`.  Since the
-    underlying cryptographic computation is opaque, we model the result by
-    returning the empty `Vec U8` (i.e. `alloc.vec.Vec.new Std.U8`).  The
-    outer `Result` is always `ok` (the call never panics). -/
+    (`Option Usize`), produces the HMAC tag as a `Vec<u8>`.
+
+    The underlying cryptographic computation is kept uninterpreted: the
+    result is `spec.hmac_vec alg key.val payload.val tag_len` (see
+    `Spqr.Aux.LibcruxHmac.HmacBytes`), whose bytes come from an opaque raw
+    function but whose *length* is fully specified, mirroring Rust's
+    `tag_length.unwrap_or(tag_size(alg))`:
+
+    * `tag_len = some l` ↦ the tag has exactly `l` bytes;
+    * `tag_len = none`   ↦ the tag has the digest length of the chosen
+      `libcrux_hmac::Algorithm` (`Sha1 ↦ 20`, `Sha256 ↦ 32`, `Sha384 ↦ 48`,
+      `Sha512 ↦ 64`, cf. `Algorithm.hash_len` in
+      `Spqr.Aux.LibcruxHmac.HashLen`).
+
+    The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "libcrux_hmac::hmac"]
 def libcrux_hmac.hmac
   :
   libcrux_hmac.Algorithm → Slice Std.U8 → Slice Std.U8 → Option Std.Usize
     → Result (alloc.vec.Vec Std.U8) :=
-  fun _ _ _ _ => ok (alloc.vec.Vec.new Std.U8)
+  fun alg key payload tag_len =>
+    ok (spec.hmac_vec alg key.val payload.val tag_len)
 
 /-- **Spec theorem for `libcrux_hmac.hmac`**: the call always succeeds and
-    returns a `Vec U8` whose underlying list is empty (i.e. it equals
-    `alloc.vec.Vec.new Std.U8`). -/
+    returns the modelled HMAC tag `spec.hmac_vec alg key.val payload.val
+    tag_len`; in particular its byte length is the effective tag length
+    `spec.hmac_tag_len alg tag_len` (the requested `tag_len` when present,
+    and otherwise the digest length `alg.hash_len` of the hash algorithm). -/
 @[simp, step_simps]
 theorem libcrux_hmac.hmac_spec
     (alg : libcrux_hmac.Algorithm) (key payload : Slice Std.U8)
     (tag_len : Option Std.Usize) :
     libcrux_hmac.hmac alg key payload tag_len ⦃ (v : alloc.vec.Vec Std.U8) =>
-      v = alloc.vec.Vec.new Std.U8 ∧
-      v.val = [] ⦄ := by
-  simp [libcrux_hmac.hmac, alloc.vec.Vec.new]
+      v = spec.hmac_vec alg key.val payload.val tag_len ∧
+      v.val.length = spec.hmac_tag_len alg tag_len ⦄ := by
+  simp [libcrux_hmac.hmac]
+
+/-- **Spec theorem for `libcrux_hmac.hmac` with `tag_length = None`**: the
+    returned tag has exactly the digest length of the hash algorithm
+    (`Sha1 ↦ 20`, `Sha256 ↦ 32`, `Sha384 ↦ 48`, `Sha512 ↦ 64`), mirroring
+    Rust's default `tag_size(alg)`. -/
+@[step]
+theorem libcrux_hmac.hmac_none_spec
+    (alg : libcrux_hmac.Algorithm) (key payload : Slice Std.U8) :
+    libcrux_hmac.hmac alg key payload none ⦃ (v : alloc.vec.Vec Std.U8) =>
+      v.val.length = alg.hash_len ⦄ := by
+  simp [libcrux_hmac.hmac]
+
+/-- **Spec theorem for `libcrux_hmac.hmac` with `tag_length = Some l`**: the
+    returned tag has exactly the requested length `l`. -/
+@[step]
+theorem libcrux_hmac.hmac_some_spec
+    (alg : libcrux_hmac.Algorithm) (key payload : Slice Std.U8)
+    (l : Std.Usize) :
+    libcrux_hmac.hmac alg key payload (some l) ⦃ (v : alloc.vec.Vec Std.U8) =>
+      v.val.length = l.val ⦄ := by
+  simp [libcrux_hmac.hmac]
 
 
 
