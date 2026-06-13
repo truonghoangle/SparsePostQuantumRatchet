@@ -10,8 +10,6 @@ import Spqr.Aux.LibcruxHmac.Sha1.Round
 import Spqr.Aux.LibcruxHmac.Sha2.Constants
 import Spqr.Aux.LibcruxHmac.Sha2.Round
 import Spqr.Aux.LibcruxHmac.Word
-
-
 import Spqr.Math.Gf16.Basic
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible
@@ -19,7 +17,6 @@ import Spqr.Math.Gf2Poly.Basic
 import Spqr.Math.Gf2Poly.NatRep
 import Spqr.Math.List
 import Spqr.Math.Poly.Aeneas.DotProduct
-import Spqr.Math.Poly.Aeneas.MultXdiff
 import Spqr.Math.Poly.Aeneas.PolyIdentity
 import Spqr.Math.Poly.Aeneas.PowerVector
 import Spqr.Math.Poly.Basic.Defs
@@ -28,6 +25,7 @@ import Spqr.Math.Poly.CharTwo.Basic
 import Spqr.Math.Poly.CharTwo.ToGF216
 import Spqr.Math.Poly.Coeff.Basic
 import Spqr.Math.Poly.Coeff.ListOps
+import Spqr.Math.Poly.Coeff.MultXdiffPolyIdentity
 import Spqr.Math.Poly.Eval
 import Spqr.Math.Poly.ExpectedTrailing.Basic
 import Spqr.Math.Poly.ExpectedTrailing.Defs

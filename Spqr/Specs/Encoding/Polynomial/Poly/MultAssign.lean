@@ -5,11 +5,6 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Math.Poly.Coeff.ListOps
 import Spqr.Math.Poly.CharTwo.ToGF216
-import Spqr.Math.Poly.Eval
-import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Horner.Eval
-import Spqr.Math.Poly.ExpectedTrailing.Basic
-import Spqr.Math.Poly.Identities.Basic
 import Spqr.Specs.Encoding.Gf.ParallelMult
 
 /-!
@@ -38,8 +33,8 @@ coefficient, which at the polynomial level corresponds to scalar multiplication 
 **Source**: spqr/src/encoding/polynomial.rs (lines 250:4-252:5)
 -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
-open spqr.encoding.polynomial.Poly
+open Aeneas Aeneas.Std Result spqr.encoding.gf Polynomial
+
 
 namespace spqr.encoding.polynomial.Poly
 
@@ -68,19 +63,18 @@ namespace spqr.encoding.polynomial.Poly
 @[step]
 theorem mult_assign_spec
     (self : Poly) (m : GF16)
-    (h_len : self.coefficients.val.length + 2 ≤ Usize.max) :
+    (h_len : self.degree + 2 ≤ Usize.max) :
     mult_assign self m ⦃ (result : Poly) =>
-      result.coefficients.val.length = self.coefficients.val.length ∧
+      result.degree = self.degree ∧
       result.toGF216Poly = C (m.toGF216) * self.toGF216Poly ⦄ := by
   unfold mult_assign
-  simp only [alloc.vec.Vec.deref_mut, lift, bind_tc_ok]
+  simp only [alloc.vec.Vec.deref_mut, lift, bind_tc_ok, degree]
   step*
   refine ⟨by simp_all [Slice.length], ?_⟩
   simp only [Poly.toGF216Poly]
   apply listToGF216Poly_eq_of_coeffs
   · intro j hj
     rw [coeff_C_mul, ← getElem!_toGF216_eq_coeff]
-    simp only [List.get_eq_getElem, Slice.length] at *
     simp_all
     grind
   · intro j hj

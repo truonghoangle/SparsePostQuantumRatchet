@@ -1086,7 +1086,7 @@ theorem lagrange_interpolate_formula
     step with clone_spec template as ⟨working, h_working_eq⟩
     rw [h_working_eq]
     have h0_lt_pts : (0 : Nat) < pts.val.length := h_nonempty
-    have h_template_pos : 0 < template.coefficients.val.length := by
+    have h_template_pos : 0 < template.degree := by
       rw [h_template_len]
       omega
     have h_root_template :
@@ -1099,7 +1099,8 @@ theorem lagrange_interpolate_formula
       h0_lt_pts h_template_pos h_root_template as
       ⟨working1, h_w1_len, h_w1_id⟩
     have h_w1_len_pts : working1.coefficients.val.length = pts.val.length + 1 := by
-      rw [h_w1_len, h_template_len]
+      rw [h_w1_len]
+      grind [degree]
     have h_one_le_w1 : (1 : Nat) ≤ working1.coefficients.length := by
       change 1 ≤ working1.coefficients.val.length
       rw [h_w1_len_pts]
@@ -1141,7 +1142,7 @@ theorem lagrange_interpolate_formula
       simp only [Slice.len, Usize.ofNatCore_val_eq]
       exact h_nonempty
     have h_v_lt_template : v.val.length < template.coefficients.val.length := by
-      rw [h_v_len, h_template_len]; omega
+      rw [h_v_len]; omega
     have h_wt_eq : template.coefficients.val.length = working1.coefficients.val.length :=
       h_w1_len.symm
     have h_eval_all_template :
@@ -1249,13 +1250,12 @@ from which dividing by the nonzerodivisor `X` yields the claim.
 @[step]
 theorem lagrange_interpolate_spec
     (pts : Slice Pt)
-    (h_len : pts.val.length + 1 ≤ Usize.max) :
+    (h_len : pts.length + 1 ≤ Usize.max) :
     lagrange_interpolate pts ⦃ (result : Poly) =>
-      result.toGF216Poly =
-        lagrangeInterpolantSum pts.val pts.val.length ⦄ := by
+      result.toGF216Poly = lagrangeInterpolantSum pts pts.length ⦄ := by
   apply WP.spec_mono (lagrange_interpolate_formula pts h_len)
   intro result ⟨h_rlen, h_empty, h_nonempty⟩
-  set n := pts.val.length with hn_def
+  set n := pts.length with hn_def
   by_cases h0 : n = 0
   · rw [h0, lagrangeInterpolantSum]
     have : result.coefficients.val.length = 0 := by rw [h_rlen]; exact h0
@@ -1314,7 +1314,7 @@ theorem lagrange_interpolate_spec
         (fun a₁ _ a₂ _ h => Fin.val_injective h)
         (fun b hb => by
           rw [Finset.mem_range] at hb
-          exact ⟨⟨b, by omega⟩, Finset.mem_univ _, rfl⟩)
+          exact ⟨⟨b, by grind⟩, Finset.mem_univ _, rfl⟩)
         (fun a _ => by
           simp only [dif_pos (show a.val < pts.val.length from by omega)])
     · rw [dif_neg hm]

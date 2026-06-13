@@ -64,13 +64,13 @@ and either terminates or extends the partial Lagrange sum:
 
 • In the **done** case (iterator exhausted):
     the accumulator `out` is returned unchanged, and the iterator
-    condition is negated: `¬ (iter.start.val < iter.«end».val)`.
+    condition is negated: `¬ (iter.start.val < iter.end.val)`.
 
 • In the **cont** case (received index `i = iter.start` from the range iterator):
-    - `iter.start.val < iter.«end».val` — the iterator was not exhausted.
+    - `iter.start.val < iter.end.val` — the iterator was not exhausted.
     - The iterator has advanced by exactly one position:
         `iter1.start.val = iter.start.val + 1`,
-        `iter1.«end» = iter.«end»`.
+        `iter1.end = iter.end`.
     - The accumulator is updated by one additional Lagrange term in
       `GF216[X] = (GaloisField 2 16)[X]`:
         `out1.toGF216Poly =
@@ -96,50 +96,30 @@ and either terminates or extends the partial Lagrange sum:
 -/
 @[step]
 theorem body_spec
-    (pts : Slice Pt)
-    (polys : Slice Poly)
-    (iter : core.ops.range.Range Usize)
-    (out : Poly)
-    (h_end_le_pts : iter.«end».val ≤ pts.val.length)
-    (h_end_le_polys : iter.«end».val ≤ polys.val.length)
-    (h_poly_len : ∀ (_hi : iter.start.val < iter.«end».val),
-        (polys.val[iter.start.val]!).coefficients.val.length + 2 ≤ Usize.max)
-    (h_max_len : ∀ (_hi : iter.start.val < iter.«end».val),
-        max out.coefficients.val.length
-          (polys.val[iter.start.val]!).coefficients.val.length < Usize.max) :
+    (pts : Slice Pt) (polys : Slice Poly) (iter : core.ops.range.Range Usize) (out : Poly)
+    (h_end_le_pts : iter.end ≤ pts.length)
+    (h_end_le_polys : iter.end ≤ polys.length)
+    (h_poly_len : ∀ (_ : iter.start < iter.end), (polys[iter.start]!).degree + 2 ≤ Usize.max)
+    (h_max_len : ∀ (_ : iter.start < iter.end),
+        max out.degree (polys[iter.start]!).degree < Usize.max) :
     body pts polys iter out ⦃ cf =>
       match cf with
-      | ControlFlow.done out' =>
-          out' = out ∧ ¬ (iter.start.val < iter.«end».val)
+      | ControlFlow.done out' => out' = out ∧ ¬ (iter.start < iter.end)
       | ControlFlow.cont (iter1, out1) =>
-          iter.start.val < iter.«end».val ∧
-          iter1.start.val = iter.start.val + 1 ∧
-          iter1.«end» = iter.«end» ∧
-          out1.coefficients.val.length =
-            max out.coefficients.val.length
-                (polys.val[iter.start.val]!).coefficients.val.length ∧
-          out1.toGF216Poly =
-            out.toGF216Poly +
-            C ((pts.val[iter.start.val]!).y.toGF216) *
-              (polys.val[iter.start.val]!).toGF216Poly ⦄ := by
+          iter.start < iter.end ∧
+          iter1.start = iter.start.val + 1 ∧
+          iter1.end = iter.end ∧
+          out1.degree = max out.degree (polys[iter.start]!).degree ∧
+          out1.toGF216Poly = out.toGF216Poly +
+            C ((pts[iter.start]!).y.toGF216) * (polys[iter.start]!).toGF216Poly ⦄ := by
   unfold body
   obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]
   simp only [bind_tc_ok]
-  by_cases h_lt : iter.start.val < iter.«end».val
-  · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
-    rw [h_opt_eq]
-    have h_i_lt_pts : iter.start.val < pts.val.length := by omega
-    have h_i_lt_polys : iter.start.val < polys.val.length := by omega
-    have h_p_len := h_poly_len h_lt
-    have h_a_len := h_max_len h_lt
-    step*
-    · grind
-    · grind
-    · grind
-  · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
-    rw [h_opt_eq]
-    exact ⟨rfl, h_lt⟩
+  by_cases h_lt : iter.start < iter.end.val
+  · step*
+    all_goals grind
+  · grind
 
 end spqr.encoding.polynomial.Poly.lagrange_sum_loop
 
@@ -153,9 +133,9 @@ After all iterations, the accumulator holds the full Lagrange sum:
 in `GF216[X] = (GaloisField 2 16)[X]`.
 
 **Loop invariant**: after processing iterations up to index `i`, the accumulator satisfies:
-  * `iter.«end» = iter₀.«end»` — the range end is unchanged throughout the loop.
+  * `iter.end = iter₀.end` — the range end is unchanged throughout the loop.
   * `iter₀.start.val ≤ iter.start.val` — the iterator position only increases.
-  * `iter.start.val ≤ max iter₀.start.val iter₀.«end».val` — the iterator stays within the
+  * `iter.start.val ≤ max iter₀.start.val iter₀.end.val` — the iterator stays within the
     original bounds.
   * `out.coefficients.val.length ≤ M` — the running accumulator's coefficient-vector length is
     uniformly bounded by `M`, ensuring the combined-length precondition of `add_assign` is
@@ -199,7 +179,7 @@ returning the completed accumulator `result` satisfying:
 
 • **Polynomial-level Lagrange-sum postcondition**:
     `result.toGF216Poly =
-         ∑ j ∈ Finset.range (max iter.start.val iter.«end».val),
+         ∑ j ∈ Finset.range (max iter.start.val iter.end.val),
            C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly`
   The result accumulator holds the Lagrange linear combination of the basis polynomials, scaled
   by the corresponding point y-coordinates, over the appropriate range in
@@ -217,49 +197,44 @@ returning the completed accumulator `result` satisfying:
 -/
 @[step]
 theorem loop_spec
-    (pts : Slice Pt)
-    (polys : Slice Poly)
-    (iter : core.ops.range.Range Usize)
-    (out : Poly)
-    (h_end_le_pts : iter.«end».val ≤ pts.val.length)
-    (h_end_le_polys : iter.«end».val ≤ polys.val.length)
-    (h_out : out.coefficients.val.length < Usize.max)
-    (h_polys : ∀ i, i < iter.«end».val →
-        (polys.val[i]!).coefficients.val.length + 2 ≤  Usize.max)
-    (h_sum : out.toGF216Poly = ∑ j ∈ Finset.range iter.start.val,
+    (pts : Slice Pt) (polys : Slice Poly) (iter : core.ops.range.Range Usize) (out : Poly)
+    (h_end_le_pts : iter.end ≤ pts.length)
+    (h_end_le_polys : iter.end ≤ polys.length)
+    (h_out : out.degree < Usize.max)
+    (h_polys : ∀ i < iter.end, (polys.val[i]!).degree + 2 ≤ Usize.max)
+    (h_sum : out.toGF216Poly = ∑ j ∈ Finset.range iter.start,
       C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) :
-    lagrange_sum_loop iter pts polys out
-      ⦃ (result : Poly) =>
-        result.toGF216Poly = ∑ j ∈ Finset.range (max iter.start.val iter.«end».val),
-          C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly ⦄ := by
+    lagrange_sum_loop iter pts polys out ⦃ (result : Poly) =>
+        result.toGF216Poly = ∑ j ∈ Finset.range (max iter.start iter.end),
+          C ((pts[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly ⦄ := by
   unfold lagrange_sum_loop
   apply loop.spec_decr_nat
-    (measure := fun (p : core.ops.range.Range Usize ×
-                        Poly) =>
-                  p.1.«end».val - p.1.start.val)
-    (inv := fun (p : core.ops.range.Range Usize ×
-                      Poly) =>
-        p.1.«end» = iter.«end» ∧
-        iter.start.val ≤ p.1.start.val ∧
-        p.1.start.val ≤ max iter.start.val iter.«end».val ∧
-        p.2.coefficients.val.length < Usize.max ∧
-        p.2.toGF216Poly = ∑ j ∈ Finset.range p.1.start.val,
-          C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly)
+    (measure := fun (p : core.ops.range.Range Usize × Poly) =>
+                  p.1.end - p.1.start)
+    (inv := fun (p : core.ops.range.Range Usize × Poly) =>
+        p.1.end = iter.end ∧
+        iter.start ≤ p.1.start ∧
+        p.1.start ≤ max iter.start iter.end ∧
+        p.2.degree < Usize.max ∧
+        p.2.toGF216Poly = ∑ j ∈ Finset.range p.1.start,
+          C ((pts[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly)
   · rintro ⟨iter', out'⟩
       ⟨h_end', h_start_le', h_bound', h_out_M', h_sum'⟩
     simp only [] at h_end' h_start_le' h_bound' h_out_M' h_sum' ⊢
-    have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
-    have h_end_le_pts' : iter'.«end».val ≤ pts.val.length := by omega
-    have h_end_le_polys' : iter'.«end».val ≤ polys.val.length := by omega
-    have h_poly_len' : ∀ (_hi : iter'.start.val < iter'.«end».val),
-        (polys.val[iter'.start.val]!).coefficients.val.length + 2 ≤ Usize.max := by
+    have h_end_val : iter'.end = iter.end:= by rw [h_end']
+    have h_end_le_pts' : iter'.end ≤ pts.length := by grind
+    have h_end_le_polys' : iter'.end ≤ polys.length := by grind
+    have h_poly_len' : ∀ (_hi : iter'.start < iter'.end),
+        (polys.val[iter'.start]!).degree + 2 ≤ Usize.max := by
       intro hi
-      exact h_polys iter'.start.val (by rw [h_end'] at hi; exact hi)
-    have h_max_len' : ∀ (_hi : iter'.start.val < iter'.«end».val),
-        max out'.coefficients.val.length
-          (polys.val[iter'.start.val]!).coefficients.val.length < Usize.max := by
+      apply h_polys
+      grind
+    have h_max_len' : ∀ (_hi : iter'.start < iter'.end.val),
+        max out'.degree (polys.val[iter'.start]!).degree < Usize.max := by
       intro hi
-      have := h_polys iter'.start.val (by rw [h_end'] at hi; exact hi)
+      simp_all
+      have := h_polys iter'.start hi
+      simp at this
       grind
     have h_body := body_spec pts polys iter' out'
       h_end_le_pts' h_end_le_polys' h_poly_len' h_max_len'
@@ -272,32 +247,30 @@ theorem loop_spec
       subst h_eq
       push Not at h_not_lt
       rw [h_end'] at h_not_lt
-      have h_max_eq : max iter.start.val iter.«end».val = iter'.start.val :=
-        Nat.le_antisymm (max_le h_start_le' h_not_lt) h_bound'
-      rw [h_max_eq]
-      exact h_sum'
+      have h_max_eq : max iter.start iter.end = iter'.start := by
+        have := Nat.le_antisymm (max_le h_start_le' h_not_lt)
+        grind
+      grind
     | ControlFlow.cont (iter1, out1) =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1, h_len1, h_out1⟩ := h_cf
-      have h_i_lt_polys : iter'.start.val < polys.val.length := by omega
-      have h_i_lt_end : iter'.start.val < iter.«end».val := by
+      have h_i_lt_polys : iter'.start < polys.length := by grind
+      have h_i_lt_end : iter'.start < iter.end := by
         rw [← h_end']; omega
-      have h_polys_le := h_polys iter'.start.val h_i_lt_end
+      have h_polys_le := h_polys iter'.start h_i_lt_end
       constructor
       · refine ⟨?_, ?_, ?_, ?_, ?_⟩
         · rw [h_end1, h_end']
-        · rw [h_start1]; omega
-        · rw [h_start1]
-          have h_lt_end : iter'.start.val + 1 ≤ iter.«end».val := by omega
-          have := le_max_right iter.start.val iter.«end».val
-          omega
+        · grind
+        · grind
         · rw [h_len1]
+          apply h_max_len'
           grind
         · rw [h_out1, h_sum', h_start1]
-          apply (Finset.sum_range_succ _ _).symm
+          simp [Finset.sum_range_succ]
       · rw [h_start1, h_end1]
-        omega
-  · exact ⟨rfl, le_refl _, le_max_left _ _, h_out, h_sum⟩
+        grind
+  · grind
 
 end spqr.encoding.polynomial.Poly.lagrange_sum_loop
 
@@ -382,35 +355,34 @@ whose mathematical content in `GF216[X] = (GaloisField 2 16)[X]` is the Lagrange
 theorem lagrange_sum_spec
     (pts : Slice Pt)
     (polys : Slice Poly)
-    (h_len_le : pts.val.length ≤ polys.val.length)
-    (h_polys : ∀ i, i < pts.val.length →
-        (polys.val[i]!).coefficients.val.length + 2 ≤ Usize.max) :
+    (h_len_le : pts.length ≤ polys.length)
+    (h_polys : ∀ i < pts.length, (polys[i]!).degree + 2 ≤ Usize.max) :
     lagrange_sum pts polys ⦃ (result : Poly) =>
-        result.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
-          C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly ⦄ := by
+        result.toGF216Poly =
+          ∑ j ∈ Finset.range pts.length, C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly ⦄ := by
   unfold lagrange_sum
   step with zero_spec (Slice.len pts) as ⟨out, h_out_len, h_out_zero⟩
   have h_end_le_pts : (Slice.len pts).val ≤ pts.val.length := by simp
-  have h_end_le_polys : (Slice.len pts).val ≤ polys.val.length := by
-    grind
+  have h_end_le_polys : (Slice.len pts).val ≤ polys.val.length := by grind
   have h_out : out.coefficients.val.length < Usize.max := by
     rw [h_out_len]
     grind
-  have h_polys' : ∀ i, i < (Slice.len pts).val →
-      (polys.val[i]!).coefficients.val.length + 2 ≤ Usize.max := by
+  have h_polys' : ∀ i < (Slice.len pts), (polys[i]!).degree + 2 ≤ Usize.max := by
     intro i hi
     apply h_polys i
     simpa using hi
   have h_sum_init :
-      out.toGF216Poly = ∑ j ∈ Finset.range (0#usize).val,
-        C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly := by
-    rw [h_out_zero]; simp
+      out.toGF216Poly =
+        ∑ j ∈ Finset.range (0#usize), C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly := by
+    rw [h_out_zero]
+    simp
   apply WP.spec_mono (lagrange_sum_loop.loop_spec pts polys
     { start := 0#usize, «end» := Slice.len pts } out
     h_end_le_pts h_end_le_polys h_out h_polys' h_sum_init)
   intro result h_result
-  have h_max : max (0#usize).val (Slice.len pts).val = pts.val.length := by simp
-  rw [h_max] at h_result
+  have h_max : max (0#usize) (Slice.len pts) = pts.length := by simp
+  simp only [UScalar.ofNatCore_val_eq, Usize.ofNatCore_val_eq, zero_le, sup_of_le_right,
+    Slice.getElem!_Nat_eq, List.getElem!_eq_getElem?_getD] at h_result
   exact h_result
 
 end spqr.encoding.polynomial.Poly

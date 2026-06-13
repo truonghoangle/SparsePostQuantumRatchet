@@ -331,25 +331,22 @@ private theorem body_spec_none_1
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h1]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
-    · constructor
+      grind [degree]
+    ·
+      constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
         · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
@@ -358,17 +355,21 @@ private theorem body_spec_none_1
           getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 1#usize
-              simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 1#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
 
 
 
@@ -416,44 +417,45 @@ private theorem body_spec_none_3
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h3]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
-    · constructor
+      grind [degree]
+    ·
+      constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
-        · simp_all only [not_lt, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq,
-          List.Vector.length_val, UScalar.ofNatCore_val_eq, List.get_eq_getElem, forall_true_left,
-          GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub, one_mul, map_pow,
-          List.getElem!_eq_getElem?_getD, List.length_nil, not_lt_zero, not_false_eq_true,
-          getElem?_neg, Option.getD_none, true_and]
+        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
+          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 3#usize
-              simp only [UScalar.ofNatCore_val_eq, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 3#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
 
 
 private theorem body_spec_none_5
@@ -490,44 +492,45 @@ private theorem body_spec_none_5
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h5]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
+      grind [degree]
     · constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
-        · simp_all only [not_lt, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq,
-          List.Vector.length_val, UScalar.ofNatCore_val_eq, List.get_eq_getElem, forall_true_left,
-          GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub, one_mul, map_pow,
-          List.getElem!_eq_getElem?_getD, List.length_nil, not_lt_zero, not_false_eq_true,
-          getElem?_neg, Option.getD_none, true_and]
+        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
+          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 5#usize
-              simp only [UScalar.ofNatCore_val_eq, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 5#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
+
 
 private theorem body_spec_none_30
     (pts : Slice Pt)
@@ -563,44 +566,45 @@ private theorem body_spec_none_30
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h30]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
-    · constructor
+      grind [degree]
+    ·
+      constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
-        · simp_all only [not_lt, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq,
-          List.Vector.length_val, UScalar.ofNatCore_val_eq, List.get_eq_getElem, forall_true_left,
-          GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub, one_mul, map_pow,
-          List.getElem!_eq_getElem?_getD, List.length_nil, not_lt_zero, not_false_eq_true,
-          getElem?_neg, Option.getD_none, true_and]
+        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
+          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 30#usize
-              simp only [UScalar.ofNatCore_val_eq, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 30#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
 
 
 private theorem body_spec_none_34
@@ -637,44 +641,46 @@ private theorem body_spec_none_34
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h34]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
-    · constructor
+      grind [degree]
+    ·
+      constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
-        · simp_all only [not_lt, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq,
-          List.Vector.length_val, UScalar.ofNatCore_val_eq, List.get_eq_getElem, forall_true_left,
-          GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub, one_mul, map_pow,
-          List.getElem!_eq_getElem?_getD, List.length_nil, not_lt_zero, not_false_eq_true,
-          getElem?_neg, Option.getD_none, true_and]
+        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
+          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 34#usize
-              simp only [UScalar.ofNatCore_val_eq, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 34#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
+
 
 private theorem body_spec_none_36
     (pts : Slice Pt)
@@ -710,44 +716,45 @@ private theorem body_spec_none_36
       exists_and_left]
     step
     step
+
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
-      rw[this, polys_post1]
-      simp only [ge_iff_le]
-      rw[h36]
+      grind
     · intros i hi
       have : (polys.deref.val[i]!.coefficients).val.length =
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
-      rw [this]
-      simp
-      grind
-    · constructor
+      grind [degree]
+    ·
+      constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
-          rw [this, polys_post1]
           grind
-        · simp_all only [not_lt, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq,
-          List.Vector.length_val, UScalar.ofNatCore_val_eq, List.get_eq_getElem, forall_true_left,
-          GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub, one_mul, map_pow,
-          List.getElem!_eq_getElem?_getD, List.length_nil, not_lt_zero, not_false_eq_true,
-          getElem?_neg, Option.getD_none, true_and]
+        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
+          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
           constructor
           · grind
-          · intros h
-            constructor
+          · constructor
             · have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
-              rw[this, polys_post1]
-            · use 36#usize
-              simp only [UScalar.ofNatCore_val_eq, true_and]
-              use a
-              have : (polys.deref).val = (polys).val:= by
-                simp [alloc.vec.Vec.deref]
-              simp_all
+              grind
+            · intro h
+              constructor
+              · have : (polys.deref).val.length = (polys).val.length:= by
+                  simp [alloc.vec.Vec.deref]
+                grind
+              · use 36#usize
+                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                use a
+                have : (polys.deref).val = (polys).val:= by
+                  simp [alloc.vec.Vec.deref]
+                simp_all
 
 
 

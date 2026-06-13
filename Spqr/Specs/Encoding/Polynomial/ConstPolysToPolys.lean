@@ -90,20 +90,13 @@ namespace spqr.encoding.polynomial
 **Source**: spqr/src/encoding/polynomial.rs (lines 465:0-467:1)
 -/
 @[step]
-theorem const_polys_to_polys_spec
-    {N : Usize}
-    (cps : Array (PolyConst N) N) :
+theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
     const_polys_to_polys cps ⦃ result =>
-      result.val.length = N.val ∧
-      (∀ (j : Nat), j < N.val →
-        ∀ (hj : j < result.val.length)
-          (hjc : j < cps.val.length),
-          (result.val.get ⟨j, hj⟩).coefficients.val =
-            (cps.val.get ⟨j, hjc⟩).coefficients.val ∧
-          (result.val.get ⟨j, hj⟩).toGF216Poly =
-            listToGF216Poly
-              (cps.val.get ⟨j, hjc⟩).coefficients.val)
-      ⦄ := by
+      result.length = N.val ∧
+      (∀ j < N.val,
+        ∀ (hj : j < result.length) (hjc : j < cps.length),
+          result[j].coefficients.val = cps[j].coefficients ∧
+          result[j].toGF216Poly = listToGF216Poly cps[j].coefficients) ⦄ := by
   unfold const_polys_to_polys
   step*
   simp_all

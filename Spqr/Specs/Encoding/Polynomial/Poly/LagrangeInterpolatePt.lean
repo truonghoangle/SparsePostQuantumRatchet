@@ -121,24 +121,24 @@ the function returns a polynomial `result : Poly` satisfying:
 @[step]
 theorem lagrange_interpolate_pt_spec
     (pts : Slice Pt)
-    (i : Std.Usize)
-    (hi : i.val < pts.val.length)
-    (h_len : pts.val.length + 1 ≤ Std.Usize.max) :
+    (i : Usize)
+    (hi : i < pts.length)
+    (h_len : pts.length + 1 ≤ Usize.max) :
     lagrange_interpolate_pt pts i ⦃ (result : Poly) =>
-      result.coefficients.val.length = pts.val.length ∧
+      result.degree = pts.length ∧
       result.toGF216Poly *
-        (X - C (GF16.toGF216
-          (pts.val.get ⟨i.val, hi⟩).x)) =
-        C (lagrangeScaleGF216
-          (pts.val.get ⟨i.val, hi⟩) pts.val) *
-          prodLinearFactors pts.val 0 pts.val.length ⦄ := by
+        (X - C (GF16.toGF216 (pts[i]).x)) =
+        C (lagrangeScaleGF216 (pts[i]) pts) * prodLinearFactors pts 0 pts.length ⦄ := by
   unfold lagrange_interpolate_pt
   step with lagrange_interpolate_prepare_spec pts h_len as
     ⟨template, h_template_len, _, _, _, h_template_eq⟩
-  have h_template_pos : 0 < template.coefficients.val.length := by
-    rw [h_template_len]; omega
+  simp_all only [Slice.length, Order.add_one_le_iff, degree, alloc.vec.Vec.length,
+    lt_add_iff_pos_right, Order.lt_one_iff, getElem!_pos, Option.some.injEq, Std.le_refl,
+    forall_const, Order.lt_add_one_iff, forall_true_left, Slice.getElem_Usize_eq]
+  have h_template_pos : 0 < template.coefficients.length := by
+    grind
   have h_root_template :
-      template.evalAt (pts.val.get ⟨i.val, hi⟩).x = 0 := by
+      template.evalAt (pts[i]).x = 0 := by
     unfold Poly.evalAt
     rw [h_template_eq]
     exact prodLinearFactors_eval_root pts.val 0 pts.val.length i.val

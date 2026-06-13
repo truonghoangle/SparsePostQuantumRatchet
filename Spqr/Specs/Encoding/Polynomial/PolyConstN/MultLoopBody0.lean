@@ -84,7 +84,7 @@ theorem body_spec
   by_cases h_lt : i.val < N.val
   · -- Continue case: i < N
     simp only [UScalar.lt_equiv, h_lt, ↓reduceIte, not_true_eq_false, and_false,
-      List.Vector.length_val, List.get_eq_getElem, getElem!_pos, forall_true_left, ne_eq, not_lt,
+      List.Vector.length_val, List.get_eq_getElem, getElem!_pos, forall_true_left, ne_eq, 
       true_and]
     step*
     all_goals simp_all

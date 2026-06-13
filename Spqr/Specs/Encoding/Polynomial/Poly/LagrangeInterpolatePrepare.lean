@@ -94,46 +94,47 @@ proved at the loop level.
 -/
 @[step]
 theorem body_spec
-    (pts : Slice encoding.polynomial.Pt)
-    (offset : Std.Usize)
+    (pts : Slice Pt)
+    (offset : Usize)
     (iter : core.ops.range.Range Std.Usize)
-    (p : encoding.polynomial.Poly)
-    (h_end_le_pts : iter.«end».val ≤ pts.val.length)
-    (h_end_le_offset : iter.«end».val ≤ offset.val)
-    (h_offset_lt_len : offset.val < p.coefficients.val.length) :
+    (p : Poly)
+    (h_end_le_pts : iter.end ≤ pts.length)
+    (h_end_le_offset : iter.end ≤ offset)
+    (h_offset_lt_len : offset < p.coefficients.length) :
     body pts offset iter p ⦃ cf =>
       match cf with
       | ControlFlow.done r =>
-          r = p ∧ ¬ (iter.start.val < iter.«end».val)
+          r = p ∧ ¬ (iter.start < iter.end)
       | ControlFlow.cont (iter1, p1) =>
-          iter.start.val < iter.«end».val ∧
-          iter1.start.val = iter.start.val + 1 ∧
-          iter1.«end» = iter.«end» ∧
-          p1.coefficients.val.length = p.coefficients.val.length ∧
+          iter.start < iter.end ∧
+          iter1.start = iter.start.val + 1 ∧
+          iter1.end = iter.end ∧
+          p1.coefficients.length = p.coefficients.length ∧
           (∀ (j : Nat),
-            offset.val - iter.start.val ≤ j + 1 →
-            j + 1 < p.coefficients.val.length →
+            offset - iter.start ≤ j + 1 →
+            j + 1 < p.coefficients.length →
             ∀ (hj : j < p1.coefficients.val.length),
               (p1.coefficients.val.get ⟨j, hj⟩).toGF216 =
                 (p.coefficients.val[j]!).toGF216 -
                 (p.coefficients.val[j + 1]!).toGF216 *
                   (pts.val[iter.start.val]!).x.toGF216) ∧
           (∀ (j : Nat),
-            ¬(offset.val - iter.start.val ≤ j + 1 ∧
-              j + 1 < p.coefficients.val.length) →
+            ¬(offset - iter.start ≤ j + 1 ∧
+              j + 1 < p.coefficients.length) →
             p1.coefficients.val[j]? = p.coefficients.val[j]?) ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
   rw [hnext]; simp only [bind_tc_ok]
-  by_cases h_lt : iter.start.val < iter.«end».val
+  by_cases h_lt : iter.start.val < iter.end.val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
     simp only [uncurry_apply_pair, not_lt, tsub_le_iff_right, List.get_eq_getElem,
       List.getElem!_eq_getElem?_getD, not_and]
-    have h_i_lt_pts : iter.start.val < pts.val.length := by omega
-    have h_i_lt_offset : iter.start.val < offset.val := by omega
+    have h_i_lt_pts : iter.start < pts.length := by grind
+    have h_i_lt_offset : iter.start < offset := by grind
     step*
-    all_goals simp_all
+    simp_all
+    grind[degree]
   · obtain ⟨h_opt_eq, h_range_eq⟩ := h_none (by omega)
     rw [h_opt_eq]
     grind
@@ -182,10 +183,10 @@ theorem loop_spec
     (offset : Usize)
     (iter : core.ops.range.Range Usize)
     (p : Poly)
-    (h_end_le_pts : iter.«end».val ≤ pts.val.length)
-    (h_end_le_offset : iter.«end».val ≤ offset.val)
-    (h_len_eq : p.coefficients.val.length = offset.val + 1)
-    (h_le : iter.start.val ≤ iter.«end».val)
+    (h_end_le_pts : iter.end ≤ pts.length)
+    (h_end_le_offset : iter.end ≤ offset)
+    (h_len_eq : p.coefficients.val.length = offset + 1)
+    (h_le : iter.start ≤ iter.end)
     (h_start_zero : iter.start.val = 0) :
     lagrange_interpolate_prepare_loop
       iter pts p offset ⦃ (result : Poly) =>
@@ -193,31 +194,30 @@ theorem loop_spec
       result.coefficients.val[offset.val]? =
         p.coefficients.val[offset.val]? ∧
       (∀ (hoff : offset.val < result.coefficients.val.length),
-        (result.coefficients.val.get ⟨offset.val, hoff⟩).toGF216 =
+        (result.coefficients.val[offset]).toGF216 =
           (p.coefficients.val[offset.val]!).toGF216) ∧
       (∀ (j : Nat),
-        ¬(offset.val - iter.«end».val ≤ j ∧ j < offset.val) →
+        ¬(offset.val - iter.end ≤ j ∧ j < offset.val) →
         result.coefficients.val[j]? = p.coefficients.val[j]?) ∧
       -- Property 5: trailing polynomial identity
       (∀ (m : Nat),
-        m ≤ iter.«end».val - iter.start.val →
-        ∀ (hpos : offset.val - (iter.«end».val - iter.start.val) + m <
-                    result.coefficients.val.length),
+        m ≤ iter.end - iter.start →
+        ∀ (hpos : offset - (iter.end - iter.start) + m <
+                    result.coefficients.length),
           GF16.toGF216
-            (result.coefficients.val.get
-              ⟨offset.val - (iter.«end».val - iter.start.val) + m, hpos⟩) =
-            (expectedTrailingPoly p.coefficients.val pts.val offset.val
-              iter.start.val (iter.«end».val - iter.start.val)).coeff m) ⦄ := by
+            (result.coefficients.val[offset.val - (iter.end.val - iter.start.val) + m]) =
+            (expectedTrailingPoly p.coefficients pts offset
+              iter.start (iter.end - iter.start)).coeff m) ⦄ := by
   unfold spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
   apply loop.spec_decr_nat
     (measure := fun (st : core.ops.range.Range Std.Usize ×
                         encoding.polynomial.Poly) =>
-                  st.1.«end».val - st.1.start.val)
+                  st.1.end.val - st.1.start.val)
     (inv := fun (st : core.ops.range.Range Std.Usize ×
                      encoding.polynomial.Poly) =>
-        st.1.«end» = iter.«end» ∧
+        st.1.end = iter.end ∧
         iter.start.val ≤ st.1.start.val ∧
-        st.1.start.val ≤ iter.«end».val ∧
+        st.1.start.val ≤ iter.end.val ∧
         st.2.coefficients.val.length = p.coefficients.val.length ∧
         st.2.coefficients.val[offset.val]? =
           p.coefficients.val[offset.val]? ∧
@@ -239,8 +239,8 @@ theorem loop_spec
                 iter.start.val (st.1.start.val - iter.start.val)).coeff m))
   · rintro ⟨iter', p'⟩ ⟨h_end', h_ge', h_le', h_len', h_off', h_gf16_off', h_frame', h_trail'⟩
     simp only [] at h_end' h_ge' h_le' h_len' h_off' h_gf16_off' h_frame' h_trail' ⊢
-    have h_end_le_pts' : iter'.«end».val ≤ pts.val.length := by grind
-    have h_end_le_offset' : iter'.«end».val ≤ offset.val := by grind
+    have h_end_le_pts' : iter'.end.val ≤ pts.val.length := by grind
+    have h_end_le_offset' : iter'.end.val ≤ offset.val := by grind
     have h_offset_lt_len' : offset.val < p'.coefficients.val.length := by omega
     step*
     split
@@ -248,13 +248,13 @@ theorem loop_spec
       simp only [] at r_post
       obtain ⟨h_eq, h_nlt⟩ := r_post
       subst h_eq
-      have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
+      have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
       refine ⟨h_len', h_off', h_gf16_off', fun j hj => ?_, fun m hm hpos => ?_⟩
       · apply h_frame'
         intro ⟨h1, h2⟩
         exact hj ⟨by omega, h2⟩
       · have h_iters_eq : iter'.start.val - iter.start.val =
-            iter.«end».val - iter.start.val := by omega
+            iter.end.val - iter.start.val := by grind
         rw [h_iters_eq] at h_trail'
         exact h_trail' m hm hpos
     · rename_i r_post
@@ -264,13 +264,13 @@ theorem loop_spec
       · rw [h_end1]; exact h_end'
       · omega
       · grind
-      · omega
-      · have h_off_frame := h_frame offset.val (by
-          push Not; intro _; omega)
+      · grind
+      · have h_off_frame := h_frame offset (by
+          push Not; intro _; grind)
         rw [h_off_frame, h_off']
       · intro hoff
         have h_off_frame := h_frame offset.val (by
-          push Not; intro _; omega)
+          push Not; intro _; grind)
         have hoff_p' : offset.val < p'.coefficients.val.length := by omega
         have h_get_eq := list_get_of_getElem?_eq h_off_frame hoff hoff_p'
         simp only [List.get_eq_getElem] at h_get_eq ⊢
@@ -281,7 +281,7 @@ theorem loop_spec
             p'.coefficients.val[j]? := by
           apply h_frame
           intro ⟨ha, hb⟩
-          exact hj ⟨by omega, by omega⟩
+          exact hj ⟨by omega, by grind⟩
         have h_inv_fr : p'.coefficients.val[j]? =
             p.coefficients.val[j]? := by
           apply h_frame'
@@ -304,9 +304,9 @@ theorem loop_spec
         by_cases hm0 : m = 0
         · subst hm0
           rw [coeff_zero_C_add_X_sub_C_mul]
-          have hmod := h_modified pos (by omega) (by omega) hpos'
+          have hmod := h_modified pos (by omega) (by grind) hpos'
           rw [hmod]
-          have hidx : pos + 1 = offset.val - k := by omega
+          have hidx : pos + 1 = offset.val - k := by grind
           rw [hidx]
           have hfr := h_frame' pos (by
             intro ⟨h1, _⟩
@@ -338,12 +338,12 @@ theorem loop_spec
           grind
         · obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
           rw [coeff_succ_C_add_X_sub_C_mul]
-          have hpos_simp : pos = offset.val - k + m' := by omega
+          have hpos_simp : pos = offset.val - k + m' := by grind
           by_cases hm'k : m' + 1 ≤ k
           · have hj_len : offset.val - k + m' <
                 (Prod.snd r_post).coefficients.val.length := by omega
             have hmod := h_modified (offset.val - k + m')
-              (by omega) (by omega) hj_len
+              (by omega) (by grind) hj_len
             have hget_conv : (Prod.snd r_post).coefficients.val.get ⟨pos, hpos'⟩ =
                 (Prod.snd r_post).coefficients.val.get
                   ⟨offset.val - k + m', hj_len⟩ := by
@@ -376,7 +376,7 @@ theorem loop_spec
           · have hm'_eq : m' = k := by omega
             subst hm'_eq
             have hpos_off : pos = offset.val := by omega
-            have hfr := h_frame offset.val (by push Not; intro _; omega)
+            have hfr := h_frame offset.val (by push Not; intro _; grind)
             have hoff_len : offset.val <
                 (Prod.snd r_post).coefficients.val.length := by omega
             have hget_conv : (Prod.snd r_post).coefficients.val.get ⟨pos, hpos'⟩ =
@@ -483,21 +483,21 @@ open encoding.gf.GF16
 @[step]
 theorem lagrange_interpolate_prepare_spec
     (pts : Slice Pt)
-    (h_len : pts.val.length + 1 ≤ Std.Usize.max) :
+    (h_len : pts.length + 1 ≤ Usize.max) :
     lagrange_interpolate_prepare pts
       ⦃ (result : Poly) =>
-      result.coefficients.val.length = pts.val.length + 1 ∧
-      result.coefficients.val[pts.val.length]? =
+      result.degree = pts.length + 1 ∧
+      result.coefficients.val[pts.length]! =
         some ONE ∧
-      (∀ (hoff : pts.val.length < result.coefficients.val.length),
-        (result.coefficients.val.get ⟨pts.val.length, hoff⟩).toGF216 = 1) ∧
+      (∀ (hoff : pts.length < result.degree),
+        (result.coefficients.val[pts.length]).toGF216 = 1) ∧
       (∀ (m : Nat),
-        m ≤ pts.val.length →
-        ∀ (hpos : m < result.coefficients.val.length),
-          (result.coefficients.val.get ⟨m, hpos⟩).toGF216 =
-            (prodLinearFactors pts.val 0 pts.val.length).coeff m) ∧
-      result.toGF216Poly = prodLinearFactors pts.val 0 pts.val.length ⦄ := by
-  unfold lagrange_interpolate_prepare
+        m ≤ pts.length →
+        ∀ (hpos : m < result.degree),
+          (result.coefficients.val[m]).toGF216 =
+            (prodLinearFactors pts 0 pts.length).coeff m) ∧
+      result.toGF216Poly = prodLinearFactors pts 0 pts.length ⦄ := by
+  unfold lagrange_interpolate_prepare degree
   step*
   · simp_all [encoding.gf.GF16.Insts.CoreCloneClone.clone]
   · simp_all
@@ -505,51 +505,52 @@ theorem lagrange_interpolate_prepare_spec
   · simp_all
   · simp_all only [Order.add_one_le_iff, Usize.ofNatCore_val_eq, List.resize_length,
     lt_add_iff_pos_right, zero_lt_one, getElem!_pos, alloc.vec.Vec.set_val_eq, List.length_set,
-    getElem?_pos, List.getElem_set_self, Option.some.injEq, List.get_eq_getElem, ONE_toGF216,
+    getElem?_pos, List.getElem_set_self, Option.some.injEq, ONE_toGF216,
     imp_self, tsub_self, zero_le, true_and, not_lt, tsub_zero, zero_add, Order.lt_add_one_iff,
     forall_true_left, ONE_value,  forall_const]
     have h_bridge : expectedTrailingPoly
-        ((p.coefficients.val.resize (pts.val.length + 1) ZERO).set pts.val.length ONE)
-        pts.val pts.val.length 0 pts.val.length =
-      prodLinearFactors pts.val 0 pts.val.length := by
+        ((p.coefficients.val.resize (pts.length + 1) ZERO).set pts.length ONE)
+        pts pts.length 0 pts.length =
+      prodLinearFactors pts 0 pts.length := by
       apply expectedTrailingPoly_eq_prodLinearFactors
-      · have hlen : pts.val.length <
-          (p.coefficients.val.resize (pts.val.length + 1) ZERO).length := by
+      · have hlen : pts.length <
+          (p.coefficients.val.resize (pts.length + 1) ZERO).length := by
           unfold List.resize
           simp
           grind
         grind [list_getElem_bang_set_self _ _ _ hlen, ONE_toGF216]
       · intro j hj
-        have hj_lt : j < (p.coefficients.val.resize (pts.val.length + 1) ZERO).length := by
-          unfold List.resize; simp; omega
-        have h_p_coeff_zero : ∀ k (hk : k < p.coefficients.val.length),
-            (p.coefficients.val.get ⟨k, hk⟩).toGF216 = 0 := by
+        have hj_lt : j < (p.coefficients.val.resize (pts.length + 1) ZERO).length := by
+          unfold List.resize
+          grind
+        have h_p_coeff_zero : ∀ k (hk : k < p.coefficients.length),
+            (p.coefficients.val[k]!).toGF216 = 0 := by
           intro k hk
           have h0 : (p.toGF216Poly).coeff k = 0 := by grind
           simp only [Poly.toGF216Poly, listToGF216Poly_coeff, hk, ↓reduceDIte] at h0
-          exact h0
+          grind
         unfold List.resize at hj_lt ⊢
         simp only [Nat.zero_le, ge_iff_le, ↓reduceIte] at hj_lt ⊢
-        by_cases hk : j < p.coefficients.val.length
-        · have hj_take : j < (p.coefficients.val.take (pts.val.length + 1)).length := by
-            simp; omega
-          grind
+        by_cases hk : j < p.coefficients.length
+        · grind
         · push Not at hk
-          have htake_len_le : (p.coefficients.val.take (pts.val.length + 1)).length ≤ j := by
+          have htake_len_le : (p.coefficients.val.take (pts.length + 1)).length ≤ j := by
             rw [List.length_take]; omega
-          have hrepl_bnd : j - (p.coefficients.val.take (pts.val.length + 1)).length <
-              pts.val.length + 1 - p.coefficients.val.length := by
-            rw [List.length_take]; omega
-          have hj_ne : Nat.not_eq pts.val.length j := by
-            simp [Nat.not_eq]; omega
+          have hrepl_bnd : j - (p.coefficients.val.take (pts.length + 1)).length <
+              pts.length + 1 - p.coefficients.length := by
+            rw [List.length_take]
+            grind
+          have hj_ne : Nat.not_eq pts.length j := by
+            simp [Nat.not_eq]
+            grind
           simp_all
       · exact le_refl _
       · exact le_refl _
     constructor
     · intro m hm
       rw [h_bridge]
-    · change listToGF216Poly p1.coefficients.val =
-        prodLinearFactors pts.val 0 pts.val.length
+    · change listToGF216Poly p1.coefficients =
+        prodLinearFactors pts 0 pts.length
       apply listToGF216Poly_eq_of_coeffs
       · intro m hm
         grind
