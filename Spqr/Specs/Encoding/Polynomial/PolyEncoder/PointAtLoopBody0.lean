@@ -181,12 +181,19 @@ core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairU
       erw [h_cm_eq]
       simp [bind_tc_ok]
 
-      congr 1
-      · congr 1
-        simp
-        apply UScalar.eq_of_val_eq
-        simp [UScalar.wrapping_add_val_eq]
-        grind
+      -- Resolve the monadic UScalar addition
+      have ⟨y, h_add_eq, h_y_val⟩ :
+          ∃ y, (m.iter.count + 1#usize : Result Usize) = ok y ∧ y.val = m.iter.count.val + 1 := by
+        have : m.iter.count.val + (1#usize : Usize).val ≤ Usize.max := by scalar_tac
+        have := Usize.add_spec this
+        revert this; generalize (m.iter.count + 1#usize : Result Usize) = res
+        match res with
+        | .ok z => intro h; exact ⟨z, rfl, by simp_all [WP.spec_ok]⟩
+        | .fail _ => simp_all
+        | .div => simp_all
+      have : y = m'.iter.count := by apply UScalar.eq_of_val_eq; omega
+      subst this
+      simp only [h_add_eq, bind_tc_ok, m']
 
     -- Apply IH
     have h_n' : n = m'.iter.iter.slice.val.length - m'.iter.iter.i := by

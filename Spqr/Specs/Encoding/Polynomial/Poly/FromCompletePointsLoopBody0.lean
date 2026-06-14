@@ -22,10 +22,26 @@ open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
 namespace spqr.encoding.polynomial.Poly.from_complete_points_loop
 
+/-! ## Helper: checked addition for usize -/
+
+private lemma usize_checked_add_one_val (x : Usize)
+    (h : x.val + 1 ≤ Usize.max) :
+    ∃ (y : Usize), (x + 1#usize : Result Usize) = ok y ∧ y.val = x.val + 1 := by
+  have h_add : x.val + (1#usize : Usize).val ≤ Usize.max := by scalar_tac
+  have h_spec := Usize.add_spec h_add
+  revert h_spec
+  generalize (x + 1#usize : Result Usize) = res
+  intro h_spec
+  match res with
+  | .ok z => exact ⟨z, rfl, by simp_all [WP.spec_ok]⟩
+  | .fail e => simp_all
+  | .div => simp_all
+
 /-! ## Helper lemma: Enumerate<SliceIter<Pt>>::next always succeeds -/
 
 private lemma EnumerateSliceIter_next_Pt_post
-    (iter : Enumerate (Iter Pt)) :
+    (iter : Enumerate (Iter Pt))
+    (h_bound : iter.iter.i < iter.iter.slice.val.length → iter.count.val + 1 ≤ Usize.max) :
     ∃ (opt : Option (Usize × Pt))
       (iter' : Enumerate (Iter Pt)),
       Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
@@ -33,43 +49,34 @@ private lemma EnumerateSliceIter_next_Pt_post
           ok (opt, iter') := by
   simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
     IteratorSliceIter.next]
-  split <;> exact ⟨_, _, rfl⟩
+  split
+  · have h_add_bound : iter.count.val + 1 ≤ Usize.max := h_bound (by scalar_tac)
+    obtain ⟨count', h_add_eq, _⟩ := usize_checked_add_one_val iter.count h_add_bound
+    rw [h_add_eq]
+    exact ⟨_, _, rfl⟩
+  · exact ⟨_, _, rfl⟩
 
 /-! ## Helper: extract facts when Enumerate.next returns some -/
 
 private lemma EnumerateSliceIter_next_Pt_some
     (iter : Enumerate (Iter Pt))
-    (idx : Usize) (pt : Pt) (iter' : Enumerate (Iter Pt))
-    (hnext : Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+    (h_lt : iter.iter.i < iter.iter.slice.val.length)
+    (h_bound : iter.count.val + 1 ≤ Usize.max) :
+    ∃ (iter1 : Enumerate (Iter Pt)),
+      Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
-          ok (some (idx, pt), iter')) :
-    ∃ (h_lt : iter.iter.i < iter.iter.slice.val.length),
-      idx = iter.count ∧
-      pt = iter.iter.slice.val.get ⟨iter.iter.i, h_lt⟩ ∧
-      iter'.iter.i = iter.iter.i + 1 ∧
-      iter'.iter.slice = iter.iter.slice ∧
-      iter'.count = UScalar.wrapping_add iter.count 1#usize := by
-  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
-    IteratorSliceIter.next] at hnext
-  split at hnext
-  case isTrue h_lt =>
-    have hnext' : ok (some (iter.count, iter.iter.slice[iter.iter.i]),
-      (⟨⟨iter.iter.slice, iter.iter.i + 1⟩,
-        UScalar.wrapping_add iter.count 1#usize⟩ : Enumerate (Iter Pt)))
-      = ok (some (idx, pt), iter') := hnext
-    simp only [ok.injEq, Prod.mk.injEq, Option.some.injEq, Prod.mk.injEq] at hnext'
-    obtain ⟨⟨h1, h2⟩, h3⟩ := hnext'
-    refine ⟨h_lt, h1.symm, ?_, ?_, ?_, ?_⟩
-    · exact h2.symm
-    · rw [← h3]
-    · rw [← h3]
-    · rw [← h3]
-  case isFalse h_neg =>
-    have hnext' : ok ((none : Option (Usize × Pt)),
-      (⟨iter.iter, iter.count⟩ : Enumerate (Iter Pt)))
-      = ok (some (idx, pt), iter') := hnext
-    simp only [ok.injEq, Prod.mk.injEq] at hnext'
-    exact absurd hnext'.1 (by simp)
+          ok (some (iter.count, iter.iter.slice.val[iter.iter.i]), iter1) ∧
+      iter1.iter.i = iter.iter.i + 1 ∧
+      iter1.iter.slice = iter.iter.slice ∧
+      iter1.count.val = iter.count.val + 1 := by
+  simp only [
+    Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorSliceIter.next]
+  have h_lt' : iter.iter.i < (↑iter.iter.slice.len : Nat) := by scalar_tac
+  rw [dif_pos h_lt']
+  obtain ⟨count', h_add_eq, h_add_val⟩ := usize_checked_add_one_val iter.count h_bound
+  rw [h_add_eq]
+  exact ⟨_, rfl, rfl, rfl, h_add_val⟩
 
 /-! ## Helper: extract facts when Enumerate.next returns none -/
 
@@ -84,12 +91,10 @@ private lemma EnumerateSliceIter_next_Pt_none
     IteratorSliceIter.next] at hnext
   split at hnext
   case isTrue h_lt =>
-    have hnext' : ok (some (iter.count, iter.iter.slice[iter.iter.i]),
-      (⟨⟨iter.iter.slice, iter.iter.i + 1⟩,
-        UScalar.wrapping_add iter.count 1#usize⟩ : Enumerate (Iter Pt)))
-      = ok ((none : Option (Usize × Pt)), iter') := hnext
-    simp only [ok.injEq, Prod.mk.injEq] at hnext'
-    exact absurd hnext'.1 (by simp)
+    exfalso
+    revert hnext
+    generalize (iter.count + 1#usize : Result Usize) = add_res
+    cases add_res <;> simp
   case isFalse h_neg => exact h_neg
 
 /-! ## Helper: UScalar.cast .U16 preserves value when in range -/
@@ -208,8 +213,12 @@ private lemma absurd_some_out_of_bounds
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
           ok (some (idx, pt), iter1))
     (h_out : ¬(iter.iter.i < iter.iter.slice.val.length)) :
-    False :=
-  absurd (EnumerateSliceIter_next_Pt_some iter idx pt iter1 hnext).1 h_out
+    False := by
+  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorSliceIter.next] at hnext
+  split at hnext
+  case isTrue h_lt => exact absurd h_lt h_out
+  case isFalse => simp at hnext
 
 /-! ## Spec helper: the `some` (validation) branch -/
 
@@ -221,32 +230,18 @@ private theorem body_spec_some_case
     (h_in_bounds : iter.iter.i < iter.iter.slice.val.length) :
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
-  obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+  have h_count_bound : iter.count.val + 1 ≤ Usize.max := by scalar_tac
+  obtain ⟨iter1, hnext, h_iter1_i, h_iter1_slice, h_iter1_count⟩ :=
+    EnumerateSliceIter_next_Pt_some iter h_in_bounds h_count_bound
   rw [hnext]
   simp only [bind_tc_ok]
-  cases opt with
-  | some p =>
-    obtain ⟨idx, pt⟩ := p
-    obtain ⟨h_lt, rfl, h_pt_eq, h_iter1_i, h_iter1_slice, h_iter1_count⟩ :=
-      EnumerateSliceIter_next_Pt_some iter idx pt iter1 hnext
-    subst h_pt_eq
-    have h_lt_pts : iter.iter.i < pts.val.length := by
-      rw [← h_slice_eq]; exact h_lt
-    have h_cast_val := usize_cast_u16_val iter.count h_count
-    step*
-    rename_i h_bne
-    refine ⟨h_lt_pts, ?_⟩
-    simp only [List.get_eq_getElem]
-    subst i1_post
-    have h_val_eq : (↑pts : List Pt)[iter.iter.i].x.value.val =
-          (UScalar.cast UScalarTy.U16 iter.count).val := by
-      rw [h_cast_val]
-      simp only [bne_iff_ne, ne_eq] at h_bne
-      grind
-    simp_all
+  have h_lt_pts : iter.iter.i < pts.val.length := by
+    rw [← h_slice_eq]; exact h_in_bounds
+  have h_cast_val := usize_cast_u16_val iter.count h_count
+  step*
+  · simp_all
     grind
-  | none =>
-    exact absurd h_in_bounds (EnumerateSliceIter_next_Pt_none iter iter1 hnext)
+  · grind
 
 /-! ## Spec helpers: the `none` (computation) branch by size -/
 
@@ -260,6 +255,7 @@ private theorem body_spec_none_0
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]
   simp only [bind_tc_ok]
   cases opt with
@@ -306,6 +302,7 @@ private theorem body_spec_none_1
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -331,7 +328,6 @@ private theorem body_spec_none_1
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -340,8 +336,7 @@ private theorem body_spec_none_1
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
       grind [degree]
-    ·
-      constructor
+    · constructor
       · grind
       · use (polys.deref)
         constructor
@@ -351,8 +346,8 @@ private theorem body_spec_none_1
         · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow, Finset.range_one,  Finset.sum_singleton,
+          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero]
           constructor
           · grind
           · constructor
@@ -392,6 +387,7 @@ private theorem body_spec_none_3
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -417,7 +413,6 @@ private theorem body_spec_none_3
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -426,19 +421,17 @@ private theorem body_spec_none_3
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
       grind [degree]
-    ·
-      constructor
+    · constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow]
           constructor
           · grind
           · constructor
@@ -451,7 +444,7 @@ private theorem body_spec_none_3
                   simp [alloc.vec.Vec.deref]
                 grind
               · use 3#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                simp only [UScalar.ofNatCore_val_eq, true_and]
                 use a
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
@@ -467,6 +460,7 @@ private theorem body_spec_none_5
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -492,7 +486,6 @@ private theorem body_spec_none_5
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -508,11 +501,10 @@ private theorem body_spec_none_5
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow]
           constructor
           · grind
           · constructor
@@ -525,7 +517,7 @@ private theorem body_spec_none_5
                   simp [alloc.vec.Vec.deref]
                 grind
               · use 5#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                simp only [UScalar.ofNatCore_val_eq, true_and]
                 use a
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
@@ -541,6 +533,7 @@ private theorem body_spec_none_30
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -566,7 +559,6 @@ private theorem body_spec_none_30
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -575,19 +567,17 @@ private theorem body_spec_none_30
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
       grind [degree]
-    ·
-      constructor
+    · constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+        · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow]
           constructor
           · grind
           · constructor
@@ -600,7 +590,7 @@ private theorem body_spec_none_30
                   simp [alloc.vec.Vec.deref]
                 grind
               · use 30#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                simp only [UScalar.ofNatCore_val_eq, true_and]
                 use a
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
@@ -616,6 +606,7 @@ private theorem body_spec_none_34
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -641,7 +632,6 @@ private theorem body_spec_none_34
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -650,19 +640,17 @@ private theorem body_spec_none_34
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
       grind [degree]
-    ·
-      constructor
+    · constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+        · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow]
           constructor
           · grind
           · constructor
@@ -675,7 +663,7 @@ private theorem body_spec_none_34
                   simp [alloc.vec.Vec.deref]
                 grind
               · use 34#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                simp only [UScalar.ofNatCore_val_eq, true_and]
                 use a
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
@@ -691,6 +679,7 @@ private theorem body_spec_none_36
     body pts iter ⦃ bodyPost pts iter ⦄ := by
   unfold body
   obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+    (fun h_lt => absurd h_lt h_out_of_bounds)
   rw [hnext]; simp only [bind_tc_ok]
   cases opt with
   | some p =>
@@ -716,7 +705,6 @@ private theorem body_spec_none_36
       exists_and_left]
     step
     step
-
     · have : (polys.deref).val.length = (polys).val.length:= by
         simp [alloc.vec.Vec.deref]
       grind
@@ -725,19 +713,17 @@ private theorem body_spec_none_36
         (polys.val[i]!.coefficients).val.length := by
         simp [alloc.vec.Vec.deref]
       grind [degree]
-    ·
-      constructor
+    · constructor
       · grind
       · use (polys.deref)
         constructor
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
+        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
           List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one, List.getElem!_eq_getElem?_getD, Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero, true_and]
+          one_mul, map_pow]
           constructor
           · grind
           · constructor
@@ -750,7 +736,7 @@ private theorem body_spec_none_36
                   simp [alloc.vec.Vec.deref]
                 grind
               · use 36#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
+                simp only [UScalar.ofNatCore_val_eq,  true_and]
                 use a
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
@@ -788,31 +774,17 @@ theorem body_spec_inbounds
   have h_in_bounds' : iter.iter.i < iter.iter.slice.val.length := by
     rw [h_slice_eq]; exact h_in_bounds
   unfold body
-  obtain ⟨opt, iter1, hnext⟩ := EnumerateSliceIter_next_Pt_post iter
+  have h_count_bound : iter.count.val + 1 ≤ Usize.max := by scalar_tac
+  obtain ⟨iter1, hnext, h_iter1_i, h_iter1_slice, h_iter1_count⟩ :=
+    EnumerateSliceIter_next_Pt_some iter h_in_bounds' h_count_bound
   rw [hnext]
   simp only [bind_tc_ok]
-  cases opt with
-  | some p =>
-    obtain ⟨idx, pt⟩ := p
-    obtain ⟨h_lt, rfl, h_pt_eq, h_iter1_i, h_iter1_slice, h_iter1_count⟩ :=
-      EnumerateSliceIter_next_Pt_some iter idx pt iter1 hnext
-    subst h_pt_eq
-    have h_lt_pts : iter.iter.i < pts.val.length := by
-      rw [← h_slice_eq]; exact h_lt
-    have h_cast_val := usize_cast_u16_val iter.count h_count
-    step*
-    rename_i h_bne
-    simp only [List.get_eq_getElem]
-    subst i1_post
-    have h_val_eq : (↑pts : List Pt)[iter.iter.i].x.value.val =
-          (UScalar.cast UScalarTy.U16 iter.count).val := by
-      rw [h_cast_val]
-      simp only [bne_iff_ne, ne_eq] at h_bne
-      grind
-    simp_all
-    grind
-  | none =>
-    exact absurd h_in_bounds' (EnumerateSliceIter_next_Pt_none iter iter1 hnext)
+  have h_lt_pts : iter.iter.i < pts.val.length := h_in_bounds
+  have h_cast_val := usize_cast_u16_val iter.count h_count
+  step*
+  · simp_all only [UScalar.max_UScalarTy_U16_eq, Order.add_one_le_iff, bne_iff_ne, ne_eq,
+    UScalar.neq_to_neq_val, List.get_eq_getElem, not_false_eq_true]
+  grind
 
 /-! ## Spec theorem for the loop body -/
 

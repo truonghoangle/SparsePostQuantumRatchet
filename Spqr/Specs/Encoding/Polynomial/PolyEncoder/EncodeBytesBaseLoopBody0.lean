@@ -61,15 +61,19 @@ This follows from composing:
   4. `GF16::new` (`new_spec`): the GF(2¹⁶) element wraps the big-endian value.
   5. `Vec::push` — appending `g` to `pts[i % 16].value`.
 
+Requires `h_count_bound`: the enumerate counter can be incremented when chunks remain.
+This mirrors the precondition in `Poly.add_assign_loop.body_spec` (AddAssign.lean).
+
 **Source**: spqr/src/encoding/polynomial.rs (lines 679:8-686:9)
 -/
 theorem body_spec_nat
     (iter : core.iter.adapters.enumerate.Enumerate
-      (core.slice.iter.ChunksExact Std.U8))
-    (pts : Array encoding.polynomial.Point 16#usize)
-    (h_push_ok : ∀ (j : Nat), j < 16 →
+      (core.slice.iter.ChunksExact U8))
+    (pts : Array Point 16#usize)
+    (h_push_ok : ∀ j < 16,
         (pts.val[j]!).value.val.length + 1 ≤ Usize.max)
-    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2) :
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2)
+    (h_count_bound : iter.iter.chunks ≠ [] → iter.count + 1 ≤ Usize.max) :
     body iter pts ⦃ cf =>
       match cf with
       | ControlFlow.done pts' =>
@@ -85,8 +89,7 @@ theorem body_spec_nat
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
   unfold body
   simp only [
-    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
-    core.iter.traits.iterator.IteratorChunksExact,
+    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
     core.slice.iter.IteratorChunksExact.next]
   split
   · -- nil case: iterator exhausted → done pts = pts
@@ -96,6 +99,8 @@ theorem body_spec_nat
     simp only [bind_tc_ok, uncurry_apply_pair]
     have h_c_len : hd.val.length ≥ 2 :=
       h_chunks_len hd (by rw [rest]; exact .head _)
+    have h_count_ok : iter.count.val + 1 ≤ Usize.max :=
+      h_count_bound (by rw [rest]; exact List.cons_ne_nil _ _)
     step*
     · simp_all
       grind
@@ -137,7 +142,8 @@ theorem body_spec
     (pts : Array encoding.polynomial.Point 16#usize)
     (h_push_ok : ∀ (j : Nat), j < 16 →
         (pts.val[j]!).value.val.length + 1 ≤ Usize.max)
-    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2) :
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2)
+    (h_count_bound : iter.iter.chunks ≠ [] → iter.count.val + 1 ≤ Usize.max) :
     body iter pts ⦃ cf =>
       match cf with
       | ControlFlow.done pts' =>
@@ -151,6 +157,6 @@ theorem body_spec
             pts'.val[poly]!.value.val =
               (pts.val[poly]!).value.val ++ [g] ∧
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
-  exact body_spec_nat iter pts h_push_ok h_chunks_len
+  exact body_spec_nat iter pts h_push_ok h_chunks_len h_count_bound
 
 end spqr.encoding.polynomial.PolyEncoder.encode_bytes_base_loop

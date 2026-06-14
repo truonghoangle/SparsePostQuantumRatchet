@@ -75,13 +75,16 @@ private theorem body_spec_with_iter
     (pts : Array encoding.polynomial.Point 16#usize)
     (h_push_ok : ∀ (j : Nat), j < 16 →
         (pts.val[j]!).value.val.length + 1 ≤ Usize.max)
-    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2) :
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2)
+    (h_count_bound : iter.iter.chunks ≠ [] → iter.count.val + 1 ≤ Usize.max) :
     body iter pts ⦃ cf =>
       match cf with
       | ControlFlow.done pts' =>
           pts' = pts ∧ iter.iter.chunks = []
       | ControlFlow.cont (iter', pts') =>
           (∃ hd tl, iter.iter.chunks = hd :: tl ∧ iter'.iter.chunks = tl) ∧
+          iter'.count.val + iter'.iter.chunks.length =
+            iter.count.val + iter.iter.chunks.length ∧
           ∃ (i : Usize) (c : Slice U8) (g : GF16),
             c.val.length ≥ 2 ∧
             g.toGF216 =
@@ -92,8 +95,7 @@ private theorem body_spec_with_iter
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
   unfold body
   simp only [
-core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
-    core.iter.traits.iterator.IteratorChunksExact,
+core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
     core.slice.iter.IteratorChunksExact.next]
   split
   · -- nil case: iterator exhausted → done pts = pts, chunks = []
@@ -105,11 +107,17 @@ core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairU
     simp only [bind_tc_ok, uncurry_apply_pair]
     have h_c_len : hd.val.length ≥ 2 :=
       h_chunks_len hd (by rw [rest]; exact .head _)
+    have h_count_ok : iter.count.val + 1 ≤ Usize.max :=
+      h_count_bound (by rw [rest]; exact List.cons_ne_nil _ _)
     step*
     · simp_all
       grind
     constructor
     · use hd
+    constructor
+    · -- count + chunks.length preserved
+      simp_all
+      omega
     · refine ⟨iter.count, hd, g, h_c_len, ?_, ?_, ?_⟩
       · -- toGF216 equation: <<< 8 % U16.size = 256 * for U8 values
         conv_lhs =>
@@ -155,7 +163,8 @@ theorem loop_spec_nat
     (pts : Array encoding.polynomial.Point 16#usize)
     (h_push_ok : ∀ (j : Nat), j < 16 →
         (pts.val[j]!).value.val.length + iter.iter.chunks.length ≤ Usize.max)
-    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2) :
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2)
+    (h_count_chunks : iter.count.val + iter.iter.chunks.length ≤ Usize.max) :
     encode_bytes_base_loop iter pts ⦃ (pts' : Array encoding.polynomial.Point 16#usize) =>
       -- Prefix preservation: each point's value list only grows by appending
       (∀ (j : Nat), j < 16 →
@@ -183,6 +192,8 @@ theorem loop_spec_nat
         -- Push overflow safety: each point can still accommodate remaining pushes
         (∀ (j : Nat), j < 16 →
           (pts'.val[j]!).value.val.length + iter'.iter.chunks.length ≤ Usize.max) ∧
+        -- Count-chunks bound: enumerate counter + remaining chunks fits in Usize
+        (iter'.count.val + iter'.iter.chunks.length ≤ Usize.max) ∧
         -- Prefix preservation with big-endian decode validity
         (∀ (j : Nat), j < 16 →
           ∃ (suffix : List encoding.gf.GF16),
@@ -193,8 +204,8 @@ theorem loop_spec_nat
                 g.toGF216 =
                   ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216)))
   · -- Step: the body preserves the invariant or produces the final result
-    rintro ⟨iter', pts'⟩ ⟨h_chunks', h_push', h_pre'⟩
-    simp only [] at h_chunks' h_push' h_pre' ⊢
+    rintro ⟨iter', pts'⟩ ⟨h_chunks', h_push', h_count', h_pre'⟩
+    simp only [] at h_chunks' h_push' h_count' h_pre' ⊢
     -- Case split on whether the chunk list is empty or has elements.
     -- When chunks is empty, the body returns done and h_push_one is not needed.
     -- When chunks is non-empty, h_push_one follows from h_push' since chunks.length ≥ 1.
@@ -203,7 +214,7 @@ theorem loop_spec_nat
       -- Iterator exhausted: body returns done, postcondition follows from invariant
       unfold body
       simp only [
-        core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next_spec,
+        core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
         core.iter.traits.iterator.IteratorChunksExact,
         core.slice.iter.IteratorChunksExact.next,
         h_chunks_cases]
@@ -219,7 +230,12 @@ theorem loop_spec_nat
         rw [h_chunks_cases] at this
         simp only [List.length_cons] at this
         omega
-      have h_body := body_spec_with_iter iter' pts' h_push_one h_chunks'
+      have h_count_ok : iter'.iter.chunks ≠ [] → iter'.count.val + 1 ≤ Usize.max := by
+        intro _
+        rw [h_chunks_cases] at h_count'
+        simp [List.length_cons] at h_count'
+        omega
+      have h_body := body_spec_with_iter iter' pts' h_push_one h_chunks' h_count_ok
       apply WP.spec_mono h_body
       intro cf h_cf
       match cf with
@@ -232,7 +248,7 @@ theorem loop_spec_nat
         exact h_pre' j hj
       | ControlFlow.cont (iter'', pts'') =>
         simp only [] at h_cf ⊢
-        obtain ⟨⟨hd, tl, h_chunks_eq, h_iter_eq⟩,
+        obtain ⟨⟨hd, tl, h_chunks_eq, h_iter_eq⟩, h_count_eq,
                 i, c, g, h_c_len, h_g_decode, h_poly_eq, h_preserve⟩ := h_cf
         -- Relate case-split variables to body-spec variables
         have h_tl_eq : tl = tl₀ := by
@@ -266,6 +282,9 @@ theorem loop_spec_nat
               rw [h_chunks_eq] at this
               simp only [List.length_cons] at this
               omega
+          constructor
+          · -- Count-chunks invariant preserved
+            omega
           · -- Prefix preservation with decode validity
             intro j hj
             obtain ⟨suffix, h_suffix_eq, h_suffix_valid⟩ := h_pre' j hj
@@ -289,7 +308,7 @@ theorem loop_spec_nat
           rw [h_iter_eq, h_tl_eq]
           simp [List.length_cons]
   · -- Initial state satisfies the invariant
-    exact ⟨h_chunks_len, h_push_ok,
+    exact ⟨h_chunks_len, h_push_ok, h_count_chunks,
            fun j _ => ⟨[], by simp, fun _ h => absurd h (by grind)⟩⟩
 
 /--
@@ -313,7 +332,8 @@ theorem loop_spec
     (pts : Array encoding.polynomial.Point 16#usize)
     (h_push_ok : ∀ (j : Nat), j < 16 →
         (pts.val[j]!).value.val.length + iter.iter.chunks.length ≤ Usize.max)
-    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2) :
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.val.length ≥ 2)
+    (h_count_chunks : iter.count.val + iter.iter.chunks.length ≤ Usize.max) :
     encode_bytes_base_loop iter pts ⦃ (pts' : Array encoding.polynomial.Point 16#usize) =>
       -- Prefix preservation: each point's value list only grows by appending
       (∀ (j : Nat), j < 16 →
@@ -325,6 +345,6 @@ theorem loop_spec
               c.val.length ≥ 2 ∧
               g.toGF216 =
                 ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216)) ⦄ := by
-  exact loop_spec_nat iter pts h_push_ok h_chunks_len
+  exact loop_spec_nat iter pts h_push_ok h_chunks_len h_count_chunks
 
 end spqr.encoding.polynomial.PolyEncoder.encode_bytes_base_loop
