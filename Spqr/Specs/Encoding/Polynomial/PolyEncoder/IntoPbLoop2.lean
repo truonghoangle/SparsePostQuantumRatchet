@@ -91,66 +91,47 @@ The proof lifts the body spec through `loop.spec_decr_nat` with measure
 theorem loop_spec
     (iter : core.slice.iter.Iter encoding.polynomial.Poly)
     (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
-    (h_out_len : v.val.length = iter.i)
-    (h_start_le : iter.i ≤ iter.slice.val.length)
-    (h_overflow : iter.slice.val.length + 1 ≤ Usize.max)
-    (h_ser_overflow : ∀ (j : Nat), j < iter.slice.val.length →
-        2 * (iter.slice.val[j]!).coefficients.val.length + 2 ≤ Usize.max)
-    (h_pre : ∀ (j : Nat), j < iter.i →
-        ∃ (serialized : alloc.vec.Vec Std.U8),
-          v.val[j]? = some serialized ∧
-          serialized.val.length =
-            2 * (iter.slice.val[j]!).coefficients.val.length ∧
-          ∀ (k : Nat),
-            k < (iter.slice.val[j]!).coefficients.val.length →
-            ∃ (hi lo : Std.U8),
-              serialized.val[2 * k]? = some hi ∧
-              serialized.val[2 * k + 1]? = some lo ∧
-              hi.val * 256 + lo.val =
-                ((iter.slice.val[j]!).coefficients.val[k]!).value.val) :
+    (h_out_len : v.length = iter.i)
+    (h_start_le : iter.i ≤ iter.slice.length)
+    (h_overflow : iter.slice.length + 1 ≤ Usize.max)
+    (h_ser_overflow : ∀ j < iter.slice.length,
+        2 * (iter.slice[j]!).degree + 2 ≤ Usize.max)
+    (h_pre : ∀ j < iter.i,
+          (v[j]!).length = 2 * (iter.slice[j]!).degree ∧
+          ∀ k < (iter.slice[j]!).degree,
+              256 * (v[j]!)[2 * k]! + (v[j]!)[2 * k + 1]! =
+                ((iter.slice[j]!).coefficients[k]!).value.val) :
     into_pb_loop1 iter v ⦃ (result : alloc.vec.Vec (alloc.vec.Vec Std.U8)) =>
-      result.val.length = iter.slice.val.length ∧
-      ∀ (j : Nat), j < iter.slice.val.length →
-        ∃ (serialized : alloc.vec.Vec Std.U8),
-          result.val[j]? = some serialized ∧
-          serialized.val.length =
-            2 * (iter.slice.val[j]!).coefficients.val.length ∧
-          ∀ (k : Nat),
-            k < (iter.slice.val[j]!).coefficients.val.length →
-            ∃ (hi lo : Std.U8),
-              serialized.val[2 * k]? = some hi ∧
-              serialized.val[2 * k + 1]? = some lo ∧
-              hi.val * 256 + lo.val =
-                ((iter.slice.val[j]!).coefficients.val[k]!).value.val ⦄ := by
+      result.length = iter.slice.length ∧
+      ∀ j < iter.slice.length,
+          (result[j]!).length =
+            2 * (iter.slice[j]!).degree ∧
+          ∀ k < (iter.slice[j]!).degree,
+              256 * (result[j]!)[2 * k]! + (result[j]!)[2 * k + 1]! =
+                ((iter.slice[j]!).coefficients[k]!).value.val ⦄ := by
   unfold into_pb_loop1
   apply loop.spec_decr_nat
     (measure := fun (p : core.slice.iter.Iter encoding.polynomial.Poly ×
                        alloc.vec.Vec (alloc.vec.Vec Std.U8)) =>
-                  p.1.slice.val.length - p.1.i)
+                  p.1.slice.length - p.1.i)
     (inv := fun (p : core.slice.iter.Iter encoding.polynomial.Poly ×
                      alloc.vec.Vec (alloc.vec.Vec Std.U8)) =>
         let iter' := p.1
         let out' := p.2
         iter'.slice = iter.slice ∧
-        iter'.i ≤ iter'.slice.val.length ∧
-        out'.val.length = iter'.i ∧
-        (∀ (j : Nat), j < iter'.i →
-          ∃ (serialized : alloc.vec.Vec Std.U8),
-            out'.val[j]? = some serialized ∧
-            serialized.val.length =
-              2 * (iter.slice.val[j]!).coefficients.val.length ∧
-            ∀ (k : Nat),
-              k < (iter.slice.val[j]!).coefficients.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((iter.slice.val[j]!).coefficients.val[k]!).value.val))
+        iter'.i ≤ iter'.slice.length ∧
+        out'.length = iter'.i ∧
+        (∀ j < iter'.i,
+            (out'[j]!).length =
+              2 * (iter.slice[j]!).degree ∧
+            ∀ k < (iter.slice[j]!).degree,
+                256 * (out'[j]!)[2 * k]!+ (out'[j]!)[2 * k + 1]! =
+                  ((iter.slice[j]!).coefficients[k]!).value.val))
   · -- Step: the body preserves the invariant or produces the final result
     rintro ⟨iter', out'⟩ ⟨h_slice', h_start_le', h_out_len', h_pre'⟩
     simp only [] at h_slice' h_start_le' h_out_len' h_pre' ⊢
     have h_slice_len : iter'.slice.val.length = iter.slice.val.length := by rw [h_slice']
-    have h_body := body_spec iter' out' (by omega) (by rw [h_slice']; exact h_ser_overflow)
+    have h_body := body_spec iter' out' (by grind) (by rw [h_slice']; exact h_ser_overflow)
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
@@ -158,7 +139,8 @@ theorem loop_spec
       simp only [] at h_cf ⊢
       obtain ⟨h_out_eq, h_not_lt⟩ := h_cf
       subst h_out_eq
-      exact ⟨by omega, fun j hj => h_pre' j (by omega)⟩
+      simp_all
+      grind
     | ControlFlow.cont (iter'', out'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_i1, h_slice1, serialized, h_out_eq, h_ser_len, h_ser_encode⟩ := h_cf
@@ -167,24 +149,16 @@ theorem loop_spec
       constructor
       · -- Invariant is preserved
         refine ⟨by rw [h_slice1]; exact h_slice',
-               by omega,
-               by rw [h_out_eq]; simp [h_out_len']; omega,
+               by grind,
+               by grind,
                fun j hj => ?_⟩
         by_cases hj_lt : j < iter'.i
         · -- Previously serialized byte vectors: index falls in the prefix out'.val
-          obtain ⟨ser', hser', hser_len', hser_enc'⟩ := h_pre' j hj_lt
-          refine ⟨ser', ?_, hser_len', hser_enc'⟩
-          rw [h_out_eq, getElem?_append_of_lt _ _ (by omega)]
-          exact hser'
+          grind
         · -- Newly appended byte vector: j = iter'.i
-          have hj_eq : j = iter'.i := by omega
-          subst hj_eq
-          refine ⟨serialized, ?_, h_ser_len, h_ser_encode⟩
-          rw [h_out_eq, show iter'.i = out'.val.length from by omega,
-              List.getElem?_append_right (le_refl _)]
-          simp
+          grind
       · -- Measure decreases
-        omega
+        grind
   · -- Initial state satisfies the invariant
     exact ⟨rfl, h_start_le, h_out_len, h_pre⟩
 

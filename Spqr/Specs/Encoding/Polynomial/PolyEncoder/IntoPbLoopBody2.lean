@@ -97,42 +97,37 @@ This follows from composing:
 -/
 @[step]
 theorem body_spec
-    (iter : core.slice.iter.Iter encoding.polynomial.Poly)
-    (v : alloc.vec.Vec (alloc.vec.Vec Std.U8))
-    (h_out_overflow : v.val.length + 1 ≤ Usize.max)
-    (h_ser_overflow : ∀ (j : Nat), j < iter.slice.val.length →
-        2 * (iter.slice.val[j]!).coefficients.val.length + 2 ≤ Usize.max) :
+    (iter : core.slice.iter.Iter Poly)
+    (v : alloc.vec.Vec (alloc.vec.Vec U8))
+    (h_out_overflow : v.length + 1 ≤ Usize.max)
+    (h_ser_overflow : ∀ j < iter.slice.length,
+        2 * (iter.slice[j]!).degree + 2 ≤ Usize.max) :
     body iter v ⦃ cf =>
       match cf with
       | ControlFlow.done v' =>
-          v' = v ∧ ¬(iter.i < iter.slice.val.length)
+          v' = v ∧ ¬(iter.i < iter.slice.length)
       | ControlFlow.cont (iter1, v1) =>
-          iter.i < iter.slice.val.length ∧
+          iter.i < iter.slice.length ∧
           iter1.i = iter.i + 1 ∧
           iter1.slice = iter.slice ∧
-          ∃ (serialized : alloc.vec.Vec Std.U8),
-            v1.val = v.val ++ [serialized] ∧
-            serialized.val.length =
-              2 * (iter.slice.val[iter.i]!).coefficients.val.length ∧
-            ∀ (k : Nat),
-              k < (iter.slice.val[iter.i]!).coefficients.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((iter.slice.val[iter.i]!).coefficients.val[k]!).value.val ⦄ := by
+          ∃ (serialized : alloc.vec.Vec U8),
+            v1 = v ++ [serialized] ∧
+            serialized.length =
+              2 * (iter.slice[iter.i]!).degree ∧
+            ∀ k < (iter.slice[iter.i]!).degree,
+                256 * serialized[2 * k]!   + serialized[2 * k +1]! =
+                  ((iter.slice[iter.i]!).coefficients[k]!).value.val ⦄ := by
   unfold body
   obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.slice.iter.IteratorSliceIter.next_post iter
   rw [hnext]
   simp only [bind_tc_ok]
-  by_cases h_lt : iter.i < iter.slice.val.length
+  by_cases h_lt : iter.i < iter.slice.length
   · obtain ⟨h_opt_eq, h_i1, h_slice1⟩ := h_some h_lt
     rw [h_opt_eq]
     have h_ser := h_ser_overflow iter.i h_lt
-    have h_getelem : (iter.slice.val[iter.i]! : encoding.polynomial.Poly) =
+    have h_getelem : (iter.slice.val[iter.i]! : Poly) =
         iter.slice.val[iter.i]'h_lt := by
       rw [← List.Inhabited_getElem_eq_getElem! (hi := h_lt)]
-    rw [h_getelem] at h_ser ⊢
     step*
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]

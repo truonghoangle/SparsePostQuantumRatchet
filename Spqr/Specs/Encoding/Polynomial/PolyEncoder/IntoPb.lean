@@ -49,47 +49,33 @@ theorem into_pb_spec_bytes
     (self : encoding.polynomial.PolyEncoder)
     (h_overflow_points : ∀ points,
       self.s = .Points points →
-        ∀ (j : Nat), j < points.val.length →
-          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max)
+        ∀ j < points.length,
+          2 * (points[j]!).value.length + 2 ≤ Usize.max)
     (h_overflow_polys : ∀ polys,
       self.s = .Polys polys →
-        ∀ (j : Nat), j < polys.val.length →
-          2 * (polys.val[j]!).coefficients.val.length +
-            2 ≤ Usize.max) :
+        ∀ j < polys.length, 2 * (polys[j]!).degree + 2 ≤ Usize.max) :
     into_pb self ⦃ (result : proto.pq_ratchet.PolynomialEncoder) =>
       result.idx = self.idx ∧
       match self.s with
       | .Points points =>
         result.polys.val = [] ∧
-        result.pts.val.length = points.val.length ∧
-        ∀ (j : Nat), j < points.val.length →
+        result.pts.length = points.length ∧
+        ∀ j < points.length,
           ∃ (serialized : alloc.vec.Vec Std.U8),
             result.pts.val[j]? = some serialized ∧
-            serialized.val.length =
-              2 * (points.val[j]!).value.val.length ∧
-            ∀ (k : Nat),
-              k < (points.val[j]!).value.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((points.val[j]!).value.val[k]!).value.val
+            (result.pts[j]!).length =
+              2 * (points[j]!).value.length ∧
+            ∀ k < (points[j]!).value.length,
+                256 * (result.pts[j]!)[2 * k]! + (result.pts[j]!)[2 * k + 1]!  =
+                  ((points.val[j]!).value[k]!).value.val
       | .Polys polys =>
         result.pts.val = [] ∧
-        result.polys.val.length = polys.val.length ∧
-        ∀ (j : Nat), j < polys.val.length →
-          ∃ (serialized : alloc.vec.Vec Std.U8),
-            result.polys.val[j]? = some serialized ∧
-            serialized.val.length =
-              2 * (polys.val[j]!).coefficients.val.length ∧
-            ∀ (k : Nat),
-              k < (polys.val[j]!).coefficients.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((polys.val[j]!).coefficients.val[k]!
-                    ).value.val ⦄ := by
+        result.polys.length = polys.length ∧
+        ∀  j < polys.length,
+           result.polys[j]!.length =2 * (polys.val[j]!).degree ∧
+            ∀ k < (polys.val[j]!).degree,
+                256 * (result.polys[j]!)[2 * k ]! + (result.polys[j]!)[2 * k + 1]! =
+                  ((polys[j]!).coefficients.val[k]!).value.val ⦄ := by
   unfold into_pb
   simp only [alloc.vec.Vec.with_capacity]
   cases h : self.s with
@@ -98,7 +84,7 @@ theorem into_pb_spec_bytes
     step*
     all_goals first
       | assumption
-      | scalar_tac
+      | grind
   | Polys polys =>
     have h_overflow := h_overflow_polys polys h
     step*
@@ -110,11 +96,13 @@ theorem into_pb_spec_bytes
         | assumption
         | scalar_tac
         | omega
-        | (simp only [s_post, Array.val_to_slice]; exact h_overflow)
-    constructor
-    · simp_all
-    · simp_all
-      grind
+        | (simp only [s_post])
+    · intros j hj
+      simp_all
+    · constructor
+      · grind
+      · simp_all
+        grind
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb`**
 (cascading: byte-level + algebraic)
@@ -132,61 +120,38 @@ theorem into_pb_spec
     (self : encoding.polynomial.PolyEncoder)
     (h_overflow_points : ∀ points,
       self.s = .Points points →
-        ∀ (j : Nat), j < points.val.length →
-          2 * (points.val[j]!).value.val.length + 2 ≤ Usize.max)
-    (h_overflow_polys : ∀ polys,
-      self.s = .Polys polys →
-        ∀ (j : Nat), j < polys.val.length →
-          2 * (polys.val[j]!).coefficients.val.length +
-            2 ≤ Usize.max) :
+        ∀ j < points.length, 2 * (points[j]!).value.length + 2 ≤ Usize.max)
+    (h_overflow_polys : ∀ polys, self.s = .Polys polys →
+        ∀ j < polys.length, 2 * (polys[j]!).degree + 2 ≤ Usize.max) :
     into_pb self ⦃ (result : proto.pq_ratchet.PolynomialEncoder) =>
       result.idx = self.idx ∧
       match self.s with
       | .Points points =>
         result.polys.val = [] ∧
-        result.pts.val.length = points.val.length ∧
-        ∀ (j : Nat), j < points.val.length →
-          ∃ (serialized : alloc.vec.Vec Std.U8),
-            result.pts.val[j]? = some serialized ∧
-            serialized.val.length =
-              2 * (points.val[j]!).value.val.length ∧
-            ∀ (k : Nat),
-              k < (points.val[j]!).value.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((points.val[j]!).value.val[k]!).value.val ∧
-                (hi.val * 256 + lo.val).toGF216 =
-                  ((points.val[j]!).value.val[k]!
-                    ).value.val.toGF216 ∧
-                natToBinaryPoly (hi.val * 256 + lo.val) =
-                  natToBinaryPoly
-                    (((points.val[j]!).value.val[k]!
-                      ).value.val)
+        result.pts.length = points.length ∧
+        ∀ j < points.length,
+            result.pts[j]!.length = 2 * (points[j]!).value.length ∧
+            ∀ k < (points[j]!).value.length,
+                256 * (result.pts[j]!)[2 * k]! + (result.pts[j]!)[2 * k + 1]! =
+                  ((points[j]!).value[k]!).value.val ∧
+                (256 * (result.pts[j]!)[2 * k]! + (result.pts[j]!)[2 * k + 1]! : ℕ).toGF216 =
+                  ((points[j]!).value[k]!).value.val.toGF216 ∧
+                natToBinaryPoly (256 * (result.pts[j]!)[2 * k]! + (result.pts[j]!)[2 * k + 1]!) =
+                  natToBinaryPoly (((points[j]!).value[k]!).value.val)
       | .Polys polys =>
         result.pts.val = [] ∧
-        result.polys.val.length = polys.val.length ∧
-        ∀ (j : Nat), j < polys.val.length →
-          ∃ (serialized : alloc.vec.Vec Std.U8),
-            result.polys.val[j]? = some serialized ∧
-            serialized.val.length =
-              2 * (polys.val[j]!).coefficients.val.length ∧
-            ∀ (k : Nat),
-              k < (polys.val[j]!).coefficients.val.length →
-              ∃ (hi lo : Std.U8),
-                serialized.val[2 * k]? = some hi ∧
-                serialized.val[2 * k + 1]? = some lo ∧
-                hi.val * 256 + lo.val =
-                  ((polys.val[j]!).coefficients.val[k]!
-                    ).value.val ∧
-                (hi.val * 256 + lo.val).toGF216 =
-                  ((polys.val[j]!).coefficients.val[k]!
-                    ).value.val.toGF216 ∧
-                natToBinaryPoly (hi.val * 256 + lo.val) =
-                  natToBinaryPoly
-                    (((polys.val[j]!).coefficients.val[k]!
-                      ).value.val) ⦄ := by
+        result.polys.length = polys.length ∧
+        ∀ j < polys.length,
+            (result.polys[j]!).length =
+              2 * (polys[j]!).degree ∧
+            ∀ k < (polys[j]!).degree,
+                 256 * (result.polys[j]!)[2 * k]! + (result.polys[j]!)[2 * k + 1]! =
+                  ((polys[j]!).coefficients[k]! ).value.val ∧
+                (256 * (result.polys[j]!)[2 * k]! + (result.polys[j]!)[2 * k + 1]! :ℕ ).toGF216 =
+                  ((polys[j]!).coefficients[k]!).value.val.toGF216 ∧
+                natToBinaryPoly (
+                  256 * (result.polys[j]!)[2 * k]! + (result.polys[j]!)[2 * k + 1]! ) =
+                  natToBinaryPoly (((polys[j]!).coefficients[k]!).value.val) ⦄ := by
   have h_raw := into_pb_spec_bytes self h_overflow_points h_overflow_polys
   apply WP.spec_mono h_raw
   intro result h_post
@@ -198,20 +163,12 @@ theorem into_pb_spec
     obtain ⟨h_polys, h_len, h_ser⟩ := h_data
     refine ⟨h_polys, h_len, fun j hj => ?_⟩
     obtain ⟨serialized, h_some, h_slen, h_enc⟩ := h_ser j hj
-    refine ⟨serialized, h_some, h_slen, fun k hk => ?_⟩
-    obtain ⟨hi, lo, hhi, hlo, h_eq⟩ := h_enc k hk
-    exact ⟨hi, lo, hhi, hlo, h_eq,
-      congr_arg Nat.toGF216 h_eq,
-      congr_arg natToBinaryPoly h_eq⟩
+    simp_all
   | Polys polys =>
     simp only [h] at h_data ⊢
     obtain ⟨h_pts, h_len, h_ser⟩ := h_data
     refine ⟨h_pts, h_len, fun j hj => ?_⟩
-    obtain ⟨serialized, h_some, h_slen, h_enc⟩ := h_ser j hj
-    refine ⟨serialized, h_some, h_slen, fun k hk => ?_⟩
-    obtain ⟨hi, lo, hhi, hlo, h_eq⟩ := h_enc k hk
-    exact ⟨hi, lo, hhi, hlo, h_eq,
-      congr_arg Nat.toGF216 h_eq,
-      congr_arg natToBinaryPoly h_eq⟩
+    obtain ⟨h_slen, h_enc⟩ := h_ser j hj
+    simp_all
 
 end spqr.encoding.polynomial.PolyEncoder
