@@ -127,8 +127,6 @@ import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeSum
 import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
 import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
-import Spqr.Specs.Encoding.Polynomial.Poly.SerializeLoop0
-import Spqr.Specs.Encoding.Polynomial.Poly.SerializeLoopBody
 import Spqr.Specs.Encoding.Polynomial.Poly.VecDeref
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
