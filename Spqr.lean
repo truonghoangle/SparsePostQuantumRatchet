@@ -113,8 +113,6 @@ import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.ComputeAt
 import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
-import Spqr.Specs.Encoding.Polynomial.Poly.DeserializeLoop0
-import Spqr.Specs.Encoding.Polynomial.Poly.DeserializeLoopBody0
 import Spqr.Specs.Encoding.Polynomial.Poly.Eq
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePointsLoop0
