@@ -46,11 +46,11 @@ theorem power_invariant_step
     (xs : List GF16)
     (g : GF16)
     (h_ge2 : 2 ≤ xs.length)
-    (h_pow : ∀ j, j < xs.length → (xs[j]!).toGF216 = x.toGF216 ^ j)
+    (h_pow : ∀ j < xs.length, (xs[j]!).toGF216 = x.toGF216 ^ j)
     (h_g : g.toGF216 =
       (xs[xs.length / 2]!).toGF216 *
       (xs[xs.length / 2 + xs.length % 2]!).toGF216) :
-    ∀ j, j < (xs ++ [g]).length → ((xs ++ [g])[j]!).toGF216 = x.toGF216 ^ j := by
+    ∀ j < (xs ++ [g]).length, ((xs ++ [g])[j]!).toGF216 = x.toGF216 ^ j := by
   intro j hj
   simp only [List.length_append, List.length_singleton] at hj
   have h_div2_lt : xs.length / 2 < xs.length := Nat.div_lt_self (by omega) (by omega)
