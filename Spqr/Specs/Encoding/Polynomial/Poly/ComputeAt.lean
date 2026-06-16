@@ -3,8 +3,8 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Poly.Aeneas.DotProduct
-import Spqr.Math.Poly.Aeneas.PowerVector
+import Spqr.Math.Poly.Eval.DotProduct
+import Spqr.Math.Poly.Eval.PowerVector
 import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Aeneas.RangeIteratorNext
@@ -18,7 +18,9 @@ One step of the power-vector construction loop. Calls `next` on the range iterat
      to `xs`.
 
 Maintains the invariant `xs[j].toGF216 = x.toGF216 ^ j` for all `j < xs.length`, using the
-identity `x^i = x^(i/2) · x^(i/2 + i%2)`. -/
+identity `x^i = x^(i/2) · x^(i/2 + i%2)`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 open Aeneas Aeneas.Std spqr.encoding.gf
 
@@ -60,7 +62,8 @@ Each step computes `xs[i] = xs[i/2] * xs[i/2 + i%2]`.
 
 **Loop invariant**: `xs.val.length = iter.start.val` and
 `∀ j < xs.val.length, (xs[j]!).toGF216 = x.toGF216 ^ j`.
--/
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
@@ -74,8 +77,8 @@ theorem loop_spec
     (h_pow : ∀ j < xs.length, (xs[j]!).toGF216 = x.toGF216 ^ j)
     (h_len : max xs.length iter.end + 1 ≤ Usize.max) :
     compute_at_loop0 iter xs ⦃ (result : alloc.vec.Vec GF16) =>
-        (∀ j < result.length, (result[j]!).toGF216 = x.toGF216 ^ j) ∧
-        result.length = max xs.length iter.end ⦄ := by
+      (∀ j < result.length, (result[j]!).toGF216 = x.toGF216 ^ j) ∧
+      result.length = max xs.length iter.end ⦄ := by
   unfold compute_at_loop0
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Usize × alloc.vec.Vec GF16) => p.1.end - p.1.start)
@@ -109,7 +112,8 @@ One step of the accumulation loop. Calls `next` on the range iterator and either
 
 Maintains the invariant
 `out.toGF216 = Σ_{j < iter.start.val} v[j].toGF216 * xs[j].toGF216`.
--/
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop1
 
@@ -148,7 +152,8 @@ After all iterations:
 
 **Loop invariant**: the accumulator holds the partial sum of the first `iter.start.val`
 coefficient–power products, using `Finset.sum_range_succ` at each step.
--/
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop1
 
@@ -162,8 +167,8 @@ theorem loop_spec
     (h_xs_len : iter.end ≤ xs.length)
     (h_sum : out.toGF216 = ∑ j ∈ Finset.range iter.start, (v[j]!).toGF216 * (xs[j]!).toGF216) :
     compute_at_loop1 iter v xs out ⦃ (result : GF16) =>
-        result.toGF216 = ∑ j ∈ Finset.range (max iter.start iter.end),
-          (v[j]!).toGF216 * (xs[j]!).toGF216 ⦄ := by
+      result.toGF216 = ∑ j ∈ Finset.range (max iter.start iter.end),
+      (v[j]!).toGF216 * (xs[j]!).toGF216 ⦄ := by
   unfold compute_at_loop1
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Usize × GF16) => p.1.end - p.1.start)
@@ -193,8 +198,7 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.Poly.compute_at_loop1
 
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::compute_at`
+/-! # Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::compute_at`
 
 Evaluates a polynomial `self` at point `x` in GF(2¹⁶), computing
 `p(x) = a₀ + a₁·x + a₂·x² + … + aₙ₋₁·xⁿ⁻¹`.
@@ -204,10 +208,11 @@ Two phases:
      `x^i = x^(i/2) · x^(i/2 + i%2)`.
   2. **Dot-product accumulation** (loop 1): computes `out = Σ coeff[j] · xs[j]`.
 
-The final result satisfies `result.toGF216 = (self.toGF216Poly).eval (x.toGF216)`. -/
+The final result satisfies `result.toGF216 = (self.toGF216Poly).eval (x.toGF216)`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.Poly
-
 
 /-- **Spec theorem for `encoding.polynomial.Poly.compute_at`**:
 
