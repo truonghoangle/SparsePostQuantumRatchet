@@ -9,8 +9,7 @@ import Spqr.Specs.Encoding.Gf.GF16.Mul
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Aeneas.RangeIteratorNext
 
-/-!
-# Spec theorem for `Poly::compute_at`: loop body 0
+/-! # Spec theorem for `Poly::compute_at`: loop body 0
 
 One step of the power-vector construction loop. Calls `next` on the range iterator and either:
 
@@ -25,22 +24,6 @@ open Aeneas Aeneas.Std spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
-
-/--
-**Spec theorem for `encoding.polynomial.Poly.compute_at_loop0.body`**:
-
-One step of the power-vector construction loop.
-
-• Always succeeds when preconditions hold: `iter.start.val = xs.val.length` with
-  `iter.start.val ≥ 2` ensures in-bounds indexing, and `xs.val.length + 1 ≤ Usize.max`
-  ensures push capacity.
-
-• **Done**: `xs` unchanged, `¬ (iter.start.val < iter.end.val)`.
-
-• **Cont**: iterator advances by one, and `xs` is extended by `[g]` where
-  `g.toGF216 = (xs[len/2]!).toGF216 * (xs[len/2 + len%2]!).toGF216`,
-  preserving the power-vector invariant.
--/
 @[step]
 theorem body_spec
     (iter : core.ops.range.Range Usize)
@@ -70,8 +53,7 @@ theorem body_spec
 
 end spqr.encoding.polynomial.Poly.compute_at_loop0
 
-/-!
-# Spec theorem for `Poly::compute_at`: loop 0
+/-! # Spec theorem for `Poly::compute_at`: loop 0
 
 Iterates the range `2..n`, extending `xs` by one element per step until exhausted.
 Each step computes `xs[i] = xs[i/2] * xs[i/2 + i%2]`.
@@ -79,7 +61,6 @@ Each step computes `xs[i] = xs[i/2] * xs[i/2 + i%2]`.
 **Loop invariant**: `xs.val.length = iter.start.val` and
 `∀ j < xs.val.length, (xs[j]!).toGF216 = x.toGF216 ^ j`.
 -/
-
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
@@ -107,9 +88,8 @@ theorem loop_spec
         p.1.start ≤ max iter.start iter.end ∧
         p.2.length + 1 ≤ Usize.max ∧
         (∀ j < p.2.length, (p.2[j]!).toGF216 = x.toGF216 ^ j))
-  · rintro ⟨iter', xs'⟩
-      ⟨h_end', h_ge2', h_inv', h_start_le', h_bound', h_len', h_pow'⟩
-    simp only [] at h_end' h_ge2' h_inv' h_start_le' h_bound' h_len' h_pow' ⊢
+  · rintro ⟨iter', xs'⟩ ⟨h_end', h_ge2', h_inv', h_start_le', h_bound', h_len', h_pow'⟩
+    simp only  at h_end' h_ge2' h_inv' h_start_le' h_bound' h_len' h_pow' ⊢
     have h_body := body_spec iter' xs' h_ge2' h_inv' h_len'
     apply WP.spec_mono h_body
     intro cf h_cf
@@ -120,8 +100,7 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.Poly.compute_at_loop0
 
-/-!
-# Spec theorem for `Poly::compute_at`: loop body 1
+/-! # Spec theorem for `Poly::compute_at`: loop body 1
 
 One step of the accumulation loop. Calls `next` on the range iterator and either:
 
@@ -131,7 +110,6 @@ One step of the accumulation loop. Calls `next` on the range iterator and either
 Maintains the invariant
 `out.toGF216 = Σ_{j < iter.start.val} v[j].toGF216 * xs[j].toGF216`.
 -/
-
 
 namespace spqr.encoding.polynomial.Poly.compute_at_loop1
 
@@ -195,9 +173,8 @@ theorem loop_spec
         p.1.start ≤ max iter.start iter.end ∧
         p.2.toGF216 = ∑ j ∈ Finset.range p.1.start,
           (v[j]!).toGF216 * (xs.val[j]!).toGF216)
-  · rintro ⟨iter', out'⟩
-      ⟨h_end', h_start_le', h_bound', h_sum'⟩
-    simp only [] at h_end' h_start_le' h_bound' h_sum' ⊢
+  · rintro ⟨iter', out'⟩ ⟨h_end', h_start_le', h_bound', h_sum'⟩
+    simp only at h_end' h_start_le' h_bound' h_sum' ⊢
     have h_body := body_spec v xs iter' out'
       (by rw [h_end']; exact h_v_len) (by rw [h_end']; exact h_xs_len)
     apply WP.spec_mono h_body
@@ -205,15 +182,12 @@ theorem loop_spec
     match cf with
     | ControlFlow.done result => grind
     | ControlFlow.cont (iter1, out1) =>
-      simp only [] at h_cf ⊢
+      simp only at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1, h_out1⟩ := h_cf
       constructor
-      · refine ⟨?_, ?_, ?_, ?_⟩
-        · rw [h_end1, h_end']
-        · grind
-        · grind
-        · rw [h_out1, h_sum', h_start1]
-          apply (Finset.sum_range_succ _ _).symm
+      · refine ⟨by rw [h_end1, h_end'], by grind, by grind, ?_⟩
+        rw [h_out1, h_sum', h_start1]
+        apply (Finset.sum_range_succ _ _).symm
       · grind
   · exact ⟨rfl, le_refl _, le_max_left _ _, h_sum⟩
 
@@ -262,12 +236,9 @@ theorem compute_at_spec
     rw [xs2_post, result_post, h_wc]; simp
   have h_xs2_len : xs2.length = 2 := by grind
   have h_xs2_pow : ∀ j < xs2.length, (xs2[j]!).toGF216 = x.toGF216 ^ j := by grind
-  step with compute_at_loop0.loop_spec x
-    { start := 2#usize, «end» := self.coefficients.len }
-    xs2 (by scalar_tac) h_xs2_len.symm h_xs2_pow (by
-      simp [h_xs2_len]
-      simp_all [degree]
-      grind) as ⟨xs3, h_xs3_pow, h_xs3_len⟩
+  step with compute_at_loop0.loop_spec x { start := 2#usize, «end» := self.coefficients.len }
+    xs2 (by scalar_tac) h_xs2_len.symm h_xs2_pow (by simp_all [degree]; grind)
+    as ⟨xs3, h_xs3_pow, h_xs3_len⟩
   have h_xs3_ge : self.degree ≤ xs3.length := by
     have hle := h_xs3_len
     change self.coefficients.length ≤ xs3.length
