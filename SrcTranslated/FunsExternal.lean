@@ -117,9 +117,23 @@ theorem core.array.from_fn_spec {T : Type} {F : Type} [Inhabited T]
 
 /-- [core::borrow::{core::borrow::Borrow<T> for &0 (T)}::borrow]:
     Source: '/rustc/library/core/src/borrow.rs', lines 230:4-230:26
-    Name pattern: [core::borrow::{core::borrow::Borrow<&'0 @T, @T>}::borrow] -/
+    Name pattern: [core::borrow::{core::borrow::Borrow<&'0 @T, @T>}::borrow]
+
+    Concrete model of Rust's `<&T as Borrow<T>>::borrow`:
+    since Aeneas erases references, borrowing a shared reference to `T`
+    is the identity — the referent `T` is returned unchanged.
+
+    Rust source (core/src/borrow.rs, lines 229–231):
+    ```rust
+    impl<T: ?Sized> Borrow<T> for &T {
+        fn borrow(&self) -> &T {
+            &**self
+        }
+    }
+    ``` -/
 @[rust_fun "core::borrow::{core::borrow::Borrow<&'0 @T, @T>}::borrow"]
-axiom Shared0T.Insts.CoreBorrowBorrow.borrow {T : Type} : T → Result T
+def Shared0T.Insts.CoreBorrowBorrow.borrow {T : Type} : T → Result T :=
+  fun x => ok x
 
 /-- [core::convert::num::{core::convert::TryFrom<u64, core::num::error::TryFromIntError> for u32}::try_from]:
     Source: '/rustc/library/core/src/convert/num.rs', lines 294:12-294:64
@@ -363,10 +377,45 @@ private theorem I32_forward_checked_one_spec
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::steps_between]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 304:16-304:84
-    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::steps_between] -/
+    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::steps_between]
+
+    Concrete model of Rust's `Step::steps_between` for `i32`:
+    given `start : i32` and `end_ : i32`, compute the number of successor
+    steps needed to get from `start` to `end_`.  Returns a pair
+    `(usize, Option<usize>)` where:
+
+    - If `start > end_`: the range is empty, so `(0, Some(0))`.
+    - If `start ≤ end_`: the number of steps is `end_ − start` (widened to
+      `i64` to avoid overflow).  If the difference fits in `usize`, both
+      components equal the difference.  If it doesn't fit (only possible on
+      platforms with `usize` < 64 bits), the first component is `usize::MAX`
+      (a saturated lower bound) and the second is `None`.
+
+    Rust source:
+    ```rust
+    fn steps_between(start: &i32, end: &i32) -> (usize, Option<usize>) {
+        if *start <= *end {
+            match usize::try_from((*end as i64) - (*start as i64)) {
+                Ok(steps) => (steps, Some(steps)),
+                Err(_) => (usize::MAX, None),
+            }
+        } else {
+            (0, Some(0))
+        }
+    }
+    ```
+
+    The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun "core::iter::range::{core::iter::range::Step<i32>}::steps_between"]
-axiom I32.Insts.CoreIterRangeStep.steps_between
-  : Std.I32 → Std.I32 → Result (Std.Usize × (Option Std.Usize))
+def I32.Insts.CoreIterRangeStep.steps_between
+  : Std.I32 → Std.I32 → Result (Std.Usize × (Option Std.Usize)) :=
+  fun start end_ =>
+    if start.val ≤ end_.val then
+      match UScalar.tryMkOpt .Usize (end_.val - start.val).toNat with
+      | some count => ok (count, some count)
+      | none       => ok (core.num.Usize.MAX, none)
+    else
+      ok (0#usize, some 0#usize)
 
 /-- [core::ops::range::{core::ops::range::RangeBounds<T> for core::ops::range::RangeFrom<T>}::end_bound]:
     Source: '/rustc/library/core/src/ops/range.rs', lines 1071:4-1071:36
@@ -438,12 +487,18 @@ theorem core.option.Option.ok_or_spec {T E : Type} (o : Option T) (e : E) :
 
 /-- [core::option::{core::clone::Clone for core::option::Option<T>}::clone]:
     Source: '/rustc/library/core/src/option.rs', lines 2261:4-2261:27
-    Name pattern: [core::option::{core::clone::Clone<core::option::Option<@T>>}::clone] -/
+    Name pattern: [core::option::{core::clone::Clone<core::option::Option<@T>>}::clone]
+
+    Concrete model of Rust's `<Option<T> as Clone>::clone`:
+      `None.clone()     = None`
+      `Some(x).clone()  = Some(x.clone())` -/
 @[rust_fun
   "core::option::{core::clone::Clone<core::option::Option<@T>>}::clone"]
-axiom core.option.Option.Insts.CoreCloneClone.clone
+def core.option.Option.Insts.CoreCloneClone.clone
   {T : Type} (cloneCloneInst : core.clone.Clone T) :
   Option T → Result (Option T)
+  | some x => do let x' ← cloneCloneInst.clone x; ok (some x')
+  | none => ok none
 
 /-- [core::option::{core::default::Default for core::option::Option<T>}::default]:
     Source: '/rustc/library/core/src/option.rs', lines 2297:4-2297:29
