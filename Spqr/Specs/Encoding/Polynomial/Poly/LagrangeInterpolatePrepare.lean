@@ -21,8 +21,7 @@ Invariant: vector length = `offset + 1`; after `i` steps
 
 **Source**: spqr/src/encoding/polynomial.rs -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
-open Polynomial
+open Aeneas Aeneas.Std  spqr.encoding.gf Polynomial
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
 
@@ -113,13 +112,12 @@ theorem loop_spec
           (p.coefficients[offset.val]!).toGF216) ∧
       (∀ (j : Nat), ¬(offset.val - iter.end ≤ j ∧ j < offset) →
         result.coefficients[j]? = p.coefficients[j]?) ∧
-      -- Property 5: trailing polynomial identity
       (∀ (m : Nat),
         m ≤ iter.end - iter.start →
         ∀ (hpos : offset - (iter.end - iter.start) + m <
                     result.degree),
           GF16.toGF216
-            (result.coefficients[offset.val - (iter.end.val - iter.start.val) + m]) =
+            (result.coefficients[offset - (iter.end - iter.start) + m]) =
             (expectedTrailingPoly p.coefficients pts offset
               iter.start (iter.end - iter.start)).coeff m) ⦄ := by
   unfold spqr.encoding.polynomial.Poly.lagrange_interpolate_prepare_loop
@@ -142,16 +140,13 @@ theorem loop_spec
         (∀ (j : Nat),
           ¬(offset.val - st.1.start.val ≤ j ∧ j < offset.val) →
           st.2.coefficients[j]? = p.coefficients[j]?) ∧
-        -- Invariant for trailing polynomial identity
-        (∀ (m : Nat),
-          m ≤ st.1.start.val - iter.start.val →
-          ∀ (hpos : offset.val - (st.1.start.val - iter.start.val) + m <
-                      st.2.degree),
+        (∀ (m : Nat), m ≤ st.1.start.val - iter.start.val →
+          ∀ (hpos : offset.val - (st.1.start - iter.start) + m < st.2.degree),
             GF16.toGF216
               (st.2.coefficients.val.get
-                ⟨offset.val - (st.1.start.val - iter.start.val) + m, hpos⟩) =
-              (expectedTrailingPoly p.coefficients pts offset.val
-                iter.start.val (st.1.start.val - iter.start.val)).coeff m))
+                ⟨offset - (st.1.start - iter.start) + m, hpos⟩) =
+              (expectedTrailingPoly p.coefficients pts offset
+                iter.start (st.1.start - iter.start)).coeff m))
   · rintro ⟨iter', p'⟩ ⟨h_end', h_ge', h_le', h_len', h_off', h_gf16_off', h_frame', h_trail'⟩
     simp only [] at h_end' h_ge' h_le' h_len' h_off' h_gf16_off' h_frame' h_trail' ⊢
     have h_end_le_pts' : iter'.end.val ≤ pts.length := by grind
@@ -194,20 +189,20 @@ theorem loop_spec
             ⟨offset.val - (k + 1) + m, hpos'⟩ := by grind
         rw [hget_eq, hk1]
         rw [expectedTrailingPoly_succ]
-        set pos := offset.val - (k + 1) + m with hpos_def
+        set pos := offset - (k + 1) + m with hpos_def
         by_cases hm0 : m = 0
         · subst hm0
           rw [coeff_zero_C_add_X_sub_C_mul]
           have htr := h_trail' 0 (by omega)
-            (show offset.val - k + 0 < p'.coefficients.length by omega)
+            (show offset - k + 0 < p'.coefficients.length by omega)
           grind
         · obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
           rw [coeff_succ_C_add_X_sub_C_mul]
-          have hpos_simp : pos = offset.val - k + m' := by grind
+          have hpos_simp : pos = offset - k + m' := by grind
           by_cases hm'k : m' + 1 ≤ k
           · have hget_conv : (Prod.snd r_post).coefficients.val.get ⟨pos, hpos'⟩ =
                 (Prod.snd r_post).coefficients.val.get
-                  ⟨offset.val - k + m', (by grind)⟩ := by
+                  ⟨offset - k + m', (by grind)⟩ := by
               congr 1
               exact Fin.ext (by omega)
             have hlen_m' : offset.val - k + m' < p'.coefficients.length := by omega
