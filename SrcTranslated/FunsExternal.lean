@@ -1014,22 +1014,14 @@ def alloc.collections.vec_deque.VecDeque.pop_front
     if self.length = 0#usize then
       ok (none, self)
     else
-      let cap := self.buf.val.length
-      if h : cap = 0 then
-        fail .panic
+      if hidx : self.head.val < self.buf.val.length then
+        let elem := self.buf.val[self.head.val]'hidx
+        do
+          let head' ← self.head + 1#usize
+          let len' ← self.length - 1#usize
+          ok (some elem, { self with head := head', length := len' })
       else
-        let idx := self.head.val % cap
-        if hidx : idx < self.buf.length then
-          let elem := self.buf.val[idx]'hidx
-          let newHead := (self.head + 1) % cap
-          have hNewHead : newHead < cap := Nat.mod_lt _ (by omega)
-          have hNewHead : newHead < cap := Nat.mod_lt _ (by omega)
-          do
-            let head' := Std.Usize.ofNatCore newHead (by scalar_tac)
-            let len' ← self.length - 1#usize
-            ok (some elem, { self with head := head', length := len' })
-        else
-          fail .panic
+        fail .panic
 
 /-- Spec: `pop_front` on an empty deque returns `(none, self)`. -/
 theorem alloc.collections.vec_deque.VecDeque.pop_front_spec_empty
@@ -1041,37 +1033,36 @@ theorem alloc.collections.vec_deque.VecDeque.pop_front_spec_empty
   simp [alloc.collections.vec_deque.VecDeque.pop_front, hempty]
 
 /-- Spec: `pop_front` on a non-empty deque returns `(some elem, self')`
-    where `elem = buf[head % cap]`, `self'.head = (head+1) % cap`,
-    `self'.length = length - 1`, and `self'.buf` is unchanged. -/
+    where `elem = buf[head]`, `self'.head = head + 1`,
+    `self'.length = length - 1`, and `self'.buf` is unchanged.
+
+    Growing-list model: `head` advances linearly (no wrap-around). -/
 theorem alloc.collections.vec_deque.VecDeque.pop_front_spec_nonempty
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
     (hne : self.length ≠ 0#usize)
-    (hcap : 0 < self.buf.val.length) :
+    (hidx : self.head.val < self.buf.val.length) :
     alloc.collections.vec_deque.VecDeque.pop_front self
       ⦃ (res : (Option T) × (alloc.collections.vec_deque.VecDeque T A)) =>
-        let cap := self.buf.length
-        let idx := self.head % cap
-        match self.buf.val[idx]? with
-        | some elem =>
-          res.1 = some elem ∧
-          res.2.head = (self.head + 1) % cap ∧
-          res.2.length = self.length.val - 1 ∧
-          res.2.buf = self.buf
-        | none => False ⦄ := by
+        res.1 = some (self.buf.val[self.head.val]'hidx) ∧
+        res.2.head.val = self.head.val + 1 ∧
+        res.2.length.val = self.length.val - 1 ∧
+        res.2.buf = self.buf ⦄ := by
   unfold alloc.collections.vec_deque.VecDeque.pop_front
-  simp only [if_neg hne]
-  have hcap' : ¬ (self.buf.val.length = 0) := by omega
-  simp only [dif_neg hcap']
-  have hidx : self.head.val % self.buf.val.length < self.buf.val.length :=
-    Nat.mod_lt _ hcap
-  simp only [dif_pos hidx]
-  have hlen_ge : (1#usize).val ≤ self.length.val := by scalar_tac
-  simp only [List.getElem?_eq_getElem hidx]
+  simp only [if_neg hne, dif_pos hidx]
+  have : self.head.val + (1#usize).val ≤ Usize.max := by
+    have := self.buf.property; scalar_tac
+  have : (1#usize).val ≤ self.length.val := by scalar_tac
   step*
 
 /-- [alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<T, A>}::push_back]:
     Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 2205:4-2205:41
-    Name pattern: [alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<@T, @A>}::push_back] -/
+    Name pattern: [alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<@T, @A>}::push_back]
+
+    Growing-list model: appends `value` to the physical buffer and
+    increments `length`. The buffer grows on every call (no fixed-capacity
+    ring); this is observationally equivalent to Rust's `push_back` at
+    the value level and consistent with the capacity-free `Vec` model
+    used elsewhere in this codebase. -/
 @[rust_fun
   "alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<@T, @A>}::push_back"]
 def alloc.collections.vec_deque.VecDeque.push_back
@@ -1079,37 +1070,41 @@ def alloc.collections.vec_deque.VecDeque.push_back
   alloc.collections.vec_deque.VecDeque T A → T → Result
     (alloc.collections.vec_deque.VecDeque T A) :=
   fun self value =>
-    if h : self.buf.length + 1 ≤ Usize.max then
+    if h : self.buf.val.length + 1 ≤ Usize.max then
       do
         let len' ← self.length + 1#usize
         ok { self with
-          buf := ⟨self.buf ++ [value], by
-            simp only [List.length_append, List.length_cons, List.length_nil]
-            omega⟩
+          buf := ⟨self.buf.val ++ [value], by simp [List.length_append]; omega⟩
           length := len' }
     else
       fail .panic
 
+/-- Spec: `push_back` appends `value` to the physical buffer, keeps `head`
+    unchanged, and increments `length` by one.
 
-/-- Spec: `push_back` (no overflow): `buf` is extended by `value`,
-    `head` unchanged, `length` incremented by one. -/
+    Growing-list model: no capacity wraparound. -/
 @[step]
 theorem alloc.collections.vec_deque.VecDeque.push_back_spec
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
     (value : T)
     (hlen : self.length + 1 ≤ Usize.max)
-    (hbuf : self.buf.length + 1 ≤ Usize.max) :
+    (hbuf : self.buf.val.length + 1 ≤ Usize.max) :
     alloc.collections.vec_deque.VecDeque.push_back self value
       ⦃ (self' : alloc.collections.vec_deque.VecDeque T A) =>
-        self'.buf = self.buf ++ [value] ∧
+        self'.buf.val = self.buf.val ++ [value] ∧
         self'.head = self.head ∧
         self'.length = self.length.val + 1 ⦄ := by
   unfold alloc.collections.vec_deque.VecDeque.push_back
+  simp only [dif_pos hbuf]
   step*
 
 /-- [alloc::collections::vec_deque::{core::ops::index::IndexMut<usize, T> for alloc::collections::vec_deque::VecDeque<T, A>}::index_mut]:
     Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 3634:4-3634:51
-    Name pattern: [alloc::collections::vec_deque::{core::ops::index::IndexMut<alloc::collections::vec_deque::VecDeque<@T, @A>, usize, @T>}::index_mut] -/
+    Name pattern: [alloc::collections::vec_deque::{core::ops::index::IndexMut<alloc::collections::vec_deque::VecDeque<@T, @A>, usize, @T>}::index_mut]
+
+    Growing-list model: physical position is `head + idx` (no modular
+    wrap-around), consistent with the growing-buffer `push_back` and
+    linear-advance `pop_front`. -/
 @[rust_fun
   "alloc::collections::vec_deque::{core::ops::index::IndexMut<alloc::collections::vec_deque::VecDeque<@T, @A>, usize, @T>}::index_mut"]
 def
@@ -1119,35 +1114,33 @@ def
     → alloc.collections.vec_deque.VecDeque T A)) :=
   fun self idx =>
     if idx.val < self.length.val then
-      let cap := self.buf.val.length
-      if hcap : cap = 0 then
-        fail .panic
+      if hphys : self.head.val + idx.val < self.buf.val.length then
+        let elem := self.buf.val[self.head.val + idx.val]'hphys
+        ok (elem, fun new_elem =>
+          { self with buf := ⟨self.buf.val.set (self.head.val + idx.val) new_elem, by
+              have := self.buf.property
+              simp only [List.length_set]; omega⟩ })
       else
-        let phys := (self.head.val + idx.val) % cap
-        if hphys : phys < self.buf.val.length then
-          let elem := self.buf.val[phys]'hphys
-          ok (elem, fun new_elem =>
-            { self with buf := ⟨self.buf.val.set phys new_elem, by
-                have := self.buf.property
-                simp only [List.length_set]; omega⟩ })
-        else
-          fail .panic
+        fail .panic
     else
       fail .panic
 
-/-- Spec: `index_mut` (in-bounds, cap > 0) returns `(elem, back)` where
-    `elem = buf[(head+idx) % cap]` and `back x` updates that position to
-    `x`, keeping `head` and `length` unchanged. -/
+/-- Spec: `index_mut` (in-bounds) returns `(elem, back)` where
+    `elem = buf[head + idx]` and `back x` updates that position to
+    `x`, keeping `head` and `length` unchanged.
+
+    Growing-list model: physical position is `head + idx` (linear, no
+    modular wrap-around). -/
 @[step]
 theorem alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut_spec
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
     (idx : Std.Usize)
     (hidx : idx.val < self.length.val)
-    (hcap : 0 < self.buf.val.length) :
+    (hphys : self.head.val + idx.val < self.buf.val.length) :
     alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut
       self idx
       ⦃ (res : T × (T → alloc.collections.vec_deque.VecDeque T A)) =>
-        let phys := (self.head.val + idx.val) % self.buf.val.length
+        let phys := self.head.val + idx.val
         match self.buf.val[phys]? with
         | some elem =>
           res.1 = elem ∧
@@ -1156,12 +1149,7 @@ theorem alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.in
                (res.2 x).length = self.length
         | none => False ⦄ := by
   unfold alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut
-  simp only [if_pos hidx]
-  have hcap' : ¬ (self.buf.val.length = 0) := by omega
-  simp only [dif_neg hcap']
-  have hphys : (self.head.val + idx.val) % self.buf.val.length < self.buf.val.length :=
-    Nat.mod_lt _ hcap
-  simp only [dif_pos hphys]
+  simp only [if_pos hidx, dif_pos hphys]
   simp only [List.getElem?_eq_getElem hphys, WP.spec_ok]
   simp
 
