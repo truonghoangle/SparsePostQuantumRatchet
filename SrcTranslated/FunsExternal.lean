@@ -123,33 +123,21 @@ theorem Slice.Insts.CoreCmpPartialEqArray.eq_eq
 
 /-- [core::array::from_fn]:
     Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52
-    Name pattern: [core::array::from_fn]
-
-    Concrete model of Rust's `core::array::from_fn<T, F: FnMut(usize) -> T, const N: usize>`:
-    creates an array of `N` elements by calling the closure's `call_mut` method for
-    each index `0, 1, ..., N-1`, threading the mutable closure state through each
-    invocation. -/
+    Name pattern: [core::array::from_fn] -/
 @[rust_fun "core::array::from_fn"]
-noncomputable def core.array.from_fn
-  {T : Type} {F : Type} [Inhabited T] (N : Std.Usize)
-  (opsfunctionFnMutFTupleUsizeTInst :
+axiom core.array.from_fn
+  {T : Type} {F : Type} (N : Std.Usize) (opsfunctionFnMutFTupleUsizeTInst :
   core.ops.function.FnMut F Std.Usize T) :
-  F → Result (Array T N) :=
-  fun _ => .ok default
+  F → Result (Array T N)
 
-/-- **Spec theorem for `core.array.from_fn`**: the returned array consists of
-    `N` copies of the `default` value for `T`.  This models the concrete
-    implementation `fun _ => .ok default` used in the Aeneas extraction, and
-    gives downstream proofs enough information about the initial array state. -/
-@[simp, step_simps, step]
-theorem core.array.from_fn_spec {T : Type} {F : Type} [Inhabited T]
-    (N : Std.Usize)
-    (opsfunctionFnMutFTupleUsizeTInst : core.ops.function.FnMut F Std.Usize T)
-    (f : F) :
-    WP.spec (core.array.from_fn N opsfunctionFnMutFTupleUsizeTInst f)
-      (fun (a : Array T N) => a.val = List.replicate N.val default) := by
-  simp only [core.array.from_fn, WP.spec_ok]
-  rfl
+/-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new] -/
+@[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
+axiom sorted_vec.SortedSet.new
+  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+  Result (sorted_vec.SortedSet T)
+
 
 namespace Shared0T.Insts.CoreBorrowBorrow
 /-- [core::borrow::{core::borrow::Borrow<T> for &0 (T)}::borrow]:
@@ -1819,60 +1807,26 @@ theorem libcrux_ml_kem.mlkem768.incremental.encapsulate2_spec
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 240:12-240:80
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed]
-
-    Concrete model of Rust's `KeyPairCompressedBytes::from_seed`: given a
-    64-byte seed, produces an ML-KEM 768 incremental compressed key pair.
-    Since the underlying cryptographic computation is opaque, we model the
-    result by returning the `default` inhabitant of `KeyPairCompressedBytes`
-    (i.e. a structure with all-zero byte arrays).  The outer `Result` is
-    always `ok` (the call never panics). -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed] -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::from_seed"]
-def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
+axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed
   :
   Array Std.U8 64#usize → Result
-    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
-  fun _ => ok default
+    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes
 
-/-- **Spec theorem for `KeyPairCompressedBytes.from_seed`**: the call always
-    succeeds and returns the `default` inhabitant of `KeyPairCompressedBytes`. -/
-@[simp, step_simps]
-theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed_spec
-    (seed : Array Std.U8 64#usize) :
-    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed seed
-      ⦃ (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) =>
-        kp = default ⦄ := by
-  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.from_seed]
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 267:12-267:49
-    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1]
-
-    Concrete model of Rust's `KeyPairCompressedBytes::pk1`: returns the first
-    part of the ML-KEM 768 incremental compressed public key, a fixed-size
-    array of `64` bytes.  Since `KeyPairCompressedBytes` is an opaque
-    (axiomatised) type whose contents we cannot inspect, we model the result
-    by returning the `default` inhabitant of `Array U8 64#usize` (i.e. the
-    all-zero array).  The outer `Result` is always `ok` (the call never
-    panics). -/
+    Name pattern: [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1] -/
 @[rust_fun
   "libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk1"]
-def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1
+axiom libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1
   :
   libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes → Result (Array
-    Std.U8 64#usize) :=
-  fun _ => ok default
+    Std.U8 64#usize)
 
-/-- **Spec theorem for `KeyPairCompressedBytes.pk1`**: the call always
-    succeeds and returns the `default` inhabitant of `Array U8 64#usize`,
-    i.e. the all-zero array. -/
-@[simp, step_simps]
-theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1_spec
-    (kp : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) :
-    libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1 kp
-      ⦃ (a : Array Std.U8 64#usize) => a = default ⦄ := by
-  simp [libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.pk1]
+
 
 /-- [libcrux_ml_kem::mlkem768::incremental::{libcrux_ml_kem::mlkem768::incremental::KeyPairCompressedBytes}::pk2]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libcrux-ml-kem-0.0.7/src/mlkem.rs', lines 275:12-275:49
@@ -2103,27 +2057,8 @@ theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
       ⦃ (v : alloc.vec.Vec T) => v = alloc.vec.Vec.new T ⦄ := by
   simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
 
-/-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new]
 
-    Concrete model of Rust's `SortedSet::new`: creates an empty sorted set.
-    Since `SortedSet` is an opaque type we model the initial value as
-    `default` (using the postulated `Inhabited` instance). -/
-@[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
-noncomputable def sorted_vec.SortedSet.new
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Result (sorted_vec.SortedSet T) :=
-  ok default
 
-/-- **Spec theorem for `sorted_vec.SortedSet.new`**: the call always succeeds
-    and returns the `default` inhabitant of `SortedSet T`. -/
-@[simp, step_simps]
-theorem sorted_vec.SortedSet.new_spec
-    {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-    sorted_vec.SortedSet.new corecmpOrdInst
-      ⦃ (s : sorted_vec.SortedSet T) => s = default ⦄ := by
-  simp [sorted_vec.SortedSet.new]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::with_capacity]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 351:2-351:49
@@ -2135,59 +2070,22 @@ axiom sorted_vec.SortedSet.with_capacity
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push]
-
-    Concrete model of Rust's `SortedSet::push`: inserts an element into the
-    sorted set.  The Rust function returns `(usize, Option<T>)` where the
-    `usize` is the index at which the element was placed and the `Option<T>`
-    is the previously-stored equal element if one was replaced (otherwise
-    `None`).  Since `SortedSet` is an opaque (axiomatised) type we cannot
-    inspect its contents, so we model the result by returning the `default`
-    inhabitants: index `0`, no replaced value, and the `default` sorted set.
-    The outer `Result` is always `ok` (the call never panics). -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push] -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::push"]
-noncomputable def sorted_vec.SortedSet.push
+axiom sorted_vec.SortedSet.push
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
   sorted_vec.SortedSet T → T → Result ((Std.Usize × (Option T)) ×
-    (sorted_vec.SortedSet T)) :=
-  fun _ _ => ok ((0#usize, none), default)
+    (sorted_vec.SortedSet T))
 
-/-- **Spec theorem for `sorted_vec.SortedSet.push`**: the call always succeeds
-    and returns `((0, none), default)`. -/
-@[simp, step_simps]
-theorem sorted_vec.SortedSet.push_spec
-    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
-    (s : sorted_vec.SortedSet T) (x : T) :
-    sorted_vec.SortedSet.push corecmpOrdInst s x
-      ⦃ (res : (Std.Usize × (Option T)) × (sorted_vec.SortedSet T)) =>
-        res = ((0#usize, (none : Option T)), (default : sorted_vec.SortedSet T)) ⦄ := by
-  simp [sorted_vec.SortedSet.push]
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>> for sorted_vec::SortedSet<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 543:2-543:36
-    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref]
-
-    Concrete model of Rust's `<SortedSet<T> as Deref>::deref`: returns the
-    inner `SortedVec<T>`.  Since `SortedSet` and `SortedVec` are opaque
-    (axiomatised) types we cannot inspect their contents, so we model the
-    result by returning the `default` inhabitant of `SortedVec T`.  The
-    outer `Result` is always `ok` (the call never panics). -/
+    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref] -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref"]
-noncomputable def sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
+axiom sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T) :=
-  fun _ => ok default
-
-/-- **Spec theorem for `sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref`**:
-    the call always succeeds and returns the `default` inhabitant of `SortedVec T`. -/
-@[simp, step_simps]
-theorem sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec
-    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
-    (s : sorted_vec.SortedSet T) :
-    sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref corecmpOrdInst s
-      ⦃ (v : sorted_vec.SortedVec T) => v = default ⦄ := by
-  simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
+  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T)
 
 /-- [thiserror::display::{thiserror::display::AsDisplay<'a, &'a (T)> for &1 (T)}::as_display]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.12/src/display.rs', lines 20:4-20:43

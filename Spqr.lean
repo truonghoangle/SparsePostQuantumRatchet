@@ -1,6 +1,5 @@
 import Spqr.Aux.Aeneas.StdNextCoreIterRangeStep
 import Spqr.Aux.Aeneas.StdNextStepUsize
-<<<<<<< HEAD
 import Spqr.Aux.LibcruxHmac.BlockLen
 import Spqr.Aux.LibcruxHmac.HashLen
 import Spqr.Aux.LibcruxHmac.HmacBytes
@@ -11,10 +10,8 @@ import Spqr.Aux.LibcruxHmac.Sha1.Round
 import Spqr.Aux.LibcruxHmac.Sha2.Constants
 import Spqr.Aux.LibcruxHmac.Sha2.Round
 import Spqr.Aux.LibcruxHmac.Word
-=======
 import Spqr.Lint.Basic
 import Spqr.Lint.SpecIndent
->>>>>>> 49e2f3125b38d23dcaffbf6c71973c3d4207b89c
 import Spqr.Math.Gf16.Basic
 import Spqr.Math.Gf16.Field
 import Spqr.Math.Gf16.Irreducible
@@ -56,18 +53,15 @@ import Spqr.Specs.Aeneas.SliceIsEmpty
 import Spqr.Specs.Aeneas.SliceIter
 import Spqr.Specs.Aeneas.SliceIterMap
 import Spqr.Specs.Aeneas.SliceIteratorNext
-<<<<<<< HEAD
 import Spqr.Specs.Aeneas.TryFromSliceToArray
 import Spqr.Specs.Aeneas.U16FromBeBytes
 import Spqr.Specs.Aeneas.U16ToBeBytes
 import Spqr.Specs.Aeneas.VecExtendFromSlice
 import Spqr.Specs.Aeneas.VecIndexRangeFull
-import Spqr.Specs.Encoding.Encoder.NextChunk
-=======
 import Spqr.Specs.Authenticator.Authenticator.MACSIZE
 import Spqr.Specs.Authenticator.Serialize.Authenticator.FromPb
 import Spqr.Specs.Authenticator.Serialize.Authenticator.IntoPb
->>>>>>> 49e2f3125b38d23dcaffbf6c71973c3d4207b89c
+import Spqr.Specs.Encoding.Encoder.NextChunk
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
@@ -119,7 +113,6 @@ import Spqr.Specs.Encoding.Polynomial.LagrangePolysForCompletePoints
 import Spqr.Specs.Encoding.Polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
-<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.Point.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
@@ -138,15 +131,6 @@ import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
 import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
 import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
 import Spqr.Specs.Encoding.Polynomial.Poly.VecDeref
-=======
-import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
-import Spqr.Specs.Encoding.Polynomial.Poly.ComputeAt
-import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
-import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
-import Spqr.Specs.Encoding.Polynomial.Poly.MultAssign
-import Spqr.Specs.Encoding.Polynomial.Poly.MultXdiffAssignTrailing
-import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
->>>>>>> 49e2f3125b38d23dcaffbf6c71973c3d4207b89c
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.PolyConstN.Mult
