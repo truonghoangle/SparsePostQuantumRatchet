@@ -51,7 +51,8 @@ theorem body_spec
           out1.toGF216Poly = out.toGF216Poly +
             C ((pts[iter.start]!).y.toGF216) * (polys[iter.start]!).toGF216Poly ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start < iter.end.val
@@ -77,10 +78,10 @@ theorem loop_spec
     (h_out : out.degree < Usize.max)
     (h_polys : ∀ i < iter.end, (polys.val[i]!).degree + 2 ≤ Usize.max)
     (h_sum : out.toGF216Poly = ∑ j ∈ Finset.range iter.start,
-      C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) :
+      C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly) :
     lagrange_sum_loop iter pts polys out ⦃ (result : Poly) =>
-        result.toGF216Poly = ∑ j ∈ Finset.range (max iter.start iter.end),
-          C ((pts[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly ⦄ := by
+      result.toGF216Poly = ∑ j ∈ Finset.range (max iter.start iter.end),
+        C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly ⦄ := by
   unfold lagrange_sum_loop
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Usize × Poly) =>
@@ -150,8 +151,8 @@ theorem lagrange_sum_spec
     (h_len_le : pts.length ≤ polys.length)
     (h_polys : ∀ i < pts.length, (polys[i]!).degree + 2 ≤ Usize.max) :
     lagrange_sum pts polys ⦃ (result : Poly) =>
-        result.toGF216Poly =
-          ∑ j ∈ Finset.range pts.length, C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly ⦄ := by
+      result.toGF216Poly =
+        ∑ j ∈ Finset.range pts.length, C ((pts[j]!).y.toGF216) * (polys[j]!).toGF216Poly ⦄ := by
   unfold lagrange_sum
   step with zero_spec (Slice.len pts) as ⟨out, h_out_len, h_out_zero⟩
   have h_end_le_pts : (Slice.len pts).val ≤ pts.val.length := by simp

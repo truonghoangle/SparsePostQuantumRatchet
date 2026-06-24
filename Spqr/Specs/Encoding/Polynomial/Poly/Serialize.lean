@@ -101,9 +101,8 @@ theorem body_spec
       match a.val, a.property with | [b0, b1], _ => ⟨b0, b1, rfl⟩
     refine ⟨h_lt, h_start1, h_end1, b0, b1, ?_, ?_⟩
     · simp_all [Array.to_slice]
-    · have e0 : (a[0]!).val = b0.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
-      have e1 : (a[1]!).val = b1.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
-      grind
+    · simp_all only [List.getElem!_eq_getElem?_getD]
+      grind [toBEBytes_pair]
   · grind
 
 end spqr.encoding.polynomial.Poly.serialize_loop

@@ -44,10 +44,10 @@ private lemma EnumerateSliceIter_next_Pt_post
     (h_bound : iter.iter.i < iter.iter.slice.val.length → iter.count.val + 1 ≤ Usize.max) :
     ∃ (opt : Option (Usize × Pt))
       (iter' : Enumerate (Iter Pt)),
-      Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+      IteratorEnumerate.next
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
           ok (opt, iter') := by
-  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+  simp only [IteratorEnumerate.next,
     IteratorSliceIter.next]
   split
   · have h_add_bound : iter.count.val + 1 ≤ Usize.max := h_bound (by scalar_tac)
@@ -63,14 +63,14 @@ private lemma EnumerateSliceIter_next_Pt_some
     (h_lt : iter.iter.i < iter.iter.slice.val.length)
     (h_bound : iter.count.val + 1 ≤ Usize.max) :
     ∃ (iter1 : Enumerate (Iter Pt)),
-      Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+      IteratorEnumerate.next
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
           ok (some (iter.count, iter.iter.slice.val[iter.iter.i]), iter1) ∧
       iter1.iter.i = iter.iter.i + 1 ∧
       iter1.iter.slice = iter.iter.slice ∧
       iter1.count.val = iter.count.val + 1 := by
   simp only [
-    Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    IteratorEnumerate.next,
     IteratorSliceIter.next]
   have h_lt' : iter.iter.i < (↑iter.iter.slice.len : Nat) := by scalar_tac
   rw [dif_pos h_lt']
@@ -83,11 +83,11 @@ private lemma EnumerateSliceIter_next_Pt_some
 private lemma EnumerateSliceIter_next_Pt_none
     (iter : Enumerate (Iter Pt))
     (iter' : Enumerate (Iter Pt))
-    (hnext : Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+    (hnext : IteratorEnumerate.next
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
           ok (none, iter')) :
     ¬ (iter.iter.i < iter.iter.slice.val.length) := by
-  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+  simp only [IteratorEnumerate.next,
     IteratorSliceIter.next] at hnext
   split at hnext
   case isTrue h_lt =>
@@ -209,12 +209,12 @@ private abbrev bodyPost
 private lemma absurd_some_out_of_bounds
     (iter : Enumerate (Iter Pt))
     (idx : Usize) (pt : Pt) (iter1 : Enumerate (Iter Pt))
-    (hnext : Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next
+    (hnext : IteratorEnumerate.next
         (core.iter.traits.iterator.IteratorSliceIter Pt) iter =
           ok (some (idx, pt), iter1))
     (h_out : ¬(iter.iter.i < iter.iter.slice.val.length)) :
     False := by
-  simp only [Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+  simp only [IteratorEnumerate.next,
     IteratorSliceIter.next] at hnext
   split at hnext
   case isTrue h_lt => exact absurd h_lt h_out

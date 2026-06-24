@@ -132,11 +132,26 @@ axiom core.array.from_fn
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new] -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new]
+
+    Concrete model of Rust's `SortedSet::new`: creates an empty sorted set.
+    Since `SortedSet T` is represented as `alloc.vec.Vec T`, the result is
+    the empty vector `Vec::new()`.  The outer `Result` is always `ok` (the
+    call never panics). -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
-axiom sorted_vec.SortedSet.new
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Result (sorted_vec.SortedSet T)
+def sorted_vec.SortedSet.new
+  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
+  Result (sorted_vec.SortedSet T) :=
+  ok (alloc.vec.Vec.new T)
+
+/-- **Spec theorem for `SortedSet::new`**: the call always succeeds and returns
+    an empty sorted set (i.e. a set whose underlying list is `[]`). -/
+@[step]
+theorem sorted_vec.SortedSet.new_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+    sorted_vec.SortedSet.new corecmpOrdInst
+      ⦃ (s : sorted_vec.SortedSet T) => s.val = [] ⦄ := by
+  simp [sorted_vec.SortedSet.new, alloc.vec.Vec.new]
 
 
 namespace Shared0T.Insts.CoreBorrowBorrow
@@ -1492,8 +1507,8 @@ def alloc.vec.Vec.is_empty
 
 @[simp, step_simps, step]
 theorem alloc.vec.Vec.is_empty_spec
-  {T : Type} (A : Type) (v : alloc.vec.Vec T) :
-  alloc.vec.Vec.is_empty A v ⦃ b => b = (v.length = 0) ⦄ := by
+    {T : Type} (A : Type) (v : alloc.vec.Vec T) :
+    alloc.vec.Vec.is_empty A v ⦃ b => b = (v.length = 0) ⦄ := by
   simp only [alloc.vec.Vec.is_empty, alloc.vec.Vec.length,
     List.length_eq_zero_iff, eq_iff_iff, WP.spec_ok, decide_eq_true_eq]
 

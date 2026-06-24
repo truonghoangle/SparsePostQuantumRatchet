@@ -67,6 +67,7 @@ theorem call_mut_spec
       ⦃ (result : (sorted_vec.SortedSet Pt) × PolyDecoder.new_with_poly_count.closure) =>
         result.2 = c ⦄ := by
   unfold call_mut
-  simp [sorted_vec.SortedSet.new]
+  step*
+
 
 end spqr.encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt

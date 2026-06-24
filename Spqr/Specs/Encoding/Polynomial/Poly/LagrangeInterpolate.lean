@@ -126,7 +126,8 @@ theorem body_spec
             k ≠ iter.start.val →
             v1.val[k]? = v.val[k]?) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1, hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]; simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
@@ -463,7 +464,8 @@ theorem body_spec
               (v.val[j]!).toGF216 +
               (working₂.coefficients.val[j + 1]!).toGF216) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
@@ -708,10 +710,8 @@ theorem loop_spec
     (h_eval_all : ∀ (i : Nat), iter.start.val ≤ i → i < iter.«end».val →
         ∀ (hi : i < pts.val.length),
           template.evalAt (pts.val.get ⟨i, hi⟩).x = 0) :
-    Poly.lagrange_interpolate_loop0
-      iter pts v template working
-        ⦃ (result : alloc.vec.Vec GF16) =>
-          result.val.length = v.val.length ∧
+    Poly.lagrange_interpolate_loop0 iter pts v template working ⦃ (result : alloc.vec.Vec GF16) =>
+      result.val.length = v.val.length ∧
           ∃ ws : List Poly,
             ws.length = iter.«end».val - iter.start.val ∧
             (∀ (k : Nat) (hk : k < ws.length)

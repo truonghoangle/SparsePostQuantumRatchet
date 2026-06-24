@@ -80,6 +80,11 @@ def sorted_vec.SortedVec (T : Type) : Type := alloc.vec.Vec T
 
 /-- [sorted_vec::SortedSet]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 39:0-39:30
-    Name pattern: [sorted_vec::SortedSet] -/
+    Name pattern: [sorted_vec::SortedSet]
+
+    Model: a `SortedSet<T>` wraps a `SortedVec<T>` (which itself is
+    `alloc.vec.Vec T`).  The uniqueness / sortedness invariant is not
+    tracked at the type level; downstream specs reason about it explicitly
+    when needed. -/
 @[rust_type "sorted_vec::SortedSet"]
-axiom sorted_vec.SortedSet (T : Type) : Type
+def sorted_vec.SortedSet (T : Type) : Type := sorted_vec.SortedVec T
