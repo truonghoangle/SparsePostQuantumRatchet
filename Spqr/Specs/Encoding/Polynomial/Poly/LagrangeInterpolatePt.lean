@@ -131,10 +131,9 @@ theorem lagrange_interpolate_pt_spec
         C (lagrangeScaleGF216 (pts[i]) pts) * prodLinearFactors pts 0 pts.length ⦄ := by
   unfold lagrange_interpolate_pt
   step with lagrange_interpolate_prepare_spec pts h_len as
-    ⟨template, h_template_len, _, _, _, h_template_eq⟩
+    ⟨template, h_template_len, _, _,  h_template_eq⟩
   simp_all only [Slice.length, Order.add_one_le_iff, degree, alloc.vec.Vec.length,
-    lt_add_iff_pos_right, Order.lt_one_iff, getElem!_pos, Option.some.injEq, Std.le_refl,
-    forall_const, Order.lt_add_one_iff, forall_true_left, Slice.getElem_Usize_eq]
+    Slice.getElem_Usize_eq]
   have h_template_pos : 0 < template.coefficients.length := by
     grind
   have h_root_template :

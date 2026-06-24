@@ -1082,7 +1082,7 @@ theorem lagrange_interpolate_formula
       interval_cases pts.val.length
       · simp_all
     step with lagrange_interpolate_prepare_spec pts h_len as
-      ⟨template, h_template_len, _, _, _, h_template_eq⟩
+      ⟨template, h_template_len, _, _,  h_template_eq⟩
     step with clone_spec template as ⟨working, h_working_eq⟩
     rw [h_working_eq]
     have h0_lt_pts : (0 : Nat) < pts.val.length := h_nonempty
