@@ -2,6 +2,7 @@
 -- [spqr]: external types.
 -- This is a template file: rename it to "TypesExternal.lean" and fill the holes.
 import Aeneas
+import Spqr.Lint.Basic
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
@@ -17,15 +18,11 @@ set_option maxHeartbeats 1000000
     Source: '/rustc/library/core/src/num/error.rs', lines 10:0-10:26
     Name pattern: [core::num::error::TryFromIntError] -/
 @[rust_type "core::num::error::TryFromIntError"]
-axiom core.num.error.TryFromIntError : Type
+structure core.num.error.TryFromIntError deriving Inhabited, DecidableEq
 
 /-- [alloc::collections::vec_deque::VecDeque]
-    Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 104:0-117:1
-    Name pattern: [alloc::collections::vec_deque::VecDeque]
-
-    Concrete model: a ring-buffer deque with a backing buffer (`buf`),
-    a `head` index pointing to the first element, and a `len` count of
-    initialized elements. -/
+    Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 104:0-107:1
+    Name pattern: [alloc::collections::vec_deque::VecDeque] -/
 @[rust_type "alloc::collections::vec_deque::VecDeque"]
 structure alloc.collections.vec_deque.VecDeque (T : Type) (A : Type) where
   buf  : alloc.vec.Vec T
@@ -34,13 +31,7 @@ structure alloc.collections.vec_deque.VecDeque (T : Type) (A : Type) where
 
 /-- [alloc::collections::vec_deque::into_iter::IntoIter]
     Source: '/rustc/library/alloc/src/collections/vec_deque/into_iter.rs', lines 18:0-21:1
-    Name pattern: [alloc::collections::vec_deque::into_iter::IntoIter]
-
-    Concrete model: an `IntoIter` is a thin wrapper around the deque it was
-    constructed from.  Storing the `inner` deque structurally mirrors Rust's
-    `pub struct IntoIter<T, A: Allocator = Global> { inner: VecDeque<T, A> }`
-    and lets us define `IntoIter::new` as a real constructor rather than an
-    axiom. -/
+    Name pattern: [alloc::collections::vec_deque::into_iter::IntoIter] -/
 @[rust_type "alloc::collections::vec_deque::into_iter::IntoIter"]
 structure alloc.collections.vec_deque.into_iter.IntoIter (T : Type) (A : Type)
     where

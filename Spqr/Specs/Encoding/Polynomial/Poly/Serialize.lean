@@ -88,13 +88,14 @@ theorem body_spec
             out1.val = out.val ++ [hi, lo] ∧
             256 * hi  + lo = (v.val[iter.start.val]!).value.val ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start < iter.end.val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    have h_i_lt : iter.start < v.val.length := by omega
+    have h_i_lt : iter.start.val < v.val.length := by omega
     step*
     obtain ⟨b0, b1, h_a_eq⟩ : ∃ b0 b1, a.val = [b0, b1] :=
       match a.val, a.property with | [b0, b1], _ => ⟨b0, b1, rfl⟩
@@ -102,7 +103,7 @@ theorem body_spec
     · simp_all [Array.to_slice]
     · have e0 : (a[0]!).val = b0.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
       have e1 : (a[1]!).val = b1.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
-      grind[toBEBytes_pair ]
+      grind
   · grind
 
 end spqr.encoding.polynomial.Poly.serialize_loop

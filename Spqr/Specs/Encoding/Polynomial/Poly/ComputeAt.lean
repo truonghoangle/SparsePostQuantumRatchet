@@ -45,7 +45,8 @@ theorem body_spec
             g.toGF216 =
               (xs[xs.length / 2]!).toGF216 * (xs[xs.length / 2 + xs.length % 2]!).toGF216 ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start < iter.end
@@ -53,7 +54,6 @@ theorem body_spec
     grind
   · grind
 
-end spqr.encoding.polynomial.Poly.compute_at_loop0
 
 /-! # Spec theorem for `Poly::compute_at`: loop 0
 
@@ -64,8 +64,6 @@ Each step computes `xs[i] = xs[i/2] * xs[i/2 + i%2]`.
 `∀ j < xs.val.length, (xs[j]!).toGF216 = x.toGF216 ^ j`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
-
-namespace spqr.encoding.polynomial.Poly.compute_at_loop0
 
 @[step]
 theorem loop_spec
@@ -134,15 +132,14 @@ theorem body_spec
           iter1.end = iter.end ∧
           out1.toGF216 = out.toGF216 + (v[iter.start]!).toGF216 * (xs[iter.start]!).toGF216 ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start < iter.end
   · step*
     grind
   · grind
-
-end spqr.encoding.polynomial.Poly.compute_at_loop1
 
 /-! # Spec theorem for `Poly::compute_at`: loop 1
 
@@ -154,8 +151,6 @@ After all iterations:
 coefficient–power products, using `Finset.sum_range_succ` at each step.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
-
-namespace spqr.encoding.polynomial.Poly.compute_at_loop1
 
 @[step]
 theorem loop_spec

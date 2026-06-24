@@ -7,59 +7,22 @@ import Spqr.Math.Poly.Coeff.ListOps
 import Spqr.Math.Poly.CharTwo.ToGF216
 import Spqr.Specs.Encoding.Gf.ParallelMult
 
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::mult_assign`
+/-! # Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::mult_assign`
 
+Scales every coefficient of `self` by the GF(2¹⁶) element `m`, which corresponds to polynomial
+scalar multiplication by `C(m.toGF216)` in `GF216[X]`. Delegates directly to `parallel_mult`;
+the postcondition follows from `parallel_mult_spec`.
 
-After the operation, the result polynomial represents the scalar product `C(m) · self` in
-`GF216[X] = (GaloisField 2 16)[X]`, where `C(m)` denotes the constant polynomial embedding of the
-GF(2¹⁶) scalar `m`.
+**Source**: spqr/src/encoding/polynomial.rs -/
 
-In GF(2¹⁶) (characteristic 2), multiplication is carry-less polynomial multiplication modulo the
-irreducible polynomial `x¹⁶ + x¹² + x³ + x + 1` (0x1100b).
-
-The Aeneas-extracted Lean function `encoding.polynomial.Poly.mult_assign` is a direct delegation:
-  1. `alloc.vec.Vec.deref_mut self.coefficients` — obtains the coefficient slice and a back-closure.
-  2. `encoding.gf.parallel_mult m s` — multiplies every element of the slice by `m` in GF(2¹⁶).
-  3. `deref_mut_back s1` — reconstructs the `Vec` from the modified slice.
-  4. Returns `{ coefficients := v }`.
-
-Since the delegation introduces no additional logic beyond the `deref_mut`/`deref_mut_back` wrapper,
-the postcondition is derived from the `parallel_mult` specification (`parallel_mult_spec`): every
-coefficient of the result is the GF(2¹⁶) product of `m` with the corresponding original
-coefficient, which at the polynomial level corresponds to scalar multiplication by
-`C (m.toGF216)`.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 250:4-252:5)
--/
-
-open Aeneas Aeneas.Std Result spqr.encoding.gf Polynomial
-
+open Aeneas Aeneas.Std spqr.encoding.gf Polynomial
 
 namespace spqr.encoding.polynomial.Poly
 
-/--
-**Spec theorem for `encoding.polynomial.Poly.mult_assign`**:
+/-- **Spec theorem for `encoding.polynomial.Poly.mult_assign`**:
 
-• The function always succeeds (no panic) provided the coefficient vector length satisfies
-  `self.coefficients.val.length + 2 ≤ Usize.max`, since the underlying `parallel_mult` requires
-  this bound for its stride-of-two loop (mirrors the Rust
-  `#[requires(into.len() <= usize::MAX - 2)]` annotation on `parallel_mult`).
-
-• **Polynomial scalar multiplication postcondition**:
-    `result.toGF216Poly = C (m.toGF216) * self.toGF216Poly`
-  where `toGF216Poly : Poly → GF216Poly` interprets the coefficient vector as a polynomial in
-  `GF216[X] = (GaloisField 2 16)[X]`, and `C : GF216 →+* GF216[X]` is the constant-polynomial
-  embedding.
-
-  This states that scaling every coefficient by `m` in GF(2¹⁶) corresponds to multiplying the
-  polynomial by the constant `C (m.toGF216)` in `GF216[X]`.  Equivalently, every coefficient
-  `result.coefficients[j]` satisfies
-    `result.coefficients[j].toGF216 = m.toGF216 * self.coefficients[j].toGF216`
-  in GF(2¹⁶), and the coefficient vector length is preserved.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 250:4-252:5)
--/
+Succeeds when `self.degree + 2 ≤ Usize.max` (required by `parallel_mult`).
+Postcondition: `result.toGF216Poly = C (m.toGF216) * self.toGF216Poly` with degree preserved. -/
 @[step]
 theorem mult_assign_spec
     (self : Poly) (m : GF16)
@@ -75,11 +38,9 @@ theorem mult_assign_spec
   apply listToGF216Poly_eq_of_coeffs
   · intro j hj
     rw [coeff_C_mul, ← getElem!_toGF216_eq_coeff]
-    simp_all
     grind
   · intro j hj
     rw [coeff_C_mul, listToGF216Poly_coeff_eq_zero _ _ (by simp_all [Slice.length])]
     ring
-
 
 end spqr.encoding.polynomial.Poly

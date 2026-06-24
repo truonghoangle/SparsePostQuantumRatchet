@@ -16,39 +16,75 @@ set_option linter.style.whitespace false
 set_option maxHeartbeats 1000000
 open spqr
 
-/-! ## Inhabited instances required by `core.array.from_fn` in Funs.lean -/
+/-- [core::cmp::impls::{impl core::cmp::Eq for u8}::assert_fields_are_eq]:
+    Source: '/rustc/library/core/src/cmp.rs', lines 1906:12-1906:32
+    Name pattern: [core::cmp::impls::{core::cmp::Eq<u8>}::assert_fields_are_eq]
+    Visibility: public -/
+@[rust_fun "core::cmp::impls::{core::cmp::Eq<u8>}::assert_fields_are_eq"]
+axiom U8.Insts.CoreCmpEq.assert_fields_are_eq : Std.U8 → Result Unit
 
-/-- `Poly` wraps a `Vec<GF16>`. Default: empty coefficient vector. -/
-instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
+/-- [core::cmp::impls::{impl core::cmp::Eq for usize}::assert_fields_are_eq]:
+    Source: '/rustc/library/core/src/cmp.rs', lines 1906:12-1906:32
+    Name pattern: [core::cmp::impls::{core::cmp::Eq<usize>}::assert_fields_are_eq]
+    Visibility: public -/
+@[rust_fun "core::cmp::impls::{core::cmp::Eq<usize>}::assert_fields_are_eq"]
+axiom Usize.Insts.CoreCmpEq.assert_fields_are_eq : Std.Usize → Result Unit
 
-/-- `Point` wraps a `Vec<GF16>`. Default: empty value vector. -/
-instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
+/-- [core::iter::traits::iterator::Iterator::map]:
+    Source: '/rustc/library/core/src/iter/traits/iterator.rs', lines 831:4-834:34
+    Name pattern: [core::iter::traits::iterator::Iterator::map]
+    Visibility: public -/
+@[rust_fun "core::iter::traits::iterator::Iterator::map"]
+axiom core.iter.traits.iterator.Iterator.map.default
+  {Self : Type} {B : Type} {F : Type} {Clause0_Item : Type} (IteratorInst :
+  core.iter.traits.iterator.Iterator Self Clause0_Item)
+  (opsfunctionFnMutFTupleClause0_ItemBInst : core.ops.function.FnMut F
+  Clause0_Item B) :
+  Self → F → Result (core.iter.adapters.map.Map Self F)
 
-/-- `sorted_vec.SortedSet` is an opaque (axiom) type; we postulate inhabitedness. -/
-noncomputable axiom sorted_vec.SortedSet.instInhabited (T : Type) : Inhabited (sorted_vec.SortedSet T)
-noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedSet T) := sorted_vec.SortedSet.instInhabited T
+/-- [prost::encoding::bool::merge]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/encoding.rs', lines 268:12-268:130
+    Name pattern: [prost::encoding::bool::merge]
+    Visibility: public -/
+@[rust_fun "prost::encoding::bool::merge"]
+axiom prost.encoding.bool.merge
+  {T0 : Type} (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf T0) :
+  prost.encoding.wire_type.WireType → Bool → T0 →
+    prost.encoding.DecodeContext → Result ((core.result.Result Unit
+    prost.error.DecodeError) × Bool × T0)
 
-/-- `sorted_vec.SortedVec` is an opaque (axiom) type; we postulate inhabitedness. -/
-noncomputable axiom sorted_vec.SortedVec.instInhabited (T : Type) : Inhabited (sorted_vec.SortedVec T)
-noncomputable instance {T : Type} : Inhabited (sorted_vec.SortedVec T) := sorted_vec.SortedVec.instInhabited T
+/-- [prost::encoding::message::merge]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/encoding.rs', lines 796:4-804:15
+    Name pattern: [prost::encoding::message::merge]
+    Visibility: public -/
+@[rust_fun "prost::encoding::message::merge"]
+axiom prost.encoding.message.merge
+  {M : Type} {B : Type} (messageMessageInst : prost.message.Message M)
+  (bytesbufbuf_implBufInst : bytes.buf.buf_impl.Buf B) :
+  prost.encoding.wire_type.WireType → M → B →
+    prost.encoding.DecodeContext → Result ((core.result.Result Unit
+    prost.error.DecodeError) × M × B)
 
-/-- `libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes` is a concrete
-    structure with `pk1_val`, `pk2_val`, and `sk_val` fields (all fixed-size
-    byte arrays).  Inhabitedness follows from all fields being `Inhabited`. -/
-def libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited :
-  Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
-  ⟨⟨default, default, default⟩⟩
-instance : Inhabited libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes :=
-  libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited
+/-- [prost::message::Message::encode_to_vec]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/message.rs', lines 61:4-63:20
+    Name pattern: [prost::message::Message::encode_to_vec]
+    Visibility: public -/
+@[rust_fun "prost::message::Message::encode_to_vec"]
+axiom prost.message.Message.encode_to_vec.default
+  {Self : Type} (MessageInst : prost.message.Message Self) :
+  Self → Result (alloc.vec.Vec Std.U8)
 
-/-- **Spec theorem for `KeyPairCompressedBytes.instInhabited`**: the `default`
-    value is the structure with all-zero `pk1_val`, `pk2_val`, and `sk_val`
-    arrays. -/
-@[simp, step_simps]
-theorem libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes.instInhabited_spec :
-    (default : libcrux_ml_kem.mlkem768.incremental.KeyPairCompressedBytes) =
-      ⟨default, default, default⟩ := by
-  rfl
+/-- [prost::message::Message::decode]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-0.14.1/src/message.rs', lines 105:4-107:22
+    Name pattern: [prost::message::Message::decode]
+    Visibility: public -/
+@[rust_fun "prost::message::Message::decode"]
+axiom prost.message.Message.decode.default
+  {Self : Type} {T1 : Type} (MessageInst : prost.message.Message Self)
+  (coredefaultDefaultInst : core.default.Default Self) (bytesbufbuf_implBufInst
+  : bytes.buf.buf_impl.Buf T1) :
+  T1 → Result (core.result.Result Self prost.error.DecodeError)
+
 /-- Implementation helper for `Slice.Insts.CoreCmpPartialEqArray.eq`
 (`[core::array::equality::{core::cmp::PartialEq<[@T], [@U; @N]>}::eq]`,
 Source: '/rustc/library/core/src/array/equality.rs', lines 48:4-48:40).
@@ -115,35 +151,57 @@ theorem core.array.from_fn_spec {T : Type} {F : Type} [Inhabited T]
   simp only [core.array.from_fn, WP.spec_ok]
   rfl
 
+namespace Shared0T.Insts.CoreBorrowBorrow
 /-- [core::borrow::{core::borrow::Borrow<T> for &0 (T)}::borrow]:
     Source: '/rustc/library/core/src/borrow.rs', lines 230:4-230:26
     Name pattern: [core::borrow::{core::borrow::Borrow<&'0 @T, @T>}::borrow]
 
-    Concrete model of Rust's `<&T as Borrow<T>>::borrow`:
-    since Aeneas erases references, borrowing a shared reference to `T`
-    is the identity — the referent `T` is returned unchanged.
-
-    Rust source (core/src/borrow.rs, lines 229–231):
-    ```rust
-    impl<T: ?Sized> Borrow<T> for &T {
-        fn borrow(&self) -> &T {
-            &**self
-        }
-    }
-    ``` -/
+    Concrete model of Rust's `<&T as Borrow<&T>>::borrow` for a shared reference `&T`:
+    borrowing simply returns the value unchanged.  The outer `Result` is
+    always `ok` (the call never panics). -/
 @[rust_fun "core::borrow::{core::borrow::Borrow<&'0 @T, @T>}::borrow"]
-def Shared0T.Insts.CoreBorrowBorrow.borrow {T : Type} : T → Result T :=
-  fun x => ok x
+def borrow {T : Type} (x : T): Result T := ok x
 
+/-- **Spec theorem for `<&T as Borrow<&T>>::borrow`**: borrowing returns the value unchanged. -/
+@[step]
+theorem borrow_spec {T : Type} (x : T) :
+    borrow x ⦃ result => result = x ⦄ := by
+  simp [borrow]
+
+end Shared0T.Insts.CoreBorrowBorrow
+
+namespace U32.Insts.CoreConvertTryFromU64TryFromIntError
+open core.num.error
 /-- [core::convert::num::{core::convert::TryFrom<u64, core::num::error::TryFromIntError> for u32}::try_from]:
     Source: '/rustc/library/core/src/convert/num.rs', lines 294:12-294:64
-    Name pattern: [core::convert::num::{core::convert::TryFrom<u32, u64, core::num::error::TryFromIntError>}::try_from] -/
+    Name pattern: [core::convert::num::{core::convert::TryFrom<u32, u64, core::num::error::TryFromIntError>}::try_from]
+
+    Concrete model of Rust's `<u32 as TryFrom<u64>>::try_from`: the conversion succeeds with
+    `Ok v` (where `v.val = value.val`) exactly when `value` fits in a `u32`
+    (`value.val ≤ u32::MAX`), and otherwise returns `Err` carrying a
+    `TryFromIntError`.  The outer `Result` is always `ok` (the call never
+    panics). -/
 @[rust_fun
   "core::convert::num::{core::convert::TryFrom<u32, u64, core::num::error::TryFromIntError>}::try_from"]
-axiom U32.Insts.CoreConvertTryFromU64TryFromIntError.try_from
-  :
-  Std.U64 → Result (core.result.Result Std.U32
-    core.num.error.TryFromIntError)
+def try_from (value : Std.U64) : Result (core.result.Result Std.U32 TryFromIntError) :=
+    match UScalar.tryMkOpt .U32 value.val with
+    | some v => ok (core.result.Result.Ok v)
+    | none   => ok (core.result.Result.Err {})
+
+-- /-- **Spec theorem for `<<u32> as TryFrom<u64>>::try_from`**
+-- * if `value.val ≤ U32.max` the result is `Ok v` with `v.val = value.val`;
+-- * otherwise the result is `Err`. -/
+@[step]
+theorem try_from_spec (value : U64) :
+    try_from value ⦃ (r : core.result.Result U32 TryFromIntError) =>
+      match r with
+      | .Ok v => value.val ≤ U32.max ∧ v.val = value.val
+      | .Err _ => ¬ value.val ≤ U32.max ⦄ := by
+  unfold try_from
+  have htry := UScalar.tryMkOpt_eq .U32 value.val
+  step*
+
+end U32.Insts.CoreConvertTryFromU64TryFromIntError
 
 /-- [core::fmt::{core::fmt::Formatter<'a>}::debug_struct_field2_finish]:
     Source: '/rustc/library/core/src/fmt/mod.rs', lines 2466:4-2473:15
@@ -178,6 +236,59 @@ argument opaque to the optimiser, which has no semantic content in the Lean mode
 theorem core.hint.black_box_spec {T : Type} (x : T) :
     core.hint.black_box x ⦃ (r : T) => r = x ⦄ := by
   simp [core.hint.black_box]
+
+namespace core.iter
+namespace traits.iterator.Iterator
+
+-- Default implementations for Iterator fields
+def enumerate.default
+  {Self : Type} (self: Self) :
+  Result (core.iter.adapters.enumerate.Enumerate Self) :=
+  .ok ⟨ self, 0#usize ⟩
+
+def take.default
+  {Self : Type} (self: Self) (n: Usize):
+  Result (core.iter.adapters.take.Take Self) :=
+  .ok ⟨ self, n ⟩
+
+-- Since `next` is often the only custom method, we define a way to construct an entire
+-- `Iterator` from just the `next` function, and populate the rest with defaults.
+def fromNext
+  {Self: Type} {Self_Item: Type}
+  (nextFn: Self → Result ((Option Self_Item) × Self)) :
+  core.iter.traits.iterator.Iterator Self Self_Item :=
+  {
+    next := nextFn,
+    step_by := core.iter.traits.iterator.Iterator.step_by.default,
+    enumerate := enumerate.default,
+    take := take.default
+  }
+
+end traits.iterator.Iterator
+
+namespace adapters.map
+
+def mapIteratorTransformer
+  {I: Type} {A: Type} {B: Type} {F: Type}
+  (map: core.iter.adapters.map.Map I F)
+  (iterImpl: core.iter.traits.iterator.Iterator I A)
+  (fnImpl: core.ops.function.FnMut F A B) :
+  core.iter.traits.iterator.Iterator I B :=
+    -- we define the `next` behavior of the mapped-over iterator:
+    let mapNext (iter: I) : Result ((Option B) × I) := do
+      -- advance underlying iterator
+      let (opt, iter') ← iterImpl.next iter
+      match opt with
+      | none => ok (none, iter') -- If done, nothing to map over
+      | some val =>
+        -- If underlying iterator returns x, compute f(x). This may fail or diverge
+        let (postFnVal, _) ← fnImpl.call_mut map.f val
+        -- if execution reaches here, call_mut did not return div or fail
+        ok (some postFnVal, iter')
+    traits.iterator.Iterator.fromNext mapNext
+
+end adapters.map
+end core.iter
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::next]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 79:4-79:64
@@ -255,26 +366,12 @@ def
 def
   core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
   {I : Type} {B : Type} {F : Type} {Clause0_Item : Type}
-  (_traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I
-  Clause0_Item) (_opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst :
-  core.ops.function.FnMut F (Std.Usize × Clause0_Item) B) :
-  core.iter.adapters.enumerate.Enumerate I → F → Result
-    (core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F) :=
-  fun iter f => ok ⟨iter, f⟩
-
-@[simp, step_simps]
-theorem core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map_spec
-  {I : Type} {B : Type} {F : Type} {Clause0_Item : Type}
-  (traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I
-  Clause0_Item) (opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst :
-  core.ops.function.FnMut F (Std.Usize × Clause0_Item) B)
-  (iter : core.iter.adapters.enumerate.Enumerate I) (f : F) :
-  core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map
-    traitsiteratorIteratorInst opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst iter f
-    ⦃ (m : core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F) =>
-      m = ⟨iter, f⟩ ⦄ := by
-  simp [core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.map]
-
+  (traitsiteratorIteratorInst : core.iter.traits.iterator.Iterator I Clause0_Item)
+  (opsfunctionFnMutFTuplePairUsizeClause0_ItemBInst : core.ops.function.FnMut F (Std.Usize × Clause0_Item) B)
+  (self: core.iter.adapters.enumerate.Enumerate I)
+  (fn: F) : Result (core.iter.adapters.map.Map (core.iter.adapters.enumerate.Enumerate I) F) :=
+    -- The `.map` operation merely stores information that is computed on demand, so it cannot fail
+    ok ({iter := self, f := fn})
 
 /-- [core::iter::adapters::enumerate::{core::iter::traits::iterator::Iterator<(usize, Clause0_Item)> for core::iter::adapters::enumerate::Enumerate<I>}::step_by]:
     Source: '/rustc/library/core/src/iter/adapters/enumerate.rs', lines 62:0-64:16
@@ -325,13 +422,37 @@ def core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
   traitscollectFromIteratorInst.from_iter
     (core.iter.traits.collect.IntoIterator.Blanket mapIterInst) m
 
+namespace I32.Insts.CoreIterRangeStep
 /-- [core::iter::range::{core::iter::range::Step for i32}::backward_checked]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 340:16-340:74
-    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::backward_checked] -/
+    Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::backward_checked]
+
+    Concrete model of Rust's `Step::backward_checked` for `i32`:
+    given `start : i32` and `count : usize`, compute the integer difference
+    `start - count` and return `Some(result)` if it fits in `i32`,
+    `None` otherwise.  The outer `Result` is always `ok` (the call
+    never panics). -/
 @[rust_fun
   "core::iter::range::{core::iter::range::Step<i32>}::backward_checked"]
-axiom I32.Insts.CoreIterRangeStep.backward_checked
-  : Std.I32 → Std.Usize → Result (Option Std.I32)
+def backward_checked (start: Std.I32) (n : Std.Usize) : Result (Option Std.I32) :=
+  ok (IScalar.tryMkOpt .I32 (start.val - n.val))
+
+/-- **Spec theorem for `Step<i32>::backward_checked` with an arbitrary step `n`**
+
+- Since `n.val ≥ 0`, the difference `start.val - n.val ≤ start.val ≤ I32.max` always satisfies the
+  upper bound, so only the lower bound is relevant.
+- If `I32.min ≤ start.val - n.val` the returned option is `some z` with `z.val = start.val - n.val`.
+- Otherwise the returned option is `none`. -/
+@[step]
+theorem backward_checked_spec (start : I32) (n : Usize) :
+    backward_checked start n ⦃ (opt : Option I32) =>
+      match opt with
+      | some z => I32.min ≤ start.val - n.val ∧ z.val = start.val - n.val
+      | none   => ¬ I32.min ≤ start.val - n.val ⦄ := by
+  unfold  I32.Insts.CoreIterRangeStep.backward_checked
+  have htry := IScalar.tryMkOpt_eq .I32 (start.val - ↑n.val)
+  step*
+  grind
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::forward_checked]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 319:16-319:73
@@ -344,78 +465,75 @@ axiom I32.Insts.CoreIterRangeStep.backward_checked
     never panics). -/
 @[rust_fun
   "core::iter::range::{core::iter::range::Step<i32>}::forward_checked"]
-def I32.Insts.CoreIterRangeStep.forward_checked
-  : Std.I32 → Std.Usize → Result (Option Std.I32) :=
-  fun start n => ok (IScalar.tryMkOpt .I32 (start.val + n.val))
+def forward_checked (start: Std.I32) (n : Std.Usize) : Result (Option Std.I32) :=
+  ok (IScalar.tryMkOpt .I32 (start.val + n.val))
 
+/-- **Spec theorem for `Step<i32>::forward_checked` with an arbitrary step `n`**
 
-/-- **Spec theorem for `Step<i32>::forward_checked` with step 1**
-
-* if `start.val + 1 ≤ I32.max` the returned option is `some z` with `z.val = start.val + 1`;
-* otherwise the returned option is `none`. -/
+- Since `n.val ≥ 0`, the sum `start.val + n.val ≥ start.val ≥ I32.min` always satisfies the lower
+  bound, so only the upper bound is relevant.
+- If `start.val + n.val ≤ I32.max` the returned option is `some z` with `z.val = start.val + n.val`;
+- Otherwise the returned option is `none`. -/
 @[step]
-private theorem I32_forward_checked_one_spec
-    (start : I32) :
-     I32.Insts.CoreIterRangeStep.forward_checked start 1#usize ⦃ (opt : Option I32) =>
+theorem forward_checked_spec (start : I32) (n : Usize) :
+    forward_checked start n ⦃ (opt : Option I32) =>
       match opt with
-      | some z => start.val + 1 ≤ I32.max ∧ z.val = start.val + 1
-      | none   => ¬ start.val + 1 ≤ I32.max ⦄ := by
+      | some z => start.val + n.val ≤ I32.max ∧ z.val = start.val + n.val
+      | none   => ¬ start.val + n.val ≤ I32.max ⦄ := by
   suffices h : ∃ opt,
-      I32.Insts.CoreIterRangeStep.forward_checked start 1#usize = ok opt ∧
-      (start.val + 1 ≤ I32.max →
-          ∃ z, opt = some z ∧ z.val = start.val + 1) ∧
-      (¬ start.val + 1 ≤ I32.max → opt = none) by grind
+      I32.Insts.CoreIterRangeStep.forward_checked start n = ok opt ∧
+      (start.val + n.val ≤ I32.max →
+          ∃ z, opt = some z ∧ z.val = start.val + n.val) ∧
+      (¬ start.val + n.val ≤ I32.max → opt = none) by grind
   unfold  I32.Insts.CoreIterRangeStep.forward_checked
-  have htry := IScalar.tryMkOpt_eq .I32 (start.val + ↑(1#usize).val)
-  generalize IScalar.tryMkOpt .I32 (start.val + ↑(1#usize).val) = opt at htry ⊢
+  have htry := IScalar.tryMkOpt_eq .I32 (start.val + ↑n.val)
+  generalize IScalar.tryMkOpt .I32 (start.val + ↑n.val) = opt at htry ⊢
   cases opt with
   | none => grind
   | some z =>
     refine ⟨some z, rfl, fun _ => ⟨z, rfl, by grind⟩, fun h => by grind⟩
-
-
 
 /-- [core::iter::range::{core::iter::range::Step for i32}::steps_between]:
     Source: '/rustc/library/core/src/iter/range.rs', lines 304:16-304:84
     Name pattern: [core::iter::range::{core::iter::range::Step<i32>}::steps_between]
 
     Concrete model of Rust's `Step::steps_between` for `i32`:
-    given `start : i32` and `end_ : i32`, compute the number of successor
-    steps needed to get from `start` to `end_`.  Returns a pair
-    `(usize, Option<usize>)` where:
-
-    - If `start > end_`: the range is empty, so `(0, Some(0))`.
-    - If `start ≤ end_`: the number of steps is `end_ − start` (widened to
-      `i64` to avoid overflow).  If the difference fits in `usize`, both
-      components equal the difference.  If it doesn't fit (only possible on
-      platforms with `usize` < 64 bits), the first component is `usize::MAX`
-      (a saturated lower bound) and the second is `None`.
-
-    Rust source:
-    ```rust
-    fn steps_between(start: &i32, end: &i32) -> (usize, Option<usize>) {
-        if *start <= *end {
-            match usize::try_from((*end as i64) - (*start as i64)) {
-                Ok(steps) => (steps, Some(steps)),
-                Err(_) => (usize::MAX, None),
-            }
-        } else {
-            (0, Some(0))
-        }
-    }
-    ```
-
-    The outer `Result` is always `ok` (the call never panics). -/
+    given `start : i32` and `end_ : i32`, if `start ≤ end_` the number of steps `end_ - start` is
+    a non-negative integer that always fits in `usize` (since `i32` is no wider
+    than `usize`), so the result is `(d, some d)` with `d = end_ - start`; otherwise the
+    result is `(0, none)`.  The outer `Result` is always `ok` (the call never
+    panics). -/
 @[rust_fun "core::iter::range::{core::iter::range::Step<i32>}::steps_between"]
-def I32.Insts.CoreIterRangeStep.steps_between
-  : Std.I32 → Std.I32 → Result (Std.Usize × (Option Std.Usize)) :=
-  fun start end_ =>
+def steps_between (start end_ : Std.I32) : Result (Std.Usize × (Option Std.Usize)) :=
     if start.val ≤ end_.val then
-      match UScalar.tryMkOpt .Usize (end_.val - start.val).toNat with
-      | some count => ok (count, some count)
-      | none       => ok (core.num.Usize.MAX, none)
+      let o := UScalar.tryMkOpt .Usize (end_.val - start.val).toNat
+      ok (o.getD 0#usize, o)
     else
-      ok (0#usize, some 0#usize)
+      ok (0#usize, none)
+
+/-- **Spec theorem for `Step<i32>::steps_between`**
+- If `start.val ≤ end_.val` the result is `(diff, some diff)` with
+  `diff.val = (end_.val - start.val).toNat`. The `none` branch is `False`: since
+  `i32` is no wider than `usize`, `diff = end_.val - start.val` always fits in
+  `usize`, so `UScalar.tryMkOpt` always returns `some` and the `none` case is
+  not accessible.
+- Otherwise the result is `(0, none)`. -/
+@[step]
+theorem steps_between_spec (start end_ : I32) :
+    steps_between start end_ ⦃ (result : Usize × Option Usize) =>
+      if start.val ≤ end_.val then
+        let diff := (end_.val - start.val).toNat
+        match result.2 with
+        | some hi => diff ≤ Usize.max ∧ result.1.val = diff ∧ hi.val = diff
+        | none    => False
+      else
+        result.1.val = 0 ∧ result.2 = none ⦄ := by
+  unfold steps_between
+  have htry := UScalar.tryMkOpt_eq .Usize ((end_.val - start.val).toNat)
+  step*
+  grind
+
+end I32.Insts.CoreIterRangeStep
 
 /-- [core::ops::range::{core::ops::range::RangeBounds<T> for core::ops::range::RangeFrom<T>}::end_bound]:
     Source: '/rustc/library/core/src/ops/range.rs', lines 1071:4-1071:36
@@ -855,7 +973,7 @@ theorem into_iter_spec {T : Type} (s : Slice T) :
     SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
       s
       ⦃ (iter : core.slice.iter.Iter T) =>
-        iter.slice = s ∧ iter.i = 0 ⦄ := by
+      iter.slice = s ∧ iter.i = 0 ⦄ := by
   unfold SharedASlice.Insts.CoreIterTraitsCollectIntoIteratorSharedATIter.into_iter
   simp [WP.spec_ok]
 
@@ -882,7 +1000,13 @@ axiom
   core.slice.iter.ChunksExact T → F → Result (core.iter.adapters.map.Map
     (core.slice.iter.ChunksExact T) F)
 
--- Rust's Result::ok() method: converts Result<T,E> to Option<T>, discarding the error.
+
+/-- [core::result::{core::result::Result<T, E>}::ok]:
+    Source: '/rustc/library/core/src/result.rs', lines 708:4-711:28
+    Name pattern: [core::result::{core::result::Result<@T, @E>}::ok]
+    Visibility: public
+    Rust's Result::ok() method: converts Result<T,E> to Option<T>, discarding the error. -/
+@[rust_fun "core::result::{core::result::Result<@T, @E>}::ok"]
 def core.result.Result.ok {T E : Type} (r : core.result.Result T E) :
     Result (Option T) :=
   match r with
@@ -994,7 +1118,7 @@ def alloc.collections.vec_deque.VecDeque.len
   fun self => ok self.length
 
 /-- Spec: `VecDeque::len` returns `self.length`. -/
-@[simp, step_simps, step]
+@[step]
 theorem alloc.collections.vec_deque.VecDeque.len_spec
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A) :
     alloc.collections.vec_deque.VecDeque.len self
@@ -1014,7 +1138,7 @@ def alloc.collections.vec_deque.VecDeque.pop_front
     if self.length = 0#usize then
       ok (none, self)
     else
-      if hidx : self.head.val < self.buf.val.length then
+      if hidx : self.head < self.buf.length then
         let elem := self.buf.val[self.head.val]'hidx
         do
           let head' ← self.head + 1#usize
@@ -1023,36 +1147,33 @@ def alloc.collections.vec_deque.VecDeque.pop_front
       else
         fail .panic
 
-/-- Spec: `pop_front` on an empty deque returns `(none, self)`. -/
-theorem alloc.collections.vec_deque.VecDeque.pop_front_spec_empty
-    {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
-    (hempty : self.length = 0#usize) :
-    alloc.collections.vec_deque.VecDeque.pop_front self
-      ⦃ (res : (Option T) × (alloc.collections.vec_deque.VecDeque T A)) =>
-        res.1 = none ∧ res.2 = self ⦄ := by
-  simp [alloc.collections.vec_deque.VecDeque.pop_front, hempty]
+/-- `pop_front` on an empty deque returns `(none, self)`.
+  `pop_front` on a non-empty deque returns `(some elem, self')`
+  where `elem = buf[head]`, `self'.head = head + 1`,
+  `self'.length = length - 1`, and `self'.buf` is unchanged.
 
-/-- Spec: `pop_front` on a non-empty deque returns `(some elem, self')`
-    where `elem = buf[head]`, `self'.head = head + 1`,
-    `self'.length = length - 1`, and `self'.buf` is unchanged.
-
-    Growing-list model: `head` advances linearly (no wrap-around). -/
+  Growing-list model: `head` advances linearly (no wrap-around). -/
+@[step]
 theorem alloc.collections.vec_deque.VecDeque.pop_front_spec_nonempty
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
-    (hne : self.length ≠ 0#usize)
-    (hidx : self.head.val < self.buf.val.length) :
-    alloc.collections.vec_deque.VecDeque.pop_front self
-      ⦃ (res : (Option T) × (alloc.collections.vec_deque.VecDeque T A)) =>
-        res.1 = some (self.buf.val[self.head.val]'hidx) ∧
-        res.2.head.val = self.head.val + 1 ∧
-        res.2.length.val = self.length.val - 1 ∧
-        res.2.buf = self.buf ⦄ := by
+    (hidx : self.head < self.buf.length):
+    alloc.collections.vec_deque.VecDeque.pop_front self ⦃ (res : (Option T) × (alloc.collections.vec_deque.VecDeque T A)) =>
+      (self.length = 0#usize → res.1 = none ∧ res.2 = self) ∧
+      (self.length ≠ 0#usize →
+        res.1 = (self.buf.val[self.head.val]'hidx) ∧
+        res.2.head.val = self.head + 1 ∧
+        res.2.length = self.length.val - 1 ∧
+        res.2.buf = self.buf) ⦄ := by
   unfold alloc.collections.vec_deque.VecDeque.pop_front
-  simp only [if_neg hne, dif_pos hidx]
-  have : self.head.val + (1#usize).val ≤ Usize.max := by
-    have := self.buf.property; scalar_tac
-  have : (1#usize).val ≤ self.length.val := by scalar_tac
-  step*
+  split
+  · rename_i hempty
+    simp [hempty]
+  · rename_i hne
+    simp only
+    have : self.head + (1#usize).val ≤ Usize.max := by
+      have := self.buf.property; scalar_tac
+    have : (1#usize).val ≤ self.length := by scalar_tac
+    step*
 
 /-- [alloc::collections::vec_deque::{alloc::collections::vec_deque::VecDeque<T, A>}::push_back]:
     Source: '/rustc/library/alloc/src/collections/vec_deque/mod.rs', lines 2205:4-2205:41
@@ -1074,7 +1195,7 @@ def alloc.collections.vec_deque.VecDeque.push_back
       do
         let len' ← self.length + 1#usize
         ok { self with
-          buf := ⟨self.buf.val ++ [value], by simp [List.length_append]; omega⟩
+          buf := ⟨self.buf ++ [value], by simp [List.length_append]; omega⟩
           length := len' }
     else
       fail .panic
@@ -1088,12 +1209,11 @@ theorem alloc.collections.vec_deque.VecDeque.push_back_spec
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
     (value : T)
     (hlen : self.length + 1 ≤ Usize.max)
-    (hbuf : self.buf.val.length + 1 ≤ Usize.max) :
-    alloc.collections.vec_deque.VecDeque.push_back self value
-      ⦃ (self' : alloc.collections.vec_deque.VecDeque T A) =>
-        self'.buf.val = self.buf.val ++ [value] ∧
-        self'.head = self.head ∧
-        self'.length = self.length.val + 1 ⦄ := by
+    (hbuf : self.buf.length + 1 ≤ Usize.max) :
+    alloc.collections.vec_deque.VecDeque.push_back self value ⦃ (self' : alloc.collections.vec_deque.VecDeque T A) =>
+      self'.buf = self.buf ++ [value] ∧
+      self'.head = self.head ∧
+      self'.length = self.length.val + 1 ⦄ := by
   unfold alloc.collections.vec_deque.VecDeque.push_back
   simp only [dif_pos hbuf]
   step*
@@ -1113,11 +1233,11 @@ def
   alloc.collections.vec_deque.VecDeque T A → Std.Usize → Result (T × (T
     → alloc.collections.vec_deque.VecDeque T A)) :=
   fun self idx =>
-    if idx.val < self.length.val then
-      if hphys : self.head.val + idx.val < self.buf.val.length then
-        let elem := self.buf.val[self.head.val + idx.val]'hphys
+    if idx.val < self.length then
+      if hphys : self.head + idx.val < self.buf.length then
+        let elem := self.buf[self.head.val + idx]'hphys
         ok (elem, fun new_elem =>
-          { self with buf := ⟨self.buf.val.set (self.head.val + idx.val) new_elem, by
+          { self with buf := ⟨self.buf.val.set (self.head.val + idx) new_elem, by
               have := self.buf.property
               simp only [List.length_set]; omega⟩ })
       else
@@ -1135,16 +1255,15 @@ def
 theorem alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut_spec
     {T : Type} {A : Type} (self : alloc.collections.vec_deque.VecDeque T A)
     (idx : Std.Usize)
-    (hidx : idx.val < self.length.val)
-    (hphys : self.head.val + idx.val < self.buf.val.length) :
+    (hidx : idx.val < self.length)
+    (hphys : self.head + idx < self.buf.length) :
     alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut
-      self idx
-      ⦃ (res : T × (T → alloc.collections.vec_deque.VecDeque T A)) =>
-        let phys := self.head.val + idx.val
-        match self.buf.val[phys]? with
+      self idx ⦃ (res : T × (T → alloc.collections.vec_deque.VecDeque T A)) =>
+      let phys := self.head + idx.val
+      match self.buf.val[phys]? with
         | some elem =>
           res.1 = elem ∧
-          ∀ x, (res.2 x).buf.val = self.buf.val.set phys x ∧
+          ∀ x, (res.2 x).buf = self.buf.val.set phys x ∧
                (res.2 x).head = self.head ∧
                (res.2 x).length = self.length
         | none => False ⦄ := by
@@ -1181,15 +1300,13 @@ def
 
 /-- Spec: `From<[T;N]>::from` returns a deque with `buf.val = arr.val`,
     `head = 0`, and `length = N`. -/
-@[simp, step_simps]
+@[step]
 theorem alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreConvertFromArray.from_spec
     {T : Type} {N : Std.Usize} (arr : Array T N) :
-    alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreConvertFromArray.from arr
-      ⦃ (vd : alloc.collections.vec_deque.VecDeque T Global) =>
-        vd.buf.val = arr.val ∧ vd.head = 0#usize ∧ vd.length = N ⦄ := by
+    alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreConvertFromArray.from arr ⦃ (vd : alloc.collections.vec_deque.VecDeque T Global) =>
+      vd.buf.val = arr.val ∧ vd.head = 0#usize ∧ vd.length = N ⦄ := by
   simp [alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreConvertFromArray.from,
     alloc.collections.vec_deque.IS_ZST]
-
 
 
 /-- [alloc::slice::{[T]}::concat]:
@@ -3443,15 +3560,13 @@ def
     yields `v`, the returned deque has `buf = v`, `head = 0`, and
     `length = v.length`. -/
 @[step]
-theorem
-  alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreIterTraitsCollectFromIterator.from_iter_spec
-  {T I Clause0_IntoIter : Type}
-  (inst : core.iter.traits.collect.IntoIterator I T Clause0_IntoIter)
-  (input : I) (v : alloc.vec.Vec T)
-  (hv : alloc.vec.FromIteratorVec.from_iter inst input = ok v) :
-  alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreIterTraitsCollectFromIterator.from_iter
-      inst input
-    ⦃ (vd : alloc.collections.vec_deque.VecDeque T Global) =>
+theorem alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreIterTraitsCollectFromIterator.from_iter_spec
+    {T I Clause0_IntoIter : Type}
+    (inst : core.iter.traits.collect.IntoIterator I T Clause0_IntoIter)
+    (input : I) (v : alloc.vec.Vec T)
+    (hv : alloc.vec.FromIteratorVec.from_iter inst input = ok v) :
+    alloc.collections.vec_deque.VecDequeTGlobal.Insts.CoreIterTraitsCollectFromIterator.from_iter
+      inst input ⦃ (vd : alloc.collections.vec_deque.VecDeque T Global) =>
       vd.buf = v ∧
       vd.head = 0#usize ∧
       vd.length.val = v.val.length ⦄ := by
