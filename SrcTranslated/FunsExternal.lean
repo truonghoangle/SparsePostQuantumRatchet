@@ -139,6 +139,67 @@ private def core.array.from_fn_loop
     let rest ← core.array.from_fn_loop fnMutInst f' i' n
     ok (val :: rest)
 
+/-- **Spec theorem for `core.array.from_fn_loop` (base case)**: when the remaining
+count is `0`, the loop immediately returns the empty list `[]`. -/
+@[simp]
+theorem core.array.from_fn_loop_zero
+    {T F : Type}
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T)
+    (f : F) (i : Std.Usize) :
+    core.array.from_fn_loop fnMutInst f i 0 = ok [] := rfl
+
+/-- **Spec theorem for `core.array.from_fn_loop` (inductive case)**: when the remaining
+count is `n + 1`, the loop calls `call_mut f i` to obtain an element `val` and updated
+closure state `f'`, increments the index, recurses on the remaining `n` iterations,
+and conses `val` onto the result. -/
+@[simp]
+theorem core.array.from_fn_loop_succ
+    {T F : Type}
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T)
+    (f : F) (i : Std.Usize) (n : Nat) :
+    core.array.from_fn_loop fnMutInst f i (n + 1) =
+      (do
+        let (val, f') ← fnMutInst.call_mut f i
+        let i' ← i + 1#usize
+        let rest ← core.array.from_fn_loop fnMutInst f' i' n
+        ok (val :: rest)) := rfl
+
+/-- **Spec theorem for `core.array.from_fn_loop` (length)**: when the loop succeeds,
+the resulting list has exactly `n` elements. This is proved by induction on `n`,
+and requires that each index increment stays within `Usize.max`. -/
+theorem core.array.from_fn_loop_length
+    {T F : Type}
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T)
+    (f : F) (i : Std.Usize) (n : Nat) (l : List T)
+    (h_ok : core.array.from_fn_loop fnMutInst f i n = ok l)
+    (h_bound : ↑i + n ≤ Std.Usize.max) :
+    l.length = n := by
+  induction n generalizing f i l with
+  | zero =>
+    simp [core.array.from_fn_loop] at h_ok
+    subst h_ok; rfl
+  | succ k ih =>
+    simp only [core.array.from_fn_loop] at h_ok
+    match h_call : fnMutInst.call_mut f i with
+    | .ok (val, f') =>
+      simp [h_call, bind_ok] at h_ok
+      match h_add : i + 1#usize with
+      | .ok i' =>
+        simp [h_add, bind_ok] at h_ok
+        match h_rest : core.array.from_fn_loop fnMutInst f' i' k with
+        | .ok rest =>
+          simp [h_rest, bind_ok] at h_ok
+          subst h_ok
+          simp [ih f' i' rest h_rest (by
+            have := UScalar.add_equiv i (1#usize : Usize)
+            rw [h_add] at this; exact by scalar_tac)]
+        | .fail e => simp [h_rest] at h_ok
+        | .div => simp [h_rest] at h_ok
+      | .fail e => simp [h_add] at h_ok
+      | .div => simp [h_add] at h_ok
+    | .fail e => simp [h_call] at h_ok
+    | .div => simp [h_call] at h_ok
+
 /-- [core::array::from_fn]:
     Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52
     Name pattern: [core::array::from_fn]
@@ -185,6 +246,7 @@ theorem core.array.from_fn_loop_replicate_default
     have ih_eq := ih i' (by scalar_tac)
     simp [h_const, h_eq, List.replicate, ih_eq]
 
+
 /-- **Spec theorem for `core::array::from_fn`**: when the loop helper
 `core.array.from_fn_loop` succeeds and produces a list `l` of length `N`,
 the result is an array whose underlying list is `l`.  The per-element
@@ -199,7 +261,13 @@ theorem core.array.from_fn_spec
     (hlen : l.length = N.val) :
     core.array.from_fn N fnMutInst f
       ⦃ (arr : Array T N) => arr.val = l ⦄ := by
-  simp [core.array.from_fn, hl, hlen]; split <;> simp_all
+  simp [core.array.from_fn, hl]
+  split
+  · simp_all
+  · simp_all
+
+
+
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
@@ -224,6 +292,10 @@ theorem sorted_vec.SortedSet.new_spec
       ⦃ (s : sorted_vec.SortedSet T) => s.val = [] ⦄ := by
   simp [sorted_vec.SortedSet.new, alloc.vec.Vec.new]
 
+/-- Default `Inhabited` instance for `SortedSet Pt`: needed by array operations
+    (`getElem!`, `default`, etc.) on the `PolyDecoder.pts` field. -/
+instance : Inhabited (sorted_vec.SortedSet encoding.polynomial.Pt) :=
+  ⟨alloc.vec.Vec.new encoding.polynomial.Pt⟩
 
 namespace Shared0T.Insts.CoreBorrowBorrow
 /-- [core::borrow::{core::borrow::Borrow<T> for &0 (T)}::borrow]:

@@ -40,8 +40,6 @@ interpolation over GF(2¹⁶) ≅ GF(2)[X] / (x¹⁶ + x¹² + x³ + x + 1).
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial
 
-instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
-
 namespace spqr.encoding.polynomial.PolyDecoder
 
 /-- **Spec theorem for `encoding.polynomial.PolyDecoder.new_with_poly_count`** (nat-level):

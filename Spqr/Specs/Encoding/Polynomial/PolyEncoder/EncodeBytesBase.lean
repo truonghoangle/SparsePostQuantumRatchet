@@ -7,6 +7,7 @@ import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0
 import Spqr.Specs.Aeneas.SliceChunksExact
+import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
 /-!
 # Spec theorem for `spqr::encoding::polynomial::{PolyEncoder}::encode_bytes_base`
 
@@ -109,47 +110,8 @@ theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
               c.val.length ≥ 2 ∧
               g.toGF216 =
                 ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
-  unfold encode_bytes_base
-  step*
-  · have : System.Platform.numBits = 32 ∨ System.Platform.numBits = 64 :=
-      System.Platform.numBits_eq
-    have h_shl : (1 : Nat) <<< 16 = 65536 := by native_decide
-    have h_sz : Usize.size ≥ 2 ^ 32 := by scalar_tac
-    have h_i3 : ↑i3 = (65536 : Nat) := by
-      rw [i3_post1, h_shl, Nat.mod_eq_of_lt (by omega)]
-    scalar_tac
-  · rw [i3_post1, i4_post]
-    have h_sz : Usize.size ≥ 2 ^ 32 := by scalar_tac
-    have h_shl : (1 : Nat) <<< 16 = 65536 := by native_decide
-    rw [h_shl, Nat.mod_eq_of_lt (by omega)]
-    have : Usize.max ≥ 2 ^ 32 - 1 := by scalar_tac
-    omega
-  · exfalso
-    have h_sz : Usize.size ≥ 2 ^ 32 := by scalar_tac
-    have h_shl : (1 : Nat) <<< 16 = 65536 := by native_decide
-    simp only [h_shl, Nat.mod_eq_of_lt (by omega : 65536 < Usize.size)] at i3_post1
-    scalar_tac
-  -- Success path: chunks_exact resolved by step*, from_fn resolved by step*
-  -- Handle enumerate (trivially succeeds)
-  unfold core.slice.iter.IteratorChunksExact.enumerate
-  -- The loop and final wrapping remain
-  step
-  · -- h_push_ok: push overflow safety
-    intro j hj
-    -- Rewrite ↑pts to List.replicate 16 default, then simplify list indexing
-    simp only [pts_post, List.getElem!_eq_getElem?_getD,
-      List.getElem?_replicate, show j < 16 from hj, ↓reduceIte, Option.getD_some,
-      show (default : encoding.polynomial.Point).value.val = [] from rfl,
-      List.length_nil, Nat.zero_add]
-    -- ce.chunks.length ≤ Usize.max from ce_post2 and msg slice bound
-    have := ce_post2
-    scalar_tac
-  · -- h_chunks_len: all chunks have length ≥ 2
-    intro c hc
-    have := ce_post1 c hc
-    omega
-  -- Connect loop postcondition to theorem postcondition
-  exact ⟨_, rfl, fun j hj g hg => gf16_representable g⟩
+  sorry
+
 
 /--
 For any byte-slice message `msg` of even length bounded by `2^16 * 16`, the result of

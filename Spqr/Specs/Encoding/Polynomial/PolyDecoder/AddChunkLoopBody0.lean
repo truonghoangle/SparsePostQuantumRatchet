@@ -47,8 +47,6 @@ field is ever mutated.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
-instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
-
 namespace spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
 
 /-- **Spec theorem for
