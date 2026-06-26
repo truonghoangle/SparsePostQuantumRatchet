@@ -265,8 +265,8 @@ theorem loop_spec
       -- Step through the body: Range.next returns none when start ≥ end,
       -- so the body immediately returns done (self', out').
       unfold body
-      obtain ⟨opt, iter1', hnext, h_none, _⟩ :=
-        core.iter.range.IteratorRange.next_Usize_spec iter'
+      obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+        WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter')
       rw [hnext]; simp only [bind_tc_ok]
       obtain ⟨h_opt_eq, _⟩ := h_none h_iter_lt
       subst h_opt_eq

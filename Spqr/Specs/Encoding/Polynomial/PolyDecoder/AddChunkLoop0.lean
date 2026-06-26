@@ -122,7 +122,10 @@ theorem loop_spec
           (s.pts.val[(chunk.index.val * 16 + i) % 16]!) = ok (sv s i))
     (h_inner : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
         sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-          Pt.Insts.CoreCmpOrd (sv s i) = ok (inner s i)) :
+          Pt.Insts.CoreCmpOrd (sv s i) = ok (inner s i))
+    (h_push_ok : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
+        i < iter.«end».val →
+        (s.pts.val[(chunk.index.val * 16 + i) % 16]!).val.length + 1 ≤ Usize.max) :
     encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
         iter self chunk
       ⦃ (result : encoding.polynomial.PolyDecoder) =>
@@ -152,6 +155,7 @@ theorem loop_spec
         (sv self' iter'.start.val) (inner self' iter'.start.val)
         (fun _ => h_sv self' iter'.start.val)
         (fun _ => h_inner self' iter'.start.val)
+        (fun h_lt => h_push_ok self' iter'.start.val (by omega))
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with

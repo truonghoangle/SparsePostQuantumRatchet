@@ -93,7 +93,7 @@ private theorem iterToList_enum_map_acc
     (mapIterInst : core.iter.traits.iterator.Iterator PointAtMapT Pt)
     (h_next : mapIterInst.next = fun m' => do
       let (opt, iter') ←
-        (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item
+        (core.iter.traits.iterator.IteratorEnumerate
           (core.iter.traits.iterator.IteratorSliceIter GF16)).next m'.iter
       match opt with
       | none =>
@@ -118,8 +118,8 @@ private theorem iterToList_enum_map_acc
     conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
     rw [h_next]
     simp  [
-      core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item,
-      core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+      core.iter.traits.iterator.IteratorEnumerate,
+      core.iter.adapters.enumerate.IteratorEnumerate.next,
       core.slice.iter.IteratorSliceIter.next, Slice.len, h_ge,
       ↓reduceDIte, bind_tc_ok]
 
@@ -174,7 +174,7 @@ private theorem iterToList_enum_map_acc
       conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
       rw [h_next]
       simp [
-core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+core.iter.adapters.enumerate.IteratorEnumerate.next,
         core.slice.iter.IteratorSliceIter.next, Slice.len, Usize.ofNatCore_val_eq, h_lt,
         ↓reduceDIte, bind_tc_ok, uncurry_apply_pair, bind_assoc]
 
@@ -240,7 +240,7 @@ private theorem from_iter_point_at_spec
     alloc.vec.FromIteratorVec.from_iter
       (core.iter.traits.collect.IntoIterator.Blanket
         (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.mapIterator
-          (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item
+          (core.iter.traits.iterator.IteratorEnumerate
             (core.iter.traits.iterator.IteratorSliceIter GF16))
           point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
       { iter := { iter := { slice := s, i := 0 }, count := 0#usize }, f := () }
@@ -262,7 +262,7 @@ private theorem from_iter_point_at_spec
       { iter := { iter := { slice := s, i := 0 }, count := 0#usize }, f := () }
       [] (by simp) (by simp) h_len_le
       (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.mapIterator
-        (core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item
+        (core.iter.traits.iterator.IteratorEnumerate
           (core.iter.traits.iterator.IteratorSliceIter GF16))
         PolyEncoder.point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt)
       (by unfold core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.mapIterator; grind)
@@ -384,7 +384,8 @@ theorem body_spec
                   C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
                     (lagrange_polys.val[j]!).toGF216Poly) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ := core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val

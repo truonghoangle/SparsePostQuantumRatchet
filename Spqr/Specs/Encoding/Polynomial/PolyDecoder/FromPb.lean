@@ -96,6 +96,7 @@ theorem from_pb_spec_nat
     (h_init : ∀ (n : Std.Usize),
         sorted_vec.SortedSet.with_capacity Pt.Insts.CoreCmpOrd n
           = ok (v_init n))
+    (h_v_init_empty : ∀ (n : Std.Usize), (v_init n).val.length = 0)
     (h_pts_overflow : ∀ (j : Nat), j < pb.pts.val.length →
         (pb.pts.val[j]!).val.length + 4 ≤ Usize.max) :
     from_pb pb ⦃ (result : core.result.Result
@@ -204,6 +205,7 @@ theorem from_pb_spec
     (h_init : ∀ (n : Std.Usize),
         sorted_vec.SortedSet.with_capacity Pt.Insts.CoreCmpOrd n
           = ok (v_init n))
+    (h_v_init_empty : ∀ (n : Std.Usize), (v_init n).val.length = 0)
     (h_pts_overflow : ∀ (j : Nat), j < pb.pts.val.length →
         (pb.pts.val[j]!).val.length + 4 ≤ Usize.max) :
     from_pb pb ⦃ (result : core.result.Result
@@ -257,7 +259,7 @@ theorem from_pb_spec
                     natToBinaryPoly
                       (((pb.pts.val[j]!).val[4 * k + 2]!).val * 256 +
                        ((pb.pts.val[j]!).val[4 * k + 3]!).val)) ⦄ := by
-  have h_raw := from_pb_spec_nat pb v_init h_init h_pts_overflow
+  have h_raw := from_pb_spec_nat pb v_init h_init h_v_init_empty h_pts_overflow
   apply WP.spec_mono h_raw
   intro result h_post
   obtain ⟨h_bad_len, h_bad_chunk, h_valid⟩ := h_post

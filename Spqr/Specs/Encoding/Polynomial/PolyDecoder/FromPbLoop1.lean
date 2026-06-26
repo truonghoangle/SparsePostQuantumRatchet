@@ -114,7 +114,8 @@ theorem loop_spec
     (j : Std.Usize)
     (h_j_overflow : j.val + 4 ≤ Usize.max)
     (h_pts_overflow : pts.val.length + 4 ≤ Usize.max)
-    (h_j_le_pts : j.val ≤ pts.val.length) :
+    (h_j_le_pts : j.val ≤ pts.val.length)
+    (h_v_room : v.val.length + pts.val.length + 1 ≤ Usize.max) :
     from_pb_loop0_loop0 pts v j ⦃ (v_result : sorted_vec.SortedSet Pt) =>
       ∃ (n : Nat) (vs : Nat → sorted_vec.SortedSet Pt),
         vs 0 = v ∧ vs n = v_result ∧
@@ -138,6 +139,7 @@ theorem loop_spec
         let v' := p.1
         let j' := p.2
         j'.val + 4 ≤ Usize.max ∧
+        v'.val.length + (pts.val.length - j'.val) + 1 ≤ Usize.max ∧
         (∃ (n : Nat) (vs : Nat → sorted_vec.SortedSet Pt),
           vs 0 = v ∧ vs n = v' ∧
           j'.val = j.val + 4 * n ∧
@@ -153,9 +155,9 @@ theorem loop_spec
               sorted_vec.SortedSet.push Pt.Insts.CoreCmpOrd (vs k) p =
                 ok ((m, o), vs (k + 1))))
   · -- Step: the body preserves the invariant or produces the final result
-    rintro ⟨v', j'⟩ ⟨h_overflow', n, vs, h_v0, h_vn, h_jn, h_j_le, h_chain⟩
-    simp only [] at h_overflow' h_v0 h_vn h_jn h_j_le h_chain ⊢
-    have h_body := body_spec pts v' j' (by omega)
+    rintro ⟨v', j'⟩ ⟨h_overflow', h_v_room', n, vs, h_v0, h_vn, h_jn, h_j_le, h_chain⟩
+    simp only [] at h_overflow' h_v_room' h_v0 h_vn h_jn h_j_le h_chain ⊢
+    have h_body := body_spec pts v' j' (by omega) (by omega)
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
@@ -167,10 +169,16 @@ theorem loop_spec
     | ControlFlow.cont (v'', j'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_enough, h_j_eq, p, h_px, h_py, m, o, h_push⟩ := h_cf
-      refine ⟨⟨by omega,
+      refine ⟨⟨by omega, ?_,
               n + 1,
               Function.update vs (n + 1) v'',
               ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+      · -- v_room invariant: v''.val.length + (pts.val.length - j''.val) + 1 ≤ Usize.max
+        have h_ps := sorted_vec.SortedSet.push_spec Pt.Insts.CoreCmpOrd v' p (by omega)
+        simp only [h_push, WP.spec_ok] at h_ps
+        have h_len : v''.val.length = v'.val.length + 1 := by
+          rw [h_ps.2.2]; simp
+        omega
       · -- vs 0 = v after update (since 0 ≠ n + 1)
         have h0 : (0 : Nat) ≠ n + 1 := by omega
         simp_all
@@ -189,7 +197,6 @@ theorem loop_spec
           have h1 : k ≠ n + 1 := by omega
           have h2 : k + 1 ≠ n + 1 := by omega
           simp_all
-
         · -- newly processed step: k = n
           have hk_eq : k = n := by omega
           subst hk_eq
@@ -197,7 +204,7 @@ theorem loop_spec
       · -- Measure decreases
         omega
   · -- Initial state satisfies the invariant
-    refine ⟨by omega, 0, fun _ => v, rfl, rfl, by grind, by omega, ?_⟩
+    refine ⟨by omega, by (simp only []; omega), 0, fun _ => v, rfl, rfl, by grind, by omega, ?_⟩
     intro k hk
     omega
 

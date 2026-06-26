@@ -47,6 +47,8 @@ field is ever mutated.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
+instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
+
 namespace spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
 
 /-- **Spec theorem for
@@ -131,7 +133,9 @@ theorem body_spec
           = ok sv)
     (_h_inner : ∀ (_ : iter.start.val < iter.«end».val),
         sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-          Pt.Insts.CoreCmpOrd sv = ok inner) :
+          Pt.Insts.CoreCmpOrd sv = ok inner)
+    (h_push_ok : ∀ (_ : iter.start.val < iter.«end».val),
+        (self.pts.val[(chunk.index.val * 16 + iter.start.val) % 16]!).val.length + 1 ≤ Usize.max) :
     body chunk iter self ⦃ cf =>
       match cf with
       | ControlFlow.done self' =>
@@ -151,20 +155,29 @@ theorem body_spec
   · -- cont case: iterator yields the current slot index `i`
     obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    simp [bind_tc_ok]
+    simp only [UScalar.lt_equiv, alloc.vec.Vec.len, Usize.ofNatCore_val_eq, uncurry_apply_pair,
+      not_lt]
     have h_i_lt_16 : iter.start.val < 16 := by omega
     have h_chunk_idx_le : chunk.index.val ≤ UScalar.max .U16 := by
       have := chunk.index.hBounds; grind
+    have h_pts_len : self.pts.val.length = 16 := by exact_mod_cast self.pts.property
     -- Discharge the opaque derefs using the supplied witnesses
     step*
-    simp [sorted_vec.SortedSet.push]
-    step*
-    simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
-    step*
-    simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
-    step*
-    simp [sorted_vec.SortedSet.push]
-    step*
+    · have hp := h_push_ok h_lt
+      suffices h : self.pts.val[(chunk.index.val * 16 + iter.start.val) % 16]! = ss by
+        rw [h] at hp; omega
+      simp_all
+      rw [List.getElem?_eq_getElem (by grind)]
+      grind
+    · have hsv := _h_sv h_lt
+      have hinner := _h_inner h_lt
+      have hp := h_push_ok h_lt
+      have h_getelem_eq : self.pts.val[(chunk.index.val * 16 + iter.start.val) % 16]! =
+          self.pts.val[(chunk.index.val * 16 + iter.start.val) % 16]'(by omega) :=
+        getElem!_pos _ _ (by omega)
+      rw [h_getelem_eq] at hp hsv
+      simp_all
+      step*
   · -- done case: iterator exhausted
     obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]

@@ -32,10 +32,7 @@ The body spec composes:
   3. `alloc.vec.Vec.index` (`SliceIndexUsizeSlice`) — to retrieve each of the four bytes.
   4. `encoding.polynomial.Pt.deserialize` (spec from `Pt/Deserialize.lean`) — to reconstruct the
      `Pt` from the 4-byte chunk.
-  5. `sorted_vec.SortedSet.push` (opaque axiom) — to insert the decoded point into the sorted
-     set.  Because `SortedSet.push` is extracted as an opaque axiom (no provable behaviour), we
-     parameterise the spec by a hypothetical successful push result `v_push` and propagate it
-     through the postcondition.
+  5. `sorted_vec.SortedSet.push` — to insert the decoded point into the sorted set.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 842:12-846:13)
 -/
@@ -54,8 +51,8 @@ cursor `j`, the body decides between termination (insufficient bytes left) and a
 push step.
 
 • The function always succeeds (no panic) provided the cursor can advance by 4 without overflow
-  (`j.val + 4 ≤ Usize.max`) and the opaque `SortedSet.push` axiom returns `ok` on the decoded
-  cartesian point.
+  (`j.val + 4 ≤ Usize.max`) and the sorted set has room for one more element
+  (`v.val.length + 1 ≤ Usize.max`).
 
 • In the **done** case (`pts.len() < j + 4`):
     the sorted set is returned unchanged: `v' = v`.
@@ -87,7 +84,8 @@ theorem body_spec
     (pts : alloc.vec.Vec Std.U8)
     (v : sorted_vec.SortedSet Pt)
     (j : Std.Usize)
-    (h_j_overflow : j.val + 4 ≤ Usize.max) :
+    (h_j_overflow : j.val + 4 ≤ Usize.max)
+    (h_v_push : v.val.length + 1 ≤ Usize.max) :
     body pts v j ⦃ cf =>
       match cf with
       | ControlFlow.done v' =>
@@ -105,19 +103,20 @@ theorem body_spec
                 ok ((n, o), v') ⦄ := by
   unfold body
   step*
-  simp_all only [Array.getElem!_Nat_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-    Nat.ofNat_pos, getElem!_pos, Nat.one_lt_ofNat, Nat.reduceLT, Nat.lt_add_one,
-    List.getElem!_eq_getElem?_getD, true_and]
+  simp_all
   constructor
   · -- cont case: enough bytes remain; perform deserialize + push + advance
     grind
-  · -- done case: insufficient bytes
-    simp_all
+  · -- cont case: existential witness for deserialized point and push result
     use p
-    simp_all
-    simp[Array.make]
-    simp [sorted_vec.SortedSet.push]
-    grind
+    have hv : v.val.length < Usize.max := by omega
+    have h0 : j.val < pts.val.length := by scalar_tac
+    have h1 : j.val + 1 < pts.val.length := by scalar_tac
+    have h2 : j.val + 2 < pts.val.length := by scalar_tac
+    have h3 : j.val + 3 < pts.val.length := by scalar_tac
+    simp_all [Array.make, sorted_vec.SortedSet.push]
+    exact Subtype.ext (by simp_all)
+
 
 
 end spqr.encoding.polynomial.PolyDecoder.from_pb_loop0_loop0

@@ -80,7 +80,10 @@ theorem add_chunk_spec
           (s.pts.val[(chunk.index.val * 16 + i) % 16]!) = ok (sv s i))
     (h_inner : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
         sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-          Pt.Insts.CoreCmpOrd (sv s i) = ok (inner s i)) :
+          Pt.Insts.CoreCmpOrd (sv s i) = ok (inner s i))
+    (h_push_ok : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
+        i < 16 →
+        (s.pts.val[(chunk.index.val * 16 + i) % 16]!).val.length + 1 ≤ Usize.max) :
     add_chunk self chunk ⦃ (result : encoding.polynomial.PolyDecoder) =>
       result.pts_needed = self.pts_needed ∧
       result.is_complete = self.is_complete ⦄ := by

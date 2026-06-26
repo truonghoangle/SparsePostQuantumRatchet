@@ -89,7 +89,7 @@ theorem body_spec_nat
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
   unfold body
   simp only [
-    core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    core.iter.adapters.enumerate.IteratorEnumerate.next,
     core.slice.iter.IteratorChunksExact.next]
   split
   · -- nil case: iterator exhausted → done pts = pts

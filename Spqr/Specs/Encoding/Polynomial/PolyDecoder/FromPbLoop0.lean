@@ -134,6 +134,7 @@ theorem loop_spec
     (h_init : ∀ (n : Std.Usize),
         sorted_vec.SortedSet.with_capacity Pt.Insts.CoreCmpOrd n
           = ok (v_init n))
+    (h_v_init_empty : ∀ (n : Std.Usize), (v_init n).val.length = 0)
     (h_end_le_v : iter.«end».val ≤ v.val.length)
     (h_end_le_16 : iter.«end».val ≤ 16)
     (h_start_le : iter.start.val ≤ iter.«end».val)
@@ -210,7 +211,7 @@ theorem loop_spec
     have h_end_le_v' : iter'.«end».val ≤ v.val.length := by omega
     have h_end_le_16' : iter'.«end».val ≤ 16 := by omega
     have h_body :=
-      body_spec v iter' out_pts' h_end_le_v' h_end_le_16' h_pts_overflow v_init h_init
+      body_spec v iter' out_pts' h_end_le_v' h_end_le_16' h_pts_overflow v_init h_init h_v_init_empty
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with

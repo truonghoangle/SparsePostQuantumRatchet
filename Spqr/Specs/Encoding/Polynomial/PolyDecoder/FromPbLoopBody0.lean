@@ -62,7 +62,7 @@ namespace spqr.encoding.polynomial.PolyDecoder.from_pb_loop0
 the underlying list of sorted sets.  We borrow the `default` inhabitant provided by the
 existing `Inhabited (SortedSet T)` instance.
 -/
-noncomputable instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨default⟩
+instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
 
 /-! ## Spec theorem for the from_pb outer loop body -/
 
@@ -134,7 +134,8 @@ theorem body_spec
     (v_init : Std.Usize → sorted_vec.SortedSet Pt)
     (h_init : ∀ (n : Std.Usize),
         sorted_vec.SortedSet.with_capacity Pt.Insts.CoreCmpOrd n
-          = ok (v_init n)) :
+          = ok (v_init n))
+    (h_v_init_empty : ∀ (n : Std.Usize), (v_init n).val.length = 0) :
     body v iter out_pts ⦃ cf =>
       match cf with
       | ControlFlow.done out_pts' =>
@@ -162,8 +163,8 @@ theorem body_spec
                 sorted_vec.SortedSet.push Pt.Insts.CoreCmpOrd (vs k) p =
                   ok ((m, o), vs (k + 1)) ⦄ := by
   unfold body
-  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ :=
-    core.iter.range.IteratorRange.next_Usize_spec iter
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
   by_cases h_lt : iter.start.val < iter.«end».val
@@ -180,11 +181,15 @@ theorem body_spec
     step*
     · -- cont branch: assemble the chain witness from the inner loop spec
       simp_all only [getElem!_pos, true_and]
-    · -- done branch (unreachable here: iterator already yielded a `some`)
+    · -- h_v_room: initial sorted set is empty, so room is sufficient
+      simp_all only [getElem!_pos, true_and, h_v_init_empty]
+      grind
+    · -- done branch: assemble the chain witness from the inner loop spec
       simp_all
-      rename_i ha hb hc hd he  hf
+      rename_i ha hb hc hd he hf hg
       use v2
-      use ha
+      exact ⟨hc, v2_post2, v2_post3, v2_post4, v2_post5⟩
+
 
   · -- done case: iterator exhausted
     obtain ⟨h_opt_eq, _⟩ := h_none (by omega)

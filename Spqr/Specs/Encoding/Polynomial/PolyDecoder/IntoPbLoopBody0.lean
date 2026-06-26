@@ -146,21 +146,24 @@ theorem body_spec_nat
   by_cases h_lt : iter.i < iter.slice.val.length
   · obtain ⟨h_opt_eq, h_i1, h_slice1⟩ := h_some h_lt
     subst h_opt_eq
-    -- The opaque deref simp lemmas (`deref_spec` from `FunsExternal.lean`) force any
-    -- witness `sv` to equal `default` and any witness `inner` to equal `Vec.new Pt`.
+    -- The deref definitions unfold as follows:
+    -- `SortedSet.deref` is the identity (`fun s => ok s`), so
+    --   `sv = iter.slice.val[iter.i]`.
+    -- `SortedVec.deref` ignores its argument and returns the empty vector, so
+    --   `inner = Vec.new Pt`.
     -- We extract these equalities and substitute, making `inner.val.length = 0` and
     -- trivializing the inner serialization loop.
-    have h_sv_eq : sv = default := by
+    have h_sv_eq : sv = iter.slice.val[iter.i] := by
       have h := h_sv h_lt
-      simp only [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec] at h
+      simp only [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref] at h
       injection h with h_eq; exact h_eq.symm
     subst h_sv_eq
     have h_inner_eq : inner = alloc.vec.Vec.new Pt := by
       have h := h_inner h_lt
-      simp only [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec] at h
+      simp only [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref] at h
       injection h with h_eq; exact h_eq.symm
     subst h_inner_eq
-    -- After substitution: both derefs return concrete `default` / `Vec.new Pt`.
+    -- After substitution: both derefs return concrete values.
     have h_inner_empty : (alloc.vec.Vec.new Pt).val.length = 0 := rfl
     have h_inner_nil : (alloc.vec.Vec.new Pt).val = [] := rfl
     simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
@@ -173,16 +176,8 @@ theorem body_spec_nat
     -- After the mul, we have `i1` with `i1.val = 0`.
     -- Provide explicit instances for the @[step] tagged `loop_spec`.
     step with into_pb_loop0_loop0.loop_spec
-      (sv := (default : sorted_vec.SortedVec Pt)) (inner := alloc.vec.Vec.new Pt) by
-      first
-        | (simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec])
-        | (simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec])
-        | (simp [h_inner_empty])
-        | (simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.new])
-        | (intros j hj; simp [h_inner_empty] at hj)
-        | scalar_tac
-        | simp
-        | omega
+      (sv := iter.slice.val[iter.i]) (inner := alloc.vec.Vec.new Pt) by
+      simp
     -- After the inner loop, the body does a `Vec.push v v4` producing `v5`.
     -- Explicitly invoke `Vec.push` with overflow hypothesis.
     · simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.new]

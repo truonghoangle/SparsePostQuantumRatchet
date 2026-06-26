@@ -121,14 +121,85 @@ theorem Slice.Insts.CoreCmpPartialEqArray.eq_eq
     Slice.Insts.CoreCmpPartialEqArray.eq cmpPartialEqInst s arr =
       Slice.partialEqAux cmpPartialEqInst s.val arr.val := rfl
 
+/-- Implementation helper for `core.array.from_fn`
+    (`[core::array::from_fn]`,
+    Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52).
+
+    Builds the element list by calling the closure at indices
+    `i, i+1, …, i+remaining-1`, threading the mutable closure state
+    through each call. -/
+private def core.array.from_fn_loop
+    {T F : Type}
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T) :
+    F → Std.Usize → Nat → Result (List T)
+  | _, _, 0 => ok []
+  | f, i, n + 1 => do
+    let (val, f') ← fnMutInst.call_mut f i
+    let i' ← i + 1#usize
+    let rest ← core.array.from_fn_loop fnMutInst f' i' n
+    ok (val :: rest)
+
 /-- [core::array::from_fn]:
     Source: '/rustc/library/core/src/array/mod.rs', lines 109:0-111:52
-    Name pattern: [core::array::from_fn] -/
+    Name pattern: [core::array::from_fn]
+
+    Concrete model of Rust's `core::array::from_fn`: creates an array of `N`
+    elements where the element at index `i` is computed by calling the closure
+    `f` with argument `i` (for `i = 0, 1, …, N-1`).  The closure is modelled
+    as `FnMut F Usize T`, so each invocation may update the closure state.
+    The outer `Result` propagates any failure from the closure calls or from
+    the index arithmetic. -/
 @[rust_fun "core::array::from_fn"]
-axiom core.array.from_fn
+def core.array.from_fn
   {T : Type} {F : Type} (N : Std.Usize) (opsfunctionFnMutFTupleUsizeTInst :
   core.ops.function.FnMut F Std.Usize T) :
-  F → Result (Array T N)
+  F → Result (Array T N) :=
+  fun f => do
+    let l ← core.array.from_fn_loop opsfunctionFnMutFTupleUsizeTInst f 0#usize N.val
+    match h : decide (l.length = N.val) with
+    | true => ok ⟨l, of_decide_eq_true h⟩
+    | false => fail .panic
+
+/-- Helper lemma: `from_fn_loop` with a stateless closure (state = `Unit`) that always
+returns `(default, ())` produces `List.replicate n default`.  This is used to discharge
+the `hl` hypothesis of `from_fn_spec` for constant-valued closures such as the one in
+`PolyDecoder.new_with_poly_count`. -/
+theorem core.array.from_fn_loop_replicate_default
+    {T : Type} [Inhabited T]
+    (fnMutInst : core.ops.function.FnMut Unit Std.Usize T)
+    (h_const : ∀ (i : Std.Usize), fnMutInst.call_mut () i = ok (default, ()))
+    (i : Std.Usize) (n : Nat) (h_bound : ↑i + n ≤ Std.Usize.max) :
+    core.array.from_fn_loop fnMutInst () i n = ok (List.replicate n default) := by
+  induction n generalizing i with
+  | zero => simp [core.array.from_fn_loop]
+  | succ k ih =>
+    simp only [core.array.from_fn_loop]
+    have h_add : ∃ i', i + (1#usize : Usize) = ok i' ∧ (↑i' : Nat) = ↑i + 1 := by
+      have h := UScalar.add_equiv i (1#usize : Usize)
+      generalize h_eq : i + (1#usize : Usize) = r at h
+      cases r with
+      | ok z => exact ⟨z, rfl, h.2.1⟩
+      | fail e => exact absurd (by scalar_tac) h
+      | div => exact h.elim
+    obtain ⟨i', h_eq, h_val⟩ := h_add
+    have ih_eq := ih i' (by scalar_tac)
+    simp [h_const, h_eq, List.replicate, ih_eq]
+
+/-- **Spec theorem for `core::array::from_fn`**: when the loop helper
+`core.array.from_fn_loop` succeeds and produces a list `l` of length `N`,
+the result is an array whose underlying list is `l`.  The per-element
+behaviour is definitional in the `FnMut` instance. -/
+@[step]
+theorem core.array.from_fn_spec
+    {T F : Type} (N : Std.Usize)
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T)
+    (f : F)
+    (l : List T)
+    (hl : core.array.from_fn_loop fnMutInst f 0#usize N.val = ok l)
+    (hlen : l.length = N.val) :
+    core.array.from_fn N fnMutInst f
+      ⦃ (arr : Array T N) => arr.val = l ⦄ := by
+  simp [core.array.from_fn, hl, hlen]; split <;> simp_all
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
@@ -2085,22 +2156,70 @@ axiom sorted_vec.SortedSet.with_capacity
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push] -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push]
+
+    Concrete model of Rust's `SortedSet::push`: inserts an element into the
+    sorted set.  We model this as appending the element to the underlying
+    vector (ignoring the sort invariant, which is not needed for the
+    verification properties we track).  Returns `(index, None)` where `index`
+    is the old length, and the updated set.  Fails if the vector would
+    overflow `Usize.max`. -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::push"]
-axiom sorted_vec.SortedSet.push
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+def sorted_vec.SortedSet.push
+  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
   sorted_vec.SortedSet T → T → Result ((Std.Usize × (Option T)) ×
-    (sorted_vec.SortedSet T))
+    (sorted_vec.SortedSet T)) :=
+  fun s x =>
+    if h : s.val.length + 1 ≤ Usize.max then
+      ok ((⟨s.val.length, by scalar_tac⟩, none),
+          ⟨s.val ++ [x], by simp [List.length_append]; scalar_tac⟩)
+    else
+      fail .panic
+
+/-- **Spec theorem for `SortedSet::push`**: when the vector has room for one
+    more element, the call succeeds and returns `(old_length, none)` together
+    with the set extended by `x`.  The `none` indicates no duplicate was
+    displaced (our simplified model never reports duplicates). -/
+@[step]
+theorem sorted_vec.SortedSet.push_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedSet T) (x : T)
+    (h : s.val.length + 1 ≤ Usize.max) :
+    sorted_vec.SortedSet.push corecmpOrdInst s x
+      ⦃ ((n, o), s') =>
+        n.val = s.val.length ∧
+        o = none ∧
+        s'.val = s.val ++ [x] ⦄ := by
+  unfold sorted_vec.SortedSet.push
+  simp only [dif_pos h, WP.spec_ok]
+  exact ⟨rfl, rfl, rfl⟩
 
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>> for sorted_vec::SortedSet<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 543:2-543:36
-    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref] -/
+    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref]
+
+    Concrete model of Rust's `<SortedSet<T> as Deref<Target = SortedVec<T>>>::deref`:
+    returns the inner `SortedVec<T>`.  Since `SortedSet T` is definitionally
+    equal to `SortedVec T` in the Lean model, this is the identity function.
+    The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedSet<@T>, sorted_vec::SortedVec<@T>>}::deref"]
-axiom sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T)
+def sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
+  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
+  sorted_vec.SortedSet T → Result (sorted_vec.SortedVec T) :=
+  fun s => ok s
+
+/-- **Spec theorem for `<SortedSet<T> as Deref>::deref`**: the call always
+    succeeds and returns the set itself (since `SortedSet T` and `SortedVec T`
+    are definitionally equal in the Lean model). -/
+@[simp, step_simps]
+theorem sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedSet T) :
+    sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref corecmpOrdInst s
+      ⦃ (v : sorted_vec.SortedVec T) => v = s ⦄ := by
+  simp [sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref]
 
 /-- [thiserror::display::{thiserror::display::AsDisplay<'a, &'a (T)> for &1 (T)}::as_display]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.12/src/display.rs', lines 20:4-20:43

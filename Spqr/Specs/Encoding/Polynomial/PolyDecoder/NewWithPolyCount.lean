@@ -40,6 +40,8 @@ interpolation over GF(2¹⁶) ≅ GF(2)[X] / (x¹⁶ + x¹² + x³ + x + 1).
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial
 
+instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
+
 namespace spqr.encoding.polynomial.PolyDecoder
 
 /-- **Spec theorem for `encoding.polynomial.PolyDecoder.new_with_poly_count`** (nat-level):
@@ -79,17 +81,24 @@ theorem new_with_poly_count_spec_nat (len_bytes _polys : Std.Usize) :
             encoding.polynomial.PolynomialError.MessageLengthEven) ⦄ := by
   unfold new_with_poly_count
   step*
-  · split
-    · grind
-    · grind
-  · split
-    · simp_all only [bne_iff_ne, ne_eq, UScalar.neq_to_neq_val, UScalar.ofNatCore_val_eq,
-      not_true_eq_false, not_false_eq_true, List.reduceReplicate, UScalarTy.Usize_numBits_eq,
-      core.result.Result.Ok.injEq, mk.injEq, and_true, exists_eq_right_right', true_and]
-      apply UScalar.val_eq_imp
-      simp_all
+  case l => exact List.replicate 16 default
+  case hl =>
+    apply core.array.from_fn_loop_replicate_default
+    · intro i
+      open PolyDecoder.new_with_poly_count.closure.Insts in
+      simp [CoreOpsFunctionFnMutTupleUsizeSortedSetPt.call_mut,
+        sorted_vec.SortedSet.new]
       rfl
-    · grind
+    · scalar_tac
+  case hlen => simp
+  · -- error branch: len_bytes % 2 ≠ 0
+    split
+    · exfalso; simp_all [bne_iff_ne, UScalar.neq_to_neq_val, UScalar.ofNatCore_val_eq]
+    · subst ee_post; rfl
+  · -- success branch: len_bytes % 2 = 0
+    split
+    · exact ⟨a, a_post, by congr 1; congr 1; apply UScalar.val_eq_imp; exact i1_post⟩
+    · exfalso; simp_all [bne_iff_ne, UScalar.ofNatCore_val_eq]
 
 /--
 `new_with_poly_count` is the public constructor used by the `Decoder` trait to initialise a

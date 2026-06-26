@@ -95,7 +95,7 @@ private theorem body_spec_with_iter
             (∀ k, k ≠ poly → pts'.val[k]! = pts.val[k]!) ⦄ := by
   unfold body
   simp only [
-core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+    core.iter.adapters.enumerate.IteratorEnumerate.next,
     core.slice.iter.IteratorChunksExact.next]
   split
   · -- nil case: iterator exhausted → done pts = pts, chunks = []
@@ -214,7 +214,7 @@ theorem loop_spec_nat
       -- Iterator exhausted: body returns done, postcondition follows from invariant
       unfold body
       simp only [
-        core.iter.adapters.enumerate.Enumerate.Insts.CoreIterTraitsIteratorIteratorPairUsizeClause0_Item.next,
+        core.iter.adapters.enumerate.IteratorEnumerate.next,
         core.iter.traits.iterator.IteratorChunksExact,
         core.slice.iter.IteratorChunksExact.next,
         h_chunks_cases]

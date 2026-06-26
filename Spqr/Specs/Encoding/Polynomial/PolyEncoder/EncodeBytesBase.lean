@@ -113,7 +113,11 @@ theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
   step*
   · have : System.Platform.numBits = 32 ∨ System.Platform.numBits = 64 :=
       System.Platform.numBits_eq
-    grind
+    have h_shl : (1 : Nat) <<< 16 = 65536 := by native_decide
+    have h_sz : Usize.size ≥ 2 ^ 32 := by scalar_tac
+    have h_i3 : ↑i3 = (65536 : Nat) := by
+      rw [i3_post1, h_shl, Nat.mod_eq_of_lt (by omega)]
+    scalar_tac
   · rw [i3_post1, i4_post]
     have h_sz : Usize.size ≥ 2 ^ 32 := by scalar_tac
     have h_shl : (1 : Nat) <<< 16 = 65536 := by native_decide
