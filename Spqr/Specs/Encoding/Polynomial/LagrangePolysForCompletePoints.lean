@@ -3,7 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.LagrangeInterpolatePt
+import Spqr.Specs.Encoding.Polynomial.PolyConst.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Gf.GF16.New
 /-!
 # Spec theorem for `lagrange_polys_for_complete_points`: loop body 0

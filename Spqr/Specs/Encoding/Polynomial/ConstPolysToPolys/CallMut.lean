@@ -3,7 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.ToPoly
+import Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly
 
 /-!
 # Spec theorem for `spqr::encoding::polynomial::const_polys_to_polys::{FnMut}::call_mut`
@@ -34,7 +34,7 @@ Concretely, the extracted `call_mut` performs a single step:
   2. Returns `(p, c)` — the resulting `Poly` paired with the unchanged closure.
 
 Since `PolyConst.to_poly` is a pure coefficient copy (as specified in
-`Spqr.Specs.Encoding.Polynomial.PolyConstN.ToPoly`), the `call_mut` closure introduces no
+`Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly`), the `call_mut` closure introduces no
 additional logic beyond the delegation.  Its postcondition is therefore inherited directly from
 `to_poly_spec`:
 

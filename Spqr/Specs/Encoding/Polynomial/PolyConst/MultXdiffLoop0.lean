@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Math.List
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoopBody0
 
 /-!
 # Spec theorem for `PolyConst::mult_xdiff`: loop 0

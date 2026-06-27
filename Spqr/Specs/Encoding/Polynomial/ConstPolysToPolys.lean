@@ -37,7 +37,7 @@ performs:
 The net effect is a pure element-wise map: for each index `j ∈ [0, N)`, the
 `j`-th output element is obtained by calling `PolyConst.to_poly` on the `j`-th
 input element.  Since `to_poly` is a coefficient copy (as specified in
-`Spqr.Specs.Encoding.Polynomial.PolyConstN.ToPoly`), the coefficients are
+`Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly`), the coefficients are
 preserved verbatim and the `GF216[X]` polynomial interpretation is identical.
 
 This function is the bridge used in `from_complete_points` to convert the

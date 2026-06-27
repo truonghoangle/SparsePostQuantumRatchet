@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Gf.GF16.ZERO
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiffLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoop1
 
 /-!
 # Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::PolyConst<N>}::mult_xdiff`

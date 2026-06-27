@@ -4,9 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.Mult
+import Spqr.Specs.Encoding.Polynomial.PolyConst.Mult
 import Spqr.Specs.Encoding.Gf.GF16.ONE
-import Spqr.Specs.Encoding.Polynomial.PolyConstN.MultXdiff
+import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiff
 
 /-!
 # Spec theorem for `PolyConst::lagrange_interpolate_pt`: loop body 0
