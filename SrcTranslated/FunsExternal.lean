@@ -247,6 +247,36 @@ theorem core.array.from_fn_loop_replicate_default
     simp [h_const, h_eq, List.replicate, ih_eq]
 
 
+/-- Helper lemma: `from_fn_loop` with a *state-preserving* closure that always returns
+the same value `v` (independent of the index, leaving the closure state untouched)
+produces `List.replicate n v`.  Unlike `from_fn_loop_replicate_default` this works for
+an arbitrary closure-state type `F` (not just `Unit`), which is needed for closures that
+capture data (such as the message slice in `PolyEncoder.encode_bytes_base`). -/
+theorem core.array.from_fn_loop_const
+    {T F : Type}
+    (fnMutInst : core.ops.function.FnMut F Std.Usize T)
+    (v : T)
+    (h_const : ∀ (g : F) (i : Std.Usize), fnMutInst.call_mut g i = ok (v, g))
+    (f : F) (i : Std.Usize) (n : Nat) (h_bound : ↑i + n ≤ Std.Usize.max) :
+    core.array.from_fn_loop fnMutInst f i n = ok (List.replicate n v) := by
+  induction n generalizing f i with
+  | zero => rfl
+  | succ k ih =>
+    simp only [core.array.from_fn_loop, h_const]
+    have h_add : ∃ i', i + (1#usize : Usize) = ok i' ∧ (↑i' : Nat) = ↑i + 1 := by
+      have h := UScalar.add_equiv i (1#usize : Usize)
+      generalize h_eq : i + (1#usize : Usize) = r at h
+      cases r with
+      | ok z => exact ⟨z, rfl, h.2.1⟩
+      | fail e => exact absurd (by scalar_tac) h
+      | div => exact h.elim
+    obtain ⟨i', h_eq, h_val⟩ := h_add
+    rw [h_eq]
+    show (do let rest ← core.array.from_fn_loop fnMutInst f i' k; ok (v :: rest))
+      = ok (List.replicate (k + 1) v)
+    rw [ih f i' (by scalar_tac), bind_tc_ok]
+    rfl
+
 /-- **Spec theorem for `core::array::from_fn`**: when the loop helper
 `core.array.from_fn_loop` succeeds and produces a list `l` of length `N`,
 the result is an array whose underlying list is `l`.  The per-element

@@ -37,7 +37,27 @@ representative in GF(2¹⁶) ≅ GF(2)[X] / (x¹⁶ + x¹² + x³ + x + 1).
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.math.gf
 
+-- Long namespace names are unavoidable for Aeneas-extracted closures.
+set_option linter.style.longLine false
+
 namespace spqr.encoding.polynomial.PolyEncoder
+
+/-! ## Helper: the `from_fn` closure returns an empty `Point` -/
+
+/-- The closure inside `encode_bytes_base` (extracted as `call_mut`) always succeeds,
+    returning a `Point` with an empty `value` vector while leaving its captured-message
+    state unchanged. -/
+private theorem call_mut_ok
+    (c : encoding.polynomial.PolyEncoder.encode_bytes_base.closure) (i : Std.Usize) :
+    encoding.polynomial.PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
+      c i = ok (⟨alloc.vec.Vec.new encoding.gf.GF16⟩, c) := by
+  unfold
+    encoding.polynomial.PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
+  have h_div : ∃ z, (Slice.len c) / 2#usize = ok z := by
+    obtain ⟨z, hz, _⟩ := UScalar.div_spec (Slice.len c) (y := 2#usize) (by decide)
+    exact ⟨z, hz⟩
+  obtain ⟨z, hz⟩ := h_div
+  simp only [hz, bind_tc_ok, alloc.vec.Vec.with_capacity]
 
 /-! ## Helper: any GF16 element is representable as a big-endian byte pair -/
 
@@ -58,8 +78,7 @@ private theorem gf16_representable (g : encoding.gf.GF16) :
   let lo : Std.U8 := ⟨BitVec.ofNat 8 lo_n⟩
   refine ⟨⟨[hi, lo], by scalar_tac⟩, by simp, ?_⟩
   simp only [List.getElem!_eq_getElem?_getD, List.getElem?_cons_zero,
-    Option.getD_some, List.getElem?_cons_succ, List.getElem?_nil,
-    List.length_cons, List.length_nil]
+    Option.getD_some, List.getElem?_cons_succ]
   show g.toGF216 = (hi.val * 256 + lo.val).toGF216
   have h_hi_val : hi.val = hi_n := by
     simp [hi, UScalar.val, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h_hi]
@@ -110,8 +129,92 @@ theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
               c.val.length ≥ 2 ∧
               g.toGF216 =
                 ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
-  sorry
-
+  unfold encode_bytes_base
+  step*
+  case hl =>
+    refine core.array.from_fn_loop_const _
+      (⟨alloc.vec.Vec.new encoding.gf.GF16⟩ : encoding.polynomial.Point)
+      call_mut_ok msg 0#usize (16#usize).val ?_
+    simp only [show (16#usize).val = 16 from rfl, show (0#usize : Usize).val = 0 from rfl,
+      Nat.zero_add]
+    simp only [Usize.max, Usize.numBits]
+    cases System.Platform.numBits_eq <;> simp_all
+  case hlen =>
+    simp only [show (16#usize).val = 16 from rfl, List.length_replicate]
+  case hy =>
+    cases System.Platform.numBits_eq <;> simp_all
+  case hmax =>
+    rw [i4_post, i3_post1]
+    have h_pow : (1 : Nat) <<< 16 = 65536 := by
+      norm_num [Nat.shiftLeft_eq]
+    have h_shift : (1 <<< 16) % Usize.size = 65536 := by
+      rw [h_pow]
+      apply Nat.mod_eq_of_lt
+      simp only [Usize.size, Usize.numBits]
+      cases System.Platform.numBits_eq <;> simp_all
+    rw [h_shift]
+    have h_max : (65536 : Nat) * 16 ≤ Usize.max := by
+      simp only [Usize.max, Usize.numBits]
+      cases System.Platform.numBits_eq <;> simp_all
+    omega
+  -- "message too long" error branch: contradicts `h_len`.
+  · exfalso
+    have h_pow : (1 : Nat) <<< 16 = 65536 := by norm_num [Nat.shiftLeft_eq]
+    have h_shift : (1 <<< 16) % Usize.size = 65536 := by
+      rw [h_pow]
+      apply Nat.mod_eq_of_lt
+      simp only [Usize.size, Usize.numBits]
+      cases System.Platform.numBits_eq <;> simp_all
+    have h_i5 : i5.val = 65536 * 16 := by rw [i5_post, i3_post1, i4_post, h_shift]
+    have h_gt' : msg.len.val > i5.val := by scalar_tac
+    have h_msglen : msg.len.val = (msg.val).length := by scalar_tac
+    omega
+  -- main success branch: distribute the chunks via the loop.
+  · -- The `from_fn` array consists of 16 empty `Point`s, so each value vector is empty.
+    have h_pts_empty : ∀ (j : Nat), j < 16 → pts.val[j]!.value.val = [] := by
+      intro j hj
+      rw [pts_post]
+      interval_cases j <;> rfl
+    -- Length bound: msg.len fits in `Usize` and is at most `65536 * 16`.
+    have h_msglen : msg.len.val = (msg.val).length := by scalar_tac
+    have h_len_bound : (msg.val).length ≤ Usize.max := by
+      have h_max : (2 : Nat) ^ 16 * 16 ≤ Usize.max := by
+        simp only [Usize.max, Usize.numBits]
+        cases System.Platform.numBits_eq <;> simp_all
+      omega
+    -- Discharge the `chunks_exact` then `enumerate` then loop.
+    apply WP.spec_bind (core.slice.Slice.chunks_exact_spec msg 2#usize (by decide))
+    intro ce h_ce
+    obtain ⟨h_ce_len, h_ce_count, _⟩ := h_ce
+    simp only [core.slice.iter.IteratorChunksExact.enumerate, bind_tc_ok]
+    -- After `enumerate`, the iterator has `count = 0` and `iter.iter = ce`.
+    apply WP.spec_bind
+      (encode_bytes_base_loop.loop_spec
+        ({ iter := ce, count := 0#usize } :
+          core.iter.adapters.enumerate.Enumerate (core.slice.iter.ChunksExact Std.U8))
+        pts
+        (by
+          intro j hj
+          simp only [h_pts_empty j hj, List.length_nil, Nat.zero_add]
+          have : ce.chunks.length ≤ (msg.val).length := h_ce_count
+          omega)
+        (by
+          intro c hc
+          have h := h_ce_len c hc
+          rw [show (2#usize).val = 2 from rfl] at h
+          omega)
+        (by
+          simp only [show (0#usize : Usize).val = 0 from rfl, Nat.zero_add]
+          have : ce.chunks.length ≤ (msg.val).length := h_ce_count
+          omega))
+    intro pts1 h_pts1
+    simp only [WP.spec_ok]
+    -- Build the final witness.
+    refine ⟨pts1, rfl, ?_⟩
+    intro j hj g hg
+    obtain ⟨suffix, h_suffix_eq, h_suffix_valid⟩ := h_pts1 j hj
+    rw [h_suffix_eq, h_pts_empty j hj, List.nil_append] at hg
+    exact h_suffix_valid g hg
 
 /--
 For any byte-slice message `msg` of even length bounded by `2^16 * 16`, the result of
