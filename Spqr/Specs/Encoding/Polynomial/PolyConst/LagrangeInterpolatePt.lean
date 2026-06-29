@@ -97,7 +97,7 @@ theorem body_spec
     (j : Usize)
     (h_N_pos : 0 < N.val)
     (h_N_le_pts : N.val ≤ pts.val.length)
-    (h_leading_zero : (p.coefficients.val[N.val - 1]!).value.val = 0) :
+    (h_deg : p.degree + 1 < N.val) :
     body pts pi p denominator j ⦃ cf =>
       match cf with
       | ControlFlow.done (pi', p', denominator') =>
@@ -166,12 +166,12 @@ of remaining non-skip points.
 
 The natural precondition is the **polynomial-degree bound**:
 
-  `natDegree(listToGF216Poly p.coefficients) + countNonSkip pi.x (pts.take N) j < N`
+  `p.degree + countNonSkip pi.x (pts.take N) j < N`
 
 where `countNonSkip` counts the indices `k ∈ [j, N)` with `pi.x ≠ pts[k].x`.  This bound is
 preserved by every body step (skip preserves it trivially; update raises the polynomial degree
 by 1 and decreases `countNonSkip` by 1) and at every non-skip body iteration it gives us
-`natDegree(listToGF216Poly p.coefficients) < N − 1`, hence the coefficient at index `N − 1` of
+`p.degree < N − 1`, hence the coefficient at index `N − 1` of
 the polynomial is zero in `GF216`, hence — via the bridge axiom
 `GF16.value_val_eq_zero_of_toGF216` — the underlying `u16` value at array position `N − 1` is
 zero, which is exactly what `mult_xdiff` requires.
@@ -332,7 +332,7 @@ private theorem body_spec_gen
     (h_N_le_pts : N.val ≤ pts.val.length)
     (h_leading : (h_jN : j.val < N.val) →
       pi.x.value ≠ (pts.val.get ⟨j.val, by omega⟩).x.value →
-      (p.coefficients.val[N.val - 1]!).value.val = 0) :
+      p.degree + 1 < N.val) :
     body pts pi p denominator j ⦃ cf =>
       match cf with
       | ControlFlow.done (pi', p', denominator') =>
@@ -379,8 +379,7 @@ constructs the unnormalised Lagrange basis polynomial and the corresponding deno
   - `0 < N.val` and `N.val ≤ pts.val.length` (array indexing is in bounds).
   - `j.val ≤ N.val` (the loop is at or before its end).
   - The **polynomial-degree bound**
-      `(listToGF216Poly p.coefficients.val).natDegree +
-         countNonSkip pi.x (pts.val.take N.val) j.val < N.val`
+      `p.degree + countNonSkip pi.x (pts.val.take N.val) j.val < N.val`
     ensures that every remaining `mult_xdiff` call satisfies its leading-zero assertion.
 
 **Postconditions**:
@@ -408,7 +407,7 @@ theorem loop_spec
     (h_N_le_pts : N.val ≤ pts.val.length)
     (h_j_le_N : j.val ≤ N.val)
     (h_degree_bound :
-        (listToGF216Poly p.coefficients.val).natDegree +
+        p.degree +
           countNonSkip pi.x (pts.val.take N.val) j.val < N.val) :
     lagrange_interpolate_pt_loop pts pi p denominator j
       ⦃ result =>
@@ -438,15 +437,15 @@ theorem loop_spec
           lagrangeDenomProd pi.x (pts.val.take N.val) j'.val =
           denominator.toGF216 *
             lagrangeDenomProd pi.x (pts.val.take N.val) j.val ∧
-        (listToGF216Poly p'.coefficients.val).natDegree +
+        p'.degree +
           countNonSkip pi.x (pts.val.take N.val) j'.val < N.val)
   · -- Body preservation step
     rintro ⟨p', d', j'⟩ ⟨hj_ge, hj_le, hpoly_inv, hdenom_inv, hdeg_inv⟩
-    -- Derive the leading-zero hypothesis required by the relaxed body spec
+    -- Derive the degree hypothesis required by the relaxed body spec
     have h_leading_for_body :
         (h_jN : j'.val < N.val) →
         pi.x.value ≠ (pts.val.get ⟨j'.val, by omega⟩).x.value →
-        (p'.coefficients.val[N.val - 1]!).value.val = 0 := by
+        p'.degree + 1 < N.val := by
       intro h_jN h_ne
       have hj_pts : j'.val < pts.val.length := by omega
       have h_take_len : (pts.val.take N.val).length = N.val := by
@@ -465,19 +464,8 @@ theorem loop_spec
           countNonSkip pi.x (pts.val.take N.val) j'.val =
           1 + countNonSkip pi.x (pts.val.take N.val) (j'.val + 1) :=
         countNonSkip_accum pi.x (pts.val.take N.val) j'.val h_take_lt h_ne_take
-      -- From the degree invariant + countNonSkip ≥ 1, derive natDegree(p') < N - 1
-      have h_nd : (listToGF216Poly p'.coefficients.val).natDegree < N.val - 1 := by
-        grind
-      -- So the coefficient of p' at N - 1 is zero in GF216
-      have h_coeff :
-          (listToGF216Poly p'.coefficients.val).coeff (N.val - 1) = 0 :=
-        Polynomial.coeff_eq_zero_of_natDegree_lt h_nd
-      -- Bridge to the array value via getElem!_toGF216_eq_coeff
-      have h_toGF216 :
-          (p'.coefficients.val[N.val - 1]!).toGF216 = 0 := by
-        rw [getElem!_toGF216_eq_coeff]; exact h_coeff
-      -- Bridge from GF216 zero to u16 zero via the axiom
-      exact GF16.value_val_eq_zero_of_toGF216 _ h_toGF216
+      -- From the degree invariant + countNonSkip ≥ 1, derive natDegree + 1 < N
+      grind
     -- Apply the body spec with the derived leading-zero hypothesis
     have h_body := body_spec_gen pts pi p' d' j' h_N_pos h_N_le_pts h_leading_for_body
     apply Aeneas.Std.WP.spec_mono h_body
@@ -597,8 +585,8 @@ theorem loop_spec
             rw [countNonSkip_accum pi.x (pts.val.take N.val) j'.val h_take_lt]
             · rw [h_take_get]; exact h_eq
           have h_nd_p1 :
-              (listToGF216Poly p1.coefficients.val).natDegree ≤
-              1 + (listToGF216Poly p'.coefficients.val).natDegree := by
+              p1.degree ≤ 1 + p'.degree := by
+            unfold PolyConst.degree
             rw [hp_id]
             calc ((X - C ((pts.val.get ⟨j'.val, hj_pts⟩).x.toGF216)) *
                     listToGF216Poly p'.coefficients.val).natDegree
@@ -799,8 +787,7 @@ private lemma listToGF216Poly_replicate_zero_set_one
 
 The loop spec (`lagrange_interpolate_pt_loop.loop_spec`) requires the polynomial-degree
 invariant
-    `(listToGF216Poly p.coefficients.val).natDegree +
-        countNonSkip pi.x (pts.val.take N.val) j.val < N.val`.
+    `p.degree + countNonSkip pi.x (pts.val.take N.val) j.val < N.val`.
 
 At the entry point `(p, j) = ({coefficients := a1}, 0)`, the initial polynomial is the
 constant `1` so its `natDegree` is `0`, and `countNonSkip pi.x (pts.val.take N.val) 0` is at
@@ -973,8 +960,9 @@ theorem lagrange_interpolate_pt_spec
               (pts.val.take N.val) 0 ⦄ := by
   unfold lagrange_interpolate_pt
   step*
-  · simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
-    -- The initial polynomial [ONE, ZERO, ..., ZERO] equals 1
+  · -- The initial polynomial [ONE, ZERO, ..., ZERO] equals 1
+    unfold PolyConst.degree
+    simp only [a1_post, Array.set_val_eq, Array.repeat_val, UScalar.ofNatCore_val_eq]
     rw [listToGF216Poly_replicate_zero_set_one N.val h_N_pos,
         Polynomial.natDegree_one, Nat.zero_add]
     -- countNonSkip ≤ N - 1 because index i is a skip (pi = pts[i])

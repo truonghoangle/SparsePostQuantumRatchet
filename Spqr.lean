@@ -34,6 +34,7 @@ import Spqr.Math.Poly.ExpectedTrailing.Defs
 import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
+import Spqr.Math.Poly.Identities.MultXdiff
 import Spqr.Math.Poly.Lagrange.BasisPoly
 import Spqr.Math.Poly.Lagrange.DenomProd
 import Spqr.Math.Poly.Lagrange.InterpolantSum
@@ -135,10 +136,6 @@ import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConst.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.PolyConst.Mult
 import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiff
-import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiffLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly
 import Spqr.Specs.Encoding.Polynomial.PolyConst.ZEROS
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunk
