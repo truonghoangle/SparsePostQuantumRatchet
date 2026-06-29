@@ -116,8 +116,8 @@ namespace spqr.encoding.polynomial.PolyConst
 
 private lemma mult_result_eq
     {N : Usize} (a : Array GF16 N) (m : GF16) (result : Array GF16 N)
-    (h_scaled : ∀ (j : Nat), 0 ≤ j ∧ j < N →
-      ∀ (hj : j < result.length), (result[j]).toGF216 = (a.val[j]!).toGF216 * m.toGF216) :
+    (h_scaled : ∀ (j : Nat), j < N →
+      ∀ (_ : j < result.length), (result[j]).toGF216 = (a.val[j]!).toGF216 * m.toGF216) :
     listToGF216Poly result = C (m.toGF216) * listToGF216Poly a := by
   apply listToGF216Poly_eq_of_coeffs
   · grind [← getElem!_toGF216_eq_coeff]
@@ -125,8 +125,7 @@ private lemma mult_result_eq
     simp only [List.Vector.length_val] at hj
     rw [coeff_C_mul, listToGF216Poly_coeff_eq_zero _ j (by grind), mul_zero]
 
-/--
-**Spec theorem for `encoding.polynomial.PolyConst.mult`**:
+/-- **Spec theorem for `encoding.polynomial.PolyConst.mult`**:
 
 Always succeeds, with the scalar-multiplication postcondition
   `listToGF216Poly result.coefficients = C (m.toGF216) * listToGF216Poly self.coefficients`
