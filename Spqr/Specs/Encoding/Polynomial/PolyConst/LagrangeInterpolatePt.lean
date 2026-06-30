@@ -45,9 +45,10 @@ polynomial `p`, running `denominator`, and counter `j`:
 theorem body_spec
     {N : Usize} (pts : Slice Pt) (pi : Pt) (p : PolyConst N) (denominator : GF16) (j : Usize)
     (h_N_pos : 0 < N.val)
-    (h_N_le_pts : N ≤ pts.val.length)
-    (h_deg : p.degree + 1 < N.val) :
-    body pts pi p denominator j ⦃ cf =>
+    (h_N_le_pts : N ≤ pts.length)
+    (h_deg : p.degree + 1 < N) :
+    body pts pi p denominator j ⦃ (cf : ControlFlow (PolyConst N × GF16 × Usize)
+    (Pt × PolyConst N × GF16)) =>
       match cf with
       | ControlFlow.done (pi', p', denominator') =>
           pi' = pi ∧ p' = p ∧ denominator' = denominator ∧ ¬ (j < N)
@@ -57,10 +58,9 @@ theorem body_spec
           ∀ (hj : j < pts.length),
             (pi.x.value = pts[j].x.value → p1 = p ∧ denominator1 = denominator) ∧
             (pi.x.value ≠ (pts[j]).x.value →
-            listToGF216Poly p1.coefficients.val =
+            listToGF216Poly p1.coefficients =
               (X - C ((pts[j]).x.toGF216)) * listToGF216Poly p.coefficients ∧
-            denominator1.toGF216 =
-              denominator.toGF216 * (pi.x.toGF216 - (pts[j]).x.toGF216)) ⦄ := by
+          denominator1.toGF216 = denominator.toGF216 * (pi.x.toGF216 - (pts[j]).x.toGF216)) ⦄ := by
   unfold body
   step*
 
@@ -76,10 +76,10 @@ private theorem body_spec_gen
       | ControlFlow.cont (p1, denominator1, j1) =>
           j < N ∧
           j1 = j.val + 1 ∧
-          ∀ (hj : j < pts.val.length),
+          ∀ (hj : j < pts.length),
             (pi.x.value = pts[j].x.value → p1 = p ∧ denominator1 = denominator) ∧
             (pi.x.value ≠ pts[j].x.value →
-              listToGF216Poly p1.coefficients =
+            listToGF216Poly p1.coefficients =
               (X - C (pts[j].x.toGF216)) * listToGF216Poly p.coefficients ∧
             denominator1.toGF216 = denominator.toGF216 * (pi.x.toGF216 - pts[j].x.toGF216)) ⦄ := by
   unfold body
@@ -255,7 +255,7 @@ theorem lagrange_interpolate_pt_spec
     (h_i_lt_N : i < N.val)
     (h_N_le_pts : N ≤ pts.val.length) :
     lagrange_interpolate_pt N pts i ⦃ (result : PolyConst N) =>
-      ∀ (hi : i < pts.val.length),
+      ∀ (hi : i < pts.length),
         listToGF216Poly result.coefficients =
           C (pts[i].y.toGF216 * (lagrangeDenomProd (pts[i]).x (pts.val.take N) 0) ^ (2 ^ 16 - 2)) *
                 condProdLinearFactors (pts[i]).x (pts.val.take N) 0 ⦄ := by
@@ -267,11 +267,6 @@ theorem lagrange_interpolate_pt_spec
     have h_count : countNonSkip pi.x (List.take (↑N) (↑pts)) 0 ≤ ↑N - 1 := by
       apply countNonSkip_le_of_skip_exists pi.x _ (↑N)
         (by simp only [List.length_take, inf_le_left]) (↑i) h_i_lt_N
-      intro h_i_lt
-      have h_i_lt_pts : i < pts.length := by grind
-      have h_take_eq : (List.take N (↑pts : List Pt)).get ⟨↑i, h_i_lt⟩ =
-          (↑pts : List Pt).get ⟨↑i, h_i_lt_pts⟩ := by
-        simp only [List.get_eq_getElem, List.getElem_take]
       grind
     omega
   · subst pi1_post1

@@ -87,8 +87,8 @@ theorem to_poly_spec
     {N : Usize}
     (self : PolyConst N) :
     to_poly self ⦃ (result : Poly) =>
-      result.coefficients.val = self.coefficients.val ∧
-      result.toGF216Poly = listToGF216Poly self.coefficients.val ⦄ := by
+      result.coefficients = self.coefficients.val ∧
+      result.toGF216Poly = listToGF216Poly self.coefficients ⦄ := by
   unfold to_poly
   step*
   · intro x _
