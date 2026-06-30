@@ -215,10 +215,7 @@ theorem loop1_spec
 
 end spqr.encoding.polynomial.Poly.lagrange_interpolate_complete_loop1
 
-
 namespace spqr.encoding.polynomial.Poly
-
-set_option maxHeartbeats 200000 in
 
 /-! ## Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate_complete`
 
@@ -232,7 +229,6 @@ index `i`, then:
 3. Divides out `(X − pᵢ.x)` by Horner-style synthetic division, scaling each coefficient by
    `scale` (loop 1). The result is shifted up by one degree (multiplied by `X`).
 4. Asserts `coefficients[0] == ZERO` (exact division check). -/
-
 @[step]
 theorem lagrange_interpolate_complete_spec
     (self : Poly) (pts : Slice Pt) (i : Usize)
@@ -281,15 +277,12 @@ theorem lagrange_interpolate_complete_spec
       · grind
       · intro k hk
         by_cases hk_lt : k < v.val.length
-        · have := v_post2 k (by omega) hk
-          simp
-          grind
+        · grind
         · have h1 : (v.val[k]! : GF16).toGF216 = 0 := by
             have : (v.val[k]! : GF16) = default := by grind
             rw [this]; exact GF16.toGF216_eq_zero _ (by rfl)
-          rw [h1, hornerAccum_eq_zero_of_le _ _ _ (by omega), mul_zero]
-  · -- panic path (¬b = true): derive contradiction
-    simp only [WP.spec_fail]
+          grind[hornerAccum_eq_zero_of_le]
+  · simp only [WP.spec_fail]
     have hpi_eq : pi = pts[i] := by grind
     have hH0 : hornerAccum
         (pts[i]).x self.coefficients.val 0 = 0 := by
