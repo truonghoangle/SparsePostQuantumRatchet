@@ -15,7 +15,7 @@ otherwise performs the GF(2¹⁶) addition and returns `cont (iter1, v1)`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
+open Aeneas Aeneas.Std Result  spqr.encoding.gf Polynomial
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0
 /-- **Spec theorem for `encoding.polynomial.Poly.lagrange_interpolate_loop0_loop0.body`**:
@@ -37,8 +37,7 @@ theorem body_spec
     (h_end_lt_working : iter.end < working.degree) :
     body working iter v ⦃ cf =>
       match cf with
-      | ControlFlow.done (v', working') =>
-          v' = v ∧ working' = working ∧ ¬ (iter.start < iter.end)
+      | ControlFlow.done (v', working') => v' = v ∧ working' = working ∧ ¬ (iter.start < iter.end)
       | ControlFlow.cont (iter1, v1) =>
           iter.start < iter.end ∧
           iter1.start = iter.start.val + 1 ∧
@@ -60,7 +59,6 @@ theorem body_spec
     step*
     refine ⟨h_lt, h_start1, h_end1, by simp_all, by simp_all, by simp_all⟩
   · grind
-
 
 /-! # Spec theorem for `lagrange_interpolate`: loop 1
 
@@ -106,7 +104,6 @@ One step of the outer loop: resets `working` from `template`, calls
 `working.coefficients[j+1]` into `out.coefficients[j]` via the inner loop.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
-
 
 namespace spqr.encoding.polynomial.Poly.lagrange_interpolate_loop0
 
@@ -207,7 +204,7 @@ theorem body_spec
       (by simp [alloc.vec.Vec.len])
       (by simp [alloc.vec.Vec.len]; grind [degree])
       (by grind))
-    grind[degree]
+    grind [degree]
   · grind
 
 /-! # Spec theorem for `lagrange_interpolate`: loop 0
@@ -285,12 +282,10 @@ Prepares `template = ∏_j (X − pts[j].x)`, then for each point index `i`, cal
 `lagrange_interpolate_complete` and XOR-accumulates `working.coefficients[j+1]` into
 `out.coefficients[j]` (the "divide by X" trick). The result is the classical Lagrange interpolant.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 106:4-137:5)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.Poly
 
-/-- `Slice.is_empty` returns `true` iff the slice has length 0. -/
 private lemma slice_is_empty_spec {T : Type} (s : Slice T) :
     core.slice.Slice.is_empty s ⦃ (b : Bool) =>
       b = (s.val.length = 0) ⦄ := by
@@ -299,10 +294,6 @@ private lemma slice_is_empty_spec {T : Type} (s : Slice T) :
   rcases h : s.val.length with _ | n
   all_goals simp [h]
 
-/-- **Spec for `alloc.vec.Vec.extend_from_slice` specialised to `GF16`**:
-
-Since `GF16.clone x = ok x`, the result is `v.val ++ s.val`.
-Requires `v.val.length + s.val.length ≤ Usize.max`. -/
 private lemma extend_from_slice_GF16_spec
     (v : alloc.vec.Vec GF16)
     (s : Slice GF16)
@@ -339,7 +330,7 @@ theorem lagrange_interpolate_formula
   step with zero_spec pts.len as ⟨out, h_out_len, h_out_zero⟩
   step with slice_is_empty_spec pts as ⟨b, hb_eq⟩
   split
-  · grind[degree]
+  · grind [degree]
   · rename_i hb_false
     have h_nonempty : 0 < pts.val.length := by grind
     step with lagrange_interpolate_prepare_spec pts h_len as
@@ -392,8 +383,7 @@ theorem lagrange_interpolate_formula
       rw [h_v_coeff j hj_v]
       simp [List.map_cons, List.sum_cons]
 
-/--
-**Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate`**:
+/-- **Spec theorem for `spqr.encoding.polynomial.Poly.lagrange_interpolate`**:
 
 Returns `result` with `result.coefficients.length = pts.length`. When empty, `result = 0`.
 Otherwise, witness polynomials `ws` exist (one per point) satisfying the Lagrange polynomial
@@ -462,7 +452,7 @@ theorem lagrange_interpolate_spec
         (fun a _ => by grind)
     · rw[degree] at hm
       rw [dif_neg hm]
-      exact (lagrangeInterpolantSum_coeff_high pts.val n m (le_refl _)
+      exact (lagrangeInterpolantSum_coeff_high pts n m (le_refl _)
         (by rw[degree] at h_rlen; rw [h_rlen] at hm; push Not at hm; omega)).symm
 
 end spqr.encoding.polynomial.Poly
