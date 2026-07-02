@@ -232,7 +232,7 @@ theorem mult_xdiff_spec
     mult_xdiff self diff ⦃ (result : PolyConst N) =>
       listToGF216Poly result.coefficients =
         (X - C (diff.toGF216)) * listToGF216Poly self.coefficients ⦄ := by
-  have h_leading_zero  := getElem!_value_val_eq_zero_of_natDegree_lt self.coefficients N
+  have h_leading_zero  := getElem!_value_val_eq_zero_of_natDegree_lt self.coefficients.val N
     h_N_pos h_deg
   unfold mult_xdiff
   step*
