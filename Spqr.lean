@@ -35,9 +35,14 @@ import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
 import Spqr.Math.Poly.Identities.MultXdiff
+import Spqr.Math.Poly.Identities.«MultXdiff 2»
 import Spqr.Math.Poly.Lagrange.BasisPoly
+import Spqr.Math.Poly.Lagrange.CondProdLinearFactors
+import Spqr.Math.Poly.Lagrange.CountNonSkip
 import Spqr.Math.Poly.Lagrange.DenomProd
 import Spqr.Math.Poly.Lagrange.InterpolantSum
+import Spqr.Math.Poly.Lagrange.«CondProdLinearFactors 2»
+import Spqr.Math.Poly.Lagrange.«CountNonSkip 2»
 import Spqr.Math.Poly.LinearFactors.Basic
 import Spqr.Math.Poly.LinearFactors.Degree
 import Spqr.Math.Poly.ModByMonic
@@ -62,6 +67,7 @@ import Spqr.Specs.Aeneas.VecIndexRangeFull
 import Spqr.Specs.Authenticator.Authenticator.MACSIZE
 import Spqr.Specs.Authenticator.Serialize.Authenticator.FromPb
 import Spqr.Specs.Authenticator.Serialize.Authenticator.IntoPb
+import Spqr.Specs.CREAM.FromSeed
 import Spqr.Specs.Encoding.Encoder.NextChunk
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
@@ -135,10 +141,101 @@ import Spqr.Specs.Encoding.Polynomial.Poly.VecDeref
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
 import Spqr.Specs.Encoding.Polynomial.PolyConst.LagrangeInterpolatePt
 import Spqr.Specs.Encoding.Polynomial.PolyConst.Mult
+import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiff
+import Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly
 import Spqr.Specs.Encoding.Polynomial.PolyConst.ZEROS
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunk
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallMut
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallOnce
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.Clone
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPb
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPb
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.New
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallMut
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPb
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop2
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody2
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop2
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody1
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody2
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.NextChunk
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallMut
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoop0
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoopBody0
+import Spqr.Specs.Encoding.Polynomial.PolynomialError.Eq
+import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
+import Spqr.Specs.Encoding.Polynomial.Pt.Cmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
+import Spqr.Specs.Encoding.Polynomial.Pt.Eq
+import Spqr.Specs.Encoding.Polynomial.Pt.PartialCmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_1 2»
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_3 2»
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_30 2»
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_34 2»
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_36 2»
+import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_5 2»
+import Spqr.Specs.Encoding.Polynomial.«ConstPolysToPolys 2»
+import Spqr.Specs.Encoding.Polynomial.«LagrangePolysForCompletePoints 2»
 import Spqr.Specs.IncrementalMlkem768.Generate
+import Spqr.Specs.Proto.PqRatchet.Authenticator.Clone
+import Spqr.Specs.Proto.PqRatchet.Chain.Clone
+import Spqr.Specs.Proto.PqRatchet.Chain.Epoch.Clone
+import Spqr.Specs.Proto.PqRatchet.Chain.Epoch.EpochDirection.Clone
+import Spqr.Specs.Proto.PqRatchet.ChainParams.Clone
+import Spqr.Specs.Proto.PqRatchet.PolynomialDecoder.Clone
+import Spqr.Specs.Proto.PqRatchet.PolynomialDecoder.Default
+import Spqr.Specs.Proto.PqRatchet.PolynomialDecoder.Eq
+import Spqr.Specs.Proto.PqRatchet.PolynomialEncoder.Clone
+import Spqr.Specs.Proto.PqRatchet.PolynomialEncoder.Default
+import Spqr.Specs.Proto.PqRatchet.PolynomialEncoder.Eq
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.Ct1Acknowledged.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.Ct1Received.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.Ct1Sampled.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.EkReceivedCt1Sampled.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.HeaderReceived.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Chunked.NoHeaderReceived.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.Ct1Sent.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.Ct1SentEkReceived.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.Ct2Sampled.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.Ct2Sent.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSent.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSentCt1Received.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.HeaderReceived.Clone
+import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.NoHeaderReceived.Clone
 import Spqr.Specs.Util.Compare
 import Spqr.Specs.Util.Inz
 import Spqr.Specs.Util.IsNonZero
