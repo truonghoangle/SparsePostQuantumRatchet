@@ -35,14 +35,11 @@ import Spqr.Math.Poly.Horner.Defs
 import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
 import Spqr.Math.Poly.Identities.MultXdiff
-import Spqr.Math.Poly.Identities.«MultXdiff 2»
 import Spqr.Math.Poly.Lagrange.BasisPoly
 import Spqr.Math.Poly.Lagrange.CondProdLinearFactors
 import Spqr.Math.Poly.Lagrange.CountNonSkip
 import Spqr.Math.Poly.Lagrange.DenomProd
 import Spqr.Math.Poly.Lagrange.InterpolantSum
-import Spqr.Math.Poly.Lagrange.«CondProdLinearFactors 2»
-import Spqr.Math.Poly.Lagrange.«CountNonSkip 2»
 import Spqr.Math.Poly.LinearFactors.Basic
 import Spqr.Math.Poly.LinearFactors.Degree
 import Spqr.Math.Poly.ModByMonic
@@ -202,14 +199,6 @@ import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Eq
 import Spqr.Specs.Encoding.Polynomial.Pt.PartialCmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_1 2»
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_3 2»
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_30 2»
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_34 2»
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_36 2»
-import Spqr.Specs.Encoding.Polynomial.«COMPLETE_POINTS_POLYS_5 2»
-import Spqr.Specs.Encoding.Polynomial.«ConstPolysToPolys 2»
-import Spqr.Specs.Encoding.Polynomial.«LagrangePolysForCompletePoints 2»
 import Spqr.Specs.IncrementalMlkem768.Generate
 import Spqr.Specs.Proto.PqRatchet.Authenticator.Clone
 import Spqr.Specs.Proto.PqRatchet.Chain.Clone

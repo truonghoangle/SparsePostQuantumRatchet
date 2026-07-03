@@ -5,6 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Aeneas.SliceIterMap
+import Spqr.Specs.Aeneas.Collect
 
 /-!
 # Spec theorem for `core::iter::adapters::map::{Iterator for Map<I, F>}::collect`
@@ -180,9 +181,9 @@ theorem collect_spec
             listToGF216Poly
               (m.iter.slice.val.get ⟨j + m.iter.i, hs⟩).coefficients.val)
       ⦄ := by
-  unfold core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
-  simp only [alloc.vec.FromIteratorVec.from_iter,
-    core.iter.traits.collect.IntoIterator.Blanket.into_iter]
+  simp only [collect_eq]
+  unfold alloc.vec.FromIteratorVec.from_iter
+  simp only [core.iter.traits.collect.IntoIterator.Blanket, bind_tc_ok]
   apply WP.spec_bind (Pₘ := fun (L : List Poly) =>
     L.length = m.iter.slice.val.length - m.iter.i ∧
     L.length ≤ Usize.max ∧

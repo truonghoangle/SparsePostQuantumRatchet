@@ -14,12 +14,12 @@ this composed iterator to completion, materialising the mapped elements into a t
 `B1` via the `FromIterator` trait.
 
 The function proceeds in two stages:
-  1. **Map-iterator construction** — a local `Iterator (Map I F) B` instance is built whose `next`
-     field first calls the underlying `I`'s `next`, and on `some item` applies `FnMut.call_mut`
-     to produce a `B` and an updated closure state `F`.
-  2. **Collection** — the map iterator is passed to `FromIterator.from_iter` through the blanket
-     `IntoIterator` instance, which drives iteration to completion and assembles the final `B1`
-     value.
+  1. **Map-iterator construction** — a `mapIteratorTransformer` builds an `Iterator I B` instance
+     whose `next` field first calls the underlying `I`'s `next`, and on `some item` applies
+     `FnMut.call_mut` to the item using the closure `map.f` to produce a `B`.
+  2. **Collection** — the map-transformed iterator is passed to `FromIterator.from_iter` through
+     the blanket `IntoIterator` instance, which drives iteration to completion and assembles the
+     final `B1` value.
 
 **Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
 -/
@@ -28,84 +28,71 @@ open Aeneas Aeneas.Std Result
 
 namespace Aeneas.Std.core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
 
-/-- The `Iterator (Map I F) B` instance constructed internally by `collect`.
+/--
+**Spec theorem for `mapIteratorTransformer.next`** (definitional unfolding):
 
-`mapIterator` factors out the locally-defined iterator that `collect` builds.  Its `next`
-field composes the underlying iterator's `next` with `FnMut.call_mut`:
+• Takes an iterator state `iter : I` and the `mapIteratorTransformer`-constructed iterator
+  instance built from a `Map I F` value `m`, an underlying `Iterator I Clause0_Item` instance,
+  and a `FnMut F Clause0_Item B` instance.
+• Composes the underlying iterator's `next` with `FnMut.call_mut`:
+    - If the underlying iterator yields `none`, the map-transformed iterator yields
+      `(none, iter')` — the underlying iterator is exhausted.
+    - If the underlying iterator yields `some val`, the closure is applied via
+      `FnMut.call_mut m.f val` to produce `(b, _)`, and the map-transformed iterator
+      yields `(some b, iter')` with the updated underlying iterator state.
 
-  * If the underlying iterator yields `none`, the map iterator yields `none` with an
-    updated `Map` state that preserves the current closure value.
-  * If the underlying iterator yields `some item`, the closure is applied via
-    `FnMut.call_mut` to produce a `(b, f')` pair, and the map iterator yields `some b`
-    with the updated iterator and closure state.
+• The function always produces the same result as inlining the `mapNext` closure from
+  `mapIteratorTransformer`, since `fromNext` stores that closure as the `next` field.
 
-The remaining methods (`step_by`, `enumerate`, `take`) are structural stubs matching the
-`Iterator` trait's default implementations. -/
-noncomputable def mapIterator
-    {B I F Clause0_Item : Type}
-    (iterInst : core.iter.traits.iterator.Iterator I Clause0_Item)
-    (fnMutInst : core.ops.function.FnMut F Clause0_Item B)
-    : core.iter.traits.iterator.Iterator (core.iter.adapters.map.Map I F) B := {
-  next := fun m => do
-    let (opt, iter') ← iterInst.next m.iter
-    match opt with
-    | none => .ok (none, ⟨iter', m.f⟩)
-    | some item => do
-      let (b, f') ← fnMutInst.call_mut m.f item
-      .ok (some b, ⟨iter', f'⟩)
-  step_by := fun m s => if s.val = 0 then .fail .panic else .ok ⟨m, s⟩
-  enumerate := fun m => .ok ⟨m, 0#usize⟩
-  take := fun m n => .ok ⟨m, n⟩
-}
-
-/-- **Spec theorem for `mapIterator.next`** (definitional unfolding):
-
-The `next` of the map iterator first invokes the underlying iterator's `next`.
-  * On `none` — the underlying iterator is exhausted — it returns `(none, ⟨iter', m.f⟩)`,
-    preserving the closure state unchanged.
-  * On `some item` — the underlying iterator yields an element — it applies `FnMut.call_mut`
-    to the item, producing `(b, f')`, and returns `(some b, ⟨iter', f'⟩)` with the updated
-    closure state.
-
-This follows from the definition of `mapIterator` and is used by downstream inductive proofs
-over `iterToList` to reason about each step of the mapped iteration.
+The proof unfolds `mapIteratorTransformer` and `fromNext` to expose the underlying composition
+and discharges with `rfl`.
 
 **Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
 -/
 @[simp, step_simps]
-theorem mapIterator_next_eq
+theorem mapIteratorTransformer_next_eq
     {B I F Clause0_Item : Type}
+    (m : core.iter.adapters.map.Map I F)
     (iterInst : core.iter.traits.iterator.Iterator I Clause0_Item)
     (fnMutInst : core.ops.function.FnMut F Clause0_Item B)
-    (m : core.iter.adapters.map.Map I F) :
-    (mapIterator iterInst fnMutInst).next m = (do
-      let (opt, iter') ← iterInst.next m.iter
+    (iter : I) :
+    (core.iter.adapters.map.mapIteratorTransformer m iterInst fnMutInst).next iter = (do
+      let (opt, iter') ← iterInst.next iter
       match opt with
-      | none => .ok (none, ⟨iter', m.f⟩)
-      | some item => do
-        let (b, f') ← fnMutInst.call_mut m.f item
-        .ok (some b, ⟨iter', f'⟩)) := by
-  unfold mapIterator
+      | none => .ok (none, iter')
+      | some val => do
+        let (postFnVal, _) ← fnMutInst.call_mut m.f val
+        .ok (some postFnVal, iter')) := by
+  unfold core.iter.adapters.map.mapIteratorTransformer
+    core.iter.traits.iterator.Iterator.fromNext
   rfl
 
-/-- **Spec theorem for `collect`** (definitional unfolding):
+/--
+**Spec theorem for `collect`** (definitional unfolding):
 
-`collect` reduces to `FromIterator.from_iter` applied via the blanket `IntoIterator` instance
-to the internally-constructed `mapIterator`.
+• Takes a `Map I F` value `m`, an `Iterator I Clause0_Item` instance for the underlying
+  iterator, a `FnMut F Clause0_Item B` instance for the mapping closure, and a
+  `FromIterator B1 B` instance for the target collection.
+• Delegates to `Iterator.collect.default`, which in turn calls `FromIterator.from_iter`
+  with the blanket `IntoIterator` instance wrapping the `mapIteratorTransformer`-constructed
+  iterator, starting iteration from the underlying iterator state `m.iter`:
 
-Concretely, for any `Map I F` value `m`:
+      `collect iterInst fnMutInst fromIterInst m
+         = fromIterInst.from_iter
+             (IntoIterator.Blanket (mapIteratorTransformer m iterInst fnMutInst))
+             m.iter`
 
-    `collect iterInst fnMutInst fromIterInst m
-       = fromIterInst.from_iter (IntoIterator.Blanket (mapIterator iterInst fnMutInst)) m`
-
-This establishes that `collect` on `Map<I, F>` is equivalent to running the underlying iterator `I`,
-mapping each yielded element through `FnMut.call_mut`, and collecting the results via
-`FromIterator.from_iter`.
+• This establishes that `collect` on `Map<I, F>` is equivalent to running the underlying
+  iterator `I`, mapping each yielded element through `FnMut.call_mut`, and collecting the
+  results via `FromIterator.from_iter`.
 
 This is the fundamental equation that downstream, specialised `collect_spec` theorems (e.g. for
-`const_polys_to_polys`) build upon: they instantiate the generic types, unfold `from_iter` to its
-concrete implementation (typically `FromIteratorVec.iterToList`), and then reason about the
+`const_polys_to_polys`) build upon: they instantiate the generic types, unfold `from_iter` to
+its concrete implementation (typically `FromIteratorVec.iterToList`), and then reason about the
 resulting loop.
+
+The proof unfolds `collect` and `Iterator.collect.default` to expose the underlying
+`from_iter` call and discharges with `rfl`.
 
 **Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
 -/
@@ -120,9 +107,10 @@ theorem collect_eq
       iterInst fnMutInst fromIterInst m =
       fromIterInst.from_iter
         (core.iter.traits.collect.IntoIterator.Blanket
-          (mapIterator iterInst fnMutInst)) m := by
+          (core.iter.adapters.map.mapIteratorTransformer m iterInst fnMutInst))
+        m.iter := by
   unfold core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
-    mapIterator
+    core.iter.traits.iterator.Iterator.collect.default
   rfl
 
 end Aeneas.Std.core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
