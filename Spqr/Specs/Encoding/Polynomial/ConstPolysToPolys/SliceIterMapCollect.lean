@@ -156,6 +156,104 @@ private theorem iterToList_map_acc
           exact hp
 
 /--
+The `iterToList` call with `mapIteratorTransformer` (state `Iter (PolyConst N)`)
+produces the same result as with a custom instance (state `MapIterT N`), because
+the `const_polys_to_polys` closure state is never modified by `call_mut`.
+This bridges the generic `collect_eq` unfolding (which uses `mapIteratorTransformer`)
+with the inductive characterisation `iterToList_map_acc` (which uses `MapIterT N` state).
+-/
+private theorem iterToList_mapTrans_eq_custom
+    {N : Usize}
+    (n : Nat)
+    (iter : core.slice.iter.Iter (PolyConst N))
+    (f : ClosureN N)
+    (acc : List Poly)
+    (h_n : n = iter.slice.val.length - iter.i)
+    (customInst : core.iter.traits.iterator.Iterator (MapIterT N) Poly)
+    (h_next : customInst.next = fun m' => do
+      let (opt, iter') ← core.slice.iter.IteratorSliceIter.next m'.iter
+      match opt with
+      | none =>
+        .ok (none,
+          (core.iter.adapters.map.Map.mk iter' m'.f : MapIterT N))
+      | some item => do
+        let (b, f') ←
+          CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut
+            m'.f item
+        .ok (some b,
+          (core.iter.adapters.map.Map.mk iter' f' : MapIterT N))) :
+    alloc.vec.FromIteratorVec.iterToList
+      (core.iter.adapters.map.mapIteratorTransformer
+        (core.iter.adapters.map.Map.mk iter f : MapIterT N)
+        (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+        (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
+      iter acc =
+    alloc.vec.FromIteratorVec.iterToList customInst
+      (core.iter.adapters.map.Map.mk iter f : MapIterT N) acc := by
+  induction n generalizing iter acc with
+  | zero =>
+    have h_ge : ¬ (iter.i < iter.slice.val.length) := by omega
+    have lhs_val : alloc.vec.FromIteratorVec.iterToList
+        (core.iter.adapters.map.mapIteratorTransformer
+          (core.iter.adapters.map.Map.mk iter f : MapIterT N)
+          (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+          (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
+        iter acc = .ok acc.reverse := by
+      conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
+      simp [mapIteratorTransformer_next_eq,
+        core.slice.iter.IteratorSliceIter.next, Slice.len, h_ge]
+    have rhs_val : alloc.vec.FromIteratorVec.iterToList customInst
+        (core.iter.adapters.map.Map.mk iter f : MapIterT N) acc =
+        .ok acc.reverse := by
+      conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
+      rw [h_next]
+      simp [core.slice.iter.IteratorSliceIter.next, Slice.len, h_ge]
+    rw [lhs_val, rhs_val]
+  | succ n ih =>
+    have h_lt : iter.i < iter.slice.val.length := by omega
+    have h_cm :=
+      CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut_spec
+        f (iter.slice.val.get ⟨iter.i, h_lt⟩)
+    obtain ⟨result, h_cm_eq, _, _, h_f⟩ := spec_to_ok h_cm
+    set iter' := core.slice.iter.Iter.mk iter.slice (iter.i + 1)
+    -- LHS one-step reduction
+    have lhs_step : alloc.vec.FromIteratorVec.iterToList
+        (core.iter.adapters.map.mapIteratorTransformer
+          (core.iter.adapters.map.Map.mk iter f : MapIterT N)
+          (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+          (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
+        iter acc =
+      alloc.vec.FromIteratorVec.iterToList
+        (core.iter.adapters.map.mapIteratorTransformer
+          (core.iter.adapters.map.Map.mk iter f : MapIterT N)
+          (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+          (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
+        iter' (result.1 :: acc) := by
+      conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
+      simp only [mapIteratorTransformer_next_eq,
+        slice.iter.IteratorSliceIter.next, Slice.len, Usize.ofNatCore_val_eq, h_lt,
+        ↓reduceDIte, bind_tc_ok, uncurry_apply_pair, bind_assoc]
+      unfold CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut
+      simp only [bind_assoc, bind_tc_ok, uncurry_apply_pair]
+      exact to_poly_of_call_mut_eq h_cm_eq ▸ rfl
+    -- RHS one-step reduction
+    have rhs_step : alloc.vec.FromIteratorVec.iterToList customInst
+        (core.iter.adapters.map.Map.mk iter f : MapIterT N) acc =
+      alloc.vec.FromIteratorVec.iterToList customInst
+        (core.iter.adapters.map.Map.mk iter' result.2 : MapIterT N)
+          (result.1 :: acc) := by
+      conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
+      rw [h_next]
+      simp only [slice.iter.IteratorSliceIter.next, Slice.len, Usize.ofNatCore_val_eq, h_lt,
+        ↓reduceDIte, bind_tc_ok, uncurry_apply_pair, bind_assoc]
+      unfold CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut
+      simp only [bind_assoc, bind_tc_ok, uncurry_apply_pair]
+      rw [← h_f]
+      exact to_poly_of_call_mut_eq h_cm_eq ▸ rfl
+    rw [lhs_step, rhs_step, ← h_f]
+    exact ih iter' (result.1 :: acc) (by simp [iter']; omega)
+
+/--
 **Spec theorem for `collect`** (specialized to `const_polys_to_polys`).
 
 **Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
@@ -183,7 +281,7 @@ theorem collect_spec
       ⦄ := by
   simp only [collect_eq]
   unfold alloc.vec.FromIteratorVec.from_iter
-  simp only [core.iter.traits.collect.IntoIterator.Blanket, bind_tc_ok]
+  simp  [bind_tc_ok]
   apply WP.spec_bind (Pₘ := fun (L : List Poly) =>
     L.length = m.iter.slice.val.length - m.iter.i ∧
     L.length ≤ Usize.max ∧
@@ -212,8 +310,28 @@ theorem collect_spec
         enumerate := fun m => .ok ⟨m, 0#usize⟩
         take := fun m n => .ok ⟨m, n⟩ }
       rfl
-    simp only [List.reverse_nil, List.nil_append] at hL_eq
-    grind
+    simp  [List.reverse_nil, List.nil_append] at hL_eq
+    have h_bridge := iterToList_mapTrans_eq_custom
+      (m.iter.slice.val.length - m.iter.i) m.iter m.f [] rfl
+      { next := fun m => do
+          let (opt, iter') ← core.slice.iter.IteratorSliceIter.next m.iter
+          match opt with
+          | none =>
+            .ok (none,
+              (core.iter.adapters.map.Map.mk iter' m.f : MapIterT N))
+          | some item => do
+            let (b, f') ←
+              CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut
+                m.f item
+            .ok (some b,
+              (core.iter.adapters.map.Map.mk iter' f' : MapIterT N))
+        step_by := fun m s => if s.val = 0 then .fail .panic else .ok ⟨m, s⟩
+        enumerate := fun m => .ok ⟨m, 0#usize⟩
+        take := fun m n => .ok ⟨m, n⟩ }
+      rfl
+    rw [h_bridge, hL_eq]
+    simp only [WP.spec_ok]
+    exact ⟨hL_len, by have := m.iter.slice.property; omega, hL_elts⟩
   · intro list ⟨h_len, h_max, h_elts⟩
     split
     · exact ⟨h_len, fun j hj_bound hj hs => h_elts j (by omega) hs⟩

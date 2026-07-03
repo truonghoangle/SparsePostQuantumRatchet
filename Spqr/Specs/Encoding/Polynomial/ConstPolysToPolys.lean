@@ -99,6 +99,10 @@ theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
           result[j].toGF216Poly = listToGF216Poly cps[j].coefficients) ⦄ := by
   unfold const_polys_to_polys
   step*
+  have h := core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec m
+  simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_eq] at h
+  apply WP.spec_mono h
+  intro result ⟨h_len, h_elts⟩
   simp_all
 
 end spqr.encoding.polynomial
