@@ -25,8 +25,7 @@ namespace spqr.encoding.polynomial.PolyConst
   enabling transfer of `PolyConst`-level results to `Poly`. -/
 @[step]
 theorem to_poly_spec
-    {N : Usize}
-    (self : PolyConst N) :
+    {N : Usize} (self : PolyConst N) :
     to_poly self ⦃ (result : Poly) =>
       result.coefficients = self.coefficients.val ∧
       result.toGF216Poly = listToGF216Poly self.coefficients ⦄ := by

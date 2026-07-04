@@ -115,22 +115,21 @@ private lemma none_nonzero_postcondition
     (h_polys_len : polys.val.length = N.val)
     (ones1 : Array Pt N)
     (h_ones1_pts : ∀ (j : Nat), j < N.val →
-      ∀ (hj : j < ones1.val.length),
-        (ones1.val.get ⟨j, hj⟩).x.value.val = j ∧
-        (ones1.val.get ⟨j, hj⟩).y = GF16.ONE)
+      (ones1[j]!).x.value.val = j ∧
+      (ones1[j]!).y = GF16.ONE)
     (h_polys_lagrange : ∀ (j : Nat), j < N.val →
-      ∀ (hj : j < polys.val.length)
-        (hjo : j < ones1.val.length),
-        (polys.val.get ⟨j, hj⟩).toGF216Poly =
-          C ((ones1.val.get ⟨j, hjo⟩).y.toGF216 *
-              (lagrangeDenomProd (ones1.val.get ⟨j, hjo⟩).x
+      ∀ (hj : j < polys.length)
+        (hjo : j < ones1.length),
+        (polys.val[j]).toGF216Poly =
+          C ((ones1.val[j]!).y.toGF216 *
+              (lagrangeDenomProd (ones1[j]!).x
                 (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-            condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
+            condProdLinearFactors (ones1[j]!).x
               (ones1.val.take N.val) 0)
     (h_sum : p.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
       C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) :
     ∃ (polys' : Slice Poly),
-      pts.val.length ≤ polys'.val.length ∧
+      pts.length ≤ polys'.length ∧
       (p.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
         C ((pts.val[j]!).y.toGF216) * (polys'.val[j]!).toGF216Poly) ∧
       (pts.val.length = 0 →
@@ -140,20 +139,19 @@ private lemma none_nonzero_postcondition
         ∃ (N' : Usize) (ones1' : Array Pt N'),
           N'.val = pts.val.length ∧
           (∀ (j : Nat), j < N'.val →
-            ∀ (hj : j < ones1'.val.length),
-              (ones1'.val.get ⟨j, hj⟩).x.value.val = j ∧
-              (ones1'.val.get ⟨j, hj⟩).y = GF16.ONE) ∧
+            (ones1'[j]!).x.value.val = j ∧
+            (ones1'[j]!).y = GF16.ONE) ∧
           (∀ (j : Nat), j < N'.val →
             ∀ (hj : j < polys'.val.length)
-              (hjo : j < ones1'.val.length),
+              (hjo : j < ones1'.length),
               (polys'.val.get ⟨j, hj⟩).toGF216Poly =
-                C ((ones1'.val.get ⟨j, hjo⟩).y.toGF216 *
-                    (lagrangeDenomProd (ones1'.val.get ⟨j, hjo⟩).x
+                C ((ones1'.val[j]!).y.toGF216 *
+                    (lagrangeDenomProd (ones1'[j]!).x
                       (ones1'.val.take N'.val) 0) ^ (2 ^ 16 - 2)) *
-                  condProdLinearFactors (ones1'.val.get ⟨j, hjo⟩).x
+                  condProdLinearFactors (ones1'[j]!).x
                     (ones1'.val.take N'.val) 0)) :=
   ⟨polys,
-    by omega,
+    by grind,
     h_sum,
     fun h => absurd h h_N_pos,
     fun _ => ⟨by omega, N, ones1, h_N_eq, h_ones1_pts, h_polys_lagrange⟩⟩
@@ -173,24 +171,23 @@ private abbrev bodyPost
           pts.val.length ≤ polys.val.length ∧
           (p.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
             C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) ∧
-          (pts.val.length = 0 →
-            polys.val.length = 0 ∧ p.toGF216Poly = 0) ∧
-          (pts.val.length ≠ 0 →
-            polys.val.length = pts.val.length ∧
+          (pts.length = 0 →
+            polys.length = 0 ∧ p.toGF216Poly = 0) ∧
+          (pts.length ≠ 0 →
+            polys.length = pts.length ∧
             ∃ (N : Usize) (ones1 : Array Pt N),
-              N.val = pts.val.length ∧
+              N = pts.length ∧
+              (∀ (j : Nat), j < N →
+                (ones1[j]!).x.value.val = j ∧
+                (ones1[j]!).y = GF16.ONE) ∧
               (∀ (j : Nat), j < N.val →
-                ∀ (hj : j < ones1.val.length),
-                  (ones1.val.get ⟨j, hj⟩).x.value.val = j ∧
-                  (ones1.val.get ⟨j, hj⟩).y = GF16.ONE) ∧
-              (∀ (j : Nat), j < N.val →
-                ∀ (hj : j < polys.val.length)
-                  (hjo : j < ones1.val.length),
-                  (polys.val.get ⟨j, hj⟩).toGF216Poly =
-                    C ((ones1.val.get ⟨j, hjo⟩).y.toGF216 *
-                        (lagrangeDenomProd (ones1.val.get ⟨j, hjo⟩).x
+                ∀ (hj : j < polys.length)
+                  (hjo : j < ones1.length),
+                  (polys.val[j]).toGF216Poly =
+                    C ((ones1.val[j]!).y.toGF216 *
+                        (lagrangeDenomProd (ones1[j]!).x
                           (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                      condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
+                      condProdLinearFactors (ones1[j]!).x
                         (ones1.val.take N.val) 0))
     | ControlFlow.done (core.result.Result.Err ()) =>
         ∃ (h_i : iter.iter.i < pts.val.length),
@@ -279,7 +276,7 @@ private theorem body_spec_none_0
     step
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
-      List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
+      List.Vector.length_val,  Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
       exists_and_left]
     constructor
     · grind
@@ -288,7 +285,6 @@ private theorem body_spec_none_0
       · simp
         grind
       · simp_all
-
 
 
 
@@ -345,8 +341,8 @@ private theorem body_spec_none_1
           grind
         · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow, Finset.range_one,  Finset.sum_singleton,
+           forall_true_left, Nat.reducePow, Nat.reduceSub,
+          Finset.range_one,  Finset.sum_singleton,
           getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero]
           constructor
           · grind
@@ -365,7 +361,6 @@ private theorem body_spec_none_1
                 have : (polys.deref).val = (polys).val:= by
                   simp [alloc.vec.Vec.deref]
                 simp_all
-
 
 
 
@@ -430,8 +425,7 @@ private theorem body_spec_none_3
           grind
         · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow]
+           forall_true_left, Nat.reducePow, Nat.reduceSub]
           constructor
           · grind
           · constructor
@@ -503,8 +497,7 @@ private theorem body_spec_none_5
           grind
         · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow]
+          forall_true_left, Nat.reducePow, Nat.reduceSub]
           constructor
           · grind
           · constructor
@@ -576,8 +569,7 @@ private theorem body_spec_none_30
           grind
         · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow]
+          forall_true_left,  Nat.reducePow, Nat.reduceSub]
           constructor
           · grind
           · constructor
@@ -649,8 +641,7 @@ private theorem body_spec_none_34
           grind
         · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow]
+          forall_true_left, Nat.reducePow, Nat.reduceSub]
           constructor
           · grind
           · constructor
@@ -722,8 +713,7 @@ private theorem body_spec_none_36
           grind
         · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
           UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          List.get_eq_getElem, forall_true_left, GF16.ONE_toGF216, Nat.reducePow, Nat.reduceSub,
-          one_mul, map_pow]
+          forall_true_left, Nat.reducePow, Nat.reduceSub]
           constructor
           · grind
           · constructor
@@ -812,17 +802,16 @@ theorem body_spec
               ∃ (N : Usize) (ones1 : Array Pt N),
                 N.val = pts.val.length ∧
                 (∀ (j : Nat), j < N.val →
-                  ∀ (hj : j < ones1.val.length),
-                    (ones1.val.get ⟨j, hj⟩).x.value.val = j ∧
-                    (ones1.val.get ⟨j, hj⟩).y = GF16.ONE) ∧
+                  (ones1[j]!).x.value.val = j ∧
+                  (ones1[j]!).y = GF16.ONE) ∧
                 (∀ (j : Nat), j < N.val →
                   ∀ (hj : j < polys.val.length)
-                    (hjo : j < ones1.val.length),
-                    (polys.val.get ⟨j, hj⟩).toGF216Poly =
-                      C ((ones1.val.get ⟨j, hjo⟩).y.toGF216 *
-                          (lagrangeDenomProd (ones1.val.get ⟨j, hjo⟩).x
+                    (hjo : j < ones1.length),
+                    (polys.val[j]).toGF216Poly =
+                      C ((ones1.val[j]!).y.toGF216 *
+                          (lagrangeDenomProd (ones1[j]!).x
                             (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                        condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
+                        condProdLinearFactors (ones1[j]!).x
                           (ones1.val.take N.val) 0))
       | ControlFlow.done (core.result.Result.Err ()) =>
           ∃ (h_i : iter.iter.i < pts.val.length),

@@ -147,17 +147,16 @@ theorem loop_spec
               ∃ (N : Usize) (ones1 : Array Pt N),
                 N.val = pts.val.length ∧
                 (∀ (j : Nat), j < N.val →
-                  ∀ (hj : j < ones1.val.length),
-                    (ones1.val.get ⟨j, hj⟩).x.value.val = j ∧
-                    (ones1.val.get ⟨j, hj⟩).y = GF16.ONE) ∧
+                  (ones1[j]!).x.value.val = j ∧
+                  (ones1[j]!).y = GF16.ONE) ∧
                 (∀ (j : Nat), j < N.val →
                   ∀ (hj : j < polys.val.length)
-                    (hjo : j < ones1.val.length),
+                    (hjo : j < ones1.length),
                     (polys.val.get ⟨j, hj⟩).toGF216Poly =
-                      C ((ones1.val.get ⟨j, hjo⟩).y.toGF216 *
-                          (lagrangeDenomProd (ones1.val.get ⟨j, hjo⟩).x
+                      C ((ones1.val[j]!).y.toGF216 *
+                          (lagrangeDenomProd (ones1[j]!).x
                             (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                        condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
+                        condProdLinearFactors (ones1[j]!).x
                           (ones1.val.take N.val) 0))
       | core.result.Result.Err () =>
           ∃ (j : Nat) (hj : j < pts.val.length),

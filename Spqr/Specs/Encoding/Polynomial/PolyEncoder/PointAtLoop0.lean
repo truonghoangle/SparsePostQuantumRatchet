@@ -177,7 +177,7 @@ theorem loop_spec
       simp only [] at h_cf ⊢
       obtain ⟨h_out_eq, h_not_lt⟩ := h_cf
       subst h_out_eq
-      exact fun j hj => h_pre' j (by omega)
+      exact fun j hj => h_pre' j (by grind)
     | ControlFlow.cont (iter'', polys'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1, poly, h_poly_eq, h_preserve, lagrange_polys,

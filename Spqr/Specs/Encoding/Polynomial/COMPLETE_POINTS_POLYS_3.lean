@@ -83,22 +83,21 @@ namespace spqr.encoding.polynomial
 theorem COMPLETE_POINTS_POLYS_3_spec :
     COMPLETE_POINTS_POLYS_3
       ⦃ result =>
-        ∃ (ones1 : Array Pt 3#usize),
-          (∀ (j : Nat), j < (3#usize).val →
-            ∀ (hj : j < ones1.val.length),
-              (ones1.val.get ⟨j, hj⟩).x.value.val = j ∧
-              (ones1.val.get ⟨j, hj⟩).y = GF16.ONE) ∧
-          (∀ (j : Nat), j < (3#usize).val →
-            ∀ (hj : j < result.val.length) (hjo : j < ones1.val.length),
-              listToGF216Poly (result.val.get ⟨j, hj⟩).coefficients.val =
-                C ((ones1.val.get ⟨j, hjo⟩).y.toGF216 *
-                    (lagrangeDenomProd (ones1.val.get ⟨j, hjo⟩).x
-                      (ones1.val.take (3#usize).val) 0) ^ (2 ^ 16 - 2)) *
-                  condProdLinearFactors (ones1.val.get ⟨j, hjo⟩).x
-                    (ones1.val.take (3#usize).val) 0) ⦄ := by
+      ∃ (ones1 : Array Pt 3#usize),
+        (∀ (j : Nat), j < (3#usize).val →
+          (ones1[j]!).x.value.val = j ∧
+          (ones1[j]!).y = GF16.ONE) ∧
+        (∀ (j : Nat), j < (3#usize).val →
+          ∀ (hj : j < result.length) (hjo : j < ones1.length),
+            listToGF216Poly (result.val[j]).coefficients.val =
+              C ((ones1.val[j]!).y.toGF216 *
+                  (lagrangeDenomProd (ones1[j]!).x
+                    (ones1.val.take (3#usize).val) 0) ^ (2 ^ 16 - 2)) *
+                condProdLinearFactors (ones1[j]!).x
+                  (ones1.val.take (3#usize).val) 0) ⦄ := by
   unfold COMPLETE_POINTS_POLYS_3
   step*
-  exact ⟨result, fun j hj hj' => result_post1 j hj hj',
+  exact ⟨result, fun j hj => result_post1 j hj,
          fun j hj hj' hjo => result_post2 j hj hj' hjo⟩
 
 end spqr.encoding.polynomial
