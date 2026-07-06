@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import SrcTranslated.Funs
+import Spqr.Specs.Lib.RatchetDefs
 /-!
 # Spec theorem for `spqr::authenticator::Authenticator::new`
 
@@ -14,20 +15,20 @@ The constructor performs the following steps:
 
 1. Allocates a zero-initialised `Authenticator` with both `root_key` and `mac_key` set to a
    32-byte zero vector `vec![0u8; 32]`.
-2. Immediately delegates to `Authenticator.update(ep, &root_key)`, which derives a pair of
-   fresh 32-byte keys via HKDF-SHA256:
-   - `ikm  = [0; 32] ++ root_key`
-   - `info = b"Signal_PQCKA_V1_MLKEM768:Authenticator Update" ++ ep.to_be_bytes()`
-   - `kdf_out = hkdf([0; 32], ikm, info, 64)`
-   - `result.root_key = kdf_out[..32]`
-   - `result.mac_key  = kdf_out[32..]`
+2. Applies a single HKDF ratchet step from this zero state, computing:
+   - `ikm  = ZERO_SALT ++ root_key`
+   - `info = PROTOCOL_LABEL ++ ep.to_be_bytes()`
+   - `kdf_out = HKDF-SHA256(salt = ZERO_SALT, ikm, info, L = 64)`
+   - `result.root_key = kdf_out[0..32]`
+   - `result.mac_key  = kdf_out[32..64]`
 
 The returned `Authenticator` therefore holds keys deterministically derived from the supplied
 `root_key` and `ep` via a single HKDF-SHA256 expansion, domain-separated by a fixed protocol
-label and the epoch counter.
+label (`PROTOCOL_LABEL`) and the epoch counter.
 
-The by-value `new` introduces no additional logic beyond the delegation to `update`, so its
-postcondition is inherited from the corresponding `update` specification.
+The postcondition is expressed via `initial_ratchet_step` from `Spqr/Specs/Lib/RatchetDefs.lean`,
+which explicitly characterizes the HKDF computation rather than referencing the opaque
+`Authenticator.update` function.
 
 **Source**: spqr/src/authenticator.rs (lines 35:4-42:5)
 -/
@@ -41,29 +42,26 @@ namespace spqr.authenticator.Authenticator
 
 • Takes an initial `root_key : Vec U8` and an epoch `ep : U64`.
 • Allocates a zero-initialised `Authenticator` with both `root_key` and `mac_key` fields set
-  to `vec![0u8; 32]` (a 32-byte zero vector).
-• Delegates immediately to `update`:
-    `Authenticator.update { root_key := zeros, mac_key := zeros } ep (root_key.deref)`
-  which feeds `[0; 32] ++ root_key` as IKM and a domain-separated info string into
-  HKDF-SHA256, producing a 64-byte output that is split into the two 32-byte key fields.
+  to `vec![0u8; 32]` (a 32-byte zero vector, i.e. `ZERO_SALT`).
+• Applies a single explicit HKDF ratchet step (`initial_ratchet_step`):
+  - `ikm  = ZERO_SALT ++ root_key.val`
+  - `info = PROTOCOL_LABEL ++ ep.to_be_bytes()`
+  - `kdf_out = HKDF-SHA256(ZERO_SALT, ikm, info, 64)`
+  - `result.root_key = kdf_out[0..32]`
+  - `result.mac_key  = kdf_out[32..64]`
 • Returns the resulting `Authenticator`.
 
 • The function succeeds (no panic) whenever `root_key.length ≤ U32.max`, ensuring that
   the IKM concatenation and HKDF input construction do not overflow.
 
-The result satisfies the following postconditions:
+The result satisfies:
 
-  `result.root_key.length = 32`
-  `result.mac_key.length  = 32`
-  `∃ zeros, zeros.val = List.replicate 32 0#u8 ∧ zeros.length = 32 ∧
-      update { root_key := zeros, mac_key := zeros } ep (alloc.vec.Vec.deref root_key) = ok result`
+  `initial_ratchet_step root_key.val ep result`
 
-i.e. both key fields of the returned authenticator are exactly 32 bytes, and the result
-is deterministically derived from the supplied `root_key` and `ep` via the `update` function
-applied to a zero-initialised authenticator, as required by the protocol.
-
-The proof unfolds `new` to expose the underlying `update` call and discharges the resulting goal
-with `step*`, which applies the already-registered `update_spec`.
+which expands to:
+  `result.root_key.length = 32 ∧ result.mac_key.length = 32 ∧
+   ∃ zeros k, zeros.root_key.val = ZERO_SALT ∧ zeros.mac_key.val = ZERO_SALT ∧
+     k.val = root_key.val ∧ ratchet_step_explicit zeros ep k result`
 
 **Source**: spqr/src/authenticator.rs (lines 35:4-42:5)
 -/
@@ -71,13 +69,7 @@ with `step*`, which applies the already-registered `update_spec`.
 theorem new_spec (root_key : alloc.vec.Vec U8) (ep : U64)
     (h_key : root_key.length ≤ U32.max) :
     new root_key ep ⦃ (result : Authenticator) =>
-      result.root_key.length = 32 ∧
-      result.mac_key.length = 32 ∧
-      ∃ zeros : alloc.vec.Vec U8,
-        zeros.val = List.replicate 32 0#u8 ∧
-        zeros.length = 32 ∧
-        update { root_key := zeros, mac_key := zeros } ep
-          (alloc.vec.Vec.deref root_key) = ok result ⦄ := by
+      initial_ratchet_step root_key.val ep result ⦄ := by
   unfold new
   sorry
 
