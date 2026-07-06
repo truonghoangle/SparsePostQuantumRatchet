@@ -130,7 +130,8 @@ One step computing `out[i] := lagrange_interpolate_pt(&ones, i)`.
 - **Cont** (`i < N`): `i1 = i + 1`; `out1[i]` stores the `i`-th scaled Lagrange basis polynomial;
   other positions unchanged.
 
-No panic when `0 < N` and `i < N` (slice conversion, interpolation, update, and increment all succeed). -/
+No panic when `0 < N` and `i < N` (slice conversion, interpolation, update, and increment all
+succeed). -/
 @[step]
 theorem body_spec
     {N : Usize} (ones : Array Pt N) (out : Array (PolyConst N) N) (i : Usize)
