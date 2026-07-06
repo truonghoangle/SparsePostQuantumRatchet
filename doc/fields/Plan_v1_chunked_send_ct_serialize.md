@@ -142,7 +142,8 @@ and poses no verification difficulty.
 | `from_pb` functions | 6 |
 | `from_pb` functions with `pts_needed` validation guards | 4 |
 | `from_pb` functions without validation (no decoder field) | 2 |
-| Existing spec files for `into_pb` / `from_pb` | **0** |
+| Existing spec files for `into_pb` | **6** (all `into_pb` verified at `Spqr/Specs/V1/Chunked/SendCT/Serialize/*/IntoPb.lean`) |
+| Existing spec files for `from_pb` | **0** |
 | Existing Clone-only spec files (not in scope) | 5 |
 | `sorry` instances in chunked/unchunked spec trees | **0** |
 | `sorry` instances in `Funs.lean` on the serialize path | **0** (prost `Message` `sorry`s are off-path) |
@@ -166,42 +167,42 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F1 | `NoHeaderReceived::into_pb` | `v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb` | — | ❌ |
+| F1 | `NoHeaderReceived::into_pb` | `v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/NoHeaderReceived/IntoPb.lean` | ✅ |
 | F2 | `NoHeaderReceived::from_pb` | `v1.chunked.send_ct.serialize.NoHeaderReceived.from_pb` | — | ❌ |
 
 ### Functions: HeaderReceived
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F3 | `HeaderReceived::into_pb` | `v1.chunked.send_ct.serialize.HeaderReceived.into_pb` | — | ❌ |
+| F3 | `HeaderReceived::into_pb` | `v1.chunked.send_ct.serialize.HeaderReceived.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/HeaderReceived/IntoPb.lean` | ✅ |
 | F4 | `HeaderReceived::from_pb` | `v1.chunked.send_ct.serialize.HeaderReceived.from_pb` | — | ❌ |
 
 ### Functions: Ct1Sampled
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F5 | `Ct1Sampled::into_pb` | `v1.chunked.send_ct.serialize.Ct1Sampled.into_pb` | — | ❌ |
+| F5 | `Ct1Sampled::into_pb` | `v1.chunked.send_ct.serialize.Ct1Sampled.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/Ct1Sampled/IntoPb.lean` | ✅ |
 | F6 | `Ct1Sampled::from_pb` | `v1.chunked.send_ct.serialize.Ct1Sampled.from_pb` | — | ❌ |
 
 ### Functions: EkReceivedCt1Sampled
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F7 | `EkReceivedCt1Sampled::into_pb` | `v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb` | — | ❌ |
+| F7 | `EkReceivedCt1Sampled::into_pb` | `v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/EkReceivedCt1Sampled/IntoPb.lean` | ✅ |
 | F8 | `EkReceivedCt1Sampled::from_pb` | `v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.from_pb` | — | ❌ |
 
 ### Functions: Ct1Acknowledged
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F9 | `Ct1Acknowledged::into_pb` | `v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb` | — | ❌ |
+| F9 | `Ct1Acknowledged::into_pb` | `v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/Ct1Acknowledged/IntoPb.lean` | ✅ |
 | F10 | `Ct1Acknowledged::from_pb` | `v1.chunked.send_ct.serialize.Ct1Acknowledged.from_pb` | — | ❌ |
 
 ### Functions: Ct2Sampled
 
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
-| F11 | `Ct2Sampled::into_pb` | `v1.chunked.send_ct.serialize.Ct2Sampled.into_pb` | — | ❌ |
+| F11 | `Ct2Sampled::into_pb` | `v1.chunked.send_ct.serialize.Ct2Sampled.into_pb` | `Spqr/Specs/V1/Chunked/SendCT/Serialize/Ct2Sampled/IntoPb.lean` | ✅ |
 | F12 | `Ct2Sampled::from_pb` | `v1.chunked.send_ct.serialize.Ct2Sampled.from_pb` | — | ❌ |
 
 ---
@@ -229,30 +230,28 @@ work is owed by this plan.
 Note: `Ct2Sampled` does not have a Clone spec file in the current
 spec tree.
 
-### 2b. Unchunked-Layer `into_pb` / `from_pb` Dependencies (not yet verified)
+### 2b. Unchunked-Layer `into_pb` / `from_pb` Dependencies
 
 The 12 chunked-layer serialize functions delegate to the
-corresponding unchunked-layer `into_pb` / `from_pb` methods. These
-unchunked-layer functions are extracted in `SrcTranslated/Funs.lean`
-but do **not** yet have spec files:
+corresponding unchunked-layer `into_pb` / `from_pb` methods. The
+unchunked `into_pb` specs are now verified at
+`Spqr/Specs/V1/Unchunked/SendCt/Serialize/*/IntoPb.lean`:
 
 | Unchunked Function | Lean Name | Spec File | Status |
 |--------------------|-----------|-----------|--------|
-| `NoHeaderReceived::into_pb` | `v1.unchunked.send_ct.serialize.NoHeaderReceived.into_pb` | — | ❌ |
+| `NoHeaderReceived::into_pb` | `v1.unchunked.send_ct.serialize.NoHeaderReceived.into_pb` | `Spqr/Specs/V1/Unchunked/SendCt/Serialize/NoHeaderReceived/IntoPb.lean` | ✅ |
 | `NoHeaderReceived::from_pb` | `v1.unchunked.send_ct.serialize.NoHeaderReceived.from_pb` | — | ❌ |
-| `HeaderReceived::into_pb` | `v1.unchunked.send_ct.serialize.HeaderReceived.into_pb` | — | ❌ |
+| `HeaderReceived::into_pb` | `v1.unchunked.send_ct.serialize.HeaderReceived.into_pb` | `Spqr/Specs/V1/Unchunked/SendCt/Serialize/HeaderReceived/IntoPb.lean` | ✅ |
 | `HeaderReceived::from_pb` | `v1.unchunked.send_ct.serialize.HeaderReceived.from_pb` | — | ❌ |
-| `Ct1Sent::into_pb` | `v1.unchunked.send_ct.serialize.Ct1Sent.into_pb` | — | ❌ |
+| `Ct1Sent::into_pb` | `v1.unchunked.send_ct.serialize.Ct1Sent.into_pb` | `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct1Sent/IntoPb.lean` | ✅ |
 | `Ct1Sent::from_pb` | `v1.unchunked.send_ct.serialize.Ct1Sent.from_pb` | — | ❌ |
-| `Ct1SentEkReceived::into_pb` | `v1.unchunked.send_ct.serialize.Ct1SentEkReceived.into_pb` | — | ❌ |
+| `Ct1SentEkReceived::into_pb` | `v1.unchunked.send_ct.serialize.Ct1SentEkReceived.into_pb` | `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct1SentEkReceived/IntoPb.lean` | ✅ |
 | `Ct1SentEkReceived::from_pb` | `v1.unchunked.send_ct.serialize.Ct1SentEkReceived.from_pb` | — | ❌ |
-| `Ct2Sent::into_pb` | `v1.unchunked.send_ct.serialize.Ct2Sent.into_pb` | — | ❌ |
+| `Ct2Sent::into_pb` | `v1.unchunked.send_ct.serialize.Ct2Sent.into_pb` | `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct2Sent/IntoPb.lean` | ✅ |
 | `Ct2Sent::from_pb` | `v1.unchunked.send_ct.serialize.Ct2Sent.from_pb` | — | ❌ |
 
-The unchunked-layer spec directory
-(`Spqr/Specs/Proto/PqRatchet/V1_state/Unchunked/`) contains only
-Clone specs (all `sorry`-free). These unchunked functions must be
-verified (or axiomatized) before their chunked-layer dependents.
+All 5 unchunked `into_pb` specs are verified (no `sorry`). The 5
+unchunked `from_pb` specs remain unverified.
 
 ### 2c. Polynomial-Layer Dependencies (verified)
 
@@ -552,13 +551,12 @@ Based on the 12 functions in
 `src/v1/chunked/send_ct/serialize.rs`:
 
 - **12 functions**:
-  - **0 verified** ✅ — no `into_pb` / `from_pb` spec files exist
-    yet in
-    `Spqr/Specs/Proto/PqRatchet/V1_state/Chunked/`.
+  - **6 verified** ✅ — all 6 `into_pb` spec files exist at
+    `Spqr/Specs/V1/Chunked/SendCT/Serialize/*/IntoPb.lean`
+    (no `sorry` in any).
   - **0 with residual `sorry`** ⚠️.
-  - **12 not yet verified** ❌
-    (F1–F12: all `into_pb` / `from_pb` pairs for the six state
-    structs).
+  - **6 not yet verified** ❌
+    (F2, F4, F6, F8, F10, F12: all `from_pb` functions).
   - **0 skipped** ⏭️ — all functions in
     `v1_chunked_send_ct_serialize_functions.txt` are verifiable
     targets.
@@ -587,3 +585,256 @@ Based on the 12 functions in
   guards.
 - **Math foundations**: **none required** — all functions are pure
   protobuf serialization wrappers with no algebraic content.
+
+---
+
+## 7. Universality Properties for `init_inner`
+
+The top-level `init_inner` function (defined in `src/lib.rs` lines
+198–210, spec at
+[`Spqr/Specs/Lib/InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean))
+composes `States.init_a` / `States.init_b` with
+`States.into_pb`, bridging the chunked state initialization layer
+with the serialization layer documented in this plan.
+
+### 7.1 Current Spec Properties (proven — `init_inner_spec`)
+
+The existing `init_inner_spec` theorem (no `sorry`) establishes
+decomposition properties:
+
+| Branch | Property | Status |
+|--------|----------|--------|
+| `V0` | `result = none` | ✅ proven |
+| `V1/A2B` | `∃ s vs, init_a auth_key = ok s ∧ into_pb s = ok vs ∧ result = some (Inner.V1 vs)` | ✅ proven |
+| `V1/B2A` | `∃ s vs, init_b auth_key = ok s ∧ into_pb s = ok vs ∧ result = some (Inner.V1 vs)` | ✅ proven |
+
+### 7.2 Universality Properties (composable from sub-specs)
+
+The following deeper **universality properties** follow from composing
+`init_a_spec`, `init_b_spec`, and `into_pb_spec` with the existing
+`init_inner_spec`.  They are formalized in
+`Spqr/Specs/Lib/InitInner.lean` as `init_inner_university_spec`
+(with residual `sorry` on the structural completeness goals):
+
+#### Universality Property 1 — Epoch Initialization
+
+In both V1 branches (A2B and B2A), the intermediate `States` value
+`s` has its unchunked core epoch field initialized to `1#u64`:
+
+- **A2B**: `∃ ku, s = States.KeysUnsampled ku ∧ ku.uc.epoch = 1#u64`
+- **B2A**: `∃ nhr, s = States.NoHeaderReceived nhr ∧ nhr.uc.epoch = 1#u64`
+
+**Source sub-spec**: `init_a_spec` / `init_b_spec` in
+`Spqr/Specs/V1/Chunked/States/States/InitA.lean` and `InitB.lean`.
+
+#### Universality Property 2 — Key Length Invariants
+
+The embedded authenticator's `root_key` and `mac_key` fields are
+both exactly 32 bytes, as derived by HKDF-SHA256 during
+`Authenticator.new`:
+
+- `ku.uc.auth.root_key.length = 32` (A2B)
+- `ku.uc.auth.mac_key.length = 32` (A2B)
+- `nhr.uc.auth.root_key.length = 32` (B2A)
+- `nhr.uc.auth.mac_key.length = 32` (B2A)
+
+**Source sub-spec**: `init_a_spec` / `init_b_spec`, which delegate
+to `KeysUnsampled.new_spec` / `NoHeaderReceived.new_spec`, which
+delegate to `Authenticator.new_spec`.
+
+#### Universality Property 3 — Deterministic Key Derivation
+
+The authenticator is deterministically derived from the input
+`auth_key` via `Authenticator.new(auth_key.to_vec(), 1)`:
+
+```
+∃ v, v.val = auth_key.val ∧
+  authenticator.Authenticator.new v 1#u64 = ok ku.uc.auth
+```
+
+This feeds `auth_key` and epoch `1` into HKDF-SHA256 with a fixed
+protocol label (`"Signal_PQCKA_V1_MLKEM768:Authenticator Update"`),
+producing the 32-byte `root_key` and `mac_key`.
+
+**Source sub-spec**: Transitive from `Authenticator.new_spec`
+(`Spqr/Specs/Authenticator/Authenticator/New.lean`).
+
+#### Universality Property 4 — Variant Preservation Through Serialization
+
+The serialized `V1State` preserves the `States` variant tag through
+the `into_pb` serialization:
+
+- **A2B**: `∃ pb_ku, vs.inner_state = some (InnerState.KeysUnsampled pb_ku)`
+- **B2A**: `∃ pb_nhr, vs.inner_state = some (InnerState.NoHeaderReceived pb_nhr)`
+
+**Source sub-spec**: `into_pb_spec` in
+`Spqr/Specs/V1/Chunked/States/Serialize/States/IntoPb.lean`.
+
+#### Universality Property 5 — Structural Completeness
+
+All `Option` fields in the produced protobuf sub-state value are
+populated (`some`):
+
+- **A2B**: `∃ uc_inner, pb_ku.uc = some uc_inner`
+- **B2A**: `∃ uc_inner, pb_nhr.uc = some uc_inner` and
+  `∃ pd, pb_nhr.receiving_hdr = some pd`
+
+**Source sub-spec**: `into_pb_spec`, which unfolds each variant's
+`into_pb` definition to show all `Option` fields are constructed
+with `some`.
+
+### 7.3 Composition Chain
+
+| Sub-spec | Properties Provided | Source File | Status |
+|----------|-------------------|------------|--------|
+| `init_a_spec` | Epoch = 1, key lengths = 32, authenticator derivation, variant = `KeysUnsampled` | `Spqr/Specs/V1/Chunked/States/States/InitA.lean` | ✅ |
+| `init_b_spec` | Epoch = 1, key lengths = 32, authenticator derivation, variant = `NoHeaderReceived` | `Spqr/Specs/V1/Chunked/States/States/InitB.lean` | ✅ |
+| `into_pb_spec` | Variant preservation, structural completeness (all `Option` fields = `some`) | `Spqr/Specs/V1/Chunked/States/Serialize/States/IntoPb.lean` | ✅ |
+| `Authenticator.new_spec` | `root_key.length = 32`, `mac_key.length = 32`, HKDF derivation | `Spqr/Specs/Authenticator/Authenticator/New.lean` | ⚠️ (has `sorry`) |
+
+### 7.4 `sorry` Status in `init_inner_university_spec`
+
+| Goal | Status | Explanation |
+|------|--------|-------------|
+| V0 → `result = none` | ✅ proven | Direct from `ok.injEq` |
+| V1/A2B Properties 1–3 (epoch, keys, authenticator) | ✅ proven | Composed from `init_a_spec` |
+| V1/A2B Properties 4–5 (variant preservation, structural completeness) | ✅ proven | Composed from `init_a_spec` + `into_pb_spec` via `subst` and `simp [WP.spec_ok]` |
+| V1/B2A Properties 1–3 (epoch, keys, authenticator) | ✅ proven | Composed from `init_b_spec` |
+| V1/B2A Properties 4–5 (variant preservation, structural completeness) | ✅ proven | Composed from `init_b_spec` + `into_pb_spec` via `subst` and `simp [WP.spec_ok]` |
+
+**All goals are now fully proven — `init_inner_university_spec` has 0 `sorry` instances.**
+
+### 7.5 Precondition
+
+The `init_inner_university_spec` theorem requires an additional
+precondition beyond the success precondition `h_ok`:
+
+- `h_key : auth_key.length ≤ U32.max` — ensures that the HKDF
+  input construction does not overflow during `Authenticator.new`.
+
+This precondition is inherited from `init_a_spec` / `init_b_spec`,
+which in turn inherit it from `KeysUnsampled.new_spec` /
+`NoHeaderReceived.new_spec`.
+
+### 7.6 Proof Strategy (applied — `sorry` closed)
+
+The two `sorry` goals for structural completeness were closed using
+the following composition strategy:
+
+1. **Obtain the variant from `init_a_spec`/`init_b_spec`**: Extract
+   `s = States.KeysUnsampled ku` (or `States.NoHeaderReceived nhr`)
+   from the init spec, then `subst` to specialize `hvs` to the
+   concrete variant.
+
+2. **Apply `into_pb_spec` WP**: Call `into_pb_spec (.KeysUnsampled ku)
+   ⟨vs, hvs⟩` (or the NoHeaderReceived variant), obtaining the WP
+   postcondition for the specific constructor application.
+
+3. **Reduce via `simp [WP.spec_ok]`**: Rewrite with `hvs` and
+   `spec_ok` to reduce the WP to the concrete postcondition,
+   which — because the constructor is known — automatically reduces
+   the dependent match to the correct branch.
+
+4. **Destructure**: Use `obtain ⟨pb_ku, -, h_inner, h_uc⟩ := h_pb`
+   to extract the variant tag and structural completeness witnesses.
+
+This avoids the dependent-match motive error by letting `simp`
+handle the match reduction (rather than using `rw` / `subst` on the
+struct equality directly).
+
+---
+
+## 8. Universality Properties for `States.into_pb`
+
+The `States.into_pb` function (defined in
+`src/v1/chunked/states/serialize.rs` lines 12–47, spec at
+[`Spqr/Specs/V1/Chunked/States/Serialize/States/IntoPb.lean`](../../Spqr/Specs/V1/Chunked/States/Serialize/States/IntoPb.lean))
+dispatches to one of 11 sub-state `into_pb` functions and wraps the
+result in a `V1State`.
+
+### 8.1 Current Spec Properties (proven — `into_pb_spec`)
+
+The existing `into_pb_spec` theorem (no `sorry`) establishes for
+each of the 11 variants:
+
+1. **Sub-state traceability**: `∃ pb, SubState.into_pb state = ok pb`
+2. **Variant preservation**: `result.inner_state = some (InnerState.X pb)`
+3. **Structural completeness**: all `Option` fields are `some`
+
+### 8.2 Universality Properties (composable from sub-state specs)
+
+The `into_pb_university_spec` theorem adds the following deeper
+properties, composable from the sub-state `into_pb_spec` theorems:
+
+#### Universality Property 1 — Epoch Preservation
+
+For every variant, the epoch field in the serialized unchunked core
+equals the epoch in the input state:
+
+```
+uc_inner.epoch = state.uc.epoch
+```
+
+This holds across all 11 variants because every sub-state `into_pb`
+delegates to the corresponding unchunked `into_pb`, which copies the
+epoch field verbatim.
+
+#### Universality Property 2 — Authenticator Key Preservation
+
+For every variant, the authenticator's `root_key` and `mac_key` are
+faithfully preserved through serialization:
+
+```
+∃ a, uc_inner.auth = some a ∧
+  a.root_key = state.uc.auth.root_key ∧
+  a.mac_key = state.uc.auth.mac_key
+```
+
+This holds because `Authenticator.into_pb` copies both key fields
+directly into the protobuf representation.
+
+### 8.3 Per-Variant Sub-Spec Source
+
+| Variant | Sub-spec Source | Epoch Field | Auth Fields | Extra Fields |
+|---------|----------------|-------------|-------------|-------------|
+| `KeysUnsampled` | `send_ek.serialize.KeysUnsampled.into_pb_spec` | `epoch` | `root_key`, `mac_key` | — |
+| `KeysSampled` | `send_ek.serialize.KeysSampled.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `ek`, `dk` |
+| `HeaderSent` | `send_ek.serialize.HeaderSent.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `ek`, `hdr`, `es` |
+| `Ct1Received` | `send_ek.serialize.Ct1Received.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `ek`, `hdr`, `es`, `ct1` |
+| `EkSentCt1Received` | `send_ek.serialize.EkSentCt1Received.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `ek`, `hdr`, `es`, `ss` |
+| `NoHeaderReceived` | `send_ct.serialize.NoHeaderReceived.into_pb_spec` | `epoch` | `root_key`, `mac_key` | — |
+| `HeaderReceived` | `send_ct.serialize.HeaderReceived.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `hdr` |
+| `Ct1Sampled` | `send_ct.serialize.Ct1Sampled.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `hdr`, `es`, `ct1` |
+| `EkReceivedCt1Sampled` | `send_ct.serialize.EkReceivedCt1Sampled.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `hdr`, `es`, `ct1`, `ek` |
+| `Ct1Acknowledged` | `send_ct.serialize.Ct1Acknowledged.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `hdr`, `es`, `ct1` |
+| `Ct2Sampled` | `send_ct.serialize.Ct2Sampled.into_pb_spec` | `epoch` | `root_key`, `mac_key` | `hdr`, `es`, `ct1`, `ct2` |
+
+### 8.4 `sorry` Status
+
+| Component | Status |
+|-----------|--------|
+| `into_pb_spec` (existing) | ✅ fully proven |
+| `into_pb_university_spec` | ⚠️ `sorry` — proof requires composing 11 sub-state specs through a dependent match; `rw`/`subst` causes motive type errors |
+
+### 8.5 Proof Strategy for Removing `sorry`
+
+The dependent match on `self` in the WP postcondition means that
+`rw [← h3]` (substituting a struct equality) creates a motive
+that mentions the struct value being abstracted, causing type errors.
+
+Recommended approaches:
+
+1. **`conv` mode**: Use `conv` to target specific occurrences of the
+   struct value for rewriting, avoiding the motive issue.
+
+2. **`simp only` with `congr` lemmas**: Register custom `@[congr]`
+   lemmas for the dependent match, allowing `simp` to handle the
+   dependent rewrite.
+
+3. **Direct construction**: Instead of rewriting, construct the
+   proof term directly using `Exists.intro` and field projection,
+   avoiding the `rw` tactic entirely.
+
+4. **Separate per-variant lemmas**: Prove 11 separate lemmas (one
+   per variant) that each avoid the dependent match issue, then
+   combine them in the top-level theorem.
