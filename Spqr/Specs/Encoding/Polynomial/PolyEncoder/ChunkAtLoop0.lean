@@ -212,7 +212,7 @@ theorem loop_spec
             have h_self'_eq := h_stable' polys h_polys
             subst h_self'_eq
             -- In the Polys case, body returns self'' = self (state unchanged)
-            simp [h_polys] at h_match
+            simp only [h_polys, List.getElem!_eq_getElem?_getD] at h_match
             exact h_match.2
           · -- Points admissibility for self''
             intro pts h_pts j hj

@@ -10,12 +10,12 @@ import Spqr.Specs.V1.Chunked.SendEk.Serialize.KeysSampled.IntoPb
 import Spqr.Specs.V1.Chunked.SendEk.Serialize.Ct1Received.IntoPb
 import Spqr.Specs.V1.Chunked.SendEk.EkSentCt1Received.IntoPb
 -- send_ct sub-state serialisation specs
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.NoHeaderReceived.IntoPb
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.HeaderReceived.IntoPb
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.Ct1Sampled.IntoPb
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.EkReceivedCt1Sampled.IntoPb
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.Ct1Acknowledged.IntoPb
-import Spqr.Specs.V1.Chunked.SendCT.Serialize.Ct2Sampled.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.NoHeaderReceived.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.HeaderReceived.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.Ct1Sampled.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.EkReceivedCt1Sampled.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.Ct1Acknowledged.IntoPb
+import Spqr.Specs.V1.Chunked.SendCt.Serialize.Ct2Sampled.IntoPb
 -- unchunked EkSent spec (used by the chunked HeaderSent.into_pb branch)
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.EkSent.IntoPb
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
