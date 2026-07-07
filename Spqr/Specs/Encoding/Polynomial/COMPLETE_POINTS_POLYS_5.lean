@@ -4,100 +4,69 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.LagrangePolysForCompletePoints
+import Spqr.Math.Poly.Lagrange.CompletePoints
 
 /-!
 # Spec theorem for `spqr::encoding::polynomial::COMPLETE_POINTS_POLYS_5`
 
-The Rust constant `COMPLETE_POINTS_POLYS_5` (in `src/encoding/polynomial.rs`, line 502) is defined
-as
+`COMPLETE_POINTS_POLYS_5` (line 502) specialises `lagrange_polys_for_complete_points` to `N = 5`,
+precomputing the Lagrange basis polynomials for evaluation points `0, 1, 2, 3, 4` in GF(2¹⁶) with
+`y = GF16::ONE`.
 
-```
-const COMPLETE_POINTS_POLYS_5: [PolyConst<5>; 5] = lagrange_polys_for_complete_points::<5>();
-```
+The postcondition is inherited from `lagrange_polys_for_complete_points_spec`: there exists
+`ones1` of size 5 with `ones1[j].x.toGF216 = Nat.toGF216 j`, `ones1[j].y = GF16::ONE`, and
+each `result[j]` equals the standard Lagrange basis polynomial for these points.
 
-It precomputes the 5-element array of Lagrange basis polynomials for the "complete points" —
-evaluation points `0, 1, …, 4` in GF(2¹⁶) with `y`-coordinate `GF16::ONE`.  The extracted Lean
-definition `encoding.polynomial.COMPLETE_POINTS_POLYS_5` is simply a specialisation of the generic
-`lagrange_polys_for_complete_points` to `N = 5`:
-
-```
-encoding.polynomial.lagrange_polys_for_complete_points 5#usize
-```
-
-The postcondition is therefore inherited directly from `lagrange_polys_for_complete_points_spec`:
-there exists an intermediate point array `ones1` of size 5 such that:
-
-  - **Complete points**: for each `j < 5`, `ones1[j].x.value.val = j` and
-    `ones1[j].y = GF16::ONE`.  Equivalently, `ones1[j].x.toGF216 = Nat.toGF216 j`.
-
-  - **Lagrange basis polynomials**: for each `j < 5`,
-      `listToGF216Poly (result[j].coefficients.val) =
-         C (ones1[j].y.toGF216 *
-             (lagrangeDenomProd ones1[j].x (ones1.take 5) 0) ^ (2¹⁶ − 2)) *
-           condProdLinearFactors ones1[j].x (ones1.take 5) 0`
-    which is the `j`-th term of the standard Lagrange interpolation formula for the
-    points `ones1[0], …, ones1[4]`.
-
-When the `x`-coordinates are pairwise distinct (which they are for the "complete points"
-`0, 1, …, 4` in GF(2¹⁶)), the denominator `lagrangeDenomProd` is nonzero and the Fermat-style
-exponentiation `(lagrangeDenomProd …) ^ (2¹⁶ − 2)` yields the multiplicative inverse, so the
-scaling factor reduces to `ones1[j].y / ∏_{k ≠ j} (ones1[j].x − ones1[k].x)`.
-
-In GF(2¹⁶) (characteristic 2), subtraction coincides with addition (`a − b = a + b = a ⊕ b`),
-so the linear factors `(X − ones1[k].x)` and the differences `ones1[j].x − ones1[k].x` are
-equivalently `(X + ones1[k].x)` and `ones1[j].x + ones1[k].x`.
+In GF(2¹⁶) the points `0, 1, 2, 3, 4` are pairwise distinct, so the Fermat-inverse scaling yields
+`ones1[j].y / ∏_{k ≠ j} (ones1[j].x − ones1[k].x)`, and subtraction coincides with XOR.
 
 **Source**: spqr/src/encoding/polynomial.rs (line 502)
 -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
+open Aeneas Aeneas.Std Result spqr.encoding.gf spqr.math.gf Polynomial
 open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
 namespace spqr.encoding.polynomial
 
-/--
-**Spec theorem for `encoding.polynomial.COMPLETE_POINTS_POLYS_5`**:
+/-- **Spec theorem for `encoding.polynomial.COMPLETE_POINTS_POLYS_5`**:
 
-• The constant always evaluates successfully (no panic), since it is a specialisation of
-  `lagrange_polys_for_complete_points` at `N = 5`, which succeeds for any `N` satisfying
-  `0 < N` and `N ≤ 65536`.
+Evaluates successfully (specialisation of `lagrange_polys_for_complete_points` at `N = 5`).
+Each `result[j]` is the `j`-th scaled Lagrange basis polynomial for the complete points
+`0, 1, 2, 3, 4` with `y = GF16.ONE`. -/
+instance instInhabitedPolyConst5 : Inhabited (PolyConst 5#usize) := ⟨PolyConst.ZEROS 5#usize⟩
 
-• There exists an intermediate point array `ones1` of size 5 such that:
-
-  - **Complete points** (every position `j < 5` has been initialised):
-      `ones1[j].x.value.val = j` and `ones1[j].y = GF16.ONE`
-    Equivalently, lifting the `x`-coordinate into `GF216`:
-      `ones1[j].x.toGF216 = Nat.toGF216 j`.
-
-  - **Lagrange basis polynomials** (every position `j < 5` has been filled):
-      `listToGF216Poly (result[j].coefficients.val) =
-         C (ones1[j].y.toGF216 *
-             (lagrangeDenomProd ones1[j].x (ones1.val.take 5) 0) ^ (2¹⁶ − 2)) *
-           condProdLinearFactors ones1[j].x (ones1.val.take 5) 0`
-    Each `result[j]` is the `j`-th term of the standard Lagrange interpolation formula
-    for the points `ones1[0], …, ones1[4]`.
-
-**Source**: spqr/src/encoding/polynomial.rs (line 502)
--/
 @[step]
 theorem COMPLETE_POINTS_POLYS_5_spec :
-    COMPLETE_POINTS_POLYS_5
-      ⦃ result =>
-      ∃ (ones1 : Array Pt 5#usize),
-        (∀ (j : Nat), j < (5#usize).val →
-          (ones1[j]!).x.value.val = j ∧
-          (ones1[j]!).y = GF16.ONE) ∧
-        (∀ (j : Nat), j < (5#usize).val →
-          ∀ (hj : j < result.length) (hjo : j < ones1.length),
-            listToGF216Poly (result.val[j]).coefficients.val =
-              C ((ones1.val[j]!).y.toGF216 *
-                  (lagrangeDenomProd (ones1[j]!).x
-                    (ones1.val.take (5#usize).val) 0) ^ (2 ^ 16 - 2)) *
-                condProdLinearFactors (ones1[j]!).x
-                  (ones1.val.take (5#usize).val) 0) ⦄ := by
+    COMPLETE_POINTS_POLYS_5 ⦃ (result ) =>
+      ∀ (j : Nat) (_ : j < 5),
+        listToGF216Poly (result.val[j]!).coefficients.val =
+          scaledLagrangeBasis 5#usize j ⦄ := by
   unfold COMPLETE_POINTS_POLYS_5
   step*
-  exact ⟨result, fun j hj => result_post1 j hj,
-         fun j hj hj' hjo => result_post2 j hj hj' hjo⟩
+  have h_eq : result = completePoints 5#usize := by
+    simp only [global_simps]
+    apply Subtype.ext
+    apply List.ext_getElem (by simp)
+    intro n h1' h2'
+    obtain ⟨hx, hy⟩ := result_post1 n (by grind)
+    simp only [Array.getElem!_Nat_eq, List.getElem!_eq_getElem?_getD,
+      List.getElem?_eq_getElem h1', Option.getD_some] at hx hy
+    simp only [List.getElem_map, List.getElem_finRange] at h2' ⊢
+    apply pt_ext
+    · apply gf16_ext
+      apply UScalar.eq_of_val_eq
+      trans n
+      · exact hx
+      · change n = (⟨BitVec.ofNat 16 n⟩ : UScalar .U16).bv.toNat
+        simp [BitVec.toNat_ofNat]
+        grind
+    · exact hy.trans (gf16_ext GF16.ONE_value)
+  have h := result_post2 _ result_post3 (by grind) (by grind)
+  rw [h_eq] at h
+  simp only [global_simps] at h ⊢
+  have h5 : (↑(5#usize) : Nat) = 5 := by scalar_tac
+  simp only [h5] at h ⊢
+  simp only [List.getElem!_eq_getElem?_getD] at ⊢
+  grind
 
 end spqr.encoding.polynomial

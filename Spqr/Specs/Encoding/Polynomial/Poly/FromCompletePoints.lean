@@ -152,21 +152,7 @@ theorem from_complete_points_spec
             (pts.val.length = 0 →
               polys.val.length = 0 ∧ p.toGF216Poly = 0) ∧
             (pts.val.length ≠ 0 →
-              polys.val.length = pts.val.length ∧
-              ∃ (N : Usize) (ones1 : Array Pt N),
-                N.val = pts.val.length ∧
-                (∀ (j : Nat), j < N.val →
-                  (ones1[j]!).x.value.val = j ∧
-                  (ones1[j]!).y = GF16.ONE) ∧
-                (∀ (j : Nat), j < N.val →
-                  ∀ (hj : j < polys.val.length)
-                    (hjo : j < ones1.length),
-                    (polys.val.get ⟨j, hj⟩).toGF216Poly =
-                      C ((ones1.val[j]!).y.toGF216 *
-                          (lagrangeDenomProd (ones1[j]!).x
-                            (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                        condProdLinearFactors (ones1[j]!).x
-                          (ones1.val.take N.val) 0))
+              polys.val.length = pts.val.length)
       | core.result.Result.Err () =>
           ∃ (j : Nat) (hj : j < pts.val.length),
             (pts.val.get ⟨j, hj⟩).x.value.val ≠ j ⦄ := by

@@ -182,12 +182,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody2
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoop2
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody1
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPbLoopBody2
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.NextChunk
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallMut

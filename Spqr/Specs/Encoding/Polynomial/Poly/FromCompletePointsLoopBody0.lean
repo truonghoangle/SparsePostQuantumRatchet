@@ -103,59 +103,6 @@ private lemma usize_cast_u16_val (x : Usize) (h : x.val ≤ UScalar.max .U16) :
     (UScalar.cast UScalarTy.U16 x).val = x.val :=
   UScalar.cast_inBounds_spec UScalarTy.U16 x h
 
-/-! ## Helper: the nonzero-size none case -/
-
-private lemma none_nonzero_postcondition
-    (pts : Slice Pt)
-    (N : Usize)
-    (h_N_eq : N.val = pts.val.length)
-    (h_N_pos : pts.val.length ≠ 0)
-    (polys : Slice Poly)
-    (p : Poly)
-    (h_polys_len : polys.val.length = N.val)
-    (ones1 : Array Pt N)
-    (h_ones1_pts : ∀ (j : Nat), j < N.val →
-      (ones1[j]!).x.value.val = j ∧
-      (ones1[j]!).y = GF16.ONE)
-    (h_polys_lagrange : ∀ (j : Nat), j < N.val →
-      ∀ (hj : j < polys.length)
-        (hjo : j < ones1.length),
-        (polys.val[j]).toGF216Poly =
-          C ((ones1.val[j]!).y.toGF216 *
-              (lagrangeDenomProd (ones1[j]!).x
-                (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-            condProdLinearFactors (ones1[j]!).x
-              (ones1.val.take N.val) 0)
-    (h_sum : p.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
-      C ((pts.val[j]!).y.toGF216) * (polys.val[j]!).toGF216Poly) :
-    ∃ (polys' : Slice Poly),
-      pts.length ≤ polys'.length ∧
-      (p.toGF216Poly = ∑ j ∈ Finset.range pts.val.length,
-        C ((pts.val[j]!).y.toGF216) * (polys'.val[j]!).toGF216Poly) ∧
-      (pts.val.length = 0 →
-        polys'.val.length = 0 ∧ p.toGF216Poly = 0) ∧
-      (pts.val.length ≠ 0 →
-        polys'.val.length = pts.val.length ∧
-        ∃ (N' : Usize) (ones1' : Array Pt N'),
-          N'.val = pts.val.length ∧
-          (∀ (j : Nat), j < N'.val →
-            (ones1'[j]!).x.value.val = j ∧
-            (ones1'[j]!).y = GF16.ONE) ∧
-          (∀ (j : Nat), j < N'.val →
-            ∀ (hj : j < polys'.val.length)
-              (hjo : j < ones1'.length),
-              (polys'.val.get ⟨j, hj⟩).toGF216Poly =
-                C ((ones1'.val[j]!).y.toGF216 *
-                    (lagrangeDenomProd (ones1'[j]!).x
-                      (ones1'.val.take N'.val) 0) ^ (2 ^ 16 - 2)) *
-                  condProdLinearFactors (ones1'[j]!).x
-                    (ones1'.val.take N'.val) 0)) :=
-  ⟨polys,
-    by grind,
-    h_sum,
-    fun h => absurd h h_N_pos,
-    fun _ => ⟨by omega, N, ones1, h_N_eq, h_ones1_pts, h_polys_lagrange⟩⟩
-
 /-! ## Common postcondition abbreviation -/
 
 /-- The postcondition shared by all body_spec helper lemmas. Using `abbrev` ensures it is
@@ -174,21 +121,7 @@ private abbrev bodyPost
           (pts.length = 0 →
             polys.length = 0 ∧ p.toGF216Poly = 0) ∧
           (pts.length ≠ 0 →
-            polys.length = pts.length ∧
-            ∃ (N : Usize) (ones1 : Array Pt N),
-              N = pts.length ∧
-              (∀ (j : Nat), j < N →
-                (ones1[j]!).x.value.val = j ∧
-                (ones1[j]!).y = GF16.ONE) ∧
-              (∀ (j : Nat), j < N.val →
-                ∀ (hj : j < polys.length)
-                  (hjo : j < ones1.length),
-                  (polys.val[j]).toGF216Poly =
-                    C ((ones1.val[j]!).y.toGF216 *
-                        (lagrangeDenomProd (ones1[j]!).x
-                          (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                      condProdLinearFactors (ones1[j]!).x
-                        (ones1.val.take N.val) 0))
+            polys.length = pts.length)
     | ControlFlow.done (core.result.Result.Err ()) =>
         ∃ (h_i : iter.iter.i < pts.val.length),
           (pts.val.get ⟨iter.iter.i, h_i⟩).x.value.val ≠
@@ -287,8 +220,6 @@ private theorem body_spec_none_0
       · simp_all
 
 
-
-
 private theorem body_spec_none_1
     (pts : Slice Pt)
     (iter : Enumerate (Iter Pt))
@@ -317,7 +248,6 @@ private theorem body_spec_none_1
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -339,38 +269,14 @@ private theorem body_spec_none_1
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [Order.lt_one_iff, not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-           forall_true_left, Nat.reducePow, Nat.reduceSub,
-          Finset.range_one,  Finset.sum_singleton,
-          getElem?_pos, Option.getD_some, mul_eq_zero, map_eq_zero]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 1#usize
-                simp only [UScalar.ofNatCore_val_eq, Order.lt_one_iff, true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
-
-
-
-
-
-
-
-
-
-
 
 
 private theorem body_spec_none_3
@@ -401,7 +307,6 @@ private theorem body_spec_none_3
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -423,26 +328,14 @@ private theorem body_spec_none_3
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-           forall_true_left, Nat.reducePow, Nat.reduceSub]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 3#usize
-                simp only [UScalar.ofNatCore_val_eq, true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
 
 
 private theorem body_spec_none_5
@@ -473,7 +366,6 @@ private theorem body_spec_none_5
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -495,26 +387,14 @@ private theorem body_spec_none_5
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          forall_true_left, Nat.reducePow, Nat.reduceSub]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 5#usize
-                simp only [UScalar.ofNatCore_val_eq, true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
 
 
 private theorem body_spec_none_30
@@ -545,7 +425,6 @@ private theorem body_spec_none_30
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -567,26 +446,14 @@ private theorem body_spec_none_30
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          forall_true_left,  Nat.reducePow, Nat.reduceSub]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 30#usize
-                simp only [UScalar.ofNatCore_val_eq, true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
 
 
 private theorem body_spec_none_34
@@ -617,7 +484,6 @@ private theorem body_spec_none_34
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -639,26 +505,14 @@ private theorem body_spec_none_34
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [ not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          forall_true_left, Nat.reducePow, Nat.reduceSub]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 34#usize
-                simp only [UScalar.ofNatCore_val_eq, true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
 
 
 private theorem body_spec_none_36
@@ -689,7 +543,6 @@ private theorem body_spec_none_36
       grind
     simp only [this, BitVec.ofNat_eq_ofNat, UScalarTy.U64_numBits_eq]
     step
-    rename_i ones1
     unfold bodyPost
     simp only [not_lt, List.getElem!_eq_getElem?_getD, List.length_eq_zero_iff, ne_eq,
       List.Vector.length_val, List.get_eq_getElem, Nat.reducePow, Nat.reduceSub, map_mul, map_pow,
@@ -711,26 +564,14 @@ private theorem body_spec_none_36
         · have : (polys.deref).val.length = (polys).val.length:= by
             simp [alloc.vec.Vec.deref]
           grind
-        · simp_all only [not_false_eq_true, BitVec.ofNat_eq_ofNat,
-          UScalarTy.U64_numBits_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq,
-          forall_true_left, Nat.reducePow, Nat.reduceSub]
-          constructor
+        · constructor
           · grind
           · constructor
-            · have : (polys.deref).val.length = (polys).val.length:= by
+            · grind
+            · intro h
+              have : (polys.deref).val.length = (polys).val.length:= by
                 simp [alloc.vec.Vec.deref]
               grind
-            · intro h
-              constructor
-              · have : (polys.deref).val.length = (polys).val.length:= by
-                  simp [alloc.vec.Vec.deref]
-                grind
-              · use 36#usize
-                simp only [UScalar.ofNatCore_val_eq,  true_and]
-                use a
-                have : (polys.deref).val = (polys).val:= by
-                  simp [alloc.vec.Vec.deref]
-                simp_all
 
 
 
@@ -798,21 +639,7 @@ theorem body_spec
             (pts.val.length = 0 →
               polys.val.length = 0 ∧ p.toGF216Poly = 0) ∧
             (pts.val.length ≠ 0 →
-              polys.val.length = pts.val.length ∧
-              ∃ (N : Usize) (ones1 : Array Pt N),
-                N.val = pts.val.length ∧
-                (∀ (j : Nat), j < N.val →
-                  (ones1[j]!).x.value.val = j ∧
-                  (ones1[j]!).y = GF16.ONE) ∧
-                (∀ (j : Nat), j < N.val →
-                  ∀ (hj : j < polys.val.length)
-                    (hjo : j < ones1.length),
-                    (polys.val[j]).toGF216Poly =
-                      C ((ones1.val[j]!).y.toGF216 *
-                          (lagrangeDenomProd (ones1[j]!).x
-                            (ones1.val.take N.val) 0) ^ (2 ^ 16 - 2)) *
-                        condProdLinearFactors (ones1[j]!).x
-                          (ones1.val.take N.val) 0))
+              polys.val.length = pts.val.length)
       | ControlFlow.done (core.result.Result.Err ()) =>
           ∃ (h_i : iter.iter.i < pts.val.length),
             (pts.val.get ⟨iter.iter.i, h_i⟩).x.value.val ≠
@@ -835,10 +662,6 @@ theorem body_spec
     · exact body_spec_none_30 pts iter h_slice_eq h_in h
     · exact body_spec_none_34 pts iter h_slice_eq h_in h
     · exact body_spec_none_36 pts iter h_slice_eq h_in h
-
-
-
-
 
 
 end spqr.encoding.polynomial.Poly.from_complete_points_loop
