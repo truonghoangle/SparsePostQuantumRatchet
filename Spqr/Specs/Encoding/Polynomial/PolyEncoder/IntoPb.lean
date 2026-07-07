@@ -10,15 +10,13 @@ import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.VecExtendFromSlice
 
-/-!
-# Spec theorem for `PolyEncoder::into_pb`: loop body 1
+/-! # Spec theorem for `PolyEncoder::into_pb`: loop body 1
 
 One step of the inner coefficient-serialization loop. Calls `next` on a `Range<usize>` iterator
 and either returns `v` unchanged (done) or appends the 2-byte big-endian encoding of `pts[i]` to
 `v` (continue). Invariant: `v.len() == 2 * i` with `v[2*k]*256 + v[2*k+1] = pts[k].value.val`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 556:20-560:21)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.math.gf
 
@@ -36,16 +34,13 @@ private theorem be_bytes_arith (x : U16) (b0 b1 : U8)
   simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
   grind
 
-/-! ## Spec theorem for the into_pb inner loop body -/
-
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop0_loop0.body`**:
 
 One step of the inner serialization loop. Retrieves index `i` from the range iterator and either
 returns `v` unchanged (done, `¬(iter.start < iter.end)`) or appends `[hi, lo]` — the big-endian
 bytes of `pts[i].value` — to `v` (continue, with iterator advanced by one).
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 556:20-560:21)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 @[step]
 theorem body_spec
     (pts : alloc.vec.Vec GF16)
@@ -78,6 +73,7 @@ theorem body_spec
     · simp_all [Array.to_slice]
     · grind [be_bytes_arith]
   · grind
+
 /-!# Spec theorem for `PolyEncoder::into_pb`: loop 1
 
 Full inner coefficient-serialization loop. Iterates over `pts` via a range iterator, appending
@@ -122,22 +118,18 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.PolyEncoder.into_pb_loop0_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::into_pb`: loop body 0
+/-! # Spec theorem for `PolyEncoder::into_pb`: loop body 0
 
 One step of the outer point-serialization loop. Calls `next` on a range iterator over `points`
 and either returns `v` unchanged (done) or serializes `points[j].value` via the inner loop
 (`into_pb_loop0_loop0`) and pushes the resulting byte vector onto `v` (continue).
 Invariant: `v.val.length == iter.start.val`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 551:16-562:17)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop0
 
 instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
-
-/-! ## Spec theorem for the into_pb outer loop body -/
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop0.body`**:
 
@@ -191,28 +183,20 @@ theorem body_spec
 
 end spqr.encoding.polynomial.PolyEncoder.into_pb_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::into_pb`: loop 0
+/-! # Spec theorem for `PolyEncoder::into_pb`: loop 0
 
 Full outer point-serialization loop. Iterates over `points[0..iter.end]`, serializing each
 point's GF(2¹⁶) coefficients into a byte vector. Postcondition: `result.len = iter.end` with
 each entry encoding the corresponding point's coefficients in big-endian.
-Proof via `loop.spec_decr_nat`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 551:16-562:17)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop0
-
-/-! ## Spec theorem for the into_pb outer serialization loop -/
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop0`**:
 
 Full outer serialization loop. Drives the body to completion, producing a vector of byte vectors
-with `result.len = iter.end`, one serialized entry per point.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 551:16-562:17)
--/
+with `result.len = iter.end`, one serialized entry per point. -/
 @[step]
 theorem loop_spec
     (points : Array Point 16#usize)
@@ -258,11 +242,7 @@ theorem loop_spec
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
-    | ControlFlow.done out'' =>
-      simp only [] at h_cf ⊢
-      obtain ⟨h_out_eq, h_not_lt⟩ := h_cf
-      subst h_out_eq
-      grind
+    | ControlFlow.done out'' => grind
     | ControlFlow.cont (iter'', out'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1, serialized, h_out_eq, h_ser_len, h_ser_encode⟩ := h_cf
@@ -274,35 +254,23 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.PolyEncoder.into_pb_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::into_pb`: loop body 2
+/-! # Spec theorem for `PolyEncoder::into_pb`: loop body 2
 
 One step of the polynomial-serialization loop (the `EncoderState::Polys` branch). Calls `next`
 on a slice iterator over `Poly` values and either returns `v` unchanged (done) or serializes
 the polynomial's coefficients via `Poly::serialize` and pushes the result onto `v` (continue).
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 565:16-567:17)
--/
-
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop1
 
-/-! ## Inhabited instance for `Poly` -/
-
-/-- Default `Poly` with an empty coefficient vector, needed for `getElem!`. -/
 instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
-
-/-! ## Spec theorem for the into_pb polynomial-serialization loop body -/
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop1.body`**:
 
 One step of the polynomial-serialization loop. Retrieves the next `Poly` from the slice iterator,
 serializes its coefficients via `Poly::serialize`, and pushes the result onto `v`. Done case
-returns `v` unchanged; cont case appends one serialized entry with iterator advanced.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 565:16-567:17)
--/
+returns `v` unchanged; cont case appends one serialized entry with iterator advanced. -/
 @[step]
 theorem body_spec
     (iter : core.slice.iter.Iter Poly)
@@ -343,30 +311,21 @@ theorem body_spec
 
 end spqr.encoding.polynomial.PolyEncoder.into_pb_loop1
 
-/-!
-# Spec theorem for `PolyEncoder::into_pb`: loop 2
+/-! # Spec theorem for `PolyEncoder::into_pb`: loop 2
 
 Full polynomial-serialization loop (the `EncoderState::Polys` branch). Iterates over a slice of
 `Poly` values, serializing each polynomial's coefficients into a byte vector. Postcondition:
 `result.len = slice.len` with each entry encoding the corresponding polynomial's coefficients
 in big-endian. Proof via `loop.spec_decr_nat`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 565:16-567:17)
--/
-
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop1
-
-/-! ## Spec theorem for the into_pb polynomial-serialization loop -/
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop1`**:
 
 Full polynomial-serialization loop. Drives the body to completion, producing a vector of byte
-vectors with `result.len = slice.len`, one serialized entry per polynomial.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 565:16-567:17)
--/
+vectors with `result.len = slice.len`, one serialized entry per polynomial. -/
 @[step]
 theorem loop_spec
     (iter : core.slice.iter.Iter Poly)
@@ -396,12 +355,10 @@ theorem loop_spec
         p.1.slice = iter.slice ∧
         p.1.i ≤ p.1.slice.length ∧
         p.2.length = p.1.i ∧
-        (∀ j < p.1.i,
-            (p.2[j]!).length =
-              2 * (iter.slice[j]!).degree ∧
-            ∀ k < (iter.slice[j]!).degree,
-                256 * (p.2[j]!)[2 * k]!+ (p.2[j]!)[2 * k + 1]! =
-                  ((iter.slice[j]!).coefficients[k]!).value.val))
+        (∀ j < p.1.i, (p.2[j]!).length = 2 * (iter.slice[j]!).degree ∧
+          ∀ k < (iter.slice[j]!).degree,
+            256 * (p.2[j]!)[2 * k]!+ (p.2[j]!)[2 * k + 1]! =
+            ((iter.slice[j]!).coefficients[k]!).value.val))
   · rintro ⟨iter', out'⟩ ⟨h_slice', h_start_le', h_out_len', h_pre'⟩
     simp only [] at h_slice' h_start_le' h_out_len' h_pre' ⊢
     have h_slice_len : iter'.slice.val.length = iter.slice.val.length := by rw [h_slice']
@@ -409,20 +366,14 @@ theorem loop_spec
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
-    | ControlFlow.done out'' =>
-      simp only [] at h_cf ⊢
-      obtain ⟨h_out_eq, h_not_lt⟩ := h_cf
-      subst h_out_eq
-      simp_all
-      grind
+    | ControlFlow.done out'' => grind
     | ControlFlow.cont (iter'', out'') =>
       simp only [] at h_cf ⊢
       obtain ⟨h_lt, h_i1, h_slice1, serialized, h_out_eq, h_ser_len, h_ser_encode⟩ := h_cf
       have h_slice1_len : iter''.slice.val.length = iter'.slice.val.length := by rw [h_slice1]
       rw [h_slice'] at h_ser_len h_ser_encode
       constructor
-      · -- Invariant is preserved
-        refine ⟨by rw [h_slice1]; exact h_slice',
+      · refine ⟨by rw [h_slice1]; exact h_slice',
                by grind,
                by grind,
                fun j hj => ?_⟩
