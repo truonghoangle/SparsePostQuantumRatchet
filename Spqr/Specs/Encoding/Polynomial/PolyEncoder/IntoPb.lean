@@ -6,8 +6,6 @@ Authors: Hoang Le Truong
 import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
 import Spqr.Specs.Aeneas.SliceIteratorNext
-import Spqr.Math.List
-import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.VecExtendFromSlice
@@ -549,16 +547,7 @@ theorem into_pb_spec
   obtain ⟨h_idx, h_data⟩ := h_post
   refine ⟨h_idx, ?_⟩
   cases h : self.s with
-  | Points points =>
-    simp only [h] at h_data ⊢
-    obtain ⟨h_polys, h_len, h_ser⟩ := h_data
-    refine ⟨h_polys, h_len, fun j hj => ?_⟩
-    grind
-  | Polys polys =>
-    simp only [h] at h_data ⊢
-    obtain ⟨h_pts, h_len, h_ser⟩ := h_data
-    refine ⟨h_pts, h_len, fun j hj => ?_⟩
-    obtain ⟨h_slen, h_enc⟩ := h_ser j hj
-    simp_all
+  | Points points => grind
+  | Polys polys => grind
 
 end spqr.encoding.polynomial.PolyEncoder
