@@ -3,18 +3,12 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
-import Spqr.Math.List
-import Spqr.Math.Gf16.Field
-import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
-import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
 
-/-!
-# Spec theorem for `PolyEncoder::from_pb`: loop body 0
+/-! # Spec theorem for `PolyEncoder::from_pb`: loop body 0
 
 One step of the outer polynomial-deserialization loop. Advances the range iterator and either:
 1. **Done**: iterator exhausted → returns `Ok(PolyEncoder { idx: i, s: Polys(out) })`.
@@ -40,10 +34,8 @@ into a `Poly` and updates `out[j]`.
   coefficient `k` satisfies `value = 256 * v[j][2*k] + v[j][2*k+1]`. -/
 @[step]
 theorem body_spec
-    (i : U32)
-    (v : alloc.vec.Vec (alloc.vec.Vec U8))
-    (iter : core.ops.range.Range Usize)
-    (out : Array Poly 16#usize)
+    (i : U32) (v : alloc.vec.Vec (alloc.vec.Vec U8))
+    (iter : core.ops.range.Range Usize) (out : Array Poly 16#usize)
     (h_end_le_v : iter.end ≤ v.length)
     (h_end_le_16 : iter.end.val ≤ 16)
     (h_nonempty : ∀ j < v.length, (v[j]!).length ≠ 0)
@@ -125,8 +117,7 @@ theorem loop_spec
     (inv := fun (p : core.ops.range.Range Usize × Array Poly 16#usize) =>
         p.1.end = iter.end ∧
         p.1.start ≤ p.1.end ∧
-        (∀ j < p.1.start,
-          (p.2[j]!).degree = (v[j]!).length / 2 ∧
+        (∀ j < p.1.start, (p.2[j]!).degree = (v[j]!).length / 2 ∧
           ∀ k < (v[j]!).length / 2,
             ((p.2[j]!).coefficients[k]!).value.val = 256 * (v[j]!)[2 * k]! + (v[j]!)[2 * k + 1]!))
   · rintro ⟨iter', out'⟩ ⟨h_end', h_start_le', h_pre'⟩
@@ -159,8 +150,7 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.PolyEncoder.from_pb_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::from_pb`: loop body 2
+/-! # Spec theorem for `PolyEncoder::from_pb`: loop body 2
 
 One step of the inner byte-deserialization loop (Points branch). Advances the range iterator
 and either:
@@ -168,8 +158,7 @@ and either:
 2. **Continue**: reads `pts[2*k]` and `pts[2*k+1]`, converts to `u16` via big-endian decoding,
    wraps as `GF16::new`, and pushes onto `v`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 599:16-602:17)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
 
@@ -199,10 +188,8 @@ theorem body_spec
           iter1.start.val = iter.start.val + 1 ∧
           iter1.end = iter.end ∧
           ∃ (g : GF16),
-            v1.val = v.val ++ [g] ∧
-            g.value.val =
-              (pts.val[2 * iter.start.val]!).val * 256 +
-              (pts.val[2 * iter.start.val + 1]!).val ⦄ := by
+            v1 = v ++ [g] ∧
+            g.value.val = pts[2 * iter.start.val]! * 256 + pts[2 * iter.start.val + 1]! ⦄ := by
   unfold body
   obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
     WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
@@ -211,20 +198,17 @@ theorem body_spec
   by_cases h_lt : iter.start.val < iter.end.val
   · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
-    have h_2k_lt : 2 * iter.start.val < pts.val.length := by grind
-    have h_2k1_lt : 2 * iter.start.val + 1 < pts.length := by grind
+    have h_2k_lt : 2 * iter.start < pts.length := by grind
+    have h_2k1_lt : 2 * iter.start + 1 < pts.length := by grind
     have h_v_overflow : v.val.length + 1 ≤ Usize.max := by omega
     step*
-    exact ⟨h_lt, h_start1, h_end1, g, v1_post, by
-      simp_all [Array.make, Nat.mul_comm]⟩
+    exact ⟨h_lt, h_start1, h_end1, g, v1_post, by simp_all [Array.make, Nat.mul_comm]⟩
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨h_lt, rfl⟩
 
-end spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::from_pb`: loop 2
+/-! # Spec theorem for `PolyEncoder::from_pb`: loop 2
 
 The inner byte-deserialization loop (Points branch). Repeatedly invokes the loop body to
 reconstruct GF(2¹⁶) elements from byte pairs in `pts`.
@@ -236,28 +220,7 @@ preserved, and each new element at index `j` satisfies
 At termination, the output vector contains all deserialized GF(2¹⁶) elements.
 Proved by lifting `body_spec` through `loop.spec_decr_nat` with measure `iter.end - iter.start`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 599:16-602:17)
--/
-
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
-
-namespace spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
-
-/-! ## Spec theorem for the from_pb inner byte-deserialization loop -/
-
-/-- **Spec theorem for `encoding.polynomial.PolyEncoder.from_pb_loop1_loop0`**:
-
-Full inner byte-deserialization loop. Given range iterator `iter`, byte vector `pts`, and
-output vector `v` of GF(2¹⁶) values, drives the body to completion.
-
-**Postcondition**: output length is `v.length + (iter.end - iter.start)`, original prefix
-preserved, and for each `j ∈ [iter.start, iter.end)`, the element at offset
-`v.length + (j - iter.start)` has value `pts[2*j] * 256 + pts[2*j+1]`.
-
-Proved via `loop.spec_decr_nat` with measure `iter.end - iter.start`.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 599:16-602:17)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 @[step]
 theorem loop_spec
     (iter : core.ops.range.Range Usize)
@@ -313,8 +276,7 @@ theorem loop_spec
 
 end spqr.encoding.polynomial.PolyEncoder.from_pb_loop1_loop0
 
-/-!
-# Spec theorem for `PolyEncoder::from_pb`: loop body 1
+/-! # Spec theorem for `PolyEncoder::from_pb`: loop body 1
 
 One step of the outer point-deserialization loop (Points branch). Advances the range iterator
 and either:
@@ -357,15 +319,13 @@ theorem body_spec
           iter.start < iter.end ∧
           iter1.start = iter.start.val + 1 ∧
           iter1.end = iter.end ∧
-          ∃ (pt : Point),
-            out'.val[iter.start.val]! = pt ∧
             (∀ k, k ≠ iter.start.val → out'.val[k]! = out.val[k]!) ∧
-            pt.value.val.length =
+            out'.val[iter.start.val]!.value.val.length =
               (v.val[iter.start.val]!).val.length / 2 ∧
             (∀ (k : Nat),
               k < (v.val[iter.start.val]!).val.length / 2 →
               ∃ (g : GF16),
-                pt.value.val[k]? = some g ∧
+                out'.val[iter.start.val]!.value.val[k]? = some g ∧
                 g.value.val =
                   ((v.val[iter.start.val]!).val[2 * k]!).val * 256 +
                   ((v.val[iter.start.val]!).val[2 * k + 1]!).val) ⦄ := by
@@ -424,11 +384,9 @@ theorem loop_spec
       ∃ (out' : Array Point 16#usize),
         result = core.result.Result.Ok { idx := i, s := EncoderState.Points out' } ∧
         ∀ (j : Nat), j < iter.end →
-            out'.val[j]!.value.length = (v.val[j]!).val.length / 2 ∧
-            ∀ (k : Nat), k < (v.val[j]!).val.length / 2 →
-                out'.val[j]!.value.val[k]!.value.val =
-                  ((v[j]!).val[2 * k]!).val * 256 +
-                  ((v[j]!).val[2 * k + 1]!).val ⦄ := by
+            out'[j]!.value.length = (v[j]!).length / 2 ∧
+            ∀ (k : Nat), k < (v[j]!).length / 2 →
+                out'[j]!.value[k]!.value.val = (v[j]!)[2 * k]! * 256 + (v[j]!)[2 * k + 1]! ⦄ := by
   unfold from_pb_loop1
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Usize × Array Point 16#usize) => p.1.end - p.1.start)
@@ -440,13 +398,8 @@ theorem loop_spec
             p.2.val[j]! = pt ∧
             pt.value.val.length =
               (v.val[j]!).val.length / 2 ∧
-            ∀ (k : Nat),
-              k < (v.val[j]!).val.length / 2 →
-              ∃ (g : GF16),
-                pt.value.val[k]? = some g ∧
-                g.value.val =
-                  ((v.val[j]!).val[2 * k]!).val * 256 +
-                  ((v.val[j]!).val[2 * k + 1]!).val))
+            ∀ (k : Nat), k < (v.val[j]!).length / 2 →
+                pt.value[k]!.value.val = (v[j]!)[2 * k]! * 256 + (v[j]!)[2 * k + 1]!))
   · rintro ⟨iter', out'⟩ ⟨h_end', h_start_le', h_pre'⟩
     simp only [] at h_end' h_start_le' h_pre' ⊢
     have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
@@ -457,7 +410,7 @@ theorem loop_spec
     | ControlFlow.done result => grind
     | ControlFlow.cont (iter'', out'') =>
       simp only [] at h_cf ⊢
-      obtain ⟨h_lt, h_start1, h_end1, pt, h_out_eq, h_out_preserve, h_pt_len, h_pt_encode⟩ := h_cf
+      obtain ⟨h_lt, h_start1, h_end1,  h_out_preserve, h_pt_len, h_pt_encode⟩ := h_cf
       constructor
       · refine ⟨by rw [h_end1]; exact h_end',
                by grind,
@@ -467,14 +420,13 @@ theorem loop_spec
           exact ⟨pt', (h_out_preserve j (by omega)).trans h_eq', h_len', h_enc'⟩
         · have hj_eq : j = iter'.start.val := by omega
           subst hj_eq
-          exact ⟨pt, h_out_eq, h_pt_len, h_pt_encode⟩
+          grind
       · grind
   · grind
 
 end spqr.encoding.polynomial.PolyEncoder.from_pb_loop1
 
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{PolyEncoder}::from_pb`
+/-! # Spec theorem for `spqr::encoding::polynomial::{PolyEncoder}::from_pb`
 
 Reconstructs a `PolyEncoder` from its protobuf representation. Branches on input contents:
 1. **Polys**: `pts` empty, `polys.len() == 16` → deserializes polynomials via `from_pb_loop0`.
@@ -484,26 +436,10 @@ Reconstructs a `PolyEncoder` from its protobuf representation. Branches on input
 Each GF(2¹⁶) element is decoded from big-endian byte pairs: `value = hi * 256 + lo`.
 Inverse of `into_pb`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 573:4-620:5)
--/
-
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder
 
-
-
-/-- **Spec theorem for `encoding.polynomial.PolyEncoder.from_pb`** (byte-level)
-
-Byte-level postcondition via `match` on the result:
-1. **Polys branch**: `pb.pts` empty, `pb.polys.length = 16` → `Ok encoder` with each polynomial
-   satisfying `coeff[k] = 256 * pb.polys[j][2*k] + pb.polys[j][2*k+1]`.
-2. **Points branch**: `pb.polys` empty, `pb.pts.length = 16` → `Ok encoder` with each point
-   satisfying the same big-endian invariant over `pb.pts`.
-
-Composed from `from_pb_loop0.loop_spec` and `from_pb_loop1.loop_spec`.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 573:4-620:5)
--/
 theorem from_pb_spec_bytes
     (pb : proto.pq_ratchet.PolynomialEncoder)
     (h_polys_nonempty : pb.pts.val = [] → ∀ j < pb.polys.length, (pb.polys[j]!).length ≠ 0)
@@ -540,8 +476,7 @@ theorem from_pb_spec_bytes
   · grind
   · grind
   · refine ⟨fun _ _ => ?_, fun h _ => ?_⟩
-    · -- First conjunct: polys branch (Usize → Nat quantifier conversion)
-      cases result with
+    · cases result with
       | Err _ => exact result_post
       | Ok enc =>
         obtain ⟨h_idx, h_enc⟩ := result_post
@@ -553,27 +488,26 @@ theorem from_pb_spec_bytes
           intro h_enc
           exact fun j hj => h_enc ⟨j, by scalar_tac⟩ (by
             change j < ↑i1; rw [i1_post]; exact hj)
-    · -- Second conjunct: vacuously true (polys is non-empty)
-      simp_all
+    · simp_all
   · grind
   · grind
 
-/--
-Lifts `from_pb_spec_bytes` to additionally assert `Nat.toGF216` and `natToBinaryPoly`
-identities for each deserialized coefficient.
--/
+/-- **Spec theorem for `encoding.polynomial.PolyEncoder.from_pb`** (byte-level)
+
+Byte-level postcondition via `match` on the result:
+1. **Polys branch**: `pb.pts` empty, `pb.polys.length = 16` → `Ok encoder` with each polynomial
+   satisfying `coeff[k] = 256 * pb.polys[j][2*k] + pb.polys[j][2*k+1]`.
+2. **Points branch**: `pb.polys` empty, `pb.pts.length = 16` → `Ok encoder` with each point
+   satisfying the same big-endian invariant over `pb.pts`.
+
+Composed from `from_pb_loop0.loop_spec` and `from_pb_loop1.loop_spec`. -/
 @[step]
 theorem from_pb_spec
     (pb : proto.pq_ratchet.PolynomialEncoder)
-    (h_polys_nonempty : pb.pts.val = [] →
-      ∀ j < pb.polys.length, (pb.polys[j]!).length ≠ 0)
-    (h_polys_even : pb.pts.val = [] →
-      ∀ j < pb.polys.length, (pb.polys[j]!).length % 2 = 0)
-    (h_pts_even : pb.polys.val = [] →
-      ∀ j < pb.pts.length,
-        (pb.pts[j]!).length % 2 = 0) :
+    (h_polys_nonempty : pb.pts.val = [] → ∀ j < pb.polys.length, (pb.polys[j]!).length ≠ 0)
+    (h_polys_even : pb.pts.val = [] → ∀ j < pb.polys.length, (pb.polys[j]!).length % 2 = 0)
+    (h_pts_even : pb.polys.val = [] → ∀ j < pb.pts.length, (pb.pts[j]!).length % 2 = 0) :
     from_pb pb ⦃ (result : core.result.Result PolyEncoder PolynomialError) =>
-      -- Polys branch: pts empty, polys.len = 16
       (pb.pts.val = [] → pb.polys.val.length = 16 →
         match result with
         | core.result.Result.Ok encoder =>
@@ -593,7 +527,6 @@ theorem from_pb_spec
                              ((pb.polys[j]!)[2 * k + 1]!).val)
             | _ => False
         | core.result.Result.Err _ => False) ∧
-      -- Points branch: polys empty, pts.len = 16
       (pb.polys.val = [] → pb.pts.length = 16 →
         match result with
         | core.result.Result.Ok encoder =>
