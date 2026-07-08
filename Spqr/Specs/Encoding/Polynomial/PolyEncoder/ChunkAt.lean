@@ -80,9 +80,7 @@ The result satisfies:
   * If the encoder was initially in the `Polys` state, the encoder state is unchanged:
       `∀ polys, self.s = .Polys polys → self' = self`.
   * For every `j ∈ [0, 16)`, the big-endian encoding invariant holds:
-      `∃ g hi lo, chunk.data.val[2*j]? = some hi ∧
-        chunk.data.val[2*j+1]? = some lo ∧
-        hi.val * 256 + lo.val = g.value.val`
+      `∃ g, 256 * chunk.data.val[2*j]! + chunk.data.val[2*j + 1]! = g.value.val`
 
 This follows from composing:
   1. `chunk_at_loop.loop_spec`: the serialization loop produces a 32-byte vector with the
@@ -119,12 +117,12 @@ theorem chunk_at_spec_nat
     (h_idx_overflow : idx.val * 16 + 16 ≤ Usize.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
-          let len := (pts.val[j]!).value.val.length
+          let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
         ∀ (j : Nat), j < 16 →
-          (polys.val[j]!).coefficients.val.length + 1 ≤ Usize.max) :
+          (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     chunk_at self idx ⦃ ((chunk, self') :
         encoding.Chunk × encoding.polynomial.PolyEncoder) =>
       chunk.index = idx ∧
@@ -132,10 +130,13 @@ theorem chunk_at_spec_nat
       self'.idx = self.idx ∧
       (∀ polys, self.s = .Polys polys → self' = self) ∧
       (∀ (j : Nat), j < 16 →
-        ∃ (g : encoding.gf.GF16) (hi lo : Std.U8),
-          chunk.data.val[2 * j]? = some hi ∧
-          chunk.data.val[2 * j + 1]? = some lo ∧
-          hi.val * 256 + lo.val = g.value.val) ⦄ := by
+        ∃ (g : encoding.gf.GF16),
+          256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]! = g.value.val) ∧
+      (∀ polys, self.s = .Polys polys →
+        ∀ (j : Nat), j < 16 →
+          ∃ (g : encoding.gf.GF16),
+            256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]! = g.value.val ∧
+            g.toGF216 = (polys[j]!).toGF216Poly.eval (idx.val.toGF216)) ⦄ := by
   unfold chunk_at
   step*
   · simp [alloc.vec.Vec.with_capacity]
@@ -154,9 +155,18 @@ whose `data` array contains exactly 32 bytes — the concatenation of the 2-byte
 of 16 GF(2¹⁶) polynomial evaluations.  The encoder's chunk index field `idx` is preserved, and if
 the encoder was in the `Polys` state, the state is entirely unchanged.
 
-This theorem lifts the byte-level postcondition of `chunk_at_spec_nat` to a form suitable for
-composition in higher-level proofs (e.g. `next_chunk`, `encode_bytes_base`), dropping the explicit
-byte-encoding invariant while retaining the structural and state-preservation properties.
+Additionally, for every `j ∈ [0, 16)`, the big-endian encoding invariant holds:
+  `∃ g, 256 * chunk.data.val[2*j]! + chunk.data.val[2*j + 1]! = g.value.val`
+
+**Polynomial identity** (Polys case): if the encoder is in the `Polys polys` state, then for
+every `j ∈ [0, 16)`, the GF(2¹⁶) value encoded at position `j` is exactly the evaluation of
+the `j`-th polynomial at the point `idx`:
+  `∃ g, 256 * chunk.data.val[2*j]! + chunk.data.val[2*j + 1]! = g.value.val ∧
+    g.toGF216 = (polys[j]!).toGF216Poly.eval (idx.val.toGF216)`
+
+This theorem lifts the full postcondition of `chunk_at_spec_nat` to a form suitable for
+composition in higher-level proofs (e.g. `next_chunk`, `encode_bytes_base`), retaining both the
+structural/state-preservation properties, the byte-encoding invariant, and the polynomial identity.
 -/
 @[step]
 theorem chunk_at_spec
@@ -164,21 +174,29 @@ theorem chunk_at_spec
     (h_idx_overflow : idx.val * 16 + 16 ≤ Usize.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
-          let len := (pts.val[j]!).value.val.length
+          let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
         ∀ (j : Nat), j < 16 →
-          (polys.val[j]!).coefficients.val.length + 1 ≤ Usize.max) :
+          (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     chunk_at self idx ⦃ ((chunk, self') :
         encoding.Chunk × encoding.polynomial.PolyEncoder) =>
       chunk.index = idx ∧
       chunk.data.val.length = 32 ∧
       self'.idx = self.idx ∧
-      (∀ polys, self.s = .Polys polys → self' = self) ⦄ := by
+      (∀ (j : Nat), j < 16 →
+        ∃ (g : encoding.gf.GF16),
+          256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]! = g.value.val) ∧
+      (∀ polys, self.s = .Polys polys →
+        self' = self ∧
+        ∀ (j : Nat), j < 16 →
+            Nat.toGF216 (256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]!) =
+            (polys[j]!).toGF216Poly.eval (idx.val.toGF216)) ⦄ := by
   have h_raw := chunk_at_spec_nat self idx h_idx_overflow h_admissible h_coeff_bound
   apply WP.spec_mono h_raw
-  intro (chunk, self') ⟨h_index, h_len, h_idx, h_stable, _⟩
-  exact ⟨h_index, h_len, h_idx, h_stable⟩
+  intro (chunk, self') ⟨h_index, h_len, h_idx, h_stable, h_enc, h_poly_enc⟩
+  simp_all
+  grind[GF16.toGF216]
 
 end spqr.encoding.polynomial.PolyEncoder

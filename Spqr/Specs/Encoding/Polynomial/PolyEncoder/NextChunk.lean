@@ -94,11 +94,15 @@ theorem next_chunk_spec_nat
   step
   step with chunk_at_spec_nat
   step*
-  obtain ⟨h_index, h_len, h_idx_preserved, h_stable, h_bytes⟩ := out_post
-  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_len, by simp_all, ?_, h_bytes⟩
-  intro polys h_polys
-  have h_eq := h_stable polys h_polys
-  simp_all
+  obtain ⟨h_index, h_len, h_idx_preserved, h_stable, h_bytes, _⟩ := out_post
+  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_len, by simp_all, ?_, ?_⟩
+  · intro polys h_polys
+    have h_eq := h_stable polys h_polys
+    simp_all
+  · intro j hj
+    obtain ⟨g, hg⟩ := h_bytes j hj
+    exact ⟨g, out.data.val[2 * j]'(by omega), out.data.val[2 * j + 1]'(by omega),
+      List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega), by grind⟩
 
 
 /--

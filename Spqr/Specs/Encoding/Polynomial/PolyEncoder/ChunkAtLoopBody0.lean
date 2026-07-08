@@ -88,13 +88,13 @@ or extends the output:
 
 • In the **done** case (iterator exhausted):
     the encoder state and output vector are returned unchanged, and the iterator condition is
-    negated: `¬ (iter.start.val < iter.«end».val)`.
+    negated: `¬ (iter.start.val < iter.end.val)`.
 
 • In the **cont** case (received index `i = iter.start` from the range iterator):
-    - `iter.start.val < iter.«end».val` — the iterator was not exhausted.
+    - `iter.start.val < iter.end.val` — the iterator was not exhausted.
     - The iterator has advanced by one position:
         `iter1.start.val = iter.start.val + 1`,
-        `iter1.«end» = iter.«end»`.
+        `iter1.end = iter.end`.
     - The output byte vector is extended by exactly two bytes — the big-endian encoding of
       the GF(2¹⁶) value `g` returned by `point_at(i, idx.val)` where `i = iter.start.val`:
         `out1.val = out.val ++ [hi, lo]`
@@ -121,78 +121,73 @@ or extends the output:
 -/
 @[step]
 theorem body_spec
-    (idx : Std.U16) (iter : core.ops.range.Range Std.Usize)
-    (self : encoding.polynomial.PolyEncoder) (out : alloc.vec.Vec Std.U8)
-    (h_end_le : iter.«end».val ≤ 16)
-    (h_idx_overflow : idx.val * 16 + 16 ≤ Usize.max)
-    (h_out_overflow : out.val.length + 2 ≤ Usize.max)
+    (idx : U16) (iter : core.ops.range.Range Usize)
+    (self : PolyEncoder) (out : alloc.vec.Vec U8)
+    (h_end_le : iter.end.val ≤ 16)
+    (h_idx_overflow : idx * 16 + 16 ≤ Usize.max)
+    (h_out_overflow : out.length + 2 ≤ Usize.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
-          let len := (pts.val[j]!).value.val.length
+          let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_polys : ∀ polys, self.s = .Polys polys →
         ∀ (j : Nat), j < 16 →
-          (polys.val[j]!).coefficients.val.length + 1 ≤ Usize.max) :
+          (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     body idx iter self out ⦃ cf =>
       match cf with
       | ControlFlow.done (self', out') =>
-          self' = self ∧ out' = out ∧ ¬(iter.start.val < iter.«end».val)
+          self' = self ∧ out' = out ∧ ¬(iter.start.val < iter.end.val)
       | ControlFlow.cont (iter1, self1, out1) =>
-          iter.start.val < iter.«end».val ∧
-          iter1.start.val = iter.start.val + 1 ∧
-          iter1.«end» = iter.«end» ∧
-          ∃ (g : encoding.gf.GF16) (hi lo : Std.U8),
-            out1.val = out.val ++ [hi, lo] ∧
-            hi.val * 256 + lo.val = g.value.val ∧
+          iter.start < iter.end.val ∧
+          iter1.start = iter.start.val + 1 ∧
+          iter1.end = iter.end ∧
+          ∃ (g : GF16) (hi lo : U8),
+            out1 = out ++ [hi, lo] ∧
+            256 * hi + lo = g.value.val ∧
             self1.idx = self.idx ∧
             match self.s with
             | .Points pts =>
-                if idx.val < (pts.val[iter.start.val]!).value.val.length then
-                  g = (pts.val[iter.start.val]!).value.val[idx.val]! ∧
+                if idx < (pts[iter.start]!).value.length then
+                  g = (pts[iter.start]!).value[idx.val]! ∧
                   self1 = self
                 else
-                  ∃ (polys' : Array encoding.polynomial.Poly 16#usize),
-                    self1.s = encoding.polynomial.EncoderState.Polys polys' ∧
-                    g.toGF216 =
-                      (polys'.val[iter.start.val]!).toGF216Poly.eval
-                        (idx.val.toGF216)
+                  match self1.s with
+                  | .Polys polys' =>
+                      g.toGF216 = (polys'[iter.start.val]!).toGF216Poly.eval (idx.val.toGF216)
+                  | .Points _ => False
             | .Polys polys =>
-                g.toGF216 =
-                  (polys.val[iter.start.val]!).toGF216Poly.eval
-                    (idx.val.toGF216) ∧
+                g.toGF216 =(polys[iter.start.val]!).toGF216Poly.eval (idx.val.toGF216) ∧
                 self1 = self ⦄ := by
   unfold body
   obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
     WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
   rw [hnext]
   simp only [bind_tc_ok]
-  by_cases h_lt : iter.start.val < iter.«end».val
-  · -- cont case: iterator not exhausted
-    obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
+  by_cases h_lt : iter.start.val < iter.end.val
+  · obtain ⟨h_opt_eq, h_start1, h_end1⟩ := h_some h_lt
     rw [h_opt_eq]
     have h_i_lt_16 : iter.start.val < 16 := by omega
-    -- The total_idx arithmetic: since i < 16, poly = i and poly_idx = idx.val
-    -- We need: (idx.val * 16 + i) % 16 = i  and  (idx.val * 16 + i) / 16 = idx.val
     have h_mod : (idx.val * 16 + iter.start.val) % 16 = iter.start.val := by omega
     have h_div : (idx.val * 16 + iter.start.val) / 16 = idx.val := by omega
     have h_i_mod_self : iter.start.val % 16 = iter.start.val := by omega
     step*
     · grind
-    · simp_all
-    -- Remaining goal: ∃ g_1, byte_eq ∧ match_on_self.s
+    · simp_all only [alloc.vec.Vec.length, Array.getElem!_Nat_eq, List.Vector.length_val,
+      UScalar.ofNatCore_val_eq, getElem!_pos, List.length_eq_zero_iff, Order.add_one_le_iff,
+      not_true_eq_false, reduceCtorEq, false_and, implies_true, and_self,
+       Nat.mul_add_mod_self_right, Nat.mod_succ_eq_iff_lt, Nat.succ_eq_add_one,
+      Nat.reduceAdd, UScalarTy.U16_numBits_eq, UScalarTy.Usize_numBits_eq,
+      System.Platform.sixteen_le_numBits, UScalar.cast_val_mod_pow_greater_numBits_eq,
+      List.getElem!_eq_getElem?_getD, getElem?_pos, Option.getD_some, Bvify.U16.UScalar_bv,
+      List.append_assoc, List.cons_append, List.nil_append, List.append_cancel_left_eq,
+      List.cons.injEq, and_true, Array.getElem!_Usize_eq, alloc.vec.Vec.getElem!_Nat_eq, true_and,
+      and_assoc, exists_and_left, ↓existsAndEq, exists_eq_left']
       have h_i_mod : iter.start.val % 16 = iter.start.val := by omega
       refine ⟨g, ?_, ?_⟩
-      · -- byte encoding: ↑(UScalar.cast U8 i3) * 256 + ↑(UScalar.cast U8 g.value) = ↑g.value
-        simp only [UScalar.cast_val_eq, UScalarTy.U8_numBits_eq, Nat.reducePow,
+      · simp only [UScalar.cast_val_eq, UScalarTy.U8_numBits_eq, Nat.reducePow,
                   i3_post1, Nat.shiftRight_eq_div_pow]
         grind
-      · -- match case from g_post with `% 16` simplified
-        simp only [h_i_mod] at g_post
-        convert g_post.2 using 2 <;> simp_all
-  · -- done case: iterator exhausted
-    obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
-    rw [h_opt_eq]
-    exact ⟨rfl, rfl, h_lt⟩
-
+      · grind
+  · grind
 end spqr.encoding.polynomial.PolyEncoder.chunk_at_loop
