@@ -323,12 +323,13 @@ retrieves the next index `i` from the iterator and either terminates or extends 
         `iter1.start.val = iter.start.val + 1`,
         `iter1.end = iter.end`.
     - The output array is updated at position `i` with the Lagrange interpolating polynomial:
-        there exist a `Poly` `poly` and a Lagrange basis slice `lagrange_polys` such that
-        `polys'.val[iter.start.val]! = poly` and
+        there exist a `Poly` `poly` and a `Usize` `len` such that
+        `len.val = (pts.val[i]!).value.val.length`,
+        `polys'.val[iter.start.val]! = poly`, and
         `poly.toGF216Poly =
            ∑ j ∈ Finset.range n,
              C (((pts.val[i]!).value.val[j]!).toGF216) *
-               (lagrange_polys.val[j]!).toGF216Poly`
+               scaledLagrangeBasis len j`
       where `n = (pts.val[i]!).value.val.length`.
     - All other positions are unchanged:
         `∀ k, k ≠ iter.start.val → polys'.val[k]! = polys.val[k]!`
@@ -371,14 +372,13 @@ theorem body_spec
             polys'.val[iter.start.val]! = poly ∧
             (∀ k, k ≠ iter.start.val →
               polys'.val[k]! = polys.val[k]!) ∧
-            ∃ (lagrange_polys : Slice Poly),
-              (pts.val[iter.start.val]!).value.val.length ≤
-                lagrange_polys.val.length ∧
+            ∃ (len : Usize),
+              len.val = (pts.val[iter.start.val]!).value.val.length ∧
               (poly.toGF216Poly =
                 ∑ j ∈ Finset.range
                     (pts.val[iter.start.val]!).value.val.length,
                   C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
-                    (lagrange_polys.val[j]!).toGF216Poly) ⦄ := by
+                    scaledLagrangeBasis len j) ⦄ := by
   unfold body
   obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
     WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
@@ -435,7 +435,7 @@ theorem body_spec
       exact (h_pt_elts j hj (by omega)).1
     match res with
     | core.result.Result.Ok poly =>
-      obtain ⟨h_all_valid, polys_lp, h_len_le_lp, h_sum, _, _⟩ := h_res
+      obtain ⟨h_all_valid, h_sum⟩ := h_res
       simp only [core.result.Result.expect, bind_tc_ok]
       simp only [massert]
       have h_massert : (iter.start.val < 16) = True := by grind
@@ -455,19 +455,17 @@ theorem body_spec
                 rw [List.Inhabited_getElem_eq_getElem! polys.val iter.start.val
                   (by rw [polys.property]; exact h_i_lt_16)]
                 exact array_set_restore_set_getElem! polys iter.start poly (by grind)
-              simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
-                List.length_eq_zero_iff, not_true_eq_false, reduceCtorEq, false_and, implies_true,
-                and_self,  UScalar.max_UScalarTy_U16_eq,
-                List.get_eq_getElem, forall_true_left, List.getElem!_eq_getElem?_getD,
-                List.length_nil, Finset.range_zero, not_lt_zero, not_false_eq_true, getElem?_neg,
-                Option.getD_none, Finset.sum_empty, and_true, ne_eq, Array.getElem!_Nat_eq,
-                Array.length, Nat.reducePow, Nat.reduceSub, map_mul, map_pow, forall_const,
-                exists_and_left, eq_iff_iff, iff_true, Array.getElem!_Usize_eq, Array.set_val_eq,
-                List.set_getElem_self, List.length_set, List.getElem_set_self, getElem?_pos,
-                Option.getD_some]
-              refine ⟨polys_lp, ?_, ?_⟩
-              · omega
-              · apply Finset.sum_congr rfl
+              refine ⟨Slice.len (alloc.vec.Vec.deref pt_vec), ?_, ?_⟩
+              · simp only [Slice.len, alloc.vec.Vec.deref] at h_deref_len ⊢
+                grind
+              · simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
+                  List.length_eq_zero_iff, not_true_eq_false, reduceCtorEq, false_and, implies_true,
+                  and_self,  UScalar.max_UScalarTy_U16_eq,
+                  List.get_eq_getElem, forall_true_left, List.getElem!_eq_getElem?_getD,
+                  eq_iff_iff, iff_true, Array.getElem!_Usize_eq, Array.set_val_eq,
+                  List.set_getElem_self, List.length_set, List.getElem_set_self, getElem?_pos,
+                  Option.getD_some]
+                apply Finset.sum_congr rfl
                 intro j hj
                 have hj_range := Finset.mem_range.mp hj
                 have hj_pt : j < pt_vec.val.length := by

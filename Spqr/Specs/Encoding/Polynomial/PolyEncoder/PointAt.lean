@@ -37,6 +37,7 @@ polynomial `x¹⁶ + x¹² + x³ + x + 1` (0x1100b).
 -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
+open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
 namespace spqr.encoding.polynomial.PolyEncoder
 
@@ -77,10 +78,11 @@ The result satisfies one of three cases depending on the encoder state:
 
 • **Points branch, cache miss** (`self.s = Points pts`, `idx.val ≥ pts[poly].value.len()`):
     The encoder state transitions to `Polys polys'` where each `polys'[j]` is the Lagrange
-    interpolating polynomial through the evaluation points of `pts[j]`:
+    interpolating polynomial through the evaluation points of `pts[j]`, expressed using
+    scaled Lagrange basis polynomials:
       `polys'[j].toGF216Poly =
          ∑ k ∈ Finset.range (pts[j].value.len()),
-           C ((pts[j].value[k]).toGF216) * (lagrange_polys_j[k]).toGF216Poly`
+           C ((pts[j].value[k]).toGF216) * scaledLagrangeBasis len_j k`
     and the result is the polynomial evaluation:
       `result.toGF216 = (polys'[poly]).toGF216Poly.eval (idx.val.toGF216)`
 
@@ -113,16 +115,14 @@ theorem point_at_spec_nat
               ∃ (polys' : Array encoding.polynomial.Poly 16#usize),
                 self'.s = encoding.polynomial.EncoderState.Polys polys' ∧
                 (∀ (j : Nat), j < 16 →
-                  ∃ (p : encoding.polynomial.Poly),
+                  ∃ (p : encoding.polynomial.Poly) (len : Usize),
+                    len.val = (pts.val[j]!).value.val.length ∧
                     polys'.val[j]! = p ∧
-                    ∃ (lagrange_polys : Slice Poly),
-                      (pts.val[j]!).value.val.length ≤
-                        lagrange_polys.val.length ∧
-                      (p.toGF216Poly =
-                        ∑ k ∈ Finset.range
-                            (pts.val[j]!).value.val.length,
-                          C (((pts.val[j]!).value.val[k]!).toGF216) *
-                            (lagrange_polys.val[k]!).toGF216Poly)) ∧
+                    (p.toGF216Poly =
+                      ∑ k ∈ Finset.range
+                          (pts.val[j]!).value.val.length,
+                        C (((pts.val[j]!).value.val[k]!).toGF216) *
+                          scaledLagrangeBasis len k)) ∧
                 result.toGF216 =
                   (polys'.val[poly.val]!).toGF216Poly.eval
                     (idx.val.toGF216)
