@@ -368,17 +368,12 @@ theorem body_spec
           iter.start < iter.end ∧
           iter1.start = iter.start.val + 1 ∧
           iter1.end = iter.end ∧
-          ∃ (poly : Poly),
-            polys'.val[iter.start.val]! = poly ∧
-            (∀ k, k ≠ iter.start.val →
-              polys'.val[k]! = polys.val[k]!) ∧
-            ∃ (len : Usize),
-              len.val = (pts.val[iter.start.val]!).value.val.length ∧
-              (poly.toGF216Poly =
-                ∑ j ∈ Finset.range
-                    (pts.val[iter.start.val]!).value.val.length,
-                  C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
-                    scaledLagrangeBasis len j) ⦄ := by
+          (∀ k, k ≠ iter.start.val →
+            polys'.val[k]! = polys.val[k]!) ∧
+            (polys'.val[iter.start.val]!.toGF216Poly =
+            ∑ j ∈ Finset.range (pts.val[iter.start.val]!).value.val.length,
+            C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
+            scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[iter.start.val]!).value)) j) ⦄ := by
   unfold body
   obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
     WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
@@ -389,8 +384,8 @@ theorem body_spec
     rw [h_opt_eq]
     have h_i_lt_16 : iter.start.val < 16 := by omega
     have h_adm := h_admissible iter.start.val h_i_lt_16
-    simp only [UScalar.lt_equiv, UScalar.ofNatCore_val_eq, uncurry_apply_pair, not_lt, ↓existsAndEq,
-      List.getElem!_eq_getElem?_getD, ne_eq, true_and]
+    simp only [UScalar.lt_equiv, UScalar.ofNatCore_val_eq, uncurry_apply_pair, not_lt,
+      List.getElem!_eq_getElem?_getD, ne_eq]
     simp only [core.slice.Slice.iter, core.slice.iter.IteratorSliceIter.enumerate, bind_tc_ok]
     step*
     subst p_post
@@ -455,29 +450,31 @@ theorem body_spec
                 rw [List.Inhabited_getElem_eq_getElem! polys.val iter.start.val
                   (by rw [polys.property]; exact h_i_lt_16)]
                 exact array_set_restore_set_getElem! polys iter.start poly (by grind)
-              refine ⟨Slice.len (alloc.vec.Vec.deref pt_vec), ?_, ?_⟩
-              · simp only [Slice.len, alloc.vec.Vec.deref] at h_deref_len ⊢
+              have h_slicelen_eq : Slice.len (alloc.vec.Vec.deref pt_vec) =
+                  alloc.vec.Vec.len ((pts.val[iter.start.val]!).value) := by
+                simp only [Slice.len, alloc.vec.Vec.len, alloc.vec.Vec.deref] at h_deref_len ⊢
                 grind
-              · simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
+              rw [h_slicelen_eq] at h_sum
+              simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
                   List.length_eq_zero_iff, not_true_eq_false, reduceCtorEq, false_and, implies_true,
                   and_self,  UScalar.max_UScalarTy_U16_eq,
                   List.get_eq_getElem, forall_true_left, List.getElem!_eq_getElem?_getD,
                   eq_iff_iff, iff_true, Array.getElem!_Usize_eq, Array.set_val_eq,
                   List.set_getElem_self, List.length_set, List.getElem_set_self, getElem?_pos,
                   Option.getD_some]
-                apply Finset.sum_congr rfl
-                intro j hj
-                have hj_range := Finset.mem_range.mp hj
-                have hj_pt : j < pt_vec.val.length := by
-                  simp [alloc.vec.Vec.deref] at *; omega
-                have hy := (h_pt_elts j
-                  (by simp [alloc.vec.Vec.deref]; omega)).2
-                simp only [alloc.vec.Vec.deref] at hy
-                simp only [alloc.vec.Vec.deref,
-                  List.getElem?_eq_getElem hj_pt,
-                  List.getElem?_eq_getElem hj_range,
-                  Option.getD_some]
-                rw [hy]
+              apply Finset.sum_congr rfl
+              intro j hj
+              have hj_range := Finset.mem_range.mp hj
+              have hj_pt : j < pt_vec.val.length := by
+                simp [alloc.vec.Vec.deref] at *; omega
+              have hy := (h_pt_elts j
+                (by simp [alloc.vec.Vec.deref]; omega)).2
+              simp only [alloc.vec.Vec.deref] at hy
+              simp only [alloc.vec.Vec.deref,
+                List.getElem?_eq_getElem hj_pt,
+                List.getElem?_eq_getElem hj_range,
+                Option.getD_some]
+              rw [hy]
     | core.result.Result.Err () =>
       exfalso
       obtain ⟨j, hj, h_neq⟩ := h_res

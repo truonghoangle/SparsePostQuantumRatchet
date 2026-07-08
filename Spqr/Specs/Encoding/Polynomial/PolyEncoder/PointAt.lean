@@ -112,35 +112,83 @@ theorem point_at_spec_nat
               result = (pts.val[poly.val]!).value.val[idx.val]! ∧
               self' = self
             else
-              ∃ (polys' : Array encoding.polynomial.Poly 16#usize),
-                self'.s = encoding.polynomial.EncoderState.Polys polys' ∧
-                (∀ (j : Nat), j < 16 →
-                  ∃ (p : encoding.polynomial.Poly) (len : Usize),
-                    len.val = (pts.val[j]!).value.val.length ∧
-                    polys'.val[j]! = p ∧
-                    (p.toGF216Poly =
-                      ∑ k ∈ Finset.range
-                          (pts.val[j]!).value.val.length,
+              match self'.s with
+              | .Polys polys' =>
+                  (∀ (j : Nat), j < 16 →
+                    polys'.val[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts.val[j]!).value.val.length,
                         C (((pts.val[j]!).value.val[k]!).toGF216) *
-                          scaledLagrangeBasis len k)) ∧
-                result.toGF216 =
-                  (polys'.val[poly.val]!).toGF216Poly.eval
-                    (idx.val.toGF216)
+                          scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[j]!).value)) k) ∧
+                  result.toGF216 = (polys'.val[poly.val]!).toGF216Poly.eval (idx.val.toGF216)
+              | .Points _ => False
         | .Polys polys =>
-            result.toGF216 =
-              (polys.val[poly.val]!).toGF216Poly.eval
-                (idx.val.toGF216) ∧
+            result.toGF216 = (polys.val[poly.val]!).toGF216Poly.eval (idx.val.toGF216) ∧
             self' = self ⦄ := by
   unfold point_at
-  cases h : self.s with
-  | Points pts =>
-    have h_adm := h_admissible pts h
-    simp only [h]
-    sorry
+  cases hs : self.s with
   | Polys polys =>
-    have h_coeff := h_coeff_polys polys h
-    simp only [h]
-    sorry
+    simp only
+    have h_deg : (polys.val[poly.val]!).coefficients.val.length + 1 ≤ Usize.max :=
+      h_coeff_polys polys hs
+    have h_polys_len : poly.val < polys.val.length := by rw [polys.property]; exact h_poly
+    step*
+    simp only [Poly.evalAt] at g1_post
+    subst p_post
+    rw [List.Inhabited_getElem_eq_getElem! polys.val poly.val h_polys_len] at g1_post
+    rw [g1_post]
+    congr 1
+    rw [g_post]
+    simp_all [UScalar.cast_val_eq, UScalarTy.U16_numBits_eq, Nat.reducePow]
+    grind
+  | Points pts =>
+    simp only
+    have h_adm : ∀ (j : Nat), j < 16 →
+        let len := (pts.val[j]!).value.val.length
+        len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
+        len = 30 ∨ len = 34 ∨ len = 36 := h_admissible pts hs
+    have h_pts_len : poly.val < pts.val.length := by rw [pts.property]; exact h_poly
+    -- Step through Array.index_usize only
+    step
+    -- Handle the if-then-else by case-splitting
+    by_cases h_lt : idx < alloc.vec.Vec.len p.value
+    · -- Cache hit: idx < pts[poly].value.len()
+      simp only [h_lt, ↓reduceIte]
+      step*
+      have h_lt_nat : idx.val < (pts.val[poly.val]!).value.val.length := by
+        subst p_post
+        simp only [UScalar.lt_equiv, alloc.vec.Vec.len] at h_lt
+        rw [List.Inhabited_getElem_eq_getElem! pts.val poly.val h_pts_len] at h_lt
+        exact h_lt
+      simp only [h_lt_nat, ↓reduceIte]
+      subst p_post
+      grind
+    · -- Cache miss: idx ≥ pts[poly].value.len()
+      simp only [h_lt, ↓reduceIte]
+      have h_not_lt_nat : ¬ idx.val < (pts.val[poly.val]!).value.val.length := by
+        subst p_post
+        simp only [UScalar.lt_equiv, alloc.vec.Vec.len, not_lt] at h_lt ⊢
+        rw [List.Inhabited_getElem_eq_getElem! pts.val poly.val h_pts_len] at h_lt
+        grind
+      step*
+      case hl =>
+        apply core.array.from_fn_loop_replicate_default
+        · intro i
+          simp [PolyEncoder.point_at.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoly.call_mut,
+                Poly.zero, alloc.vec.Vec.with_capacity]
+          rfl
+        · scalar_tac
+      case hlen => simp
+      step*
+      simp only [h_not_lt_nat, ↓reduceIte]
+      constructor
+      · intro j hj
+        exact polys1_post j (by grind)
+      · simp only [Poly.evalAt] at g1_post
+        subst p1_post
+        rw [g1_post]
+        congr 1
+        · simp_all [UScalar.cast_val_eq, UScalarTy.U16_numBits_eq, Nat.reducePow]
+          grind
+        · grind
 
 /--
 For any encoder state, the result of `point_at self poly idx` evaluates the `poly`-th polynomial
@@ -169,24 +217,20 @@ theorem point_at_spec
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_polys : ∀ polys, self.s = .Polys polys →
         (polys.val[poly.val]!).coefficients.val.length + 1 ≤ Usize.max) :
-    point_at self poly idx
-      ⦃ ((result, self') : encoding.gf.GF16 × encoding.polynomial.PolyEncoder) =>
-        self'.idx = self.idx ∧
-        match self.s with
-        | .Points pts =>
+    point_at self poly idx ⦃ ((result, self') : GF16 × PolyEncoder) =>
+      self'.idx = self.idx ∧
+      match self.s with
+      | .Points pts =>
             if idx.val < (pts.val[poly.val]!).value.val.length then
               result = (pts.val[poly.val]!).value.val[idx.val]! ∧
               self' = self
             else
-              ∃ (polys' : Array encoding.polynomial.Poly 16#usize),
-                self'.s = encoding.polynomial.EncoderState.Polys polys' ∧
-                result.toGF216 =
-                  (polys'.val[poly.val]!).toGF216Poly.eval
-                    (idx.val.toGF216)
-        | .Polys polys =>
-            result.toGF216 =
-              (polys.val[poly.val]!).toGF216Poly.eval
-                (idx.val.toGF216) ∧
+              match self'.s with
+              | .Polys polys' =>
+                  result.toGF216 = (polys'.val[poly.val]!).toGF216Poly.eval (idx.val.toGF216)
+              | .Points _ => False
+      | .Polys polys =>
+            result.toGF216 = (polys.val[poly.val]!).toGF216Poly.eval (idx.val.toGF216) ∧
             self' = self ⦄ := by
   have h_raw := point_at_spec_nat self poly idx h_poly h_idx_u16 h_admissible h_coeff_polys
   apply WP.spec_mono h_raw
@@ -199,8 +243,12 @@ theorem point_at_spec
     · simp only [h_lt, ↓reduceIte] at h_data ⊢
       exact h_data
     · simp only [h_lt, ↓reduceIte] at h_data ⊢
-      obtain ⟨polys', h_state, _, h_eval⟩ := h_data
-      exact ⟨polys', h_state, h_eval⟩
+      cases hs : self'.s with
+      | Polys polys' =>
+        simp only [hs] at h_data ⊢
+        exact h_data.2
+      | Points _ =>
+        simp only [hs] at h_data
   | Polys polys =>
     simp only [h] at h_data ⊢
     exact h_data

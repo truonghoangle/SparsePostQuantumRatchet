@@ -27,8 +27,8 @@ step:
 **Loop invariant**: after processing iterations up to `iter'`, the output array of `Poly` values
 satisfies:
 
-  * `iter'.«end» = iter.«end»` — the iterator end is unchanged across iterations.
-  * `iter'.start.val ≤ iter'.«end».val` — the start never exceeds the end.
+  * `iter'.end = iter.end` — the iterator end is unchanged across iterations.
+  * `iter'.start.val ≤ iter'.end.val` — the start never exceeds the end.
   * For every `j ∈ [0, iter'.start.val)`, the `j`-th entry is the Lagrange interpolating
     polynomial through the evaluation points of `pts[j]`:
       `∃ poly len,
@@ -39,8 +39,8 @@ satisfies:
               C (((pts.val[j]!).value.val[k]!).toGF216) *
                 scaledLagrangeBasis len k`
 
-At loop termination (`iter'.start.val ≥ iter'.«end».val`), the output array contains the
-complete set of Lagrange interpolating polynomials for all points in `pts[0..iter.«end».val]`.
+At loop termination (`iter'.start.val ≥ iter'.end.val`), the output array contains the
+complete set of Lagrange interpolating polynomials for all points in `pts[0..iter.end.val]`.
 
 In GF(2¹⁶) (characteristic 2), addition coincides with subtraction and is bitwise XOR of the
 16-bit encodings; multiplication is carry-less polynomial multiplication modulo the irreducible
@@ -48,7 +48,7 @@ polynomial `x¹⁶ + x¹² + x³ + x + 1` (0x1100b).
 
 The body spec (`body_spec` from `PointAtLoopBody0.lean`) discharges one step of this loop;
 this file lifts it through `loop.spec_decr_nat` (with measure
-`iter'.«end».val − iter'.start.val`) to give the full loop postcondition.
+`iter'.end.val − iter'.start.val`) to give the full loop postcondition.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 636:12-658:13)
 -/
@@ -83,7 +83,7 @@ the output array of interpolating polynomials.
   already satisfy the interpolation invariant.
 
 • **Loop postcondition**:
-  - For every `j < iter.«end».val`, the `j`-th polynomial in the output array is the Lagrange
+  - For every `j < iter.end.val`, the `j`-th polynomial in the output array is the Lagrange
     interpolating polynomial through the evaluation points of `pts[j]`:
       `∃ poly len,
           len.val = (pts.val[j]!).value.val.length ∧
@@ -107,7 +107,7 @@ the output array of interpolating polynomials.
     ```
 
 The proof lifts the body spec through `loop.spec_decr_nat` with measure
-`iter'.«end».val − iter'.start.val`, maintaining the Lagrange-interpolation invariant.
+`iter'.end.val − iter'.start.val`, maintaining the Lagrange-interpolation invariant.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 636:12-658:13)
 -/
@@ -116,55 +116,43 @@ theorem loop_spec
     (pts : Array encoding.polynomial.Point 16#usize)
     (iter : core.ops.range.Range Std.Usize)
     (polys : Array encoding.polynomial.Poly 16#usize)
-    (h_end_le_16 : iter.«end».val ≤ 16)
-    (h_start_le : iter.start.val ≤ iter.«end».val)
+    (h_end_le_16 : iter.end.val ≤ 16)
+    (h_start_le : iter.start.val ≤ iter.end.val)
     (h_admissible : ∀ (j : Nat), j < 16 →
         let len := (pts.val[j]!).value.val.length
         len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
         len = 30 ∨ len = 34 ∨ len = 36)
     (h_pre : ∀ (j : Nat), j < iter.start.val →
-        ∃ (poly : encoding.polynomial.Poly) (len : Usize),
-          len.val = (pts.val[j]!).value.val.length ∧
-          polys.val[j]! = poly ∧
-          (poly.toGF216Poly =
-            ∑ k ∈ Finset.range
-                (pts.val[j]!).value.val.length,
-              C (((pts.val[j]!).value.val[k]!).toGF216) *
-                scaledLagrangeBasis len k)) :
+        polys.val[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts.val[j]!).value.val.length,
+            C (((pts.val[j]!).value.val[k]!).toGF216) *
+              scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[j]!).value)) k) :
     point_at_loop iter pts polys ⦃ (polys' : Array encoding.polynomial.Poly 16#usize) =>
-      ∀ (j : Nat), j < iter.«end».val →
-        ∃ (poly : encoding.polynomial.Poly) (len : Usize),
-          len.val = (pts.val[j]!).value.val.length ∧
-          polys'.val[j]! = poly ∧
-          (poly.toGF216Poly =
-            ∑ k ∈ Finset.range
-                (pts.val[j]!).value.val.length,
-              C (((pts.val[j]!).value.val[k]!).toGF216) *
-                scaledLagrangeBasis len k) ⦄ := by
+      ∀ (j : Nat), j < iter.end.val →
+        polys'.val[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts.val[j]!).value.val.length,
+            C (((pts.val[j]!).value.val[k]!).toGF216) *
+              scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[j]!).value)) k ⦄ := by
   unfold point_at_loop
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Std.Usize ×
                        Array encoding.polynomial.Poly 16#usize) =>
-                  p.1.«end».val - p.1.start.val)
+                  p.1.end.val - p.1.start.val)
     (inv := fun (p : core.ops.range.Range Std.Usize ×
                      Array encoding.polynomial.Poly 16#usize) =>
         let iter' := p.1
         let polys' := p.2
-        iter'.«end» = iter.«end» ∧
-        iter'.start.val ≤ iter'.«end».val ∧
+        iter'.end = iter.end ∧
+        iter'.start.val ≤ iter'.end.val ∧
         (∀ (j : Nat), j < iter'.start.val →
-          ∃ (poly : encoding.polynomial.Poly) (len : Usize),
-            len.val = (pts.val[j]!).value.val.length ∧
-            polys'.val[j]! = poly ∧
-            (poly.toGF216Poly =
-              ∑ k ∈ Finset.range
-                  (pts.val[j]!).value.val.length,
-                C (((pts.val[j]!).value.val[k]!).toGF216) *
-                  scaledLagrangeBasis len k)))
+          polys'.val[j]!.toGF216Poly =
+            ∑ k ∈ Finset.range
+                (pts.val[j]!).value.val.length,
+              C (((pts.val[j]!).value.val[k]!).toGF216) *
+                scaledLagrangeBasis
+                  (alloc.vec.Vec.len ((pts.val[j]!).value)) k))
   · -- Step: the body preserves the invariant or produces the final result
     rintro ⟨iter', polys'⟩ ⟨h_end', h_start_le', h_pre'⟩
     simp only [] at h_end' h_start_le' h_pre' ⊢
-    have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
+    have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
     have h_body := body_spec pts iter' polys' (by omega) h_admissible
     apply WP.spec_mono h_body
     intro cf h_cf
@@ -176,8 +164,7 @@ theorem loop_spec
       exact fun j hj => h_pre' j (by grind)
     | ControlFlow.cont (iter'', polys'') =>
       simp only [] at h_cf ⊢
-      obtain ⟨h_lt, h_start1, h_end1, poly, h_poly_eq, h_preserve, len,
-              h_len_val, h_sum⟩ := h_cf
+      obtain ⟨h_lt, h_start1, h_end1, h_preserve, h_sum⟩ := h_cf
       constructor
       · -- Invariant is preserved
         refine ⟨by rw [h_end1]; exact h_end',
@@ -185,12 +172,12 @@ theorem loop_spec
                fun j hj => ?_⟩
         by_cases hj_lt : j < iter'.start.val
         · -- Previously processed: j is in the prefix
-          obtain ⟨poly', len', h_len_val', h_eq', h_lp_sum'⟩ := h_pre' j hj_lt
-          exact ⟨poly', len', h_len_val', (h_preserve j (by omega)).trans h_eq', h_lp_sum'⟩
+          rw [h_preserve j (by omega)]
+          exact h_pre' j hj_lt
         · -- Newly processed: j = iter'.start.val
           have hj_eq : j = iter'.start.val := by omega
           subst hj_eq
-          exact ⟨poly, len, h_len_val, h_poly_eq, h_sum⟩
+          exact h_sum
       · -- Measure decreases
         grind
   · -- Initial state satisfies the invariant
