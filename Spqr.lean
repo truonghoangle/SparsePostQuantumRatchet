@@ -36,6 +36,7 @@ import Spqr.Math.Poly.Horner.Eval
 import Spqr.Math.Poly.Identities.Basic
 import Spqr.Math.Poly.Identities.MultXdiff
 import Spqr.Math.Poly.Lagrange.BasisPoly
+import Spqr.Math.Poly.Lagrange.CompletePoints
 import Spqr.Math.Poly.Lagrange.CondProdLinearFactors
 import Spqr.Math.Poly.Lagrange.CountNonSkip
 import Spqr.Math.Poly.Lagrange.DenomProd
@@ -174,12 +175,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPb
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoop2
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody1
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPbLoopBody2
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.NextChunk
