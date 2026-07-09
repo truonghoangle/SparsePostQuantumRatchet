@@ -10826,8 +10826,6 @@ def Version.DISABLED : proto.pq_ratchet.Version := proto.pq_ratchet.Version.V0
 @[global_simps, irreducible]
 def Version.MAX : proto.pq_ratchet.Version := proto.pq_ratchet.Version.V1
 
-/-- [spqr::decode_state::{impl core::ops::function::FnOnce<(prost::error::DecodeError,), spqr::Error> for spqr::decode_state::closure}::call_once]:
-    Source: 'src/lib.rs', lines 480:72-480:94 -/
 def
   decode_state.closure.Insts.CoreOpsFunctionFnOnceTupleDecodeErrorError.call_once
   (c : decode_state.closure) (tupled_args : prost.error.DecodeError) :
