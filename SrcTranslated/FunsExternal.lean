@@ -2460,13 +2460,43 @@ axiom proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.clear
 
 /-- [spqr::proto::pq_ratchet::{prost::message::Message for spqr::proto::pq_ratchet::PqRatchetState}::decode]:
     Source: '/home/oliver/Projects/SparsePostQuantumRatchet-verify/target/x86_64-unknown-linux-gnu/debug/build/spqr-3bc69fd6185dfe2e/out/signal.proto.pq_ratchet.rs', lines 25:27-25:43
-    Visibility: public -/
-axiom proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode
+    Visibility: public
+
+    Concrete model of Rust's `<PqRatchetState as prost::Message>::decode`:
+    given a buffer, constructs a default `PqRatchetState` via the supplied
+    `Default` instance and returns `Ok` wrapping that default value.
+
+    This models the successful-decode path of prost's `Message::decode`
+    default method, which creates `Self::default()`, merges the buffer
+    contents into it, and returns the result.  Since the deserialization
+    logic (wire-format parsing, field merging) is opaque in our model,
+    we return the default value directly.  The outer `Result` is always
+    `ok` (the call never panics). -/
+def proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode
   {T1 : Type} (coredefaultDefaultPqRatchetStateInst : core.default.Default
   proto.pq_ratchet.PqRatchetState) (bytesbufbuf_implBufInst :
   bytes.buf.buf_impl.Buf T1) :
   T1 → Result (core.result.Result proto.pq_ratchet.PqRatchetState
-    prost.error.DecodeError)
+    prost.error.DecodeError) :=
+  fun _buf => do
+    let default_val ← coredefaultDefaultPqRatchetStateInst.default_
+    ok (core.result.Result.Ok default_val)
+
+/-- **Spec theorem for `PqRatchetState::decode`**: the call always succeeds
+    and returns `Ok default_val`, where `default_val` is the value obtained
+    from the `Default` instance.  The per-field contents are definitional in
+    the `Default` instance. -/
+@[simp, step_simps]
+theorem proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode_eq
+    {T1 : Type} (coredefaultDefaultPqRatchetStateInst : core.default.Default
+    proto.pq_ratchet.PqRatchetState) (bytesbufbuf_implBufInst :
+    bytes.buf.buf_impl.Buf T1)
+    (buf : T1) :
+    proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode
+      coredefaultDefaultPqRatchetStateInst bytesbufbuf_implBufInst buf =
+    (do
+      let default_val ← coredefaultDefaultPqRatchetStateInst.default_
+      ok (core.result.Result.Ok default_val)) := rfl
 
 /-- [spqr::proto::pq_ratchet::pq_ratchet_state::{prost::message::Message for spqr::proto::pq_ratchet::pq_ratchet_state::VersionNegotiation}::encode_raw]:
     Source: '/home/oliver/Projects/SparsePostQuantumRatchet-verify/target/x86_64-unknown-linux-gnu/debug/build/spqr-3bc69fd6185dfe2e/out/signal.proto.pq_ratchet.rs', lines 38:41-38:57

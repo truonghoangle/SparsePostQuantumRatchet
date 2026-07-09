@@ -16,10 +16,12 @@ several trait implementations (`Debug`, `Display`, `Error`) are
 explicitly excluded from Charon extraction due to Aeneas limitations
 (see Section 2).
 
-No Lean specification tree currently exists for the `lib.rs` layer.
-Spec files would need to be created under a new directory (e.g.
-`Spqr/Specs/Lib/` or `Spqr/Specs/TopLevel/`). The lib module sits at
-the top of the dependency hierarchy and transitively depends on:
+A Lean specification tree now exists under
+[`Spqr/Specs/Lib/`](../../Spqr/Specs/Lib/) with **5 spec files** covering
+`init_inner` (fully proved), `initial_state` (partially proved with
+residual `sorry`), trusted axioms, ratchet definitions, and the forward
+secrecy base case. The lib module sits at the top of the dependency
+hierarchy and transitively depends on:
 
 - **Encoding** — [`Spqr/Specs/Encoding/`](../../Spqr/Specs/Encoding/)
   (polynomial, GF(2¹⁶), round-robin; see [`Plan_poly`](Plan_poly)
@@ -57,18 +59,28 @@ are:
 
 ### 0a. Files
 
-No mathematical foundation files exist for `lib.rs`. The module's
-semantic properties rest on the composition of verified lower layers:
+The specification tree under `Spqr/Specs/Lib/` contains:
+
+| File | Purpose | Status |
+|------|---------|--------|
+| [`Axioms.lean`](../../Spqr/Specs/Lib/Axioms.lean) | Trusted cryptographic & serialization axioms (HKDF, protobuf) | 4 axioms declared |
+| [`RatchetDefs.lean`](../../Spqr/Specs/Lib/RatchetDefs.lean) | Explicit HKDF building blocks, ratchet step/chain definitions | Definitions only |
+| [`InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean) | `init_inner_spec` theorem | ✅ Fully proved |
+| [`InitialState.lean`](../../Spqr/Specs/Lib/InitialState.lean) | `initial_state_spec` theorem + 9 auxiliary lemmas | ⚠️ 5 `sorry` |
+| [`InitialState/ForwardSecrecy.lean`](../../Spqr/Specs/Lib/InitialState/ForwardSecrecy.lean) | `initial_state_ratchet_base_case` theorem | ✅ Fully proved |
+
+The module's semantic properties rest on the composition of verified
+lower layers:
 
 | Dependency Layer | Foundation Location | Status |
 |------------------|---------------------|--------|
 | GF(2¹⁶) field arithmetic | [`Spqr/Math/Gf16/`](../../Spqr/Math/Gf16/) | Fully proved (see [`Plan_gf`](Plan_gf)) |
 | Polynomial algebra | [`Spqr/Math/Poly/`](../../Spqr/Math/Poly/) | Fully proved (see [`Plan_poly`](Plan_poly)) |
-| HMAC authenticator | [`Spqr/Aux/LibcruxHmac/`](../../Spqr/Aux/LibcruxHmac/) | Partial (see [`HMAC_authenticator.md`](HMAC_authenticator.md)) |
+| HMAC authenticator | [`Spqr/Aux/LibcruxHmac/`](../../Spqr/Aux/LibcruxHmac/) + [`Spqr/Specs/Authenticator/`](../../Spqr/Specs/Authenticator/) | Partial (see [`HMAC_authenticator.md`](HMAC_authenticator.md)) |
 | Protobuf `Message` instances | `SrcTranslated/Funs.lean` (prost-generated) | `sorry`'d by `aeneas-config.yml` tweaks |
 | Chain management | `src/chain.rs` | Not yet verified |
 | KDF (HKDF) | `src/kdf.rs` | `hkdf_to_slice` declared opaque |
-| V1 state machine | `src/v1/` | Not yet verified |
+| V1 state machine | `src/v1/` + [`Spqr/Specs/V1/`](../../Spqr/Specs/V1/) | Partial (`init_a`, `init_b`, `into_pb` specs exist) |
 
 ### 0b. Extracted Definitions
 
@@ -136,6 +148,11 @@ namespaces:
 | `aeneas-config.yml` (line 49) | `decoded_message` — opaque axiom | Not in `lib.rs` but transitively reachable. |
 | `aeneas-config.yml` (line 47) | `potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275` — opaque | Not in `lib.rs` but transitively reachable via V1 states. |
 | `aeneas-config.yml` (lines 45–46) | `hkdf_to_slice` — opaque | Transitively reachable via KDF → Chain. |
+| `Spqr/Specs/Lib/Axioms.lean` | `hkdf_output_length` axiom | Trusted: HKDF output length ≥ requested (RFC 5869 §2.3). |
+| `Spqr/Specs/Lib/Axioms.lean` | `hkdf_domain_separation` axiom | Trusted: distinct info → distinct HKDF outputs (PRF assumption). |
+| `Spqr/Specs/Lib/Axioms.lean` | `protobuf_encode_to_vec_ok` axiom | Trusted: `encode_to_vec` always succeeds (prost guarantee). |
+| `Spqr/Specs/Lib/Axioms.lean` | `protobuf_encode_decode_roundtrip` axiom | Trusted: encode then decode = identity (protobuf v3 determinism). |
+| `Spqr/Specs/Lib/InitialState.lean` | 5 `sorry` in spec/lemma proofs | See §0g below. |
 
 ### 0f. Statistics Summary
 
@@ -147,10 +164,27 @@ namespaces:
 | Functions extracted into `Funs.lean` (with bodies) | 20 |
 | Functions excluded by Charon config | 1 (`From<serialize::Error> for Error`) |
 | Functions with FunsExternal axiom alternatives | 3 (`initial_state`, `send`, `recv`) |
-| Existing spec files for lib layer | **0** |
-| `sorry` instances directly in lib extraction | **0** (but protobuf dependencies are sorry'd) |
+| Existing spec files for lib layer | **5** (`Axioms.lean`, `RatchetDefs.lean`, `InitInner.lean`, `InitialState.lean`, `InitialState/ForwardSecrecy.lean`) |
+| Theorems/lemmas fully proved (no `sorry`) | **9** (`init_inner_spec`, `initial_state_determinism`, `initial_state_v1_a2b_properties`, `initial_state_v1_b2a_properties`, `initial_state_v1_domain_sep`, `initial_state_v1_protobuf_construction`, `initial_state_v1_structural_completeness_a2b`, `initial_state_v1_structural_completeness_b2a`, `initial_state_ratchet_base_case`) |
+| Theorems/lemmas with residual `sorry` | **3** (`initial_state_spec`, `initial_state_totality`, `initial_state_v0_empty`) |
+| Total `sorry` instances in lib spec proofs | **5** |
+| Trusted axioms declared in `Axioms.lean` | **4** |
+| Definitions in `RatchetDefs.lean` | **9** (`PROTOCOL_LABEL`, `ZERO_SALT`, `ratchet_ikm`, `ratchet_info`, `AuthenticatorState`, `ratchet_step_explicit`, `initial_ratchet_step`, `ratchet_step_operational`, `ratchet_chain_valid`) |
+| Functions with ✅ verified spec | **1** (`init_inner`) |
+| Functions with ⚠️ partial spec | **1** (`initial_state`) |
+| Functions with ❌ no spec | **17** |
 | Axioms declared for lib functions | **0** (but 3 alternative axioms in FunsExternal) |
 | Transitive opaque dependencies | 3 (`hkdf_to_slice`, `decoded_message`, `potentially_fix_state…`) |
+
+### 0g. Residual `sorry` Detail
+
+The 5 `sorry` instances in `InitialState.lean` are distributed as follows:
+
+| Lemma/Theorem | `sorry` Count | Branches | Notes |
+|---------------|---------------|----------|-------|
+| `initial_state_totality` | 2 | V0, V1 | Needs to show `Result.Ok` wrapper around `empty_state` (V0) and `encode_to_vec` (V1). |
+| `initial_state_v0_empty` | 1 | — | Needs to unfold `empty_state` and match with `initial_state` V0 branch. |
+| `initial_state_spec` | 2 | V0, V1 | Main spec theorem; V0 branch needs `empty_state` unfolding, V1 branch needs protobuf encode witness. |
 
 ---
 
@@ -207,11 +241,11 @@ exists but contains `sorry`, ❌ = not yet verified (no spec file),
 | # | Rust Name | Lean Name | Spec File | Status |
 |---|-----------|-----------|-----------|--------|
 | F11 | `empty_state` | `empty_state` | — | ❌ |
-| F12 | `initial_state` | `initial_state` | — | ❌ |
+| F12 | `initial_state` | `initial_state` | [`InitialState.lean`](../../Spqr/Specs/Lib/InitialState.lean) | ⚠️ `sorry` (5) |
 | F13 | `send` | `send` | — | ❌ |
 | F14 | `current_version` | `current_version` | — | ❌ |
 | F15 | `recv` | `recv` | — | ❌ |
-| F16 | `init_inner` | `init_inner` | — | ❌ |
+| F16 | `init_inner` | `init_inner` | [`InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean) | ✅ |
 | F17 | `chain_from_version_negotiation` | `chain_from_version_negotiation` | — | ❌ |
 | F18 | `chain_from` | `chain_from` | — | ❌ |
 | F19 | `state_version` | `state_version` | — | ❌ |
@@ -285,6 +319,9 @@ and their instance bodies are sorry'd (lines 86–87). This means:
   as trusted axioms.
 - The protobuf layer is generated by `prost` and is outside the scope of
   the hand-written Rust source being verified.
+- **New**: The `protobuf_encode_to_vec_ok` and `protobuf_encode_decode_roundtrip`
+  axioms in [`Axioms.lean`](../../Spqr/Specs/Lib/Axioms.lean) now provide
+  the trusted bridge for these operations.
 
 ### 2e. Functions with FunsExternal Axiom Alternatives
 
@@ -355,6 +392,12 @@ simplified type signatures for downstream specification work:
   auth_key, chain_params }`. For `V0` returns `empty_state()`;
   for `V1+` builds a protobuf state with version negotiation metadata
   and calls `init_inner` for the inner V1 state.
+  **Spec status**: ⚠️ — `initial_state_spec` theorem exists in
+  [`InitialState.lean`](../../Spqr/Specs/Lib/InitialState.lean) with
+  2 residual `sorry` (V0 and V1 branches). Nine auxiliary lemmas provide
+  partial coverage (7 fully proved, 2 with `sorry`). The forward secrecy
+  base case is proved in
+  [`ForwardSecrecy.lean`](../../Spqr/Specs/Lib/InitialState/ForwardSecrecy.lean).
 - **`send(state, rng)`** [F13] — Deserializes the state, produces a
   message via the V1 state machine (`States::from_pb → send`), manages
   the key chain (adding epoch secrets, requesting send keys),
@@ -374,6 +417,10 @@ simplified type signatures for downstream specification work:
   the V1 state machine (`States::init_a` or `States::init_b`
   depending on direction) and serializes to protobuf. Returns `None`
   for `V0`.
+  **Spec status**: ✅ — `init_inner_spec` theorem fully proved in
+  [`InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean). Covers
+  variant preservation, structural completeness, epoch initialization
+  (`epoch = 1`), and explicit HKDF derivation (`initial_ratchet_step`).
 - **`chain_from_version_negotiation(vn)`** [F17] — Constructs a new
   `Chain` from version negotiation metadata (auth key, direction,
   chain params).
@@ -405,6 +452,61 @@ simplified type signatures for downstream specification work:
 
 ---
 
+## 3a. Spec File Detailed Inventory
+
+### `Axioms.lean` — Trusted Axioms
+
+| Axiom | Type Signature (abbreviated) | Justification |
+|-------|------------------------------|---------------|
+| `hkdf_output_length` | `hkdf_to_vec … len = ok output → output.length ≥ len.val` | RFC 5869 §2.3: HKDF-Expand produces ≤ 255·HashLen bytes. |
+| `hkdf_domain_separation` | `info₁ ≠ info₂ → len > 0 → hkdf out₁ → hkdf out₂ → out₁ ≠ out₂` | PRF assumption on HMAC-SHA256; complements ProVerif model. |
+| `protobuf_encode_to_vec_ok` | `∀ pb, ∃ v, encode_to_vec pb = ok v` | prost `encode_to_vec` is infallible for valid messages. |
+| `protobuf_encode_decode_roundtrip` | `encode_to_vec pb = ok v → decode_state v = ok (Ok pb)` | Protocol Buffers v3 deterministic serialization. |
+
+### `RatchetDefs.lean` — Definitions
+
+| Definition | Purpose |
+|------------|---------|
+| `PROTOCOL_LABEL` | 45-byte UTF-8 domain-separation string. |
+| `ZERO_SALT` | 32-byte zero salt for HKDF. |
+| `ratchet_ikm` | `root_key ++ k` — IKM construction. |
+| `ratchet_info` | `PROTOCOL_LABEL ++ ep_be_bytes` — info string. |
+| `AuthenticatorState` | Snapshot record: `root_key`, `mac_key`, `epoch`. |
+| `ratchet_step_explicit` | Explicit HKDF-based ratchet step predicate. |
+| `initial_ratchet_step` | Initialization predicate (zero state + auth_key). |
+| `ratchet_step_operational` | Link to Aeneas-extracted `Authenticator.update`. |
+| `ratchet_chain_valid` | Chain validity predicate (consecutive explicit steps). |
+
+### `InitInner.lean` — `init_inner_spec`
+
+| Theorem | Status | Postconditions |
+|---------|--------|----------------|
+| `bind_eq_ok` (private) | ✅ | Utility: monadic bind decomposition. |
+| `init_inner_spec` | ✅ | V0 → `none`; V1/A2B → `KeysUnsampled` with epoch=1 + `initial_ratchet_step` + structural completeness; V1/B2A → `NoHeaderReceived` with epoch=1 + `initial_ratchet_step` + structural completeness. |
+
+### `InitialState.lean` — `initial_state_spec` + Auxiliary Lemmas
+
+| Lemma/Theorem | Status | Property |
+|---------------|--------|----------|
+| `initial_state_totality` | ⚠️ (2 sorry) | §2.1: `initial_state` always returns `Ok`. |
+| `initial_state_determinism` | ✅ | §2.2: Same params → same result (by `rfl`). |
+| `initial_state_v0_empty` | ⚠️ (1 sorry) | §2.3+§4.1: V0 produces empty state, no secrets. |
+| `initial_state_v1_a2b_properties` | ✅ | §3.1+§3.3+§4.2+§4.5: A2B yields `KeysUnsampled`, epoch=1, HKDF derivation. |
+| `initial_state_v1_b2a_properties` | ✅ | §3.1+§3.3+§4.2+§4.5: B2A yields `NoHeaderReceived`, epoch=1, HKDF derivation. |
+| `initial_state_v1_domain_sep` | ✅ | §3.2: Domain separation via `hkdf_domain_separation` axiom. |
+| `initial_state_v1_protobuf_construction` | ✅ | §4.3+§4.4: `chain = none`, `version_negotiation` populated (by `rfl`). |
+| `initial_state_v1_structural_completeness_a2b` | ✅ | §5.2: A2B protobuf sub-state has all `Option` fields as `some`. |
+| `initial_state_v1_structural_completeness_b2a` | ✅ | §5.2: B2A protobuf sub-state has all `Option` fields as `some`. |
+| `initial_state_spec` | ⚠️ (2 sorry) | Main spec: V0 → `Ok empty_state`; V1 → `Ok` with protobuf construction witnesses. |
+
+### `InitialState/ForwardSecrecy.lean` — Ratchet Base Case
+
+| Theorem | Status | Property |
+|---------|--------|----------|
+| `initial_state_ratchet_base_case` | ✅ | §4.6+§8.4: `Authenticator.new` satisfies `initial_ratchet_step`. |
+
+---
+
 ## 4. Verification Order (Dependency Table)
 
 The table below lists every function and constant from
@@ -432,11 +534,11 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
 | 14 | F19 | `state_version` | — | (pure match) | ❌ |
 | 15 | F20 | `msg_version` | — | F9 (`try_from`) | ❌ |
 | 16 | F21 | `decode_state` | — | protobuf `Message::decode` (opaque) | ❌ |
-| 17 | F16 | `init_inner` | — | V1 `States::init_a/b`, protobuf (opaque) | ❌ |
+| 17 | F16 | `init_inner` | [`InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean) | V1 `States::init_a/b`, protobuf (opaque) | ✅ |
 | 18 | F17 | `chain_from_version_negotiation` | — | `Chain::new` (chain.rs) | ❌ |
 | 19 | F18 | `chain_from` | — | F17, `Chain::from_pb` (chain.rs) | ❌ |
 | 20 | F14 | `current_version` | — | F21 (`decode_state`), F9 (`try_from`) | ❌ |
-| 21 | F12 | `initial_state` | — | F11, F16, protobuf `encode_to_vec` (opaque) | ❌ |
+| 21 | F12 | `initial_state` | [`InitialState.lean`](../../Spqr/Specs/Lib/InitialState.lean) | F11, F16, protobuf `encode_to_vec` (opaque) | ⚠️ (5 sorry) |
 | 22 | F13 | `send` | — | F21, F17, F18, F19, V1 `States`, `Chain`, protobuf (opaque) | ❌ |
 | 23 | F15 | `recv` | — | F21, F16, F17, F18, F19, F20, V1 `States`, `Chain`, protobuf (opaque) | ❌ |
 | 24 | F22–F33 | `lib_test::*` | — | — | ⏭️ `#[cfg(test)]` |
@@ -464,10 +566,10 @@ Legend (right column): ✅ verified, ⚠️ has a residual `sorry`,
          │          ▼               ▼
          │   current_version(F14)   │
          │                          │
-    init_inner(F16) ◄── V1 States   │
+    init_inner(F16) ✅ ◄── V1 States   │
          │                          │
          ▼                          │
-    initial_state(F12) ◄── protobuf encode (opaque)
+    initial_state(F12) ⚠️ ◄── protobuf encode (opaque), Axioms.lean
                                     │
     chain_from_version_negotiation(F17) ◄── Chain::new
          │                          │
@@ -501,7 +603,7 @@ toolchain. The extraction configuration is in
 | `tweaks` (lines 106–113) | `chain` → `chain'` in `send` | Fixes local variable shadowing `chain.Chain` module namespace. |
 | `tweaks` (lines 116–124) | `chain` → `chain'` in `recv` | Same shadowing fix for `recv`. |
 | `tweaks` (lines 127–129) | `v1` → `v1'` in `recv` | Fixes local variable shadowing `v1.chunked.states` namespace. |
-| `tweaks` (lines 155–156) | `Option.ok_or` type annotation | Fixes `none` type inference; affects `decode_state` → `PolyDecoder::from_pb` path. |
+| `tweaks` (lines 145–146) | `Option.ok_or` type annotation | Fixes `none` type inference; affects `decode_state` → `PolyDecoder::from_pb` path. |
 
 Pre-extraction source diff: [`src-modifications.diff`](../../src-modifications.diff).
 
@@ -524,10 +626,11 @@ functional correctness of the Rust implementation.
 
 | Where | What |
 |-------|------|
-| `aeneas-config.yml` (prost `Message` instances) | All protobuf `encode_to_vec` / `decode` bodies are sorry'd. Blocks full functional verification of F12, F13, F15, F21. |
+| `aeneas-config.yml` (prost `Message` instances) | All protobuf `encode_to_vec` / `decode` bodies are sorry'd. Blocks full functional verification of F12, F13, F15, F21. Mitigated by `protobuf_encode_to_vec_ok` and `protobuf_encode_decode_roundtrip` axioms in `Axioms.lean`. |
 | `aeneas-config.yml` (`BytesBufBuf`) | Protobuf buffer instance sorry'd. Transitively affects decode paths. |
 | `aeneas-config.yml` (`VecDeque IntoIter`) | Iterator instance sorry'd. Affects chain iteration in F13 (`send`). |
 | `FunsExternal.lean` axioms | `initial_state`, `send`, `recv` have axiom alternatives; if the extracted bodies are unusable, these axioms must be trusted. |
+| `Spqr/Specs/Lib/InitialState.lean` | 5 `sorry` in `initial_state_spec` (2), `initial_state_totality` (2), `initial_state_v0_empty` (1). |
 
 ---
 
@@ -539,35 +642,54 @@ Based on the 21 functions + 2 constants + 12 tests in `src/lib.rs`:
   `Version::MAX` are trivial `@[irreducible]` definitions but lack
   spec files.
 - **21 functions** (non-test):
-  - **0 verified** ✅
-  - **0 with residual `sorry`** ⚠️
-  - **19 not yet verified** ❌
-    (F1, F2, F4–F21 — all lack spec files).
+  - **1 verified** ✅ — F16 `init_inner` (`init_inner_spec` in
+    [`InitInner.lean`](../../Spqr/Specs/Lib/InitInner.lean), no `sorry`).
+  - **1 with residual `sorry`** ⚠️ — F12 `initial_state`
+    (`initial_state_spec` in
+    [`InitialState.lean`](../../Spqr/Specs/Lib/InitialState.lean),
+    5 `sorry` across main theorem + auxiliary lemmas; 7 auxiliary lemmas
+    fully proved).
+  - **17 not yet verified** ❌
+    (F1, F2, F4–F11, F13–F15, F17–F21 — all lack spec files).
   - **1 excluded** ⏭️
     (F3 `From<serialize::Error>` — Charon name clash).
-  - **1 excluded by category** — F3 above.
 - **12 test functions**: all ⏭️ (`#[cfg(test)]`, not extracted).
-- **`sorry` instances affecting lib layer**: 0 directly, but all
-  protobuf `Message` instance bodies are sorry'd by `aeneas-config.yml`
-  tweaks, blocking full verification of `initial_state` (F12),
-  `send` (F13), `recv` (F15), and `decode_state` (F21).
+- **Spec infrastructure created**:
+  - [`Axioms.lean`](../../Spqr/Specs/Lib/Axioms.lean) — 4 trusted
+    axioms (2 HKDF, 2 protobuf) bridging opaque dependencies.
+  - [`RatchetDefs.lean`](../../Spqr/Specs/Lib/RatchetDefs.lean) — 9
+    definitions providing explicit HKDF building blocks, ratchet step
+    predicates, and chain validity.
+  - [`InitialState/ForwardSecrecy.lean`](../../Spqr/Specs/Lib/InitialState/ForwardSecrecy.lean) —
+    `initial_state_ratchet_base_case` theorem (✅ proved), establishing
+    the forward secrecy base case.
+- **Theorems/lemmas**: 12 total (9 fully proved ✅, 3 with `sorry` ⚠️).
+- **`sorry` instances affecting lib layer**: 5 in spec proofs
+  (`InitialState.lean`), plus all protobuf `Message` instance bodies
+  sorry'd by `aeneas-config.yml` tweaks (mitigated by `Axioms.lean`).
 - **Axioms used by the lib layer**:
+  - 4 trusted axioms in `Axioms.lean` (`hkdf_output_length`,
+    `hkdf_domain_separation`, `protobuf_encode_to_vec_ok`,
+    `protobuf_encode_decode_roundtrip`).
   - 3 alternative axioms in `FunsExternal.lean` (`initial_state`,
     `send`, `recv`) — provide simplified type signatures.
-  - 0 local bridge axioms in spec files (no spec files exist).
+  - 0 local bridge axioms beyond the above.
 - **Transitive opaque dependencies**: `hkdf_to_slice` (KDF),
   `decoded_message` (polynomial decoder),
   `potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275`
   (incremental ML-KEM).
 - **Verification priority**: The lib module is the top-level
   orchestration layer. Its verification should proceed bottom-up:
-  1. First verify the simpler leaf functions (F1, F5–F11, F19, F20,
-     C1, C2) — these are pure pattern matches or trivial constructors.
-  2. Then verify the error injection impls (F2, F4) and version
-     conversions (F9, F10).
-  3. Then verify state decoding (F21) — requires protobuf axioms.
-  4. Then verify `init_inner` (F16), `chain_from*` (F17–F18),
-     `current_version` (F14), `initial_state` (F12).
+  1. ~~First verify the simpler leaf functions (F1, F5–F11, F19, F20,
+     C1, C2)~~ — these are pure pattern matches or trivial constructors.
+     **Still TODO**.
+  2. ~~Then verify the error injection impls (F2, F4) and version
+     conversions (F9, F10).~~ **Still TODO**.
+  3. ~~Then verify state decoding (F21)~~ — requires protobuf axioms.
+     **Still TODO**, but `Axioms.lean` now provides the axiom bridge.
+  4. **In progress**: `init_inner` (F16) ✅ done; `initial_state` (F12)
+     ⚠️ partially done (close remaining 5 `sorry`);
+     `chain_from*` (F17–F18), `current_version` (F14) still TODO.
   5. Finally verify `send` (F13) and `recv` (F15) — the most complex
      functions, requiring chain management and V1 state machine
      verification as prerequisites.
