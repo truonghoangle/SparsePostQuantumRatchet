@@ -2479,7 +2479,7 @@ def proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode
   T1 → Result (core.result.Result proto.pq_ratchet.PqRatchetState
     prost.error.DecodeError) :=
   fun _buf => do
-    let default_val ← coredefaultDefaultPqRatchetStateInst.default_
+    let default_val ← coredefaultDefaultPqRatchetStateInst.default
     ok (core.result.Result.Ok default_val)
 
 /-- **Spec theorem for `PqRatchetState::decode`**: the call always succeeds
@@ -2495,7 +2495,7 @@ theorem proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode_eq
     proto.pq_ratchet.PqRatchetState.Insts.ProstMessageMessage.decode
       coredefaultDefaultPqRatchetStateInst bytesbufbuf_implBufInst buf =
     (do
-      let default_val ← coredefaultDefaultPqRatchetStateInst.default_
+      let default_val ← coredefaultDefaultPqRatchetStateInst.default
       ok (core.result.Result.Ok default_val)) := rfl
 
 /-- [spqr::proto::pq_ratchet::pq_ratchet_state::{prost::message::Message for spqr::proto::pq_ratchet::pq_ratchet_state::VersionNegotiation}::encode_raw]:
