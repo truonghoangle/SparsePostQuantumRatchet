@@ -143,335 +143,206 @@ theorem into_pb_spec (self : v1.chunked.states.States)
       | .KeysUnsampled state =>
           ∃ ku, v1.chunked.send_ek.serialize.KeysUnsampled.into_pb state = ok ku ∧
                 result.inner_state = some (.KeysUnsampled ku) ∧
-                ∃ uc_inner, ku.uc = some uc_inner
+                match ku.uc with
+                | some uc_inner =>
+                  uc_inner.epoch = state.uc.epoch ∧
+                  match uc_inner.auth with
+                  | some a =>
+                    a.root_key = state.uc.auth.root_key ∧
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False
       | .KeysSampled state =>
           ∃ ks, v1.chunked.send_ek.serialize.KeysSampled.into_pb state = ok ks ∧
                 result.inner_state = some (.KeysSampled ks) ∧
-                (∃ uc_inner, ks.uc = some uc_inner) ∧
-                (∃ pe, ks.sending_hdr = some pe)
+                (match ks.uc with
+                | some hs =>
+                  hs.epoch = state.uc.epoch ∧
+                  hs.ek = state.uc.ek ∧
+                  hs.dk = state.uc.dk ∧
+                  match hs.auth with
+                  | some a =>
+                    a.root_key = state.uc.auth.root_key ∧
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                match ks.sending_hdr with
+                | some pe => pe.idx = state.sending_hdr.idx
+                | none => False
       | .HeaderSent state =>
           ∃ hs, v1.chunked.send_ek.serialize.HeaderSent.into_pb state = ok hs ∧
                 result.inner_state = some (.HeaderSent hs) ∧
-                (∃ uc_inner, hs.uc = some uc_inner) ∧
-                (∃ pe, hs.sending_ek = some pe) ∧
-                (∃ pd, hs.receiving_ct1 = some pd)
+                (match hs.uc with
+                | some es =>
+                  es.epoch = state.uc.epoch ∧
+                  es.dk = state.uc.dk ∧
+                  match es.auth with
+                  | some a =>
+                    a.root_key = state.uc.auth.root_key ∧
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                (match hs.sending_ek with
+                | some pe => pe.idx = state.sending_ek.idx
+                | none => False) ∧
+                match hs.receiving_ct1 with
+                | some pd =>
+                  pd.polys = 16#u32 ∧
+                  pd.is_complete = state.receiving_ct1.is_complete
+                | none => False
       | .Ct1Received state =>
           ∃ cr, v1.chunked.send_ek.serialize.Ct1Received.into_pb state = ok cr ∧
                 result.inner_state = some (.Ct1Received cr) ∧
-                (∃ uc_inner, cr.uc = some uc_inner) ∧
-                (∃ pe, cr.sending_ek = some pe)
+                (match cr.uc with
+                | some escr =>
+                  escr.epoch = state.uc.epoch ∧
+                  escr.dk = state.uc.dk ∧
+                  escr.ct1 = state.uc.ct1 ∧
+                  match escr.auth with
+                  | some a =>
+                    a.root_key = state.uc.auth.root_key ∧
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                match cr.sending_ek with
+                | some pe => pe.idx = state.sending_ek.idx
+                | none => False
       | .EkSentCt1Received state =>
           ∃ escr, v1.chunked.send_ek.serialize.EkSentCt1Received.into_pb state = ok escr ∧
                   result.inner_state = some (.EkSentCt1Received escr) ∧
-                  (∃ uc_inner, escr.uc = some uc_inner) ∧
-                  (∃ pd, escr.receiving_ct2 = some pd)
-      | .NoHeaderReceived state =>
-          ∃ nhr, v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb state = ok nhr ∧
-                 result.inner_state = some (.NoHeaderReceived nhr) ∧
-                 (∃ uc_inner, nhr.uc = some uc_inner) ∧
-                 (∃ pd, nhr.receiving_hdr = some pd)
-      | .HeaderReceived state =>
-          ∃ hr, v1.chunked.send_ct.serialize.HeaderReceived.into_pb state = ok hr ∧
-                result.inner_state = some (.HeaderReceived hr) ∧
-                (∃ uc_inner, hr.uc = some uc_inner) ∧
-                (∃ pd, hr.receiving_ek = some pd)
-      | .Ct1Sampled state =>
-          ∃ cs, v1.chunked.send_ct.serialize.Ct1Sampled.into_pb state = ok cs ∧
-                result.inner_state = some (.Ct1Sampled cs) ∧
-                (∃ uc_inner, cs.uc = some uc_inner) ∧
-                (∃ pe, cs.sending_ct1 = some pe) ∧
-                (∃ pd, cs.receiving_ek = some pd)
-      | .EkReceivedCt1Sampled state =>
-          ∃ ercs, v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb state = ok ercs ∧
-                  result.inner_state = some (.EkReceivedCt1Sampled ercs) ∧
-                  (∃ uc_inner, ercs.uc = some uc_inner) ∧
-                  (∃ pe, ercs.sending_ct1 = some pe)
-      | .Ct1Acknowledged state =>
-          ∃ ca, v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb state = ok ca ∧
-                result.inner_state = some (.Ct1Acknowledged ca) ∧
-                (∃ uc_inner, ca.uc = some uc_inner) ∧
-                (∃ pd, ca.receiving_ek = some pd)
-      | .Ct2Sampled state =>
-          ∃ cs, v1.chunked.send_ct.serialize.Ct2Sampled.into_pb state = ok cs ∧
-                result.inner_state = some (.Ct2Sampled cs) ∧
-                (∃ uc_inner, cs.uc = some uc_inner) ∧
-                (∃ pe, cs.sending_ct2 = some pe) ⦄ := by
-  obtain ⟨r, hr⟩ := h_ok
-  simp only [show into_pb self = ok r from hr, Aeneas.Std.WP.spec_ok]
-  unfold into_pb at hr
-  cases self with
-  | KeysUnsampled state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ek.serialize.KeysUnsampled.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, ha⟩ := bind_eq_ok h
-    simp only [ok.injEq] at ha
-    rw [← ha]; exact ⟨a, rfl⟩
-  | KeysSampled state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ek.serialize.KeysSampled.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | HeaderSent state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ek.serialize.HeaderSent.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    obtain ⟨c, _, h4⟩ := bind_eq_ok h3
-    simp only [ok.injEq] at h4
-    rw [← h4]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩, ⟨c, rfl⟩⟩
-  | Ct1Received state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ek.serialize.Ct1Received.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | EkSentCt1Received state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ek.serialize.EkSentCt1Received.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | NoHeaderReceived state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | HeaderReceived state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.HeaderReceived.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | Ct1Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.Ct1Sampled.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    obtain ⟨c, _, h4⟩ := bind_eq_ok h3
-    simp only [ok.injEq] at h4
-    rw [← h4]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩, ⟨c, rfl⟩⟩
-  | EkReceivedCt1Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | Ct1Acknowledged state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-  | Ct2Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
-    obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
-    simp only [ok.injEq] at hv; subst hv
-    refine ⟨v, hv_ok, rfl, ?_⟩
-    have h := hv_ok
-    unfold v1.chunked.send_ct.serialize.Ct2Sampled.into_pb at h
-    try simp only [Aeneas.Std.bind] at h
-    obtain ⟨a, _, h2⟩ := bind_eq_ok h
-    obtain ⟨b, _, h3⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h3
-    rw [← h3]; exact ⟨⟨a, rfl⟩, ⟨b, rfl⟩⟩
-
-/--
-**Universality spec theorem for `v1.chunked.states.serialize.States.into_pb`**:
-
-Strengthens `into_pb_spec` by composing the sub-state `into_pb_spec` theorems from
-each variant's serialize module to propagate the following **universality properties**
-through the full `States.into_pb` pipeline:
-
-### Universality Property 1 — Epoch Preservation
-  For every variant, the epoch field in the serialized unchunked core equals the epoch
-  in the input state: `uc_inner.epoch = state.uc.epoch`.
-
-### Universality Property 2 — Authenticator Key Preservation
-  For every variant, the authenticator's `root_key` and `mac_key` are faithfully preserved:
-  `uc_inner.auth = some a ∧ a.root_key = state.uc.auth.root_key ∧ a.mac_key = state.uc.auth.mac_key`.
-
-### Universality Property 3 — Variant Preservation (inherited from `into_pb_spec`)
-  The `InnerState` tag in the result matches the `States` tag of the input.
-
-### Universality Property 4 — Structural Completeness (inherited from `into_pb_spec`)
-  All `Option` fields in the sub-state protobuf value are populated (`some`).
-
-These properties establish that the serialization is **faithful**: no protocol-critical
-fields (epoch, authentication keys) are lost or modified during the in-memory to protobuf
-conversion.
-
-**Source**: spqr/src/v1/chunked/states/serialize.rs (lines 12:4-47:5)
--/
-@[step]
-theorem into_pb_university_spec (self : v1.chunked.states.States)
-    (h_ok : ∃ r, into_pb self = ok r) :
-    into_pb self ⦃ (result : proto.pq_ratchet.V1State) =>
-      match self with
-      | .KeysUnsampled state =>
-          ∃ ku, v1.chunked.send_ek.serialize.KeysUnsampled.into_pb state = ok ku ∧
-                result.inner_state = some (.KeysUnsampled ku) ∧
-                (∃ uc_inner, ku.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
-                    a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key)
-      | .KeysSampled state =>
-          ∃ ks, v1.chunked.send_ek.serialize.KeysSampled.into_pb state = ok ks ∧
-                result.inner_state = some (.KeysSampled ks) ∧
-                (∃ uc_inner, ks.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
-                    a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pe, ks.sending_hdr = some pe)
-      | .HeaderSent state =>
-          ∃ hs, v1.chunked.send_ek.serialize.HeaderSent.into_pb state = ok hs ∧
-                result.inner_state = some (.HeaderSent hs) ∧
-                (∃ uc_inner, hs.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
-                    a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pe, hs.sending_ek = some pe) ∧
-                (∃ pd, hs.receiving_ct1 = some pd)
-      | .Ct1Received state =>
-          ∃ cr, v1.chunked.send_ek.serialize.Ct1Received.into_pb state = ok cr ∧
-                result.inner_state = some (.Ct1Received cr) ∧
-                (∃ uc_inner, cr.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
-                    a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pe, cr.sending_ek = some pe)
-      | .EkSentCt1Received state =>
-          ∃ escr, v1.chunked.send_ek.serialize.EkSentCt1Received.into_pb state = ok escr ∧
-                  result.inner_state = some (.EkSentCt1Received escr) ∧
-                  (∃ uc_inner, escr.uc = some uc_inner ∧
-                    uc_inner.epoch = state.uc.epoch ∧
-                    ∃ a, uc_inner.auth = some a ∧
+                  (match escr.uc with
+                  | some escr_inner =>
+                    escr_inner.epoch = state.uc.epoch ∧
+                    escr_inner.dk = state.uc.dk ∧
+                    escr_inner.ct1 = state.uc.ct1 ∧
+                    match escr_inner.auth with
+                    | some a =>
                       a.root_key = state.uc.auth.root_key ∧
-                      a.mac_key = state.uc.auth.mac_key) ∧
-                  (∃ pd, escr.receiving_ct2 = some pd)
+                      a.mac_key = state.uc.auth.mac_key
+                    | none => False
+                  | none => False) ∧
+                  match escr.receiving_ct2 with
+                  | some pd =>
+                    pd.polys = 16#u32 ∧
+                    pd.is_complete = state.receiving_ct2.is_complete
+                  | none => False
       | .NoHeaderReceived state =>
           ∃ nhr, v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb state = ok nhr ∧
                  result.inner_state = some (.NoHeaderReceived nhr) ∧
-                 (∃ uc_inner, nhr.uc = some uc_inner ∧
-                   uc_inner.epoch = state.uc.epoch ∧
-                   ∃ a, uc_inner.auth = some a ∧
+                 (match nhr.uc with
+                 | some nhr_inner =>
+                   nhr_inner.epoch = state.uc.epoch ∧
+                   match nhr_inner.auth with
+                   | some a =>
                      a.root_key = state.uc.auth.root_key ∧
-                     a.mac_key = state.uc.auth.mac_key) ∧
-                 (∃ pd, nhr.receiving_hdr = some pd)
+                     a.mac_key = state.uc.auth.mac_key
+                   | none => False
+                 | none => False) ∧
+                 match nhr.receiving_hdr with
+                 | some pd =>
+                   pd.polys = 16#u32 ∧
+                   pd.is_complete = state.receiving_hdr.is_complete
+                 | none => False
       | .HeaderReceived state =>
           ∃ hr, v1.chunked.send_ct.serialize.HeaderReceived.into_pb state = ok hr ∧
                 result.inner_state = some (.HeaderReceived hr) ∧
-                (∃ uc_inner, hr.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
+                (match hr.uc with
+                | some hr_inner =>
+                  hr_inner.epoch = state.uc.epoch ∧
+                  hr_inner.hdr = state.uc.hdr ∧
+                  match hr_inner.auth with
+                  | some a =>
                     a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pd, hr.receiving_ek = some pd)
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                match hr.receiving_ek with
+                | some pd =>
+                  pd.polys = 16#u32 ∧
+                  pd.is_complete = state.receiving_ek.is_complete
+                | none => False
       | .Ct1Sampled state =>
           ∃ cs, v1.chunked.send_ct.serialize.Ct1Sampled.into_pb state = ok cs ∧
                 result.inner_state = some (.Ct1Sampled cs) ∧
-                (∃ uc_inner, cs.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
+                (match cs.uc with
+                | some cs_inner =>
+                  cs_inner.epoch = state.uc.epoch ∧
+                  cs_inner.hdr = state.uc.hdr ∧
+                  cs_inner.es = state.uc.es ∧
+                  cs_inner.ct1 = state.uc.ct1 ∧
+                  match cs_inner.auth with
+                  | some a =>
                     a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pe, cs.sending_ct1 = some pe) ∧
-                (∃ pd, cs.receiving_ek = some pd)
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                (match cs.sending_ct1 with
+                | some pe => pe.idx = state.sending_ct1.idx
+                | none => False) ∧
+                match cs.receiving_ek with
+                | some pd =>
+                  pd.polys = 16#u32 ∧
+                  pd.is_complete = state.receiving_ek.is_complete
+                | none => False
       | .EkReceivedCt1Sampled state =>
           ∃ ercs, v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb state = ok ercs ∧
                   result.inner_state = some (.EkReceivedCt1Sampled ercs) ∧
-                  (∃ uc_inner, ercs.uc = some uc_inner ∧
-                    uc_inner.epoch = state.uc.epoch ∧
-                    ∃ a, uc_inner.auth = some a ∧
+                  (match ercs.uc with
+                  | some cser =>
+                    cser.epoch = state.uc.epoch ∧
+                    cser.es = state.uc.es ∧
+                    cser.ek = state.uc.ek ∧
+                    cser.ct1 = state.uc.ct1 ∧
+                    match cser.auth with
+                    | some a =>
                       a.root_key = state.uc.auth.root_key ∧
-                      a.mac_key = state.uc.auth.mac_key) ∧
-                  (∃ pe, ercs.sending_ct1 = some pe)
+                      a.mac_key = state.uc.auth.mac_key
+                    | none => False
+                  | none => False) ∧
+                  match ercs.sending_ct1 with
+                  | some pe => pe.idx = state.sending_ct1.idx
+                  | none => False
       | .Ct1Acknowledged state =>
           ∃ ca, v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb state = ok ca ∧
                 result.inner_state = some (.Ct1Acknowledged ca) ∧
-                (∃ uc_inner, ca.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
+                (match ca.uc with
+                | some cs_inner =>
+                  cs_inner.epoch = state.uc.epoch ∧
+                  cs_inner.hdr = state.uc.hdr ∧
+                  cs_inner.es = state.uc.es ∧
+                  cs_inner.ct1 = state.uc.ct1 ∧
+                  match cs_inner.auth with
+                  | some a =>
                     a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pd, ca.receiving_ek = some pd)
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                match ca.receiving_ek with
+                | some pd =>
+                  pd.polys = 16#u32 ∧
+                  pd.is_complete = state.receiving_ek.is_complete
+                | none => False
       | .Ct2Sampled state =>
           ∃ cs, v1.chunked.send_ct.serialize.Ct2Sampled.into_pb state = ok cs ∧
                 result.inner_state = some (.Ct2Sampled cs) ∧
-                (∃ uc_inner, cs.uc = some uc_inner ∧
-                  uc_inner.epoch = state.uc.epoch ∧
-                  ∃ a, uc_inner.auth = some a ∧
+                (match cs.uc with
+                | some cs_inner =>
+                  cs_inner.epoch = state.uc.epoch ∧
+                  match cs_inner.auth with
+                  | some a =>
                     a.root_key = state.uc.auth.root_key ∧
-                    a.mac_key = state.uc.auth.mac_key) ∧
-                (∃ pe, cs.sending_ct2 = some pe) ⦄ := by
+                    a.mac_key = state.uc.auth.mac_key
+                  | none => False
+                | none => False) ∧
+                match cs.sending_ct2 with
+                | some pe => pe.idx = state.sending_ct2.idx
+                | none => False ⦄ := by
   obtain ⟨r, hr⟩ := h_ok
   simp only [show into_pb self = ok r from hr, Aeneas.Std.WP.spec_ok]
   unfold into_pb at hr
   cases self with
   | KeysUnsampled state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
@@ -485,11 +356,11 @@ theorem into_pb_university_spec (self : v1.chunked.states.States)
     obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
     simp only [ok.injEq] at huc_fin
     unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
+    simp only [ok.injEq] at hauth_ok
     subst hauth_ok; subst huc_fin; subst huc_eq
-    exact ⟨_, rfl, rfl, _, rfl, rfl, rfl⟩
+    exact ⟨rfl, rfl, rfl⟩
   | KeysSampled state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
@@ -497,197 +368,365 @@ theorem into_pb_university_spec (self : v1.chunked.states.States)
     unfold v1.chunked.send_ek.serialize.KeysSampled.into_pb at h
     try simp only [Aeneas.Std.bind] at h
     obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h_eq⟩ := bind_eq_ok h2
+    obtain ⟨pe_val, hpe_ok, h_eq⟩ := bind_eq_ok h2
     simp only [ok.injEq] at h_eq
+    have h_idx : pe_val.idx = state.sending_hdr.idx := by
+      have hp := hpe_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_hdr.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
     unfold v1.unchunked.send_ek.serialize.HeaderSent.into_pb at huc_ok
     try simp only [Aeneas.Std.bind] at huc_ok
     obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
     simp only [ok.injEq] at huc_fin
     unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
+    simp only [ ok.injEq] at hauth_ok
     subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    exact ⟨⟨rfl, rfl, rfl, rfl, rfl⟩, h_idx⟩
   | HeaderSent state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ek.serialize.HeaderSent.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h3⟩ := bind_eq_ok h2
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h3
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ek.serialize.EkSent.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    obtain ⟨c, hc_ok, h4⟩ := bind_eq_ok h3
+    simp only [ok.injEq] at h4
+    rw [← h4]
+    refine ⟨?_, ?_, ?_⟩
+    · unfold v1.unchunked.send_ek.serialize.EkSent.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl, rfl⟩
+    · have hp := hb_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_ek.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+    · -- receiving_ct1: polys and is_complete from PolyDecoder.into_pb
+      have hd := hc_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | Ct1Received state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ek.serialize.Ct1Received.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ek.serialize.EkSentCt1Received.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · unfold v1.unchunked.send_ek.serialize.EkSentCt1Received.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+    · have hp := hb_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_ek.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
   | EkSentCt1Received state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ek.serialize.EkSentCt1Received.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ek.serialize.EkSentCt1Received.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · unfold v1.unchunked.send_ek.serialize.EkSentCt1Received.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+    · -- receiving_ct2: polys and is_complete from PolyDecoder.into_pb
+      have hd := hb_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | NoHeaderReceived state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only  at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.NoHeaderReceived.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.NoHeaderReceived.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · unfold v1.unchunked.send_ct.serialize.NoHeaderReceived.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl⟩
+    · have hd := hb_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | HeaderReceived state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.HeaderReceived.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.HeaderReceived.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · unfold v1.unchunked.send_ct.serialize.HeaderReceived.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl, rfl⟩
+    · have hd := hb_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | Ct1Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.Ct1Sampled.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h3⟩ := bind_eq_ok h2
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h3
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.Ct1Sent.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_rest⟩ := bind_eq_ok huc_ok
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok
-    try simp only [Aeneas.Std.bind] at huc_rest
-    obtain ⟨ct_vec, _, huc_fin⟩ := bind_eq_ok huc_rest
-    simp only [ok.injEq] at huc_fin
-    subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    obtain ⟨c, hc_ok, h4⟩ := bind_eq_ok h3
+    simp only [ok.injEq] at h4
+    rw [← h4]
+    refine ⟨?_, ?_, ?_⟩
+    · have h_spec := v1.unchunked.send_ct.serialize.Ct1Sent.into_pb_spec state.uc
+      rw [ha_ok] at h_spec
+      simp only [Aeneas.Std.WP.spec_ok] at h_spec
+      exact h_spec
+    · have hp := hb_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_ct1.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+    · have hd := hc_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | EkReceivedCt1Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.EkReceivedCt1Sampled.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.Ct1SentEkReceived.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_rest⟩ := bind_eq_ok huc_ok
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok
-    try simp only [Aeneas.Std.bind] at huc_rest
-    obtain ⟨ct_vec, _, huc_fin⟩ := bind_eq_ok huc_rest
-    simp only [ok.injEq] at huc_fin
-    subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · have h_spec := v1.unchunked.send_ct.serialize.Ct1SentEkReceived.into_pb_spec state.uc
+      rw [ha_ok] at h_spec
+      simp only [Aeneas.Std.WP.spec_ok] at h_spec
+      exact h_spec
+    · have hp := hb_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_ct1.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
   | Ct1Acknowledged state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.Ct1Acknowledged.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pd, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.Ct1Sent.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_rest⟩ := bind_eq_ok huc_ok
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok
-    try simp only [Aeneas.Std.bind] at huc_rest
-    obtain ⟨ct_vec, _, huc_fin⟩ := bind_eq_ok huc_rest
-    simp only [ok.injEq] at huc_fin
-    subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · have h_spec := v1.unchunked.send_ct.serialize.Ct1Sent.into_pb_spec state.uc
+      rw [ha_ok] at h_spec
+      simp only [Aeneas.Std.WP.spec_ok] at h_spec
+      exact h_spec
+    · have hd := hb_ok
+      unfold encoding.polynomial.PolyDecoder.into_pb at hd
+      try simp only at hd
+      obtain ⟨i_val, hi_ok, hd2⟩ := bind_eq_ok hd
+      obtain ⟨s_val, _, hd3⟩ := bind_eq_ok hd2
+      obtain ⟨s1_val, _, hd4⟩ := bind_eq_ok hd3
+      obtain ⟨iter_val, _, hd5⟩ := bind_eq_ok hd4
+      obtain ⟨v1_val, _, hd6⟩ := bind_eq_ok hd5
+      simp only [ok.injEq] at hd6
+      rw [← hd6]
+      exact ⟨rfl, rfl⟩
   | Ct2Sampled state =>
-    simp only [Aeneas.Std.bind] at hr
+    simp only at hr
     obtain ⟨v, hv_ok, hv⟩ := bind_eq_ok hr
     simp only [ok.injEq] at hv; subst hv
     refine ⟨v, hv_ok, rfl, ?_⟩
     have h := hv_ok
     unfold v1.chunked.send_ct.serialize.Ct2Sampled.into_pb at h
     try simp only [Aeneas.Std.bind] at h
-    obtain ⟨uc_val, huc_ok, h2⟩ := bind_eq_ok h
-    obtain ⟨pe, _, h_eq⟩ := bind_eq_ok h2
-    simp only [ok.injEq] at h_eq
-    unfold v1.unchunked.send_ct.serialize.Ct2Sent.into_pb at huc_ok
-    try simp only [Aeneas.Std.bind] at huc_ok
-    obtain ⟨auth_val, hauth_ok, huc_fin⟩ := bind_eq_ok huc_ok
-    simp only [ok.injEq] at huc_fin
-    unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
-    simp only [Bind.bind, Aeneas.Std.bind, ok.injEq] at hauth_ok
-    subst hauth_ok; subst huc_fin; subst h_eq
-    exact ⟨⟨_, rfl, rfl, _, rfl, rfl, rfl⟩, ⟨_, rfl⟩⟩
+    obtain ⟨a, ha_ok, h2⟩ := bind_eq_ok h
+    obtain ⟨b, hb_ok, h3⟩ := bind_eq_ok h2
+    simp only [ok.injEq] at h3
+    rw [← h3]
+    refine ⟨?_, ?_⟩
+    · unfold v1.unchunked.send_ct.serialize.Ct2Sent.into_pb at ha_ok
+      try simp only [Aeneas.Std.bind] at ha_ok
+      obtain ⟨auth_val, hauth_ok, ha_fin⟩ := bind_eq_ok ha_ok
+      simp only [ok.injEq] at ha_fin
+      unfold authenticator.serialize.Authenticator.into_pb at hauth_ok
+      simp only [ok.injEq] at hauth_ok
+      subst hauth_ok; subst ha_fin
+      exact ⟨rfl, rfl, rfl⟩
+    · have hp := hb_ok
+      unfold encoding.polynomial.PolyEncoder.into_pb at hp
+      try simp only [alloc.vec.Vec.with_capacity] at hp
+      cases hs : state.sending_ct2.s with
+      | Points points =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
+      | Polys polys =>
+        simp only [hs] at hp
+        try simp only [Aeneas.Std.bind] at hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        obtain ⟨_, _, hp⟩ := bind_eq_ok hp
+        simp only [ok.injEq] at hp; rw [← hp]
 
 end spqr.v1.chunked.states.serialize.States
