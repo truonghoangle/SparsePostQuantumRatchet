@@ -4,136 +4,291 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBaseLoop0
 import Spqr.Specs.Aeneas.SliceChunksExact
-import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{PolyEncoder}::encode_bytes_base`
+import Spqr.Specs.Encoding.Gf.GF16.New
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — a byte-slice message `msg` is encoded into a
-`PolyEncoder` by distributing its 2-byte chunks round-robin across `NUM_POLYS = 16`
-evaluation-data arrays (`Point` values).
+/-! # Spec theorem for `PolyEncoder::encode_bytes_base`: loop body 0
 
-The function `encode_bytes_base` is the core encoding entry point.  It proceeds in several stages:
-  1. **Input validation** — the message length must be even (`msg.len() % 2 == 0`) and bounded
-     (`msg.len() ≤ (1 << 16) * NUM_POLYS = 1_048_576`).  Violation of either condition returns
-     an `Err` variant (`PolynomialError::MessageLengthEven` or `MessageLengthTooLong`).
-  2. **Point array initialization** — `core::array::from_fn` creates an array of 16 `Point`s,
-     each with an empty value vector pre-allocated with capacity `msg.len() / 2`.
-  3. **Round-robin distribution** — iterating over `msg.chunks_exact(2).enumerate()`, each pair of
-     consecutive bytes `(c[0], c[1])` is decoded as a big-endian 16-bit value and converted to a
-     GF(2¹⁶) element via `GF16::new(((c[0] as u16) << 8) + (c[1] as u16))`.  The resulting element
-     is appended to `pts[i % 16].value`, where `i` is the chunk's enumeration index.
-  4. **Encoder construction** — the result is wrapped in
-     `Ok(PolyEncoder { idx: 0, s: EncoderState::Points(pts) })`.
+Message bytes are distributed round-robin across `NUM_POLYS = 16` `Point` arrays. Each 2-byte
+chunk `(c[0], c[1])` is big-endian decoded to a GF(2¹⁶) element via `GF16::new` and appended to
+`pts[i % 16].value`.
 
-In GF(2¹⁶) (characteristic 2), each 16-bit big-endian value `c[0] * 256 + c[1]` represents a
-polynomial of degree < 16 with coefficients in GF(2), and `GF16::new` packages it as the canonical
-representative in GF(2¹⁶) ≅ GF(2)[X] / (x¹⁶ + x¹² + x³ + x + 1).
+The body calls `next` on `Enumerate<ChunksExact<u8>>`, yielding `(i, c)`, then pushes
+`GF16::new(((c[0] as u16) << 8) + (c[1] as u16))` onto `pts[i % 16].value`.
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 670:4-691:5)
--/
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.math.gf
 
--- Long namespace names are unavoidable for Aeneas-extracted closures.
-set_option linter.style.longLine false
+namespace spqr.encoding.polynomial.PolyEncoder.encode_bytes_base_loop
+
+instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
+
+/-- **Spec theorem for `encode_bytes_base_loop.body`** (nat-level):
+
+Big-endian decode of a 2-byte chunk into GF(2¹⁶), followed by round-robin insertion into `pts`.
+
+  • **done**: `pts' = pts` — iterator exhausted.
+  • **cont**: `g.toGF216 = ((c[0]! * 256) + c[1]!).toGF216` and `g` is pushed onto
+    `pts[i % 16].value`, other entries unchanged. -/
+@[step]
+theorem body_spec
+    (iter : core.iter.adapters.enumerate.Enumerate
+      (core.slice.iter.ChunksExact U8))
+    (pts : Array Point 16#usize)
+    (h_push_ok : ∀ j < 16, (pts[j]!).value.length + 1 ≤ Usize.max)
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.length ≥ 2)
+    (h_count_bound : iter.iter.chunks ≠ [] → iter.count + 1 ≤ Usize.max) :
+    body iter pts ⦃ cf =>
+      match cf with
+      | ControlFlow.done pts' => pts' = pts
+      | ControlFlow.cont (_, pts') =>
+          ∃ (i : Usize) (c : Slice U8) (g : GF16),
+            c.length ≥ 2 ∧
+            g.toGF216 = (256 * c[0]! + c[1]!).toGF216 ∧
+            pts'[i.val % 16]!.value = (pts[i.val % 16]!).value ++ [g] ∧
+            (∀ k, k ≠ i.val % 16 → pts'[k]! = pts[k]!) ⦄ := by
+  unfold body
+  simp only [
+    core.iter.adapters.enumerate.IteratorEnumerate.next,
+    core.slice.iter.IteratorChunksExact.next]
+  split
+  · simp [WP.spec_ok]
+  · rename_i hd tl rest
+    simp only [bind_tc_ok]
+    have h_c_len : hd.val.length ≥ 2 := h_chunks_len hd (by rw [rest]; exact .head _)
+    have h_count_ok : iter.count.val + 1 ≤ Usize.max :=
+      h_count_bound (by rw [rest]; exact List.cons_ne_nil _ _)
+    step*
+    · simp_all
+      grind
+    refine ⟨iter.count, hd, g, ?_, ?_, ?_, ?_⟩
+    · exact h_c_len
+    · conv_lhs =>
+        simp[g_post,i7_post,i4_post1,i6_post, i3_post, i2_post, i5_post]
+      congr
+      · rw[Nat.shiftLeft_eq]
+        simp only [Nat.reducePow]
+        have :(↑(hd)[0] * 256) < U16.size := by scalar_tac
+        have := Nat.mod_eq_of_lt this
+        grind
+      · grind
+    · simp_all
+      grind
+    · intro k hk
+      simp_all
+
+private theorem body_spec_with_iter
+    (iter : core.iter.adapters.enumerate.Enumerate
+      (core.slice.iter.ChunksExact U8))
+    (pts : Array Point 16#usize)
+    (h_push_ok : ∀ (j : Nat), j < 16 → (pts[j]!).value.length + 1 ≤ Usize.max)
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.length ≥ 2)
+    (h_count_bound : iter.iter.chunks ≠ [] → iter.count + 1 ≤ Usize.max) :
+    body iter pts ⦃ cf =>
+      match cf with
+      | ControlFlow.done pts' =>
+          pts' = pts ∧ iter.iter.chunks = []
+      | ControlFlow.cont (iter', pts') =>
+          (∃ hd tl, iter.iter.chunks = hd :: tl ∧ iter'.iter.chunks = tl) ∧
+          iter'.count.val + iter'.iter.chunks.length =
+            iter.count.val + iter.iter.chunks.length ∧
+          ∃ (i : Usize) (c : Slice U8) (g : GF16),
+            c.length ≥ 2 ∧
+            g.toGF216 = (256 * c[0]! + c[1]!).toGF216 ∧
+            pts'.val[i.val % 16]!.value =
+              (pts[i.val % 16]!).value ++ [g] ∧
+            (∀ k, k ≠ i.val % 16 → pts'[k]! = pts[k]!) ⦄ := by
+  unfold body
+  simp only [
+    core.iter.adapters.enumerate.IteratorEnumerate.next,
+    core.slice.iter.IteratorChunksExact.next]
+  split
+  · rename_i h_nil
+    simp only [bind_tc_ok, GF16.new_eq, uncurry_apply_pair, ↓existsAndEq, and_true, ge_iff_le,
+      List.getElem!_eq_getElem?_getD, ne_eq, exists_and_left, WP.spec_ok, true_and]
+    exact h_nil
+  · rename_i hd tl rest
+    simp only [bind_tc_ok]
+    have h_c_len : hd.val.length ≥ 2 :=
+      h_chunks_len hd (by rw [rest]; exact .head _)
+    have h_count_ok : iter.count.val + 1 ≤ Usize.max :=
+      h_count_bound (by rw [rest]; exact List.cons_ne_nil _ _)
+    step*
+    · simp_all
+      grind
+    constructor
+    · use hd
+    constructor
+    · simp_all
+      omega
+    · refine ⟨iter.count, hd, g, h_c_len, ?_, ?_, ?_⟩
+      · conv_lhs =>
+          simp[g_post,i7_post,i4_post1,i6_post, i3_post, i2_post, i5_post]
+        congr
+        · rw[Nat.shiftLeft_eq]
+          simp only [Nat.reducePow]
+          have :(↑(hd)[0] * 256) < U16.size := by scalar_tac
+          have := Nat.mod_eq_of_lt this
+          grind
+        · grind
+      · simp_all
+        grind
+      · intro k hk
+        simp_all
+
+/-! # Spec theorem for `PolyEncoder::encode_bytes_base`: loop 0
+
+The loop `encode_bytes_base_loop` iterates over `Enumerate<ChunksExact<u8>>`, performing
+round-robin distribution of big-endian–decoded GF(2¹⁶) elements into 16 `Point` value vectors.
+
+Each step calls `next` to obtain `(i, c)`, computes `poly = i % 16`, decodes
+`g := GF16::new(((c[0] as u16) << 8) + (c[1] as u16))`, and pushes `g` onto `pts[poly].value`.
+
+**Loop invariant**: remaining chunks are valid 2-byte slices, push overflow is safe, each
+point's value list is a prefix of the final list, and every appended element is a valid
+big-endian GF(2¹⁶) decode.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+@[step]
+theorem loop_spec
+    (iter : core.iter.adapters.enumerate.Enumerate
+      (core.slice.iter.ChunksExact U8))
+    (pts : Array Point 16#usize)
+    (h_push_ok : ∀ (j : Nat), j < 16 →
+        (pts[j]!).value.length + iter.iter.chunks.length ≤ Usize.max)
+    (h_chunks_len : ∀ c ∈ iter.iter.chunks, c.length ≥ 2)
+    (h_count_chunks : iter.count + iter.iter.chunks.length ≤ Usize.max) :
+    encode_bytes_base_loop iter pts ⦃ (pts' : Array Point 16#usize) =>
+      (∀ (j : Nat), j < 16 →
+        ∃ (suffix : List GF16),
+          pts'[j]!.value = pts[j]!.value ++ suffix ∧
+          (∀ g ∈ suffix,
+            ∃ (c : Slice U8),
+              c.length ≥ 2 ∧
+              g.toGF216 = (256 * c[0]!+ c[1]!).toGF216)) ⦄ := by
+  unfold encode_bytes_base_loop
+  apply loop.spec_decr_nat
+    (measure := fun (p : core.iter.adapters.enumerate.Enumerate (core.slice.iter.ChunksExact U8) ×
+                  Array Point 16#usize) => p.1.iter.chunks.length)
+    (inv := fun (p : core.iter.adapters.enumerate.Enumerate (core.slice.iter.ChunksExact U8) ×
+                    Array Point 16#usize) =>
+        (∀ c ∈ p.1.iter.chunks, c.length ≥ 2) ∧
+        (∀ (j : Nat), j < 16 → (p.2[j]!).value.length + p.1.iter.chunks.length ≤ Usize.max) ∧
+        (p.1.count + p.1.iter.chunks.length ≤ Usize.max) ∧
+        (∀ (j : Nat), j < 16 →
+          ∃ (suffix : List GF16),
+            p.2[j]!.value = pts[j]!.value ++ suffix ∧
+            (∀ g ∈ suffix,
+              ∃ (c : Slice U8),
+                c.length ≥ 2 ∧
+                g.toGF216 = (256 * c[0]! + c[1]!).toGF216)))
+  · rintro ⟨iter', pts'⟩ ⟨h_chunks', h_push', h_count', h_pre'⟩
+    simp only [] at h_chunks' h_push' h_count' h_pre' ⊢
+    cases h_chunks_cases : iter'.iter.chunks with
+    | nil =>
+      unfold body
+      simp only [
+        core.iter.adapters.enumerate.IteratorEnumerate.next,
+        core.slice.iter.IteratorChunksExact.next,
+        h_chunks_cases]
+      simp only [bind_tc_ok, GF16.new_eq, uncurry_apply_pair,
+        ge_iff_le, List.length_nil, not_lt_zero, and_false, WP.spec_ok]
+      intro j hj
+      simp_all
+    | cons hd₀ tl₀ =>
+      have h_push_one : ∀ (j : Nat), j < 16 →
+          (pts'.val[j]!).value.val.length + 1 ≤ Usize.max := by grind
+      have h_count_ok : iter'.iter.chunks ≠ [] → iter'.count.val + 1 ≤ Usize.max := by grind
+      have h_body := body_spec_with_iter iter' pts' (by grind) h_chunks' h_count_ok
+      apply WP.spec_mono h_body
+      intro cf h_cf
+      match cf with
+      | ControlFlow.done pts'' => grind
+      | ControlFlow.cont (iter'', pts'') =>  grind
+  · exact ⟨h_chunks_len, by grind, h_count_chunks,
+           fun j _ => ⟨[], by simp, fun _ h => absurd h (by grind)⟩⟩
+
+end spqr.encoding.polynomial.PolyEncoder.encode_bytes_base_loop
+
+/-! # Spec theorem for `spqr::encoding::polynomial::{PolyEncoder}::encode_bytes_base`
+
+Encodes a byte-slice message `msg` into a `PolyEncoder` by:
+  1. **Validation** — `msg.len()` must be even and ≤ `2^16 * 16`.
+  2. **Initialization** — `from_fn` creates 16 empty `Point`s.
+  3. **Distribution** — `chunks_exact(2).enumerate()` distributes big-endian–decoded GF(2¹⁶)
+     elements round-robin into `pts[i % 16].value`.
+  4. **Construction** — returns `Ok(PolyEncoder { idx: 0, s: Points(pts) })`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder
 
-/-! ## Helper: the `from_fn` closure returns an empty `Point` -/
-
-/-- The closure inside `encode_bytes_base` (extracted as `call_mut`) always succeeds,
-    returning a `Point` with an empty `value` vector while leaving its captured-message
-    state unchanged. -/
+/-- The `from_fn` closure always succeeds, returning a `Point` with an empty value vector. -/
 private theorem call_mut_ok
-    (c : encoding.polynomial.PolyEncoder.encode_bytes_base.closure) (i : Std.Usize) :
-    encoding.polynomial.PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
+    (c : PolyEncoder.encode_bytes_base.closure) (i : Usize) :
+    PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
       c i = ok (⟨alloc.vec.Vec.new encoding.gf.GF16⟩, c) := by
   unfold
-    encoding.polynomial.PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
+    PolyEncoder.encode_bytes_base.closure.Insts.CoreOpsFunctionFnMutTupleUsizePoint.call_mut
   have h_div : ∃ z, (Slice.len c) / 2#usize = ok z := by
     obtain ⟨z, hz, _⟩ := UScalar.div_spec (Slice.len c) (y := 2#usize) (by decide)
     exact ⟨z, hz⟩
   obtain ⟨z, hz⟩ := h_div
   simp only [hz, bind_tc_ok, alloc.vec.Vec.with_capacity]
 
-/-! ## Helper: any GF16 element is representable as a big-endian byte pair -/
-
-/-- For any GF(2¹⁶) element `g`, there exists a 2-byte slice `c` such that
-    `g.toGF216 = ((c[0] * 256 + c[1]).toGF216)`. This follows from the Euclidean
-    decomposition `g.value.val = (g.value.val / 256) * 256 + (g.value.val % 256)`. -/
-private theorem gf16_representable (g : encoding.gf.GF16) :
-    ∃ (c : Slice Std.U8),
-      c.val.length ≥ 2 ∧
-      g.toGF216 =
-        ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216 := by
+/-- Any GF(2¹⁶) element `g` has a 2-byte slice `c` with
+`g.toGF216 = ((256 * c[0] + c[1]).toGF216)`, via Euclidean division by 256. -/
+private theorem gf16_representable (g : GF16) :
+    ∃ (c : Slice U8),
+      c.length ≥ 2 ∧
+      g.toGF216 = (256 * c[0]! + c[1]!).toGF216 := by
   have hg : g.value.val < 65536 := by scalar_tac
   set hi_n := g.value.val / 256
   set lo_n := g.value.val % 256
   have h_hi : hi_n < 256 := Nat.div_lt_of_lt_mul (by omega)
   have h_lo : lo_n < 256 := Nat.mod_lt _ (by omega)
-  let hi : Std.U8 := ⟨BitVec.ofNat 8 hi_n⟩
-  let lo : Std.U8 := ⟨BitVec.ofNat 8 lo_n⟩
+  let hi : U8 := ⟨BitVec.ofNat 8 hi_n⟩
+  let lo : U8 := ⟨BitVec.ofNat 8 lo_n⟩
   refine ⟨⟨[hi, lo], by scalar_tac⟩, by simp, ?_⟩
-  simp only [List.getElem!_eq_getElem?_getD, List.getElem?_cons_zero,
-    Option.getD_some, List.getElem?_cons_succ]
-  show g.toGF216 = (hi.val * 256 + lo.val).toGF216
+  change g.toGF216 = (256 *hi.val  + lo.val).toGF216
   have h_hi_val : hi.val = hi_n := by
     simp [hi, UScalar.val, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h_hi]
   have h_lo_val : lo.val = lo_n := by
     simp [lo, UScalar.val, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h_lo]
   rw [h_hi_val, h_lo_val]
-  show g.value.val.toGF216 = (hi_n * 256 + lo_n).toGF216
+  change g.value.val.toGF216 = (256 * hi_n + lo_n).toGF216
   congr 1
   omega
 
-/-! ## Spec theorems -/
-
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.encode_bytes_base`** (nat-level):
 
-Round-robin distribution of a byte-slice message into 16 evaluation-data `Point` values in
-GF(2¹⁶), preceded by input validation.  This is the raw numerical version: the postcondition
-expresses the structural facts about the resulting encoder and the big-endian decoding of each
-byte pair.
+For even-length `msg` with `msg.len ≤ 2^16 * 16`, returns a `PolyEncoder` in `Points` state
+with `idx = 0` and every element in `pts[j].value` being a valid big-endian GF(2¹⁶) decode.
 
-Given a message `msg` of even length at most `2^16 * 16 = 1_048_576` bytes, the function
-successfully returns an encoder in the `Points` state with:
+Composes `call_once_spec` (empty points) and `loop_spec` (round-robin distribution).
 
-  • `encoder.idx.val = 0` — the chunk counter starts at zero.
-  • `encoder.s = EncoderState.Points pts` — the encoder holds 16 `Point` value vectors.
-  • For every `j < 16`, every GF(2¹⁶) element `g` in `pts[j].value.val` satisfies:
-      `g.toGF216 = ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216`
-    for some 2-byte chunk `c` from the message.
-
-This follows from composing:
-  1. `call_once_spec` (from `EncodeBytesBase/CallOnce.lean`) — each `from_fn`-produced `Point` has
-     an empty value vector.
-  2. `loop_spec` (from `EncodeBytesBaseLoop0.lean`) — the byte-distribution loop appends valid
-     big-endian–decoded GF(2¹⁶) elements round-robin across the 16 points.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 670:4-691:5)
--/
-theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
-    (h_even : msg.val.length % 2 = 0)
-    (h_len : msg.val.length ≤ 2 ^ 16 * 16) :
+**Source**: spqr/src/encoding/polynomial.rs -/
+@[step]
+theorem encode_bytes_base_spec (msg : Slice U8)
+    (h_even : msg.length % 2 = 0)
+    (h_len : msg.length ≤ 2 ^ 16 * 16) :
     encode_bytes_base msg ⦃ (result : core.result.Result PolyEncoder
         encoding.EncodingError) =>
-      ∃ (pts : Array encoding.polynomial.Point 16#usize),
-        result = core.result.Result.Ok
-          { idx := 0#u32, s := encoding.polynomial.EncoderState.Points pts } ∧
+      match result with
+      | core.result.Result.Ok ⟨idx, EncoderState.Points pts⟩ =>
+        idx = 0#u32 ∧
         (∀ (j : Nat), j < 16 →
-          ∀ g ∈ pts.val[j]!.value.val,
-            ∃ (c : Slice Std.U8),
-              c.val.length ≥ 2 ∧
-              g.toGF216 =
-                ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
+          ∀ g ∈ pts[j]!.value.val,
+            ∃ (c : Slice U8),
+              c.length ≥ 2 ∧
+              g.toGF216 = (256 * c[0]! + c[1]!).toGF216)
+      | _ => False ⦄ := by
   unfold encode_bytes_base
   step*
   case hl =>
     refine core.array.from_fn_loop_const _
-      (⟨alloc.vec.Vec.new encoding.gf.GF16⟩ : encoding.polynomial.Point)
+      (⟨alloc.vec.Vec.new encoding.gf.GF16⟩ : Point)
       call_mut_ok msg 0#usize (16#usize).val ?_
     simp only [show (16#usize).val = 16 from rfl, show (0#usize : Usize).val = 0 from rfl,
       Nat.zero_add]
@@ -157,7 +312,6 @@ theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
       simp only [Usize.max, Usize.numBits]
       cases System.Platform.numBits_eq <;> simp_all
     omega
-  -- "message too long" error branch: contradicts `h_len`.
   · exfalso
     have h_pow : (1 : Nat) <<< 16 = 65536 := by norm_num [Nat.shiftLeft_eq]
     have h_shift : (1 <<< 16) % Usize.size = 65536 := by
@@ -168,83 +322,37 @@ theorem encode_bytes_base_spec_nat (msg : Slice Std.U8)
     have h_i5 : i5.val = 65536 * 16 := by rw [i5_post, i3_post1, i4_post, h_shift]
     have h_gt' : msg.len.val > i5.val := by scalar_tac
     have h_msglen : msg.len.val = (msg.val).length := by scalar_tac
-    omega
-  -- main success branch: distribute the chunks via the loop.
-  · -- The `from_fn` array consists of 16 empty `Point`s, so each value vector is empty.
-    have h_pts_empty : ∀ (j : Nat), j < 16 → pts.val[j]!.value.val = [] := by
+    grind
+  · have h_pts_empty : ∀ (j : Nat), j < 16 → pts.val[j]!.value.val = [] := by
       intro j hj
       rw [pts_post]
       interval_cases j <;> rfl
-    -- Length bound: msg.len fits in `Usize` and is at most `65536 * 16`.
     have h_msglen : msg.len.val = (msg.val).length := by scalar_tac
     have h_len_bound : (msg.val).length ≤ Usize.max := by
       have h_max : (2 : Nat) ^ 16 * 16 ≤ Usize.max := by
         simp only [Usize.max, Usize.numBits]
         cases System.Platform.numBits_eq <;> simp_all
-      omega
-    -- Discharge the `chunks_exact` then `enumerate` then loop.
+      grind
     apply WP.spec_bind (core.slice.Slice.chunks_exact_spec msg 2#usize (by decide))
     intro ce h_ce
     obtain ⟨h_ce_len, h_ce_count, _⟩ := h_ce
     simp only [core.slice.iter.IteratorChunksExact.enumerate, bind_tc_ok]
-    -- After `enumerate`, the iterator has `count = 0` and `iter.iter = ce`.
     apply WP.spec_bind
       (encode_bytes_base_loop.loop_spec
         ({ iter := ce, count := 0#usize } :
-          core.iter.adapters.enumerate.Enumerate (core.slice.iter.ChunksExact Std.U8))
+          core.iter.adapters.enumerate.Enumerate (core.slice.iter.ChunksExact U8))
         pts
-        (by
-          intro j hj
-          simp only [h_pts_empty j hj, List.length_nil, Nat.zero_add]
-          have : ce.chunks.length ≤ (msg.val).length := h_ce_count
-          omega)
-        (by
-          intro c hc
-          have h := h_ce_len c hc
-          rw [show (2#usize).val = 2 from rfl] at h
-          omega)
+        (by grind)
+        (by grind)
         (by
           simp only [show (0#usize : Usize).val = 0 from rfl, Nat.zero_add]
           have : ce.chunks.length ≤ (msg.val).length := h_ce_count
           omega))
     intro pts1 h_pts1
     simp only [WP.spec_ok]
-    -- Build the final witness.
-    refine ⟨pts1, rfl, ?_⟩
+    refine ⟨trivial, ?_⟩
     intro j hj g hg
     obtain ⟨suffix, h_suffix_eq, h_suffix_valid⟩ := h_pts1 j hj
-    rw [h_suffix_eq, h_pts_empty j hj, List.nil_append] at hg
-    exact h_suffix_valid g hg
-
-/--
-For any byte-slice message `msg` of even length bounded by `2^16 * 16`, the result of
-`encode_bytes_base msg` is a valid `PolyEncoder` in the `Points` state, with chunk counter
-initialized to zero and all evaluation data consisting of correctly decoded GF(2¹⁶) elements.
-
-Specializing the canonical isomorphism `BinaryPoly.toGF216 : BinaryPoly →+* GF216` recovers the
-GF(2¹⁶) interpretation: each byte pair `(c[0], c[1])` encodes a field element whose binary
-polynomial representation has `c[0]` in bits 15–8 and `c[1]` in bits 7–0.
-
-Combining with `encode_bytes_base_spec_nat`, this establishes that `encode_bytes_base` correctly
-constructs the initial polynomial-encoding state, distributing message bytes round-robin into 16
-GF(2¹⁶) evaluation-data arrays for subsequent Lagrange interpolation.
--/
-@[step]
-theorem encode_bytes_base_spec
-    (msg : Slice Std.U8)
-    (h_even : msg.val.length % 2 = 0)
-    (h_len : msg.val.length ≤ 2 ^ 16 * 16) :
-    encode_bytes_base msg ⦃ (result : core.result.Result PolyEncoder
-        encoding.EncodingError) =>
-      ∃ (pts : Array encoding.polynomial.Point 16#usize),
-        result = core.result.Result.Ok
-          { idx := 0#u32, s := encoding.polynomial.EncoderState.Points pts } ∧
-        (∀ (j : Nat), j < 16 →
-          ∀ g ∈ pts.val[j]!.value.val,
-            ∃ (c : Slice Std.U8),
-              c.val.length ≥ 2 ∧
-              g.toGF216 =
-                ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
-  exact encode_bytes_base_spec_nat msg h_even h_len
+    grind
 
 end spqr.encoding.polynomial.PolyEncoder
