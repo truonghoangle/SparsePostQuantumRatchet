@@ -13,7 +13,7 @@ constant polynomial `1 : GF216[X]`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
 
-open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
+open Aeneas Aeneas.Std spqr.encoding.gf
 open spqr.encoding.polynomial.PolyConst.lagrange_interpolate_pt_loop
 
 namespace spqr.encoding.polynomial

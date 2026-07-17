@@ -5,9 +5,8 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Encoding.Polynomial.Poly.Zero
-import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
-
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
 /-! # Spec theorem for `PolyEncoder::from_pb`: loop body 0
 
 One step of the outer polynomial-deserialization loop. Advances the range iterator and either:
@@ -63,15 +62,13 @@ theorem body_spec
   · step*
     · simp_all [alloc.vec.Vec.deref]
     · simp_all [alloc.vec.Vec.deref]
-    · split
-      · step*
-        simp_all only [ne_eq, List.length_eq_zero_iff,
+    · simp_all only [ne_eq, List.length_eq_zero_iff,
         not_true_eq_false, reduceCtorEq, false_and, implies_true,
           true_and]
-        have hderef : ∀ (w : alloc.vec.Vec U8), w.deref = w := fun _ => rfl
-        simp [*]
-        grind
-      · simp_all
+      have hderef : ∀ (w : alloc.vec.Vec U8), w.deref = w := fun _ => rfl
+      simp [*]
+      grind
+    · cases r <;> simp_all
   · grind
 
 /-! # Spec theorem for `PolyEncoder::from_pb`: loop 0
@@ -267,9 +264,7 @@ theorem loop_spec
                fun j hj1 hj2 => ?_⟩
         · rw [h_v_eq, getElem?_append_of_lt _ _ (by grind)]
           exact h_prefix' j hj
-        · by_cases hj_lt : j < iter'.start.val
-          · grind
-          · grind
+        · grind
       · omega
   · exact ⟨rfl, le_refl _, h_start_le, by simp, fun _ _ => rfl,
            fun _ h1 h2 => absurd h2 (by simp at h2 ⊢; omega)⟩
@@ -288,8 +283,6 @@ and either:
 **Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyEncoder.from_pb_loop1
-
-instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.from_pb_loop1.body`**:
 
@@ -344,9 +337,9 @@ theorem body_spec
     step*
     · simp only [alloc.vec.Vec.len] at *
       grind
-    · simp  [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len] at *
+    · simp [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len] at *
       · grind
-    · simp_all  [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len]
+    · simp_all [alloc.vec.Vec.with_capacity, alloc.vec.Vec.len]
   · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
     rw [h_opt_eq]
     exact ⟨rfl, h_lt⟩
@@ -409,7 +402,7 @@ theorem loop_spec
     match cf with
     | ControlFlow.done result => grind
     | ControlFlow.cont (iter'', out'') =>
-      simp only [] at h_cf ⊢
+      simp only at h_cf ⊢
       obtain ⟨h_lt, h_start1, h_end1,  h_out_preserve, h_pt_len, h_pt_encode⟩ := h_cf
       constructor
       · refine ⟨by rw [h_end1]; exact h_end',
@@ -418,9 +411,7 @@ theorem loop_spec
         by_cases hj_lt : j < iter'.start.val
         · obtain ⟨pt', h_eq', h_len', h_enc'⟩ := h_pre' j hj_lt
           exact ⟨pt', (h_out_preserve j (by omega)).trans h_eq', h_len', h_enc'⟩
-        · have hj_eq : j = iter'.start.val := by omega
-          subst hj_eq
-          grind
+        · grind
       · grind
   · grind
 
@@ -491,6 +482,7 @@ theorem from_pb_spec_bytes
     · simp_all
   · grind
   · grind
+  all_goals simp_all [List.isEmpty_iff, List.isEmpty_eq_false_iff]
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.from_pb`** (byte-level)
 

@@ -19,3 +19,9 @@ dist/
 
 # MacOS
 .DS_Store
+
+# verification status report
+status.json
+
+# prost-generated code emitted in-tree during extraction builds (--features extraction)
+/generated/

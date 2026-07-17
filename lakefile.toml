@@ -6,13 +6,15 @@ defaultTargets = ["Spqr", "SrcTranslated"]
 autoImplicit = false
 relaxedAutoImplicit = false
 weak.linter.mathlibStandardSet = true
+# https://github.com/Beneficial-AI-Foundation/SparsePostQuantumRatchet-verify/issues/285
+weak.linter.style.header = false
 maxRecDepth = 10000
 
 [[require]]
 name = "aeneas"
 git = "https://github.com/AeneasVerif/aeneas.git"
 subDir = "backends/lean"
-rev = "34d3b272"
+rev = "b059c34a"
 
 [[lean_lib]]
 name = "SrcTranslated"
@@ -20,6 +22,12 @@ name = "SrcTranslated"
 [[lean_lib]]
 name = "Spqr"
 
+[[lean_lib]]
+name = "Utils"
+
+[[lean_exe]]
+name = "status"
+root = "Utils.Status"
 # Test suites: the project-linter `#guard_msgs` tests (`Tests.LinterTest.*`) and the
 # property-based Plausible tests (`Tests.PlausibleTests.*`).  Deliberately NOT in
 # `defaultTargets`, so neither the dummy `@[step]` linter theorems nor the randomized

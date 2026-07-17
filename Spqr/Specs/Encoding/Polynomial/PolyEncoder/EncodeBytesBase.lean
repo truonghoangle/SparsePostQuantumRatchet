@@ -6,6 +6,7 @@ Authors: Hoang Le Truong
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Aeneas.SliceChunksExact
 import Spqr.Specs.Encoding.Gf.GF16.New
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
 
 /-! # Spec theorem for `PolyEncoder::encode_bytes_base`: loop body 0
 
@@ -21,8 +22,6 @@ The body calls `next` on `Enumerate<ChunksExact<u8>>`, yielding `(i, c)`, then p
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.math.gf
 
 namespace spqr.encoding.polynomial.PolyEncoder.encode_bytes_base_loop
-
-instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
 
 /-- **Spec theorem for `encode_bytes_base_loop.body`** (nat-level):
 
@@ -336,7 +335,8 @@ theorem encode_bytes_base_spec (msg : Slice U8)
     apply WP.spec_bind (core.slice.Slice.chunks_exact_spec msg 2#usize (by decide))
     intro ce h_ce
     obtain ⟨h_ce_len, h_ce_count, _⟩ := h_ce
-    simp only [core.slice.iter.IteratorChunksExact.enumerate, bind_tc_ok]
+    simp only [core.iter.traits.iterator.Iterator.enumerate.trait_default,
+      core.iter.traits.iterator.Iterator.enumerate.default, bind_tc_ok]
     apply WP.spec_bind
       (encode_bytes_base_loop.loop_spec
         ({ iter := ce, count := 0#usize } :
@@ -346,8 +346,7 @@ theorem encode_bytes_base_spec (msg : Slice U8)
         (by grind)
         (by
           simp only [show (0#usize : Usize).val = 0 from rfl, Nat.zero_add]
-          have : ce.chunks.length ≤ (msg.val).length := h_ce_count
-          omega))
+          grind))
     intro pts1 h_pts1
     simp only [WP.spec_ok]
     refine ⟨trivial, ?_⟩

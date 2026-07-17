@@ -84,10 +84,11 @@ async function main(): Promise<void> {
   if (!fs.existsSync(llbcPath)) {
     throw new Error(`Failed to generate ${llbcFile}`);
   }
+
   console.log(chalk.green(`  LLBC generated: ${llbcFile}\n`));
 
   // ── Step 2: Aeneas ──────────────────────────────────────────────────
-  console.log(chalk.bold("Step 2: Generating Lean files with Aeneas..."));
+  console.log(chalk.bold("Step 3: Generating Lean files with Aeneas..."));
 
   const aeneasArgs: string[] = [
     "-backend", "lean",
@@ -108,9 +109,9 @@ async function main(): Promise<void> {
 
   console.log(chalk.green(`  Lean files generated in ${config.aeneas_args.dest}/\n`));
 
-  // ── Step 3: Tweaks ──────────────────────────────────────────────────
+  // ── Step 3: Lean file tweaks ──────────────────────────────────────────────────
   if (config.tweaks.substitutions.length > 0 && config.tweaks.files.length > 0) {
-    console.log(chalk.bold("Step 3: Applying tweaks..."));
+    console.log(chalk.bold("Step 4: Applying tweaks to Lean files..."));
 
     const matchedPerFile: Set<number>[] = [];
     for (const file of config.tweaks.files) {
