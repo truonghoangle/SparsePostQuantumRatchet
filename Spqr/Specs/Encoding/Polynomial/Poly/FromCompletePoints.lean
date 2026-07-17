@@ -3,6 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeSum
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_1
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_3
@@ -776,7 +777,8 @@ theorem from_complete_points_spec
     grind
   unfold from_complete_points
   simp only [core.slice.Slice.iter,
-             core.slice.iter.IteratorSliceIter.enumerate, bind_tc_ok]
+             core.iter.traits.iterator.Iterator.enumerate.trait_default,
+             core.iter.traits.iterator.Iterator.enumerate.default, bind_tc_ok]
   exact from_complete_points_loop.loop_spec pts _
     (by simp) (by simp) rfl (by grind) h_pts_len h_len_ok
     (by intro j hj; grind)
@@ -799,7 +801,8 @@ theorem from_complete_points_Not_spec
             (pts.val.get ⟨j, hj⟩).x.value.val ≠ j ⦄ := by
   unfold from_complete_points
   simp only [core.slice.Slice.iter,
-             core.slice.iter.IteratorSliceIter.enumerate, bind_tc_ok]
+             core.iter.traits.iterator.Iterator.enumerate.trait_default,
+             core.iter.traits.iterator.Iterator.enumerate.default, bind_tc_ok]
   unfold from_complete_points_loop
   apply loop.spec_decr_nat
     (measure := fun iter' => pts.val.length - iter'.iter.i)

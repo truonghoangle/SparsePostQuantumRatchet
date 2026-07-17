@@ -49,6 +49,8 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
 
+instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
+
 /-- **Spec theorem for
 `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop.body`**:
 

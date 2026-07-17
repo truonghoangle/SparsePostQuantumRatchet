@@ -40,6 +40,15 @@ interpolation over GF(2¹⁶) ≅ GF(2)[X] / (x¹⁶ + x¹² + x³ + x + 1).
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial
 
+/-! ## Inhabited instance for `SortedSet Pt` slots -/
+
+/--
+`Array (SortedSet Pt) 16#usize` slots need an `Inhabited` default for `List.replicate`
+and the `default` term used in the spec statement.  We borrow the canonical empty vector
+`alloc.vec.Vec.new Pt` as the inhabitant.
+-/
+instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
+
 namespace spqr.encoding.polynomial.PolyDecoder
 
 /-- **Spec theorem for `encoding.polynomial.PolyDecoder.new_with_poly_count`** (nat-level):

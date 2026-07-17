@@ -49,7 +49,7 @@ successfully returns an encoder in the `Points` state with:
   • `encoder.idx.val = 0` — the chunk counter starts at zero.
   • `encoder.s = EncoderState.Points pts` — the encoder holds 16 `Point` value vectors.
   • For every `j < 16`, every GF(2¹⁶) element `g` in `pts[j].value.val` satisfies:
-      `g.toGF216 = ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216`
+      `g.toGF216 = ((c[0]!).val * 256 + (c[1]!).val).toGF216`
     for some 2-byte chunk `c` from the message.
 
 This follows directly from `encode_bytes_base_spec` since `encode_bytes` is a direct delegation
@@ -57,22 +57,23 @@ to `encode_bytes_base`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 730:4-732:5)
 -/
-theorem encode_bytes_spec_nat (msg : Slice Std.U8)
-    (h_even : msg.val.length % 2 = 0)
-    (h_len : msg.val.length ≤ 2 ^ 16 * 16) :
+theorem encode_bytes_spec_nat (msg : Slice U8)
+    (h_even : msg.length % 2 = 0)
+    (h_len : msg.length ≤ 2 ^ 16 * 16) :
     encode_bytes msg ⦃ (result : core.result.Result PolyEncoder
         encoding.EncodingError) =>
-      ∃ (pts : Array encoding.polynomial.Point 16#usize),
-        result = core.result.Result.Ok
-          { idx := 0#u32, s := encoding.polynomial.EncoderState.Points pts } ∧
+      match result with
+      | core.result.Result.Ok ⟨idx, EncoderState.Points pts⟩ =>
+        idx = 0#u32 ∧
         (∀ (j : Nat), j < 16 →
-          ∀ g ∈ pts.val[j]!.value.val,
-            ∃ (c : Slice Std.U8),
-              c.val.length ≥ 2 ∧
-              g.toGF216 =
-                ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
+          ∀ g ∈ pts[j]!.value.val,
+            ∃ (c : Slice U8),
+              c.length ≥ 2 ∧
+              g.toGF216 = (256 * c[0]! + c[1]!).toGF216)
+      | _ => False ⦄ := by
   unfold encode_bytes
   step*
+  exact result_post
 
 /--
 For any byte-slice message `msg` of even length bounded by `2^16 * 16`, the result of
@@ -90,20 +91,20 @@ GF(2¹⁶) evaluation-data arrays for subsequent Lagrange interpolation.
 -/
 @[step]
 theorem encode_bytes_spec
-    (msg : Slice Std.U8)
-    (h_even : msg.val.length % 2 = 0)
-    (h_len : msg.val.length ≤ 2 ^ 16 * 16) :
+    (msg : Slice U8)
+    (h_even : msg.length % 2 = 0)
+    (h_len : msg.length ≤ 2 ^ 16 * 16) :
     encode_bytes msg ⦃ (result : core.result.Result PolyEncoder
         encoding.EncodingError) =>
-      ∃ (pts : Array encoding.polynomial.Point 16#usize),
-        result = core.result.Result.Ok
-          { idx := 0#u32, s := encoding.polynomial.EncoderState.Points pts } ∧
+      match result with
+      | core.result.Result.Ok ⟨idx, EncoderState.Points pts⟩ =>
+        idx = 0#u32 ∧
         (∀ (j : Nat), j < 16 →
-          ∀ g ∈ pts.val[j]!.value.val,
-            ∃ (c : Slice Std.U8),
-              c.val.length ≥ 2 ∧
-              g.toGF216 =
-                ((c.val[0]!).val * 256 + (c.val[1]!).val).toGF216) ⦄ := by
+          ∀ g ∈ pts[j]!.value.val,
+            ∃ (c : Slice U8),
+              c.length ≥ 2 ∧
+              g.toGF216 = (256 * c[0]! + c[1]!).toGF216)
+      | _ => False ⦄ := by
   exact encode_bytes_spec_nat msg h_even h_len
 
 end spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder

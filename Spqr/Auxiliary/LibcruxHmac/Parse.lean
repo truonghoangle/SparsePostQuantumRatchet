@@ -3,7 +3,7 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Aux.LibcruxHmac.Pad
+import Spqr.Auxiliary.LibcruxHmac.Pad
 
 /-!
 # Block parsing and big-endian codecs for SHA-1 / SHA-2

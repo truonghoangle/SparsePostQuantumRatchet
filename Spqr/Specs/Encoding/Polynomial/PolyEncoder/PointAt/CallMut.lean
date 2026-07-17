@@ -92,11 +92,5 @@ theorem call_mut_spec
   obtain ⟨x, y⟩ := tupled_args
   simp only [] at h ⊢
   step*
-  rw [g_post]
-  subst i_post
-  have hval : (UScalar.cast UScalarTy.U16 x).val = x.val := by
-    rw [UScalar.cast_val_eq]
-    exact Nat.mod_eq_of_lt (by omega)
-  grind
 
 end spqr.encoding.polynomial.PolyEncoder.point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt

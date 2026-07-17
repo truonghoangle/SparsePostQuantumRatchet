@@ -1,6 +1,6 @@
 import Aeneas
 import SrcTranslated.Types
-import Spqr.Aux.LibcruxHmac.HmacBytes
+import Spqr.Auxiliary.LibcruxHmac.HmacBytes
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
@@ -2298,6 +2298,28 @@ theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
 
 
 
+
+/-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs'
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new]
+
+    Concrete model of Rust's `SortedSet::new()`: returns an empty `SortedSet`.
+    Since `SortedSet T = SortedVec T = alloc.vec.Vec T`, this is just the
+    empty vector wrapped in `ok`. -/
+@[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
+def sorted_vec.SortedSet.new
+  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+  Result (sorted_vec.SortedSet T) :=
+  ok (alloc.vec.Vec.new T)
+
+/-- **Spec theorem for `sorted_vec.SortedSet.new`**:
+    the call always succeeds and returns the empty set. -/
+@[simp, step_simps]
+theorem sorted_vec.SortedSet.new_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+    sorted_vec.SortedSet.new corecmpOrdInst
+      ⦃ (s : sorted_vec.SortedSet T) => s = alloc.vec.Vec.new T ⦄ := by
+  simp [sorted_vec.SortedSet.new]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::with_capacity]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 351:2-351:49

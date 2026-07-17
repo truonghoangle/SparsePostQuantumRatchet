@@ -242,7 +242,7 @@ theorem loop_spec
               subst h_self'_eq
               simp only [h_polys] at h_match
               exact ⟨g, by grind, h_match.1⟩
-        · dsimp; grind
+        · grind
     · unfold body
       obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
         WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter')

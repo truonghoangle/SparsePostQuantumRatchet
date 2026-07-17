@@ -23,6 +23,22 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf spqr.mat
 
 namespace spqr.encoding.polynomial.PolyEncoder.into_pb_loop0_loop0
 
+/--
+**Big-endian byte-pair identity for `u16`**:
+
+If the 2-byte big-endian encoding of a `u16` value `x` is `[b0, b1]`, then
+`b0.val * 256 + b1.val = x.val`.
+-/
+private lemma toBEBytes_pair (x : U16) (b0 b1 : U8)
+    (h : [b0, b1] = List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes) :
+    256 * b0 + b1 = x.val := by
+  have h0 : b0 = (List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes)[0]! := by rw [← h]; simp
+  have h1 : b1 = (List.map (@UScalar.mk UScalarTy.U8) x.bv.toBEBytes)[1]! := by rw [← h]; simp
+  subst h0 h1
+  simp only [Std.UScalar.val]
+  simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
+  grind
+
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.into_pb_loop0_loop0.body`**:
 
 One step of the inner serialization loop. Retrieves index `i` from the range iterator and either
@@ -58,8 +74,9 @@ theorem body_spec
       match a.val, a.property with | [b0, b1], _ => ⟨b0, b1, rfl⟩
     refine ⟨h_lt, h_start1, h_end1, b0, b1, ?_, ?_⟩
     · simp_all [Array.to_slice]
-    · have e0 : (a[0]!).val = b0.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
-      have e1 : (a[1]!).val = b1.val := by simp [Array.getElem!_Nat_eq, h_a_eq]
+    · have h_be : [b0, b1] = List.map (@UScalar.mk UScalarTy.U8) pt.value.bv.toBEBytes := by
+        have := a_post; rw [h_a_eq] at this; exact this
+      have h_pair := toBEBytes_pair pt.value b0 b1 h_be
       grind
   · grind
 

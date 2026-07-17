@@ -65,9 +65,9 @@ theorem call_mut_spec
     (tupled_args : Usize) :
     call_mut c tupled_args
       ⦃ (result : (sorted_vec.SortedSet Pt) × PolyDecoder.new_with_poly_count.closure) =>
-        result.2 = c ⦄ := by
+      result.2 = c ⦄ := by
   unfold call_mut
-  step*
+  simp [sorted_vec.SortedSet.new]
 
 
 end spqr.encoding.polynomial.PolyDecoder.new_with_poly_count.closure.Insts.CoreOpsFunctionFnMutTupleUsizeSortedSetPt

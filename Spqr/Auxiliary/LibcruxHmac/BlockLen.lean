@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import SrcTranslated.Types
-import Spqr.Aux.LibcruxHmac.HashLen
+import Spqr.Auxiliary.LibcruxHmac.HashLen
 
 /-!
 # Block length of `libcrux_hmac::Algorithm`

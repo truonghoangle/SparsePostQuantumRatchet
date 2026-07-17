@@ -3,9 +3,9 @@ Copyright 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Aux.LibcruxHmac.Word
-import Spqr.Aux.LibcruxHmac.Sha1.Round
-import Spqr.Aux.LibcruxHmac.Sha2.Constants
+import Spqr.Auxiliary.LibcruxHmac.Word
+import Spqr.Auxiliary.LibcruxHmac.Sha1.Round
+import Spqr.Auxiliary.LibcruxHmac.Sha2.Constants
 
 /-!
 # SHA-2 round functions, schedule and compression (FIPS 180-2 §4.1.2–§4.1.3, §6.2–§6.4)

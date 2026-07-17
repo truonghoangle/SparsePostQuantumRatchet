@@ -75,13 +75,12 @@ theorem encode_bytes_spec_generic
   step with h_inner
   cases r with
   | Ok val =>
-    simp only [core.result.Result.Insts.CoreOpsTry_traitTry.branch, bind_tc_ok,
-      WP.spec_ok]
+    simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok, WP.spec_ok]
     exact Or.inl ⟨val, rfl, r_post val rfl⟩
   | Err e =>
-    simp only [core.result.Result.Insts.CoreOpsTry_traitTry.branch, bind_tc_ok,
-      _root_.core.result.Result.Insts.CoreOpsTry_traitFromResidualResultInfallibleE.from_residual_err_spec,
-      core.convert.FromSame.from_, bind_tc_ok, WP.spec_ok]
+    simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from, WP.spec_ok]
     exact Or.inr ⟨e, rfl⟩
 
 

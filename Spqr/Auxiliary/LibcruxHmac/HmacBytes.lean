@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import SrcTranslated.Types
-import Spqr.Aux.LibcruxHmac.HashLen
+import Spqr.Auxiliary.LibcruxHmac.HashLen
 
 /-!
 # Abstract byte-level model of `libcrux_hmac::hmac`
@@ -29,7 +29,7 @@ natural language specs:
   requested `tag_length` when present, and otherwise the digest length
   `Algorithm.hash_len` of the chosen hash algorithm (`Sha1 ↦ 20`,
   `Sha256 ↦ 32`, `Sha384 ↦ 48`, `Sha512 ↦ 64`, cf.
-  `Spqr.Aux.LibcruxHmac.HashLen` and the `libcrux_hmac::Algorithm` enum in
+  `Spqr.Auxiliary.LibcruxHmac.HashLen` and the `libcrux_hmac::Algorithm` enum in
   `SrcTranslated/Types.lean`);
 - `hmac_tag_len_le_max`: the effective tag length always fits in a `usize`,
   which lets us package the modelled tag as an `alloc.vec.Vec U8`

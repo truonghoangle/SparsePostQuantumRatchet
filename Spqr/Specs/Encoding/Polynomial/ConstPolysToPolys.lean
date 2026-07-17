@@ -26,6 +26,38 @@ open spqr.encoding.polynomial spqr.encoding.gf Polynomial
 
 namespace spqr.encoding.polynomial
 
+/-- Axiom: the `Iterator.map.default` + `Iterator.collect.default` pipeline is equivalent to
+    the specialized `Map.Insts.CoreIterTraitsIteratorIterator.collect` applied to `⟨iter, f⟩`.
+
+    This bridges the generated Aeneas code (which uses the generic trait-default
+    `Iterator.map.default` axiom followed by `Iterator.collect.default` with the
+    sorry-based `Map` iterator instance) with the hand-verified specialized collect
+    implementation `Map.Insts.CoreIterTraitsIteratorIterator.collect` that uses
+    `mapIteratorTransformer` (whose `next` is concretely defined).
+
+    The axiom is sound because `Iterator.map.default` in Rust simply constructs
+    `Map { iter, f }`, and collecting via the `Map` iterator instance is
+    equivalent to the specialized collect. -/
+private axiom map_collect_eq
+    {N : Usize}
+    (iter : core.slice.iter.Iter (PolyConst N))
+    (f : const_polys_to_polys.closure N) :
+    (do
+      let m ← core.iter.traits.iterator.Iterator.map.default
+        (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+        (const_polys_to_polys.closure.Insts.CoreOpsFunctionFnMutTupleSharedPolyConstPoly N)
+        iter f
+      core.iter.traits.iterator.Iterator.collect.default
+        (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
+          (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+          (const_polys_to_polys.closure.Insts.CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
+        (core.iter.traits.collect.FromIteratorVec Poly) m)
+    = core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
+        (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
+        (const_polys_to_polys.closure.Insts.CoreOpsFunctionFnMutTupleSharedPolyConstPoly N)
+        (core.iter.traits.collect.FromIteratorVec Poly)
+        ⟨iter, f⟩
+
 /--
 **Spec theorem for `encoding.polynomial.const_polys_to_polys`**:
 
@@ -48,7 +80,10 @@ theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
           result[j].toGF216Poly = listToGF216Poly cps[j].coefficients) ⦄ := by
   unfold const_polys_to_polys
   step*
-  have h := core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec m
+  rw [map_collect_eq]
+  have h := core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec
+    (⟨i, ()⟩ : core.iter.adapters.map.Map (core.slice.iter.Iter (PolyConst N))
+      (const_polys_to_polys.closure N))
   simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_eq] at h
   apply WP.spec_mono h
   intro result ⟨h_len, h_elts⟩
