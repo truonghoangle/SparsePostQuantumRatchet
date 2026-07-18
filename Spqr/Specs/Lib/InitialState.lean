@@ -279,13 +279,16 @@ lemma initial_state_v1_structural_completeness_a2b
             some (proto.pq_ratchet.v1_state.InnerState.KeysUnsampled pb_ku) ∧
           ∃ uc_inner, pb_ku.uc = some uc_inner ⦄ := by
   obtain ⟨r, hr⟩ := h_ok
-  have h := init_inner_university_spec proto.pq_ratchet.Version.V1
+  have h := init_inner_spec proto.pq_ratchet.Version.V1
     proto.pq_ratchet.Direction.A2B auth_key ⟨r, hr⟩ h_key
   simp only [show init_inner proto.pq_ratchet.Version.V1
     proto.pq_ratchet.Direction.A2B auth_key = ok r from hr,
     Aeneas.Std.WP.spec_ok] at h ⊢
-  obtain ⟨s, vs, _, hvs, hresult, _, ⟨pb_ku, h_inner, h_uc⟩⟩ := h
-  exact ⟨vs, hresult, pb_ku, h_inner, h_uc⟩
+  obtain ⟨s, ku, vs, _, _, _, hresult, _, _, pb_ku, h_inner, h_match⟩ := h
+  refine ⟨vs, hresult, pb_ku, h_inner, ?_⟩
+  cases h_uc : pb_ku.uc with
+  | none => simp [h_uc] at h_match
+  | some uc_inner => exact ⟨uc_inner, rfl⟩
 
 /--
 **Property 5.2 — Structural Completeness of B2A Serialized State** [§5.2]
@@ -309,13 +312,19 @@ lemma initial_state_v1_structural_completeness_b2a
           (∃ uc_inner, pb_nhr.uc = some uc_inner) ∧
           (∃ pd, pb_nhr.receiving_hdr = some pd) ⦄ := by
   obtain ⟨r, hr⟩ := h_ok
-  have h := init_inner_university_spec proto.pq_ratchet.Version.V1
+  have h := init_inner_spec proto.pq_ratchet.Version.V1
     proto.pq_ratchet.Direction.B2A auth_key ⟨r, hr⟩ h_key
   simp only [show init_inner proto.pq_ratchet.Version.V1
     proto.pq_ratchet.Direction.B2A auth_key = ok r from hr,
     Aeneas.Std.WP.spec_ok] at h ⊢
-  obtain ⟨s, vs, _, hvs, hresult, _, ⟨pb_nhr, h_inner, h_uc, h_pd⟩⟩ := h
-  exact ⟨vs, hresult, pb_nhr, h_inner, h_uc, h_pd⟩
+  obtain ⟨s, nhr, vs, _, _, _, hresult, _, _, pb_nhr, h_inner, h_uc_match, h_hdr_match⟩ := h
+  refine ⟨vs, hresult, pb_nhr, h_inner, ?_, ?_⟩
+  · cases h_uc : pb_nhr.uc with
+    | none => simp [h_uc] at h_uc_match
+    | some uc_inner => exact ⟨uc_inner, rfl⟩
+  · cases h_hdr : pb_nhr.receiving_hdr with
+    | none => simp [h_hdr] at h_hdr_match
+    | some pd => exact ⟨pd, rfl⟩
 
 /-! ## Spec Theorem -/
 
