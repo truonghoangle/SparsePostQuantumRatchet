@@ -150,6 +150,7 @@ import Spqr.Specs.Encoding.Polynomial.PolyConst.Mult
 import Spqr.Specs.Encoding.Polynomial.PolyConst.MultXdiff
 import Spqr.Specs.Encoding.Polynomial.PolyConst.ToPoly
 import Spqr.Specs.Encoding.Polynomial.PolyConst.ZEROS
+<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunk
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoopBody0
@@ -173,6 +174,8 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoopBody0
+=======
+>>>>>>> 2e54197f1f164cbc1e0c7d7d8465806804a98c5f
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallMut
@@ -180,6 +183,7 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.FromPb
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.GetEncoderState
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.IntoPb
+<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.NextChunk
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallMut
@@ -189,6 +193,8 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.Eq
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
+=======
+>>>>>>> 2e54197f1f164cbc1e0c7d7d8465806804a98c5f
 import Spqr.Specs.Encoding.Polynomial.Pt.Cmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Deserialize
 import Spqr.Specs.Encoding.Polynomial.Pt.Eq
@@ -196,6 +202,7 @@ import Spqr.Specs.Encoding.Polynomial.Pt.PartialCmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.IncrementalMlkem768.FlipEndianness
 import Spqr.Specs.IncrementalMlkem768.Generate
+<<<<<<< HEAD
 import Spqr.Specs.Lib.Axioms
 import Spqr.Specs.Lib.ChainFrom
 import Spqr.Specs.Lib.ChainFromVersionNegotiation
@@ -247,6 +254,9 @@ import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSent.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSentCt1Received.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.HeaderReceived.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.NoHeaderReceived.Clone
+=======
+import Spqr.Specs.Serialize.Error.Clone
+>>>>>>> 2e54197f1f164cbc1e0c7d7d8465806804a98c5f
 import Spqr.Specs.Serialize.Error.Eq
 import Spqr.Specs.Serialize.Error.From
 import Spqr.Specs.Util.Compare
@@ -266,6 +276,7 @@ import Spqr.Specs.V1.Chunked.SendEk.Serialize.HeaderSent.IntoPb
 import Spqr.Specs.V1.Chunked.SendEk.Serialize.KeysSampled.IntoPb
 import Spqr.Specs.V1.Chunked.SendEk.Serialize.KeysUnsampled.IntoPb
 import Spqr.Specs.V1.Chunked.States.Serialize.MAX_VARINT_BYTES_LEN
+<<<<<<< HEAD
 import Spqr.Specs.V1.Chunked.States.Serialize.States.IntoPb
 import Spqr.Specs.V1.Chunked.States.States.InitA
 import Spqr.Specs.V1.Chunked.States.States.InitB
@@ -280,3 +291,7 @@ import Spqr.Specs.V1.Unchunked.SendEk.KeysUnsampled.New
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.EkSent.IntoPb
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.HeaderSent.IntoPb
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.KeysUnsampled.IntoPb
+=======
+import Spqr.Specs.V1.Chunked.States.Serialize.U8.From
+import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.FromPayload
+>>>>>>> 2e54197f1f164cbc1e0c7d7d8465806804a98c5f
