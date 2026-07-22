@@ -2300,7 +2300,7 @@ theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
 
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs'
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 347:2-347:22
     Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::new]
 
     Concrete model of Rust's `SortedSet::new()`: returns an empty `SortedSet`.
@@ -2308,17 +2308,17 @@ theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
     empty vector wrapped in `ok`. -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::new"]
 def sorted_vec.SortedSet.new
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
+  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
   Result (sorted_vec.SortedSet T) :=
   ok (alloc.vec.Vec.new T)
 
 /-- **Spec theorem for `sorted_vec.SortedSet.new`**:
-    the call always succeeds and returns the empty set. -/
+    the call always succeeds and returns the empty set (empty `Vec`). -/
 @[simp, step_simps]
 theorem sorted_vec.SortedSet.new_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-    sorted_vec.SortedSet.new corecmpOrdInst
-      ⦃ (s : sorted_vec.SortedSet T) => s = alloc.vec.Vec.new T ⦄ := by
+    sorted_vec.SortedSet.new corecmpOrdInst ⦃ (s : sorted_vec.SortedSet T) =>
+      s = alloc.vec.Vec.new T ⦄ := by
   simp [sorted_vec.SortedSet.new]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::with_capacity]:
