@@ -5,42 +5,21 @@ Authors: Hoang Le Truong
 -/
 import SrcTranslated.Funs
 
-/-!
-# Spec theorem for `mapIteratorTransformer.next`
+/-! # Spec theorem for `mapIteratorTransformer.next`
 
-In Rust's standard library, `Map<I, F>` is an iterator adapter that lazily applies a mapping
-function `F` to each element yielded by an underlying iterator `I`.  The `mapIteratorTransformer`
-builds an `Iterator I B` instance whose `next` field first calls the underlying `I`'s `next`,
-and on `some item` applies `FnMut.call_mut` to the item using the closure `map.f` to produce a `B`.
+`Map<I, F>` lazily applies `F` to each element of iterator `I`. The `mapIteratorTransformer`
+calls `I.next`, then applies `FnMut.call_mut` with `map.f` on each yielded item.
 
-**Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
--/
+**Source**: core/src/iter/adapters/map.rs -/
 
-open Aeneas Aeneas.Std Result
+open Aeneas
 
 namespace Aeneas.Std.core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
 
-/--
-**Spec theorem for `mapIteratorTransformer.next`** (definitional unfolding):
+/-- **Spec theorem for `mapIteratorTransformer.next`** (definitional unfolding):
 
-• Takes an iterator state `iter : I` and the `mapIteratorTransformer`-constructed iterator
-  instance built from a `Map I F` value `m`, an underlying `Iterator I Clause0_Item` instance,
-  and a `FnMut F Clause0_Item B` instance.
-• Composes the underlying iterator's `next` with `FnMut.call_mut`:
-    - If the underlying iterator yields `none`, the map-transformed iterator yields
-      `(none, iter')` — the underlying iterator is exhausted.
-    - If the underlying iterator yields `some val`, the closure is applied via
-      `FnMut.call_mut m.f val` to produce `(b, _)`, and the map-transformed iterator
-      yields `(some b, iter')` with the updated underlying iterator state.
-
-• The function always produces the same result as inlining the `mapNext` closure from
-  `mapIteratorTransformer`, since `fromNext` stores that closure as the `next` field.
-
-The proof unfolds `mapIteratorTransformer` and `fromNext` to expose the underlying composition
-and discharges with `rfl`.
-
-**Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
--/
+Composes `iterInst.next` with `FnMut.call_mut`: yields `none` when exhausted, or
+`some (f val)` otherwise. -/
 @[simp, step_simps]
 theorem mapIteratorTransformer_next_spec
     {B I F Clause0_Item : Type}
