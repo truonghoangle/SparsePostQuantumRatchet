@@ -51,11 +51,10 @@ import Spqr.Math.Poly.LinearFactors.Degree
 import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Aeneas.CloneFromSlice
 import Spqr.Specs.Aeneas.CloneGF16
-import Spqr.Specs.Aeneas.MapIteratorTransformerNext
-import Spqr.Specs.Aeneas.MapCollect
 import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Aeneas.IntoIteratorSlice
+import Spqr.Specs.Aeneas.MapIteratorTransformerNext
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
 import Spqr.Specs.Aeneas.SliceChunksExact
@@ -115,8 +114,8 @@ import Spqr.Specs.Encoding.Polynomial.Chunk.Fmt
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOne
+import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.MapCollect
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIter
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMap
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
 import Spqr.Specs.Encoding.Polynomial.Decoder.AddChunk
 import Spqr.Specs.Encoding.Polynomial.Decoder.DecodedMessage

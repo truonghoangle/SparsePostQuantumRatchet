@@ -5,7 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Aeneas.MapIteratorTransformerNext
-import Spqr.Specs.Aeneas.MapCollect
+import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.MapCollect
 
 /-!
 # Spec theorem for `core::iter::adapters::map::{Iterator for Map<I, F>}::collect`
