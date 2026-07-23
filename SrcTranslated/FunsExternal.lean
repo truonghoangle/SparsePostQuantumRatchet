@@ -2272,29 +2272,12 @@ axiom sorted_vec.SortedSet.Insts.CoreCloneClone.clone
 
 /-- [sorted_vec::{core::ops::deref::Deref<alloc::vec::Vec<T>> for sorted_vec::SortedVec<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 309:2-309:30
-    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref]
-
-    Concrete model of Rust's `<SortedVec<T> as Deref>::deref`: returns the
-    inner `Vec<T>`.  Since `SortedVec` is an opaque (axiomatised) type we
-    cannot inspect its contents, so we model the result by returning the
-    `default` inhabitant of `alloc.vec.Vec T` (i.e. the empty vector).
-    The outer `Result` is always `ok` (the call never panics). -/
+    Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref] -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref"]
-def sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
+axiom sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
   {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedVec T → Result (alloc.vec.Vec T) :=
-  fun _ => ok (alloc.vec.Vec.new T)
-
-/-- **Spec theorem for `sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref`**:
-    the call always succeeds and returns the empty `Vec T`. -/
-@[simp, step_simps]
-theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
-    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
-    (s : sorted_vec.SortedVec T) :
-    sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref corecmpOrdInst s
-      ⦃ (v : alloc.vec.Vec T) => v = alloc.vec.Vec.new T ⦄ := by
-  simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
+  sorted_vec.SortedVec T → Result (alloc.vec.Vec T)
 
 
 
