@@ -1,11 +1,11 @@
 /-
-Copyright 2026 The Beneficial AI Foundation. All rights reserved.
+Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
-import Spqr.Specs.Aeneas.SliceIterMap
-import Spqr.Specs.Aeneas.Collect
+import Spqr.Specs.Aeneas.MapIteratorTransformerNext
+import Spqr.Specs.Aeneas.MapCollect
 
 /-!
 # Spec theorem for `core::iter::adapters::map::{Iterator for Map<I, F>}::collect`
@@ -90,19 +90,16 @@ private theorem iterToList_map_acc
     simp [core.slice.iter.IteratorSliceIter.next, Slice.len, h_ge]
   | succ n ih =>
     have h_lt : m.iter.i < m.iter.slice.val.length := by omega
-    -- call_mut for the current element
     have h_cm :=
       const_polys_to_polys.closure.Insts.CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut_spec
         m.f (m.iter.slice.val.get ⟨m.iter.i, h_lt⟩)
     obtain ⟨result_cm, h_cm_eq, h_post⟩ := spec_to_ok h_cm
     obtain ⟨h_coeff, h_poly, h_f⟩ := h_post
-    -- Construct the new map iterator state for the IH
     set m' : MapIterT N := core.iter.adapters.map.Map.mk
       (core.slice.iter.Iter.mk m.iter.slice (m.iter.i + 1))
       result_cm.2
     have hm'_slice : m'.iter.slice = m.iter.slice := rfl
     have hm'_i : m'.iter.i = m.iter.i + 1 := rfl
-    -- One-step reduction of iterToList
     have h_step : alloc.vec.FromIteratorVec.iterToList mapIterInst m acc =
         alloc.vec.FromIteratorVec.iterToList mapIterInst m'
           (result_cm.1 :: acc) := by
@@ -114,19 +111,15 @@ private theorem iterToList_map_acc
       simp only [bind_assoc, bind_tc_ok, uncurry_apply_pair]
       rw [← h_f]
       exact to_poly_of_call_mut_eq h_cm_eq ▸ rfl
-    -- Apply IH
     have h_n'2 : n = m'.iter.slice.val.length - m'.iter.i := by
       rw [hm'_slice, hm'_i]; omega
     obtain ⟨L', hL'_eq, hL'_len, hL'_elts⟩ :=
       ih m' (result_cm.1 :: acc) h_n'2
     refine ⟨result_cm.1 :: L', ?_, ?_, ?_⟩
-    · -- Show iterToList returns the right value
-      rw [h_step, hL'_eq]
+    · rw [h_step, hL'_eq]
       simp [List.reverse_cons, List.append_assoc]
-    · -- length
-      simp [hL'_len, hm'_slice, hm'_i]; omega
-    · -- element-wise properties
-      intro j hj hs
+    · simp [hL'_len, hm'_slice, hm'_i]; omega
+    · intro j hj hs
       cases j with
       | zero =>
         simp only [Nat.zero_add]
@@ -155,11 +148,12 @@ private theorem iterToList_map_acc
             (m.iter.slice.val.get ⟨k + m'.iter.i, hks⟩).coefficients.val from rfl]
           exact hp
 
+
 /--
 The `iterToList` call with `mapIteratorTransformer` (state `Iter (PolyConst N)`)
 produces the same result as with a custom instance (state `MapIterT N`), because
 the `const_polys_to_polys` closure state is never modified by `call_mut`.
-This bridges the generic `collect_eq` unfolding (which uses `mapIteratorTransformer`)
+This bridges the generic `collect_spec` unfolding (which uses `mapIteratorTransformer`)
 with the inductive characterisation `iterToList_map_acc` (which uses `MapIterT N` state).
 -/
 private theorem iterToList_mapTrans_eq_custom
@@ -200,7 +194,7 @@ private theorem iterToList_mapTrans_eq_custom
           (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
         iter acc = .ok acc.reverse := by
       conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
-      simp [mapIteratorTransformer_next_eq,
+      simp [mapIteratorTransformer_next_spec,
         core.slice.iter.IteratorSliceIter.next, Slice.len, h_ge]
     have rhs_val : alloc.vec.FromIteratorVec.iterToList customInst
         (core.iter.adapters.map.Map.mk iter f : MapIterT N) acc =
@@ -216,7 +210,6 @@ private theorem iterToList_mapTrans_eq_custom
         f (iter.slice.val.get ⟨iter.i, h_lt⟩)
     obtain ⟨result, h_cm_eq, _, _, h_f⟩ := spec_to_ok h_cm
     set iter' := core.slice.iter.Iter.mk iter.slice (iter.i + 1)
-    -- LHS one-step reduction
     have lhs_step : alloc.vec.FromIteratorVec.iterToList
         (core.iter.adapters.map.mapIteratorTransformer
           (core.iter.adapters.map.Map.mk iter f : MapIterT N)
@@ -230,13 +223,12 @@ private theorem iterToList_mapTrans_eq_custom
           (CoreOpsFunctionFnMutTupleSharedPolyConstPoly N))
         iter' (result.1 :: acc) := by
       conv_lhs => unfold alloc.vec.FromIteratorVec.iterToList
-      simp only [mapIteratorTransformer_next_eq,
+      simp only [mapIteratorTransformer_next_spec,
         slice.iter.IteratorSliceIter.next, Slice.len, Usize.ofNatCore_val_eq, h_lt,
         ↓reduceDIte, bind_tc_ok, uncurry_apply_pair, bind_assoc]
       unfold CoreOpsFunctionFnMutTupleSharedPolyConstPoly.call_mut
       simp only [bind_assoc, bind_tc_ok, uncurry_apply_pair]
       exact to_poly_of_call_mut_eq h_cm_eq ▸ rfl
-    -- RHS one-step reduction
     have rhs_step : alloc.vec.FromIteratorVec.iterToList customInst
         (core.iter.adapters.map.Map.mk iter f : MapIterT N) acc =
       alloc.vec.FromIteratorVec.iterToList customInst
@@ -259,7 +251,7 @@ private theorem iterToList_mapTrans_eq_custom
 **Source**: core/src/iter/adapters/map.rs (lines 99:0-101:27)
 -/
 @[step]
-theorem collect_spec
+theorem collect_const_polys_spec
     {N : Usize}
     (m : MapIterT N) :
     core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
@@ -279,9 +271,9 @@ theorem collect_spec
             listToGF216Poly
               (m.iter.slice.val.get ⟨j + m.iter.i, hs⟩).coefficients.val)
       ⦄ := by
-  simp only [collect_eq]
+  simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec]
   unfold alloc.vec.FromIteratorVec.from_iter
-  simp  [bind_tc_ok]
+  simp only [traits.collect.IntoIterator.Blanket.into_iter, bind_tc_ok, List.get_eq_getElem]
   apply WP.spec_bind (Pₘ := fun (L : List Poly) =>
     L.length = m.iter.slice.val.length - m.iter.i ∧
     L.length ≤ Usize.max ∧
@@ -310,7 +302,7 @@ theorem collect_spec
         enumerate := fun m => .ok ⟨m, 0#usize⟩
         take := fun m n => .ok ⟨m, n⟩ }
       rfl
-    simp  [List.reverse_nil, List.nil_append] at hL_eq
+    simp only [List.reverse_nil, List.nil_append] at hL_eq
     have h_bridge := iterToList_mapTrans_eq_custom
       (m.iter.slice.val.length - m.iter.i) m.iter m.f [] rfl
       { next := fun m => do

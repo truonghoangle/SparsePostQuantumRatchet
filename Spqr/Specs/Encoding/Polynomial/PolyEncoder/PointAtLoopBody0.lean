@@ -5,7 +5,7 @@ Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
-import Spqr.Specs.Aeneas.Collect
+import Spqr.Specs.Aeneas.MapIteratorTransformerNext
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
 
 
@@ -261,7 +261,7 @@ private theorem from_iter_point_at_spec
         PolyEncoder.point_at.closure_1.Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt)
       (by
         ext e
-        grind[ Insts.CoreIterTraitsIteratorIterator.mapIteratorTransformer_next_eq _ _ _ e])
+        grind[ Insts.CoreIterTraitsIteratorIterator.mapIteratorTransformer_next_spec _ _ _ e])
     simp only [List.reverse_nil, List.nil_append] at hL_eq
     rw [hL_eq]
     simp only [WP.spec, WP.theta, WP.wp_return]

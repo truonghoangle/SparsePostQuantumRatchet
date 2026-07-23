@@ -81,10 +81,10 @@ theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
   unfold const_polys_to_polys
   step*
   rw [map_collect_eq]
-  have h := core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec
+  have h := core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_const_polys_spec
     (⟨i, ()⟩ : core.iter.adapters.map.Map (core.slice.iter.Iter (PolyConst N))
       (const_polys_to_polys.closure N))
-  simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_eq] at h
+  simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec] at h
   apply WP.spec_mono h
   intro result ⟨h_len, h_elts⟩
   simp_all

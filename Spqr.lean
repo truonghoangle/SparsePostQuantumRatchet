@@ -51,7 +51,8 @@ import Spqr.Math.Poly.LinearFactors.Degree
 import Spqr.Math.Poly.ModByMonic
 import Spqr.Specs.Aeneas.CloneFromSlice
 import Spqr.Specs.Aeneas.CloneGF16
-import Spqr.Specs.Aeneas.Collect
+import Spqr.Specs.Aeneas.MapIteratorTransformerNext
+import Spqr.Specs.Aeneas.MapCollect
 import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Aeneas.IntoIteratorSlice
