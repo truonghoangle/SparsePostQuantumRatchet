@@ -163,10 +163,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPb
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.New
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount

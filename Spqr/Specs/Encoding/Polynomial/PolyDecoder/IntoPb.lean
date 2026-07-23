@@ -1,199 +1,318 @@
 /-
-Copyright 2026 The Beneficial AI Foundation. All rights reserved.
+Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPbLoop0
+import Spqr.Math.Poly.ModByMonic
+import Spqr.Specs.Aeneas.SliceIteratorNext
+import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
+import Spqr.Specs.Aeneas.RangeIteratorNext
+import Spqr.Specs.Aeneas.VecExtendFromSlice
 
-/-!
-# Spec theorem for `spqr::encoding::polynomial::{PolyDecoder}::into_pb`
+/-! # Spec theorem for `PolyDecoder::into_pb`: loop body 1
 
-The function `PolyDecoder::into_pb` converts a `PolyDecoder` — which holds a target point
-count `pts_needed : Usize`, a fixed-size array `pts : [SortedSet<Pt>; 16]` of cartesian
-evaluation points over GF(2¹⁶) × GF(2¹⁶), and an `is_complete : bool` flag — into its
-protobuf representation `proto::pq_ratchet::PolynomialDecoder`.
+One step of the inner point-serialization loop. Given `pts : SortedSet<Pt>`, a range iterator
+`iter`, and byte accumulator `v`, either returns `v` unchanged (range exhausted) or serializes
+`pts[iter.start]` into 4 big-endian bytes and appends them to `v`.
 
-The function proceeds in three stages:
-  1. `UScalar.cast .U32 self.pts_needed` — checked narrowing of the `usize` point count to
-     `u32` (succeeds whenever `self.pts_needed.val ≤ U32.max`).
-  2. The serialization loop `into_pb_loop0` iterates over each of the 16 `SortedSet<Pt>` slots
-     via a slice iterator.  For each slot, both deref operations
-     (`SortedSet → SortedVec → Vec<Pt>`) are unfolded to expose the underlying point vector
-     `inner`, and each `pt : Pt = ⟨x, y⟩ ∈ inner` is serialized as four big-endian bytes
-     satisfying `b0·256 + b1 = x.value` and `b2·256 + b3 = y.value`.
-  3. Packages the result as `{ pts_needed := (pts_needed as u32), polys := 16, pts := serialized,
-     is_complete }`.
+**Source**: spqr/src/encoding/polynomial.rs -/
 
-In GF(2¹⁶) (characteristic 2), each field element is stored as a `u16`, and a `Pt` packs two
-such elements `(x, y)`.  The 4-byte serialization satisfies, in the canonical isomorphism
-GF(2¹⁶) ≅ GF(2)[X]/(polyGF2):
+open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
-  `(b0·256 + b1).toGF216 = x.value.toGF216`   and
-  `(b2·256 + b3).toGF216 = y.value.toGF216`.
+private instance : Inhabited (sorted_vec.SortedSet Pt) :=   ⟨alloc.vec.Vec.new _⟩
 
-**Source**: spqr/src/encoding/polynomial.rs (lines 793:4-811:5)
--/
+private instance : Inhabited Pt := ⟨{ x := ⟨0#u16⟩, y := ⟨0#u16⟩ }⟩
 
-open Aeneas Aeneas.Std Result spqr.math.gf spqr.encoding.polynomial
+namespace spqr.encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
+
+/-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb_loop0_loop0.body`**:
+
+One step of the inner loop: terminates if the range is exhausted, otherwise serializes
+`pts[iter.start]` as 4 big-endian bytes (`b0·256+b1 = x`, `b2·256+b3 = y`) and appends to `v`.
+
+Succeeds when `iter.end ≤ pts.val.length` and `v.length + 4 ≤ Usize.max`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+@[step]
+theorem body_spec
+    (pts : sorted_vec.SortedSet Pt)
+    (iter : core.ops.range.Range Usize)
+    (v : alloc.vec.Vec U8)
+    (h_end_le : iter.end ≤ pts.length)
+    (h_out_overflow : v.length + 4 ≤ Usize.max) :
+    body pts iter v ⦃ cf =>
+      match cf with
+      | ControlFlow.done v' =>
+          v' = v ∧ ¬(iter.start < iter.end)
+      | ControlFlow.cont (iter1, v1) =>
+          iter.start < iter.end ∧
+          iter1.start = iter.start.val + 1 ∧
+          iter1.end = iter.end ∧
+          ∃ (b0 b1 b2 b3 : U8),
+            v1 = v ++ [b0, b1, b2, b3] ∧
+            256 * b0 + b1.val = (pts.val[iter.start.val]!).x.value.val ∧
+            256 * b2 + b3.val = (pts.val[iter.start.val]!).y.value.val ⦄ := by
+  unfold body
+  obtain ⟨⟨opt, iter1'⟩, hnext, h_none, h_some⟩ :=
+    WP.spec_imp_exists (core.iter.range.IteratorRange.next_Usize_spec' iter)
+  rw [hnext]; simp only [bind_tc_ok]
+  by_cases h_lt : iter.start.val < iter.end.val
+  · obtain ⟨h_opt, h_start1, h_end1⟩ := h_some h_lt
+    subst h_opt
+    step*
+    obtain ⟨b0, b1, b2, b3, h_a_eq⟩ : ∃ b0 b1 b2 b3, a.val = [b0, b1, b2, b3] :=
+      match a.val, a.property with | [b0, b1, b2, b3], _ => ⟨b0, b1, b2, b3, rfl⟩
+    refine ⟨by omega, h_start1, h_end1, b0, b1, b2, b3, ?_, ?_, ?_⟩
+    · simp_all [Array.to_slice]
+    · simp_all
+      grind
+    · simp_all
+      grind
+  · obtain ⟨h_opt, _⟩ := h_none (by omega)
+    subst h_opt
+    exact ⟨rfl, by omega⟩
+
+/-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb_loop0_loop0`**:
+
+Full inner loop: serializes all points in `pts` into consecutive 4-byte big-endian encodings.
+
+Postcondition: `result.length = 4 * iter.end` and for every `j < iter.end`,
+`256 * result[4·j] + result[4·j+1] = pts[j].x.value` and
+`256 * result[4·j+2] + result[4·j+3] = pts[j].y.value`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+@[step]
+theorem loop_spec
+    (pts : sorted_vec.SortedSet Pt)
+    (iter : core.ops.range.Range Usize)
+    (v : alloc.vec.Vec U8)
+    (h_end_le : iter.end ≤ pts.length)
+    (h_out_len : v.length = 4 * iter.start)
+    (h_start_le : iter.start ≤ iter.end)
+    (h_overflow : 4 * pts.length + 4 ≤ Usize.max)
+    (h_pre : ∀ (j : Nat), j < iter.start →
+          256 * (v[4 * j]!) + (v[4 * j + 1]!).val = (pts.val[j]!).x.value.val ∧
+          256 * (v[4 * j + 2]!) + (v[4 * j + 3]!).val = (pts.val[j]!).y.value.val) :
+    into_pb_loop0_loop0 iter pts v ⦃ (result : alloc.vec.Vec U8) =>
+      result.length = 4 * iter.end ∧
+      ∀ (j : Nat), j < iter.end →
+          256 * (result[4 * j]!) + (result[4 * j + 1]!).val = (pts.val[j]!).x.value.val ∧
+          256 * (result[4 * j + 2]!) + (result[4 * j + 3]!).val = (pts.val[j]!).y.value.val ⦄ := by
+  unfold into_pb_loop0_loop0
+  apply loop.spec_decr_nat
+    (measure := fun (p : core.ops.range.Range Usize × alloc.vec.Vec U8) =>
+                  p.1.end - p.1.start)
+    (inv := fun (p : core.ops.range.Range Usize × alloc.vec.Vec U8) =>
+        p.1.end = iter.end ∧
+        p.1.start ≤ p.1.end ∧
+        p.2.length = 4 * p.1.start ∧
+        (∀ (j : Nat), j < p.1.start →
+            256 * (p.2[4 * j]!) + (p.2[4 * j + 1]!).val = (pts.val[j]!).x.value.val ∧
+            256 * (p.2[4 * j + 2]!) + (p.2[4 * j + 3]!).val = (pts.val[j]!).y.value.val))
+  · rintro ⟨iter', out'⟩ ⟨h_end', h_start_le', h_out_len', h_pre'⟩
+    simp only [] at h_end' h_start_le' h_out_len' h_pre' ⊢
+    have h_end_val : iter'.end = iter.end := by rw [h_end']
+    have h_body := body_spec pts iter' out' (by rw [h_end']; exact h_end_le) (by grind)
+    apply WP.spec_mono h_body
+    intro cf h_cf
+    match cf with
+    | ControlFlow.done out'' => grind
+    | ControlFlow.cont (iter'', out'') =>
+      simp only [] at h_cf ⊢
+      obtain ⟨h_lt, h_start1, h_end1, b0, b1, b2, b3, h_out_eq, h_x_eq, h_y_eq⟩ := h_cf
+      have h_val : out''.val = out'.val ++ [b0, b1, b2, b3] := h_out_eq
+      have h_len : out'.val.length = 4 * iter'.start.val := h_out_len'
+      refine ⟨⟨by grind, by grind, by grind, fun j hj => ?_⟩, by grind⟩
+      by_cases hj_lt : j < iter'.start.val
+      · grind
+      · have mk : ∀ {k} {bk : U8}, k ≤ 3 →
+            [b0, b1, b2, b3][k]? = some bk →
+            out''[4 * iter'.start.val + k]! = bk := by grind
+        grind [mk (k := 1) (by omega) rfl, mk (k := 2) (by omega) rfl, mk (k := 3) (by omega) rfl]
+  · grind
+
+end spqr.encoding.polynomial.PolyDecoder.into_pb_loop0_loop0
+
+/-! # Spec theorem for `PolyDecoder::into_pb`: loop body 0
+
+One step of the outer loop. Given a slice iterator over `SortedSet<Pt>` arrays and output
+accumulator `v : Vec<Vec<u8>>`, either returns `v` unchanged (iterator exhausted) or serializes
+all points in the next sorted set into a byte vector and pushes it onto `v`.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+
+namespace spqr.encoding.polynomial.PolyDecoder.into_pb_loop0
+
+/-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb_loop0.body`**:
+
+One step of the outer loop: terminates if the iterator is exhausted, otherwise serializes all
+points in `iter.slice[iter.i]` into 4-byte big-endian encodings and pushes the result onto `v`.
+
+Succeeds when `v.length + 1 ≤ Usize.max` and inner loops won't overflow. -/
+@[step]
+theorem body_spec
+    (iter : core.slice.iter.Iter (sorted_vec.SortedSet Pt))
+    (v : alloc.vec.Vec (alloc.vec.Vec U8))
+    (h_out_overflow : v.length + 1 ≤ Usize.max)
+    (h_inner_overflow : ∀ j < iter.slice.length, 4 * (iter.slice[j]!).length + 4 ≤ Usize.max) :
+    body iter v ⦃ cf =>
+      match cf with
+      | ControlFlow.done v' =>
+          v' = v ∧ ¬(iter.i < iter.slice.length)
+      | ControlFlow.cont (iter1, v1) =>
+          iter.i < iter.slice.length ∧
+          iter1.i = iter.i + 1 ∧
+          iter1.slice = iter.slice ∧
+          ∃ (serialized : alloc.vec.Vec U8),
+            v1 = v ++ [serialized] ∧
+            serialized.length = 4 * (iter.slice[iter.i]!).length ∧
+            ∀ (j : Nat), j < (iter.slice[iter.i]!).length →
+                256 * (serialized[4 * j]!) + serialized[4 * j + 1]! =
+                  ((iter.slice[iter.i]!).val[j]!).x.value.val ∧
+                256 * (serialized[4 * j + 2]!) + serialized[4 * j + 3]! =
+                  ((iter.slice[iter.i]!).val[j]!).y.value.val ⦄ := by
+  unfold body
+  obtain ⟨opt, iter1', hnext, h_none, h_some⟩ :=
+    core.slice.iter.IteratorSliceIter.next_post iter
+  rw [hnext]
+  simp only [bind_tc_ok]
+  by_cases h_lt : iter.i < iter.slice.length
+  · obtain ⟨h_opt_eq, h_i1, h_slice1⟩ := h_some h_lt
+    rw [h_opt_eq]
+    have h_inner := h_inner_overflow iter.i h_lt
+    have h_getelem : (iter.slice.val[iter.i]! : sorted_vec.SortedSet Pt) =
+        iter.slice.val[iter.i]'h_lt := by
+      rw [← List.Inhabited_getElem_eq_getElem! (hi := h_lt)]
+    step*
+    · simp_all [alloc.vec.Vec.with_capacity]
+    · simp_all
+  · obtain ⟨h_opt_eq, _⟩ := h_none (by omega)
+    rw [h_opt_eq]
+    exact ⟨rfl, h_lt⟩
+
+/-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb_loop0`**:
+
+Full outer loop: serializes all sorted sets into byte vectors in the output accumulator.
+
+Postcondition: `result.length = iter.slice.length` and for every `j < iter.slice.length`,
+`(result[j]).length = 4 * (iter.slice[j]).length` with each 4-byte chunk encoding the
+corresponding point's `(x, y)` in big-endian format.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+@[step]
+theorem loop_spec
+    (iter : core.slice.iter.Iter (sorted_vec.SortedSet Pt))
+    (v : alloc.vec.Vec (alloc.vec.Vec U8))
+    (h_start_le : iter.i ≤ iter.slice.length)
+    (h_out_len : v.length = iter.i)
+    (h_out_overflow : iter.slice.length + 1 ≤ Usize.max)
+    (h_inner_overflow : ∀ j < iter.slice.length, 4 * (iter.slice[j]!).length + 4 ≤ Usize.max)
+    (h_pre : ∀ (j : Nat), j < iter.i →
+          (v[j]!).length = 4 * (iter.slice[j]!).length ∧
+          ∀ (k : Nat), k < (iter.slice[j]!).length →
+              256 * ((v[j]!)[4 * k]!) + ((v[j]!)[4 * k + 1]!) =
+                ((iter.slice[j]!).val[k]!).x.value.val ∧
+              256 * ((v[j]!)[4 * k + 2]!) + ((v[j]!)[4 * k + 3]!) =
+                ((iter.slice[j]!).val[k]!).y.value.val) :
+    into_pb_loop0 iter v ⦃ (result : alloc.vec.Vec (alloc.vec.Vec U8)) =>
+      result.length = iter.slice.length ∧
+      ∀ (j : Nat), j < iter.slice.length →
+          (result[j]!).length = 4 * (iter.slice[j]!).length ∧
+          ∀ (k : Nat), k < (iter.slice[j]!).length →
+              256 * ((result[j]!)[4 * k]!) + ((result[j]!)[4 * k + 1]!) =
+                ((iter.slice[j]!).val[k]!).x.value.val ∧
+              256 * ((result[j]!)[4 * k + 2]!) + ((result[j]!)[4 * k + 3]!) =
+                ((iter.slice[j]!).val[k]!).y.value.val ⦄ := by
+  unfold into_pb_loop0
+  apply loop.spec_decr_nat
+    (measure := fun (p : core.slice.iter.Iter (sorted_vec.SortedSet Pt) ×
+                       alloc.vec.Vec (alloc.vec.Vec U8)) =>
+                  p.1.slice.length - p.1.i)
+    (inv := fun (p : core.slice.iter.Iter (sorted_vec.SortedSet Pt) ×
+                      alloc.vec.Vec (alloc.vec.Vec U8)) =>
+        p.1.slice = iter.slice ∧
+        p.1.i ≤ p.1.slice.length ∧
+        p.2.length = p.1.i ∧
+        (∀ (j : Nat), j < p.1.i →
+            (p.2[j]!).length = 4 * (iter.slice[j]!).length ∧
+            ∀ (k : Nat), k < (iter.slice[j]!).length →
+                256 * ((p.2[j]!)[4 * k]!) + ((p.2[j]!)[4 * k + 1]!) =
+                  ((iter.slice[j]!).val[k]!).x.value.val ∧
+                256 * ((p.2[j]!)[4 * k + 2]!) + ((p.2[j]!)[4 * k + 3]!) =
+                  ((iter.slice[j]!).val[k]!).y.value.val))
+  · rintro ⟨iter', v'⟩ ⟨h_slice', h_i_le', h_out_len', h_pre'⟩
+    simp only [] at h_slice' h_i_le' h_out_len' h_pre' ⊢
+    have h_body := body_spec iter' v'
+      (by rw [h_out_len']; rw [h_slice'] at h_i_le'; omega)
+      (by rw [h_slice']; exact h_inner_overflow)
+    apply WP.spec_mono h_body
+    intro cf h_cf
+    match cf with
+    | ControlFlow.done v'' => grind
+    | ControlFlow.cont (iter'', v'') =>
+      simp only [] at h_cf ⊢
+      obtain ⟨h_lt, h_i1, h_slice1, serialized, h_v_eq, h_ser_len, h_ser_enc⟩ := h_cf
+      have h_val : v''.val = v'.val ++ [serialized] := h_v_eq
+      have h_len : v'.val.length = iter'.i := h_out_len'
+      refine ⟨⟨by grind, by grind, by grind, fun j hj => ?_⟩, by grind⟩
+      by_cases hj_lt : j < iter'.i
+      · grind
+      · have hj_eq : j = iter'.i := by omega
+        subst hj_eq
+        have h_get : v''[iter'.i]! = serialized := by grind
+        rw [h_get]
+        rw [h_slice'] at h_ser_len h_ser_enc
+        exact ⟨h_ser_len, h_ser_enc⟩
+  · grind
+
+end spqr.encoding.polynomial.PolyDecoder.into_pb_loop0
+
+/-! # Spec theorem for `spqr::encoding::polynomial::{PolyDecoder}::into_pb`
+
+Serializes a `PolyDecoder` (with `pts_needed`, `pts : [SortedSet<Pt>; 16]`, `is_complete`)
+into its protobuf representation. Casts `pts_needed` to `U32`, then serializes all 16 sorted
+sets into `Vec<Vec<u8>>` where each point occupies 4 big-endian bytes.
+
+**Source**: spqr/src/encoding/polynomial.rs -/
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
 /-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb`** (byte-level):
 
-Serialization of a `PolyDecoder` into its protobuf representation
-`proto.pq_ratchet.PolynomialDecoder`, with the postcondition expressed at the raw byte level.
-
-The result satisfies:
-  * `result.pts_needed.val = self.pts_needed.val` — the `U32`-cast of the point count equals
-    the original `Usize` value (succeeds by `h_pts_needed_fits`).
-  * `result.polys = 16#u32` — the fixed `u32` constant declaring 16 polynomial slots.
-  * `result.is_complete = self.is_complete` — completion flag preserved.
-  * `result.pts.val.length = 16` — exactly one serialized byte vector per `SortedSet<Pt>` slot.
-  * For every slot `j < 16`, the `j`-th serialized vector encodes the underlying point vector
-    `inner j` of the `j`-th `SortedSet`:
-      `∃ serialized, result.pts.val[j]? = some serialized ∧
-        serialized.val.length = 4 * (inner j).val.length ∧
-        ∀ k < (inner j).val.length, ∃ b0 b1 b2 b3,
-          serialized.val[4*k]?   = some b0 ∧
-          serialized.val[4*k+1]? = some b1 ∧
-          serialized.val[4*k+2]? = some b2 ∧
-          serialized.val[4*k+3]? = some b3 ∧
-          b0.val·256 + b1.val = ((inner j).val[k]!).x.value.val ∧
-          b2.val·256 + b3.val = ((inner j).val[k]!).y.value.val`.
-
-Because both `SortedSet → SortedVec` and `SortedVec → Vec<Pt>` deref operations are extracted
-as opaque axioms, we parameterise the spec by their hypothetical witnesses `sv` and `inner`,
-together with the `h_sv` and `h_inner` hypotheses asserting that they are indeed the deref
-results at each index.
-
-This follows from composing:
-  1. `UScalar.cast` — succeeds because `self.pts_needed.val ≤ U32.max`.
-  2. `Array.to_slice` — produces a slice with the same backing list (length 16).
-  3. `into_pb_loop0.loop_spec`: the loop drives the body to completion, producing a vector of
-     length 16 where each entry is the big-endian 4-byte serialization of the corresponding
-     `inner j`.
-
-**Source**: spqr/src/encoding/polynomial.rs (lines 793:4-811:5)
--/
-theorem into_pb_spec_nat
+Serializes a `PolyDecoder` into a `proto.pq_ratchet.PolynomialDecoder`. The result preserves
+`pts_needed`, sets `polys = 16`, preserves `is_complete`, and contains 16 byte vectors each
+faithfully encoding their sorted set's points in 4-byte big-endian format. -/
+theorem into_pb_spec
     (self : encoding.polynomial.PolyDecoder)
-    (h_pts_needed_fits : self.pts_needed.val ≤ U32.max)
-    (sv : Nat → sorted_vec.SortedVec Pt)
-    (inner : Nat → alloc.vec.Vec Pt)
-    (h_sv : ∀ (k : Nat) (h : k < self.pts.val.length),
-      sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
-        Pt.Insts.CoreCmpOrd (self.pts.val[k]'h) = ok (sv k))
-    (h_inner : ∀ (k : Nat), k < self.pts.val.length →
-      sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-        Pt.Insts.CoreCmpOrd (sv k) = ok (inner k))
-    (h_inner_overflow : ∀ (k : Nat), k < self.pts.val.length →
-        4 * (inner k).val.length + 4 ≤ Usize.max) :
+    (h_cast : self.pts_needed.val ≤ U32.max)
+    (h_inner_overflow : ∀ (j : Nat), j < 16 →
+        4 * (self.pts.val[j]!).length + 4 ≤ Usize.max) :
     into_pb self ⦃ (result : proto.pq_ratchet.PolynomialDecoder) =>
       result.pts_needed.val = self.pts_needed.val ∧
       result.polys = 16#u32 ∧
       result.is_complete = self.is_complete ∧
-      result.pts.val.length = self.pts.val.length ∧
-      ∀ (j : Nat), j < self.pts.val.length →
-        ∃ (serialized : alloc.vec.Vec Std.U8),
-          result.pts.val[j]? = some serialized ∧
-          serialized.val.length = 4 * (inner j).val.length ∧
-          ∀ (k : Nat), k < (inner j).val.length →
-            ∃ (b0 b1 b2 b3 : Std.U8),
-              serialized.val[4 * k]?     = some b0 ∧
-              serialized.val[4 * k + 1]? = some b1 ∧
-              serialized.val[4 * k + 2]? = some b2 ∧
-              serialized.val[4 * k + 3]? = some b3 ∧
-              b0.val * 256 + b1.val = ((inner j).val[k]!).x.value.val ∧
-              b2.val * 256 + b3.val = ((inner j).val[k]!).y.value.val ⦄ := by
+      result.pts.length = 16 ∧
+      ∀ (j : Nat), j < 16 →
+          (result.pts[j]!).length = 4 * (self.pts.val[j]!).length ∧
+          ∀ (k : Nat), k < (self.pts.val[j]!).length →
+              256 * ((result.pts[j]!)[4 * k]!) + ((result.pts[j]!)[4 * k + 1]!) =
+                ((self.pts.val[j]!).val[k]!).x.value.val ∧
+              256 * ((result.pts[j]!)[4 * k + 2]!) + ((result.pts[j]!)[4 * k + 3]!) =
+                ((self.pts.val[j]!).val[k]!).y.value.val ⦄ := by
   unfold into_pb
   simp only [alloc.vec.Vec.with_capacity]
   step*
-  -- step* stops at Slice.iter; unfold it manually so the concrete iter is exposed
-  simp only [core.slice.Slice.iter, bind_tc_ok]
-  step with into_pb_loop0.loop_spec
-    (sv := sv) (inner := inner) by
-    first
-      | assumption
-      | scalar_tac
-      | omega
-      | (simp only [s1_post, Array.val_to_slice]; exact h_sv)
-      | (simp only [s1_post, Array.val_to_slice]; exact h_inner)
-      | (simp only [s1_post, Array.val_to_slice]; exact h_inner_overflow)
-  -- Postcondition: combine the loop's output with the U32-cast of pts_needed.
-  -- After `step*`, the framework auto-discharges the `pts_needed.val`, `polys`,
-  -- `is_complete`, and `length` components from the constructor of `result`,
-  -- leaving the cast bound and the per-slot byte witnesses.
-  refine ⟨?_, ?_, ?_⟩
-  · -- U32 cast of `pts_needed` preserves the underlying value
-    simp_all [UScalar.cast_val_eq]; scalar_tac
-  · -- Length is propagated from the loop output
-    simp_all [Array.val_to_slice]
-  · -- Per-slot byte witnesses are exactly the loop's `v1_post2`
-    intro j hj
-    have h_j : j < (s1.val).length := by simp_all [Array.val_to_slice]
-    exact v1_post2 j h_j
-
-/-- **Spec theorem for `encoding.polynomial.PolyDecoder.into_pb`** (cascading: byte-level +
-algebraic):
-
-Lifts the byte-level specification (`into_pb_spec_nat`) to a cascading postcondition that
-includes the raw byte equality **and** the derived GF(2¹⁶) and polynomial identities for each
-encoded coordinate of every cartesian point.  Specializing the canonical ring-homomorphism
-`BinaryPoly.toGF216 : BinaryPoly →+* GF216` (which vanishes on `polyGF2`) recovers the
-GF(2¹⁶)-level interpretation of the serialized bytes via `Nat.toGF216`.
--/
-@[step]
-theorem into_pb_spec
-    (self : encoding.polynomial.PolyDecoder)
-    (h_pts_needed_fits : self.pts_needed.val ≤ U32.max)
-    (sv : Nat → sorted_vec.SortedVec Pt)
-    (inner : Nat → alloc.vec.Vec Pt)
-    (h_sv : ∀ (k : Nat) (h : k < self.pts.val.length),
-      sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
-        Pt.Insts.CoreCmpOrd (self.pts.val[k]'h) = ok (sv k))
-    (h_inner : ∀ (k : Nat), k < self.pts.val.length →
-      sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-        Pt.Insts.CoreCmpOrd (sv k) = ok (inner k))
-    (h_inner_overflow : ∀ (k : Nat), k < self.pts.val.length →
-        4 * (inner k).val.length + 4 ≤ Usize.max) :
-    into_pb self ⦃ (result : proto.pq_ratchet.PolynomialDecoder) =>
-      result.pts_needed.val = self.pts_needed.val ∧
-      result.polys = 16#u32 ∧
-      result.is_complete = self.is_complete ∧
-      result.pts.val.length = self.pts.val.length ∧
-      ∀ (j : Nat), j < self.pts.val.length →
-        ∃ (serialized : alloc.vec.Vec Std.U8),
-          result.pts.val[j]? = some serialized ∧
-          serialized.val.length = 4 * (inner j).val.length ∧
-          ∀ (k : Nat), k < (inner j).val.length →
-            ∃ (b0 b1 b2 b3 : Std.U8),
-              serialized.val[4 * k]?     = some b0 ∧
-              serialized.val[4 * k + 1]? = some b1 ∧
-              serialized.val[4 * k + 2]? = some b2 ∧
-              serialized.val[4 * k + 3]? = some b3 ∧
-              b0.val * 256 + b1.val = ((inner j).val[k]!).x.value.val ∧
-              b2.val * 256 + b3.val = ((inner j).val[k]!).y.value.val ∧
-              (b0.val * 256 + b1.val).toGF216 =
-                ((inner j).val[k]!).x.value.val.toGF216 ∧
-              (b2.val * 256 + b3.val).toGF216 =
-                ((inner j).val[k]!).y.value.val.toGF216 ∧
-              natToBinaryPoly (b0.val * 256 + b1.val) =
-                natToBinaryPoly (((inner j).val[k]!).x.value.val) ∧
-              natToBinaryPoly (b2.val * 256 + b3.val) =
-                natToBinaryPoly (((inner j).val[k]!).y.value.val) ⦄ := by
-  have h_raw :=
-    into_pb_spec_nat self h_pts_needed_fits sv inner h_sv h_inner h_inner_overflow
-  apply WP.spec_mono h_raw
-  intro result h_post
-  obtain ⟨h_idx, h_polys, h_done, h_len, h_ser⟩ := h_post
-  refine ⟨h_idx, h_polys, h_done, h_len, fun j hj => ?_⟩
-  obtain ⟨serialized, h_some, h_slen, h_enc⟩ := h_ser j hj
-  refine ⟨serialized, h_some, h_slen, fun k hk => ?_⟩
-  obtain ⟨b0, b1, b2, b3, hb0, hb1, hb2, hb3, h_x, h_y⟩ := h_enc k hk
-  exact ⟨b0, b1, b2, b3, hb0, hb1, hb2, hb3, h_x, h_y,
-    congr_arg Nat.toGF216 h_x,
-    congr_arg Nat.toGF216 h_y,
-    congr_arg natToBinaryPoly h_x,
-    congr_arg natToBinaryPoly h_y⟩
+  unfold core.slice.Slice.iter
+  step
+  · intro j hj
+    simp_all [Array.to_slice]
+  · constructor
+    · simp_all only [alloc.vec.Vec.length, List.Vector.length_val, UScalar.ofNatCore_val_eq,
+      getElem!_pos, Array.to_slice, Slice.length, alloc.vec.Vec.getElem!_Nat_eq,
+      Slice.getElem!_Nat_eq, List.getElem!_eq_getElem?_getD, UScalar.cast_val_eq,
+      UScalarTy.U32_numBits_eq, Nat.reducePow, Nat.mod_succ_eq_iff_lt, Nat.succ_eq_add_one,
+      Nat.reduceAdd]
+      scalar_tac
+    · grind
 
 end spqr.encoding.polynomial.PolyDecoder
