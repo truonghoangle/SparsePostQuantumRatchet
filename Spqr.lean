@@ -113,7 +113,7 @@ import Spqr.Specs.Encoding.Polynomial.Chunk.Clone
 import Spqr.Specs.Encoding.Polynomial.Chunk.Fmt
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOne
+import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOnce
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.MapCollect
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIter
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect

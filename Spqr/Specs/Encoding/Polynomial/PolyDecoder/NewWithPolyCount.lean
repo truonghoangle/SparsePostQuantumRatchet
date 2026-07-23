@@ -19,14 +19,16 @@ Builds a fresh `PolyDecoder` from `len_bytes` and an ignored `_polys` parameter.
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial
 
-instance : Inhabited (sorted_vec.SortedSet Pt) := ⟨alloc.vec.Vec.new Pt⟩
+instance instInhabitedSortedSetPt : Inhabited (sorted_vec.SortedSet Pt) :=
+  ⟨alloc.vec.Vec.new Pt⟩
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
 /-- **`_polys` is unused**: `new_with_poly_count` yields the same result for any `_polys`. -/
 theorem new_with_poly_count_polys_irrelevant (len_bytes polys polys' : Std.Usize) :
     new_with_poly_count len_bytes polys = new_with_poly_count len_bytes polys' := by
-  unfold new_with_poly_count; rfl
+  unfold new_with_poly_count
+  rfl
 
 /-- **Spec theorem for `encoding.polynomial.PolyDecoder.new_with_poly_count`** (nat-level):
 
