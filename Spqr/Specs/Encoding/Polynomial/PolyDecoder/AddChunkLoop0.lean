@@ -192,7 +192,8 @@ theorem loop_spec
                     h_processed h_unchanged ⊢
     have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
     have h_end_le' : iter'.end.val ≤ 16 := by omega
-    have h_body := body_spec chunk iter' self' h_end_le' h_idx_overflow h_push_room'
+    have h_body := body_spec chunk iter' self' h_end_le' h_idx_overflow
+      (fun h => h_push_room' iter'.start.val h)
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with

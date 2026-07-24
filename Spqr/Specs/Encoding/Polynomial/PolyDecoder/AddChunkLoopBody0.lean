@@ -166,8 +166,8 @@ theorem body_spec
     (self : encoding.polynomial.PolyDecoder)
     (h_end_le : iter.end.val ≤ 16)
     (h_idx_overflow : chunk.index * 16 + 16 ≤ Usize.max)
-    (h_push_room : ∀ k, k < 16 →
-      (self.pts.val[k]!).length + 1 ≤ Usize.max) :
+    (h_push_room : iter.start.val < 16 →
+      (self.pts.val[iter.start.val]!).length + 1 ≤ Usize.max) :
     body chunk iter self ⦃ cf =>
       match cf with
       | ControlFlow.done self' =>
@@ -199,7 +199,7 @@ theorem body_spec
     have h_i_lt_16 : iter.start.val < 16 := by omega
     have h_mod : (chunk.index.val * 16 + iter.start.val) % 16 = iter.start.val := by omega
     have h_div : (chunk.index.val * 16 + iter.start.val) / 16 = chunk.index.val := by omega
-    have h_push := h_push_room iter.start.val h_i_lt_16
+    have h_push := h_push_room h_i_lt_16
     step*
     · simp_all
     · simp_all only [alloc.vec.Vec.length, List.Vector.length_val, UScalar.ofNatCore_val_eq,
