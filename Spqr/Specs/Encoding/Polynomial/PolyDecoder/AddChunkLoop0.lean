@@ -32,8 +32,10 @@ step:
     exceeds the iterator end.
   * `self'.pts_needed = self.pts_needed` — the point budget is preserved.
   * `self'.is_complete = self.is_complete` — the completion flag is preserved.
-  * Each per-polynomial sorted-set slot's capacity bound is maintained:
-    `∀ k, k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max`.
+  * Each *not-yet-processed* per-polynomial sorted-set slot's capacity bound is maintained:
+    `∀ k, iter'.start.val ≤ k → k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max`.
+    (Already-processed slots need no bound, since each slot is pushed to at most once and the
+    cursor never revisits it.)
   * Each already-processed slot `k ∈ [iter.start, iter'.start)` has a corresponding GF(2¹⁶)
     evaluation point `p` with `p.x.value = chunk.index` and
     `p.y.value.val = 256 * data[2k] + data[2k+1]`, and either the point was pushed
@@ -62,7 +64,9 @@ Since `0 ≤ i < 16`, the modular/division decomposition
   `total_idx = chunk.index * 16 + i`,  `poly = total_idx % 16`,  `poly_idx = total_idx / 16`
 simplifies to `poly = i` (the loop index) and `poly_idx = chunk.index.val` (the chunk index),
 so each iteration touches a distinct slot `i` of the `pts` array.  This means each slot is
-extended by at most one point across the entire loop.
+extended by at most one point across the entire loop.  Consequently, the loop only ever needs a
+single free slot of headroom (`+ 1`) in each per-polynomial sorted set — the push room
+precondition is `(self.pts.val[k]!).length + 1 ≤ Usize.max`.
 
 The body spec (`body_spec` from `AddChunkLoopBody0.lean`) discharges one step of this loop; this
 file lifts it through `loop.spec_decr_nat` (with measure `iter'.end.val − iter'.start.val`) to
@@ -88,8 +92,8 @@ returns the updated decoder state.
 • The function always succeeds (no panic) provided the preconditions hold: the iterator range end
   does not exceed 16 (`iter.end.val ≤ 16`), the cursor does not exceed the end
   (`iter.start.val ≤ iter.end.val`), the chunk index multiplication does not overflow Usize
-  (`chunk.index * 16 + 16 ≤ Usize.max`), and each sorted-set slot in `self.pts` has sufficient
-  capacity headroom (`(self.pts.val[k]!).length + 2 ≤ Usize.max`).
+  (`chunk.index * 16 + 16 ≤ Usize.max`), and each sorted-set slot in `self.pts` has room for one
+  more element (`(self.pts.val[k]!).length + 1 ≤ Usize.max`).
 
 • **Loop postcondition**:
   The decoder's key fields are preserved through all iterations:
@@ -152,7 +156,7 @@ theorem loop_spec
     (h_start_le : iter.start ≤ iter.end)
     (h_idx_overflow : chunk.index * 16 + 16 ≤ Usize.max)
     (h_push_room : ∀ k, k < 16 →
-      (self.pts.val[k]!).length + 2 ≤ Usize.max) :
+      (self.pts.val[k]!).length + 1 ≤ Usize.max) :
     add_chunk_loop iter self chunk ⦃ (result : encoding.polynomial.PolyDecoder) =>
       result.pts_needed = self.pts_needed ∧
       result.is_complete = self.is_complete ∧
@@ -174,7 +178,8 @@ theorem loop_spec
         p.1.start.val ≤ p.1.end.val ∧
         self'.pts_needed = self.pts_needed ∧
         self'.is_complete = self.is_complete ∧
-        (∀ k, k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max) ∧
+        (∀ k, p.1.start.val ≤ k → k < 16 →
+          (self'.pts.val[k]!).length + 1 ≤ Usize.max) ∧
         (∀ k, iter.start.val ≤ k → k < p.1.start.val →
           ∃ (p : Pt),
             p.x.value = chunk.index ∧
@@ -193,7 +198,7 @@ theorem loop_spec
     have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
     have h_end_le' : iter'.end.val ≤ 16 := by omega
     have h_body := body_spec chunk iter' self' h_end_le' h_idx_overflow
-      (fun h => h_push_room' iter'.start.val h)
+      (fun h => h_push_room' iter'.start.val (le_refl _) h)
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
@@ -214,33 +219,20 @@ theorem loop_spec
               by grind,
               by rw [h_pts_needed1]; exact h_pts_needed',
               by rw [h_is_complete1]; exact h_is_complete',
-              fun k hk => ?_,
+              fun k hk_lo hk => ?_,
               fun k hlo hhi => ?_,
               fun k hk => ?_⟩,
               by grind⟩
-      · rcases h_pts_change with ⟨_h_slot, h_other⟩ | h_no_push
-        · by_cases hk_eq : k = iter'.start.val
-          · subst hk_eq
-            simp only [Array.getElem!_Usize_eq] at _h_slot
-            have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
-            have h_orig := h_push_room iter'.start.val (by omega)
-            have h_len_eq : (self'.pts.val[iter'.start.val]!).length =
-                           (self.pts.val[iter'.start.val]!).length := by rw [h_unch]
-            have h_len_inc : (self''.pts.val[iter'.start.val]!).length =
-                            (self'.pts.val[iter'.start.val]!).length + 1 := by
-              simp only [alloc.vec.Vec.length]
-              have := congr_arg List.length _h_slot
-              simp only [List.length_append, List.length_cons, List.length_nil] at this
-              omega
-            omega
-          · have h_ne : Usize.ofNatCore k (by scalar_tac) ≠ iter'.start := by
-              grind [UScalar.neq_to_neq_val]
-            have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_ne
-            simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
-            simp only [h_eq]
-            exact h_push_room' k hk
+      · have h_start_val : iter''.start.val = iter'.start.val + 1 := by scalar_tac
+        rcases h_pts_change with ⟨_h_slot, h_other⟩ | h_no_push
+        · have h_ne : Usize.ofNatCore k (by scalar_tac) ≠ iter'.start := by
+            grind [UScalar.neq_to_neq_val]
+          have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_ne
+          simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
+          simp only [h_eq]
+          exact h_push_room' k (by omega) hk
         · subst h_no_push
-          exact h_push_room' k hk
+          exact h_push_room' k (by omega) hk
       · by_cases hk_eq : k = iter'.start.val
         · subst hk_eq
           have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
@@ -291,7 +283,7 @@ theorem loop_spec
         rw [h_self''_eq]
         exact h_unch_self'
   · exact ⟨rfl, le_refl _, h_start_le, rfl, rfl,
-           fun k hk => by have := h_push_room k hk; grind,
+           fun k _ hk => h_push_room k hk,
            fun k hlo hhi => by grind,
            fun k _ => rfl⟩
 

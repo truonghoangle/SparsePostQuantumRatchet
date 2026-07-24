@@ -64,10 +64,10 @@ The top-level `Decoder::add_chunk` for `PolyDecoder`.  Given the current decoder
 a `Chunk` containing 32 bytes of evaluation data together with a 16-bit chunk index, the function
 runs the point-absorption loop over `0..16` and returns the updated decoder state.
 
-• The function always succeeds (no panic) provided the preconditions hold: the chunk index
-  multiplication does not overflow Usize (`chunk.index * 16 + 16 ≤ Usize.max`), and each
-  sorted-set slot in `self.pts` has sufficient capacity headroom
-  (`(self.pts.val[k]!).length + 2 ≤ Usize.max`).
+• The function always succeeds (no panic) provided each sorted-set slot in `self.pts` has room
+  for one more element (`(self.pts.val[k]!).length + 1 ≤ Usize.max`).  The chunk-index
+  multiplication `chunk.index * 16 + 16` can never overflow `Usize`: `chunk.index : U16` so it is
+  bounded by `65535 * 16 + 16 = 1048576 ≤ Usize.max`, hence no explicit precondition is needed.
 
 • **Postcondition**:
   The decoder's key fields are preserved through all iterations:
@@ -120,9 +120,8 @@ range `{ start := 0, end := 16 }` and specialises the already-registered
 @[step]
 theorem add_chunk_spec
     (self : encoding.polynomial.PolyDecoder) (chunk : encoding.Chunk)
-    (h_idx_overflow : chunk.index * 16 + 16 ≤ Usize.max)
     (h_push_room : ∀ k, k < 16 →
-      (self.pts.val[k]!).length + 2 ≤ Usize.max) :
+      (self.pts.val[k]!).length + 1 ≤ Usize.max) :
     add_chunk self chunk ⦃ (result : encoding.polynomial.PolyDecoder) =>
       result.pts_needed = self.pts_needed ∧
       result.is_complete = self.is_complete ∧
@@ -134,7 +133,7 @@ theorem add_chunk_spec
            result.pts.val[k]! = self.pts.val[k]!)) ⦄ := by
   unfold add_chunk
   have h := add_chunk_loop.loop_spec { start := 0#usize, «end» := 16#usize } self chunk
-    (by scalar_tac) (by scalar_tac) h_idx_overflow h_push_room
+    (by scalar_tac) (by scalar_tac) (by scalar_tac) h_push_room
   apply WP.spec_mono h
   rintro result ⟨h_pn, h_ic, h_proc, _h_unch⟩
   refine ⟨h_pn, h_ic, fun k hk => h_proc k (Nat.zero_le k) (by scalar_tac)⟩
