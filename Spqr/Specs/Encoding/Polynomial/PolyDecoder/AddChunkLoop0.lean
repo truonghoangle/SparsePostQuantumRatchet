@@ -1,5 +1,5 @@
 /-
-Copyright 2026 The Beneficial AI Foundation. All rights reserved.
+Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
@@ -8,43 +8,65 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoopBody0
 /-!
 # Spec theorem for `PolyDecoder::add_chunk`: loop 0
 
-In GF(2¹⁶) — the Galois field with 65 536 elements — each field element is represented as a
-polynomial of degree < 16 with coefficients in GF(2), stored as a 16-bit unsigned integer.  A
-cartesian evaluation point `Pt = (x, y)` packs two such elements.
-
 The extracted Lean function
-`encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop` is the
-chunk-absorption loop inside `PolyDecoder::add_chunk`.  Given a range iterator over slot
-indices `0..16`, the current decoder state `self`, and the input `Chunk`, the loop repeatedly
-invokes
+`encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop` is the full
+point-absorption loop inside `PolyDecoder::add_chunk`.  Given a `Range<usize>` iterator over
+`0..16`, the current decoder state `self`, and a `Chunk` (containing a 16-bit chunk index and 32
+bytes of evaluation data), the loop repeatedly invokes the per-iteration body
 `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop.body`, which at each
 step:
 
-  1. Calls `next` on the range iterator to obtain the current slot index `i`.
-  2. Computes
-       `total_idx = chunk.index · 16 + i`,
-       `poly     = total_idx % 16`,
-       `poly_idx = total_idx / 16`.
-  3. Decodes the next pair of bytes in `chunk.data` into the GF(2¹⁶) cartesian point
-       `Pt { x = GF16(poly_idx),
-             y = GF16(chunk.data[2·i] · 256 + chunk.data[2·i+1]) }`.
-  4. Conditionally pushes the resulting point onto `self.pts[poly]` (either unconditionally when
-     `poly_idx < self.necessary_points(i)`, or only when the slot still has fewer than
-     `necessary_points(i)` elements).
+  1. Calls `next` on the range iterator to obtain the loop index `i ∈ {0, …, 15}`.
+  2. Computes a GF(2¹⁶) evaluation point from the chunk's data bytes:
+       `x = GF16::new(chunk.index)`                    — the x-coordinate is the chunk index,
+       `y = GF16::new((data[2i] << 8) + data[2i+1])`  — the y-coordinate is big-endian decoded.
+  3. Conditionally pushes `Pt { x, y }` into `self.pts[i]`:
+       - if `chunk.index < necessary_points(self, i)`, or
+       - if `self.pts[i].len() < necessary_points(self, i)`,
+     the point is pushed via `SortedSet::push`; otherwise the state is unchanged.
 
-**Loop invariant**: across iterations the fields `pts_needed` and `is_complete` of the running
-decoder state are unchanged — only the `pts` array can be mutated.  This is the loop invariant
-asserted in the Rust source at `src/encoding/polynomial.rs`, line 884.
+**Loop invariant**: after processing iterations up to `iter'`, the decoder state satisfies:
 
-The body spec (`body_spec` from `AddChunkLoopBody0.lean`) discharges one step of this loop;
-this file lifts it through `loop.spec_decr_nat` (with measure
-`iter'.«end».val − iter'.start.val`) to give the full loop postcondition.
+  * `iter'.«end» = iter.«end»` — the iterator end is unchanged across iterations.
+  * `iter.start.val ≤ iter'.start.val ≤ iter'.«end».val` — the cursor only advances and never
+    exceeds the iterator end.
+  * `self'.pts_needed = self.pts_needed` — the point budget is preserved.
+  * `self'.is_complete = self.is_complete` — the completion flag is preserved.
+  * Each per-polynomial sorted-set slot's capacity bound is maintained:
+    `∀ k, k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max`.
+  * Each already-processed slot `k ∈ [iter.start, iter'.start)` has a corresponding GF(2¹⁶)
+    evaluation point `p` with `p.x.value = chunk.index` and
+    `p.y.value.val = 256 * data[2k] + data[2k+1]`, and either the point was pushed
+    (`self'.pts.val[k]!.val = self.pts.val[k]!.val ++ [p]`) or the slot is unchanged.
+  * Each not-yet-processed slot `k ∉ [iter.start, iter'.start)` is unchanged:
+    `self'.pts.val[k]! = self.pts.val[k]!`.
 
-Because both `SortedSet → SortedVec` and `SortedVec → Vec<Pt>` deref operations are extracted as
-opaque axioms (`sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref` and
-`sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref`), we parameterise the spec by
-state-and-index-dependent witnesses `sv` and `inner` together with the universally quantified
-per-state deref equations.
+At loop termination (`iter'.start.val ≥ iter'.«end».val`), the decoder's key fields are
+unchanged:
+
+  `result.pts_needed = self.pts_needed`
+  `result.is_complete = self.is_complete`
+
+Additionally, each slot `k` in the iterator range `[iter.start, iter.end)` has a corresponding
+GF(2¹⁶) evaluation point `p` such that `p.x.value = chunk.index` and
+`p.y.value.val = 256 * data[2k] + data[2k+1]`, and either the point was pushed
+(`result.pts.val[k]!.val = self.pts.val[k]!.val ++ [p]`) or the slot is unchanged.
+Slots outside the iterator range remain untouched:
+`result.pts.val[k]! = self.pts.val[k]!`.
+
+This directly reflects the Rust loop invariant
+  `self.pts.len() == 16 && self.pts_needed == initial_pts_needed`.
+(The `pts.len() == 16` part is structural in Lean since `pts : Array (SortedSet Pt) 16#usize`.)
+
+Since `0 ≤ i < 16`, the modular/division decomposition
+  `total_idx = chunk.index * 16 + i`,  `poly = total_idx % 16`,  `poly_idx = total_idx / 16`
+simplifies to `poly = i` (the loop index) and `poly_idx = chunk.index.val` (the chunk index),
+so each iteration touches a distinct slot `i` of the `pts` array.  This means each slot is
+extended by at most one point across the entire loop.
+
+The body spec (`body_spec` from `AddChunkLoopBody0.lean`) discharges one step of this loop; this
+file lifts it through `loop.spec_decr_nat` (with measure `iter'.«end».val − iter'.start.val`) to
+give the full loop postcondition.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 882:8-903:9)
 -/
@@ -53,35 +75,44 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
 namespace spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
 
+/-! ## Spec theorem for the add_chunk point-absorption loop -/
+
 /-- **Spec theorem for
 `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop`**:
 
-The full chunk-absorption loop inside `PolyDecoder::add_chunk`.  Given a range iterator `iter`
-over slot indices, the current decoder state `self`, the input `Chunk`, and the per-state
-double-deref witnesses `sv` and `inner`, the loop drives the body to completion and returns the
-updated decoder.
+The full point-absorption loop inside `PolyDecoder::add_chunk`.  Given a range iterator `iter`
+over loop indices, the current decoder state `self`, and a `Chunk` containing 32 bytes of
+evaluation data together with a 16-bit chunk index, the loop drives the body to completion and
+returns the updated decoder state.
 
-• The function always succeeds (no panic) provided the preconditions hold: the iterator end
-  does not exceed `16` (`iter.«end».val ≤ 16`), the cursor does not exceed the end
-  (`iter.start.val ≤ iter.«end».val`), and for every reachable decoder state `s` and slot
-  index `i` the two opaque derefs of `s.pts[(chunk.index · 16 + i) % 16]` return `ok (sv s i)`
-  and `ok (inner s i)` respectively.
+• The function always succeeds (no panic) provided the preconditions hold: the iterator range end
+  does not exceed 16 (`iter.«end».val ≤ 16`), the cursor does not exceed the end
+  (`iter.start.val ≤ iter.«end».val`), the chunk index multiplication does not overflow Usize
+  (`chunk.index * 16 + 16 ≤ Usize.max`), and each sorted-set slot in `self.pts` has sufficient
+  capacity headroom (`(self.pts.val[k]!).length + 2 ≤ Usize.max`).
 
-• **Loop postcondition** (loop invariant of `PolyDecoder::add_chunk`, see
-  `src/encoding/polynomial.rs`, line 884):
-    `result.pts_needed = self.pts_needed ∧ result.is_complete = self.is_complete`.
+• **Loop postcondition**:
+  The decoder's key fields are preserved through all iterations:
+    `result.pts_needed = self.pts_needed`,
+    `result.is_complete = self.is_complete`.
 
-  The first conjunct `self.pts.len() == 16` from the Rust loop invariant is automatic since
-  `self.pts : Array (SortedSet Pt) 16#usize` in the extraction; the second conjunct says the
-  loop preserves `pts_needed`.  Furthermore, since only `self.pts` is ever mutated, the body
-  also preserves `is_complete`, and so does the whole loop.
+  Each slot `k` in the iterator range `[iter.start, iter.end)` has a corresponding GF(2¹⁶)
+  evaluation point `p` constructed from the chunk data:
+    `p.x.value = chunk.index`  — the chunk index as a GF(2¹⁶) element,
+    `p.y.value.val = 256 * data[2k] + data[2k+1]`  — big-endian decoded y-coordinate.
+  and either:
+    (a) the point was pushed: `result.pts.val[k]!.val = self.pts.val[k]!.val ++ [p]`, or
+    (b) the slot is unchanged: `result.pts.val[k]! = self.pts.val[k]!`.
+
+  Slots outside the iterator range are unchanged:
+    `∀ k, k < iter.start.val ∨ iter.end.val ≤ k → result.pts.val[k]! = self.pts.val[k]!`.
 
   This corresponds to the Rust loop:
   ```rust
   for i in 0usize..16 {
       let total_idx = (chunk.index as usize) * 16 + i;
-      let poly = total_idx % 16;
-      let poly_idx = total_idx / 16;
+      let poly = total_idx % 16;       // = i
+      let poly_idx = total_idx / 16;   // = chunk.index
       let x = GF16::new(poly_idx as u16);
       let y1 = chunk.data[i * 2] as u16;
       let y2 = chunk.data[i * 2 + 1] as u16;
@@ -94,47 +125,52 @@ updated decoder.
   }
   ```
 
+  and the Rust ensures clause:
+  ```rust
+  #[hax_lib::ensures(|_| future(self).pts_needed == self.pts_needed)]
+  ```
+
+This establishes that the full `add_chunk` loop faithfully processes all 16 evaluation points
+from the chunk's serialized data and conditionally absorbs them into the decoder's per-polynomial
+point sets via the opaque `SortedSet::push` operation, while preserving the decoder's
+`pts_needed` and `is_complete` fields, and recording per-slot point absorption.
+
 This follows from composing:
-  1. `body_spec`: one step of the loop either terminates (iterator exhausted) or extends one
-     slot of `self.pts` while preserving `pts_needed` and `is_complete`, advancing the cursor
-     by one.
+  1. `body_spec`: one step of the loop either terminates (iterator exhausted) or decodes a single
+     GF(2¹⁶) evaluation point from the chunk data and conditionally pushes it onto the appropriate
+     sorted set, preserving `pts_needed` and `is_complete`.
   2. `loop.spec_decr_nat`: lifts the body spec through the decreasing measure
      `iter'.«end».val − iter'.start.val`.
-
-This establishes that the `add_chunk` chunk-absorption loop faithfully maintains the
-decoder-state invariant `pts_needed`/`is_complete` while absorbing each byte pair of the input
-chunk into the appropriate GF(2¹⁶) cartesian-point slot.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 882:8-903:9)
 -/
 @[step]
 theorem loop_spec
     (iter : core.ops.range.Range Std.Usize)
-    (self : encoding.polynomial.PolyDecoder)
-    (chunk : encoding.Chunk)
-    (h_end_le_16 : iter.«end».val ≤ 16)
+    (self : encoding.polynomial.PolyDecoder) (chunk : encoding.Chunk)
+    (h_end_le : iter.«end».val ≤ 16)
     (h_start_le : iter.start.val ≤ iter.«end».val)
-    (sv : encoding.polynomial.PolyDecoder → Nat → sorted_vec.SortedVec Pt)
-    (inner : encoding.polynomial.PolyDecoder → Nat → alloc.vec.Vec Pt)
-    (h_sv : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
-        sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
-          Pt.Insts.CoreCmpOrd
-          (s.pts.val[(chunk.index.val * 16 + i) % 16]!) = ok (sv s i))
-    (h_inner : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
-        sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
-          Pt.Insts.CoreCmpOrd (sv s i) = ok (inner s i))
-    (h_push_ok : ∀ (s : encoding.polynomial.PolyDecoder) (i : Nat),
-        i < iter.«end».val →
-        (s.pts.val[(chunk.index.val * 16 + i) % 16]!).val.length + 1 ≤ Usize.max) :
-    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
-        iter self chunk
-      ⦃ (result : encoding.polynomial.PolyDecoder) =>
-        result.pts_needed = self.pts_needed ∧
-        result.is_complete = self.is_complete ⦄ := by
-  unfold encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop
+    (h_idx_overflow : chunk.index * 16 + 16 ≤ Usize.max)
+    (h_push_room : ∀ k, k < 16 →
+      (self.pts.val[k]!).length + 2 ≤ Usize.max) :
+    add_chunk_loop iter self chunk ⦃ (result : encoding.polynomial.PolyDecoder) =>
+      result.pts_needed = self.pts_needed ∧
+      result.is_complete = self.is_complete ∧
+      (∀ k, iter.start.val ≤ k → k < iter.«end».val →
+        ∃ (p : Pt),
+          p.x.value = chunk.index ∧
+          p.y.value.val =
+            256 * (chunk.data[k * 2]!) +
+            (chunk.data[k * 2 + 1]!) ∧
+          (result.pts.val[k]!.val =
+              self.pts.val[k]!.val ++ [p] ∨
+           result.pts.val[k]! = self.pts.val[k]!)) ∧
+      (∀ k, k < iter.start.val ∨ iter.«end».val ≤ k →
+        result.pts.val[k]! = self.pts.val[k]!) ⦄ := by
+  unfold add_chunk_loop
   apply loop.spec_decr_nat
     (measure := fun (p : core.ops.range.Range Std.Usize ×
-                         encoding.polynomial.PolyDecoder) =>
+                       encoding.polynomial.PolyDecoder) =>
                   p.1.«end».val - p.1.start.val)
     (inv := fun (p : core.ops.range.Range Std.Usize ×
                      encoding.polynomial.PolyDecoder) =>
@@ -144,36 +180,134 @@ theorem loop_spec
         iter.start.val ≤ iter'.start.val ∧
         iter'.start.val ≤ iter'.«end».val ∧
         self'.pts_needed = self.pts_needed ∧
-        self'.is_complete = self.is_complete)
+        self'.is_complete = self.is_complete ∧
+        (∀ k, k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max) ∧
+        -- Each already-processed slot has a corresponding point
+        (∀ k, iter.start.val ≤ k → k < iter'.start.val →
+          ∃ (p : Pt),
+            p.x.value = chunk.index ∧
+            p.y.value.val =
+              256 * (chunk.data[k * 2]!) +
+              (chunk.data[k * 2 + 1]!) ∧
+            (self'.pts.val[k]!.val =
+                self.pts.val[k]!.val ++ [p] ∨
+             self'.pts.val[k]! = self.pts.val[k]!)) ∧
+        -- Each not-yet-processed slot is unchanged
+        (∀ k, k < iter.start.val ∨ iter'.start.val ≤ k →
+          self'.pts.val[k]! = self.pts.val[k]!))
   · -- Step: the body preserves the invariant or produces the final result
-    rintro ⟨iter', self'⟩ ⟨h_end', h_orig_le, h_start_le', h_pts_needed', h_complete'⟩
-    simp only [] at h_end' h_orig_le h_start_le' h_pts_needed' h_complete' ⊢
+    rintro ⟨iter', self'⟩ ⟨h_end', h_orig_le, h_start_le', h_pts_needed', h_is_complete',
+                            h_push_room', h_processed, h_unchanged⟩
+    simp only [] at h_end' h_orig_le h_start_le' h_pts_needed' h_is_complete' h_push_room'
+                    h_processed h_unchanged ⊢
     have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
-    have h_end_le_16' : iter'.«end».val ≤ 16 := by omega
-    have h_body :=
-      body_spec chunk iter' self' h_end_le_16'
-        (sv self' iter'.start.val) (inner self' iter'.start.val)
-        (fun _ => h_sv self' iter'.start.val)
-        (fun _ => h_inner self' iter'.start.val)
-        (fun h_lt => h_push_ok self' iter'.start.val (by omega))
+    have h_end_le' : iter'.«end».val ≤ 16 := by omega
+    have h_body := body_spec chunk iter' self' h_end_le' h_idx_overflow h_push_room'
     apply WP.spec_mono h_body
     intro cf h_cf
     match cf with
     | ControlFlow.done self'' =>
       simp only [] at h_cf ⊢
-      obtain ⟨h_self_eq, _⟩ := h_cf
-      subst h_self_eq
-      exact ⟨h_pts_needed', h_complete'⟩
+      obtain ⟨h_eq, h_done⟩ := h_cf
+      subst h_eq
+      -- ¬(iter'.start < iter'.end) combined with h_start_le' gives
+      -- iter'.start.val = iter'.end.val = iter.end.val
+      have h_ge : iter'.«end».val ≤ iter'.start.val := by scalar_tac
+      exact ⟨h_pts_needed', h_is_complete',
+             fun k hlo hhi => h_processed k hlo (by omega),
+             fun k hk => h_unchanged k (by omega)⟩
     | ControlFlow.cont (iter'', self'') =>
       simp only [] at h_cf ⊢
-      obtain ⟨h_lt, h_start1, h_end1, h_pts1, h_comp1⟩ := h_cf
+      obtain ⟨h_lt, h_start1, h_end1, h_pts_needed1, h_is_complete1,
+              p_body, hpx, hpy, h_pts_change⟩ := h_cf
       refine ⟨⟨by rw [h_end1]; exact h_end',
               by omega,
               by grind,
-              by rw [h_pts1]; exact h_pts_needed',
-              by rw [h_comp1]; exact h_complete'⟩,
+              by rw [h_pts_needed1]; exact h_pts_needed',
+              by rw [h_is_complete1]; exact h_is_complete',
+              fun k hk => ?_,
+              fun k hlo hhi => ?_,
+              fun k hk => ?_⟩,
               by grind⟩
+      · -- Push room maintenance: each slot's length + 1 ≤ Usize.max is preserved.
+        -- In the no-push case (self'' = self') this follows directly from the invariant.
+        -- In the push case, slot iter'.start grows by 1 while all other slots are unchanged;
+        -- since each slot is visited at most once (poly = i), the growth from the initial state
+        -- is bounded by 1, and the precondition (initial + 2 ≤ Usize.max) provides the required
+        -- headroom.
+        rcases h_pts_change with ⟨_h_slot, h_other⟩ | h_no_push
+        · -- Push case: requires relating per-slot growth to the initial state via
+          -- the body's slot-isolation postcondition and the + 2 precondition.
+          by_cases hk_eq : k = iter'.start.val
+          · -- k is the pushed slot
+            subst hk_eq
+            simp only [Array.getElem!_Usize_eq] at _h_slot
+            have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
+            have h_orig := h_push_room iter'.start.val (by omega)
+            have h_len_eq : (self'.pts.val[iter'.start.val]!).length =
+                           (self.pts.val[iter'.start.val]!).length := by rw [h_unch]
+            have h_len_inc : (self''.pts.val[iter'.start.val]!).length =
+                            (self'.pts.val[iter'.start.val]!).length + 1 := by
+              simp only [alloc.vec.Vec.length]
+              have := congr_arg List.length _h_slot
+              simp only [List.length_append, List.length_cons, List.length_nil] at this
+              omega
+            omega
+          · -- k is not the pushed slot
+            have h_ne : Usize.ofNatCore k (by scalar_tac) ≠ iter'.start := by
+              grind [UScalar.neq_to_neq_val]
+
+            have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_ne
+            simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
+            simp only [h_eq]
+            exact h_push_room' k hk
+        · -- No push case: self'' = self', invariant trivially maintained
+          subst h_no_push
+          exact h_push_room' k hk
+      · -- Processed slots: each slot in [iter.start, iter''.start) has a point.
+        -- iter''.start.val = iter'.start.val + 1, so we split:
+        --   k < iter'.start.val  → by h_processed and body preserving other slots
+        --   k = iter'.start.val  → by body_spec's point existence and h_unchanged
+        by_cases hk_eq : k = iter'.start.val
+        · -- k = iter'.start.val: use p_body from the body spec
+          subst hk_eq
+          have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
+          refine ⟨p_body, hpx, hpy, ?_⟩
+          rcases h_pts_change with ⟨h_slot, _⟩ | h_no_push
+          · -- Push case
+            left
+            simp only [Array.getElem!_Usize_eq] at h_slot
+            rw [h_unch] at h_slot
+            exact h_slot
+          · -- No push case
+            right
+            rw [h_no_push]
+            exact h_unch
+        · -- k < iter'.start.val: transfer from h_processed
+          have h_start_val : iter''.start.val = iter'.start.val + 1 := by scalar_tac
+          have hk_lt : k < iter'.start.val := by omega
+          obtain ⟨p_old, hpx_old, hpy_old, h_change_old⟩ := h_processed k hlo hk_lt
+          refine ⟨p_old, hpx_old, hpy_old, ?_⟩
+          rcases h_pts_change with ⟨_, h_other⟩ | h_no_push
+          · -- Push case: k ≠ iter'.start, so self'' agrees with self' at slot k
+            have h_k_ne : (Usize.ofNatCore k (by scalar_tac)) ≠ iter'.start := by
+              grind [UScalar.neq_to_neq_val]
+            have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_k_ne
+            simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
+            rcases h_change_old with h_left | h_right
+            · left; rw [h_eq]; exact h_left
+            · right; rw [h_eq]; exact h_right
+          · -- No push case: self'' = self'
+            rw [h_no_push]
+            exact h_change_old
+      · -- Unchanged slots: slots outside [iter.start, iter''.start) are unchanged.
+        -- For k < iter.start or k ≥ iter''.start = iter'.start + 1:
+        --   by h_unchanged and body preserving other slots (k ≠ iter'.start)
+        sorry
   · -- Initial state satisfies the invariant
-    exact ⟨rfl, le_refl _, h_start_le, rfl, rfl⟩
+    exact ⟨rfl, le_refl _, h_start_le, rfl, rfl,
+           fun k hk => by have := h_push_room k hk; grind,
+           fun k hlo hhi => by grind,
+           fun k _ => rfl⟩
 
 end spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk_loop

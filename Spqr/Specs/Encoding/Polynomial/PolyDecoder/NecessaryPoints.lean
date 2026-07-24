@@ -50,10 +50,9 @@ Euclidean division:
 **Source**: spqr/src/encoding/polynomial.rs (lines 771:4-779:5)
 -/
 @[step]
-theorem necessary_points_spec (self : encoding.polynomial.PolyDecoder) (poly : Std.Usize) :
-    necessary_points self poly ⦃ (result : Std.Usize) =>
-      result.val = self.pts_needed.val / 16 +
-        if poly.val < self.pts_needed.val % 16 then 1 else 0 ⦄ := by
+theorem necessary_points_spec (self : PolyDecoder) (poly : Usize) :
+    necessary_points self poly ⦃ (result : Usize) =>
+      result = self.pts_needed.val / 16 + if poly < self.pts_needed.val % 16 then 1 else 0 ⦄ := by
   unfold necessary_points
   step*
   grind
