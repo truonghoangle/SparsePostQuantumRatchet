@@ -27,8 +27,8 @@ step:
 
 **Loop invariant**: after processing iterations up to `iter'`, the decoder state satisfies:
 
-  * `iter'.«end» = iter.«end»` — the iterator end is unchanged across iterations.
-  * `iter.start.val ≤ iter'.start.val ≤ iter'.«end».val` — the cursor only advances and never
+  * `iter'.end = iter.end` — the iterator end is unchanged across iterations.
+  * `iter.start.val ≤ iter'.start.val ≤ iter'.end.val` — the cursor only advances and never
     exceeds the iterator end.
   * `self'.pts_needed = self.pts_needed` — the point budget is preserved.
   * `self'.is_complete = self.is_complete` — the completion flag is preserved.
@@ -41,7 +41,7 @@ step:
   * Each not-yet-processed slot `k ∉ [iter.start, iter'.start)` is unchanged:
     `self'.pts.val[k]! = self.pts.val[k]!`.
 
-At loop termination (`iter'.start.val ≥ iter'.«end».val`), the decoder's key fields are
+At loop termination (`iter'.start.val ≥ iter'.end.val`), the decoder's key fields are
 unchanged:
 
   `result.pts_needed = self.pts_needed`
@@ -65,7 +65,7 @@ so each iteration touches a distinct slot `i` of the `pts` array.  This means ea
 extended by at most one point across the entire loop.
 
 The body spec (`body_spec` from `AddChunkLoopBody0.lean`) discharges one step of this loop; this
-file lifts it through `loop.spec_decr_nat` (with measure `iter'.«end».val − iter'.start.val`) to
+file lifts it through `loop.spec_decr_nat` (with measure `iter'.end.val − iter'.start.val`) to
 give the full loop postcondition.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 882:8-903:9)
@@ -86,8 +86,8 @@ evaluation data together with a 16-bit chunk index, the loop drives the body to 
 returns the updated decoder state.
 
 • The function always succeeds (no panic) provided the preconditions hold: the iterator range end
-  does not exceed 16 (`iter.«end».val ≤ 16`), the cursor does not exceed the end
-  (`iter.start.val ≤ iter.«end».val`), the chunk index multiplication does not overflow Usize
+  does not exceed 16 (`iter.end.val ≤ 16`), the cursor does not exceed the end
+  (`iter.start.val ≤ iter.end.val`), the chunk index multiplication does not overflow Usize
   (`chunk.index * 16 + 16 ≤ Usize.max`), and each sorted-set slot in `self.pts` has sufficient
   capacity headroom (`(self.pts.val[k]!).length + 2 ≤ Usize.max`).
 
@@ -140,7 +140,7 @@ This follows from composing:
      GF(2¹⁶) evaluation point from the chunk data and conditionally pushes it onto the appropriate
      sorted set, preserving `pts_needed` and `is_complete`.
   2. `loop.spec_decr_nat`: lifts the body spec through the decreasing measure
-     `iter'.«end».val − iter'.start.val`.
+     `iter'.end.val − iter'.start.val`.
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 882:8-903:9)
 -/
@@ -148,42 +148,34 @@ This follows from composing:
 theorem loop_spec
     (iter : core.ops.range.Range Std.Usize)
     (self : encoding.polynomial.PolyDecoder) (chunk : encoding.Chunk)
-    (h_end_le : iter.«end».val ≤ 16)
-    (h_start_le : iter.start.val ≤ iter.«end».val)
+    (h_end_le : iter.end.val ≤ 16)
+    (h_start_le : iter.start ≤ iter.end)
     (h_idx_overflow : chunk.index * 16 + 16 ≤ Usize.max)
     (h_push_room : ∀ k, k < 16 →
       (self.pts.val[k]!).length + 2 ≤ Usize.max) :
     add_chunk_loop iter self chunk ⦃ (result : encoding.polynomial.PolyDecoder) =>
       result.pts_needed = self.pts_needed ∧
       result.is_complete = self.is_complete ∧
-      (∀ k, iter.start.val ≤ k → k < iter.«end».val →
+      (∀ k, iter.start.val ≤ k → k < iter.end →
         ∃ (p : Pt),
           p.x.value = chunk.index ∧
-          p.y.value.val =
-            256 * (chunk.data[k * 2]!) +
-            (chunk.data[k * 2 + 1]!) ∧
-          (result.pts.val[k]!.val =
-              self.pts.val[k]!.val ++ [p] ∨
+          p.y.value.val = 256 * (chunk.data[k * 2]!) + (chunk.data[k * 2 + 1]!) ∧
+          (result.pts.val[k]!.val = self.pts.val[k]!.val ++ [p] ∨
            result.pts.val[k]! = self.pts.val[k]!)) ∧
-      (∀ k, k < iter.start.val ∨ iter.«end».val ≤ k →
+      (∀ k, k < iter.start.val ∨ iter.end.val ≤ k →
         result.pts.val[k]! = self.pts.val[k]!) ⦄ := by
   unfold add_chunk_loop
   apply loop.spec_decr_nat
-    (measure := fun (p : core.ops.range.Range Std.Usize ×
-                       encoding.polynomial.PolyDecoder) =>
-                  p.1.«end».val - p.1.start.val)
-    (inv := fun (p : core.ops.range.Range Std.Usize ×
-                     encoding.polynomial.PolyDecoder) =>
-        let iter' := p.1
+    (measure := fun (p : core.ops.range.Range Usize × PolyDecoder) => p.1.end - p.1.start)
+    (inv := fun (p : core.ops.range.Range Usize × PolyDecoder) =>
         let self' := p.2
-        iter'.«end» = iter.«end» ∧
-        iter.start.val ≤ iter'.start.val ∧
-        iter'.start.val ≤ iter'.«end».val ∧
+        p.1.end = iter.end ∧
+        iter.start.val ≤ p.1.start.val ∧
+        p.1.start.val ≤ p.1.end.val ∧
         self'.pts_needed = self.pts_needed ∧
         self'.is_complete = self.is_complete ∧
         (∀ k, k < 16 → (self'.pts.val[k]!).length + 1 ≤ Usize.max) ∧
-        -- Each already-processed slot has a corresponding point
-        (∀ k, iter.start.val ≤ k → k < iter'.start.val →
+        (∀ k, iter.start.val ≤ k → k < p.1.start.val →
           ∃ (p : Pt),
             p.x.value = chunk.index ∧
             p.y.value.val =
@@ -192,16 +184,14 @@ theorem loop_spec
             (self'.pts.val[k]!.val =
                 self.pts.val[k]!.val ++ [p] ∨
              self'.pts.val[k]! = self.pts.val[k]!)) ∧
-        -- Each not-yet-processed slot is unchanged
-        (∀ k, k < iter.start.val ∨ iter'.start.val ≤ k →
+        (∀ k, k < iter.start.val ∨ p.1.start.val ≤ k →
           self'.pts.val[k]! = self.pts.val[k]!))
-  · -- Step: the body preserves the invariant or produces the final result
-    rintro ⟨iter', self'⟩ ⟨h_end', h_orig_le, h_start_le', h_pts_needed', h_is_complete',
+  · rintro ⟨iter', self'⟩ ⟨h_end', h_orig_le, h_start_le', h_pts_needed', h_is_complete',
                             h_push_room', h_processed, h_unchanged⟩
     simp only [] at h_end' h_orig_le h_start_le' h_pts_needed' h_is_complete' h_push_room'
                     h_processed h_unchanged ⊢
-    have h_end_val : iter'.«end».val = iter.«end».val := by rw [h_end']
-    have h_end_le' : iter'.«end».val ≤ 16 := by omega
+    have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
+    have h_end_le' : iter'.end.val ≤ 16 := by omega
     have h_body := body_spec chunk iter' self' h_end_le' h_idx_overflow h_push_room'
     apply WP.spec_mono h_body
     intro cf h_cf
@@ -210,9 +200,7 @@ theorem loop_spec
       simp only [] at h_cf ⊢
       obtain ⟨h_eq, h_done⟩ := h_cf
       subst h_eq
-      -- ¬(iter'.start < iter'.end) combined with h_start_le' gives
-      -- iter'.start.val = iter'.end.val = iter.end.val
-      have h_ge : iter'.«end».val ≤ iter'.start.val := by scalar_tac
+      have h_ge : iter'.end.val ≤ iter'.start.val := by scalar_tac
       exact ⟨h_pts_needed', h_is_complete',
              fun k hlo hhi => h_processed k hlo (by omega),
              fun k hk => h_unchanged k (by omega)⟩
@@ -229,18 +217,9 @@ theorem loop_spec
               fun k hlo hhi => ?_,
               fun k hk => ?_⟩,
               by grind⟩
-      · -- Push room maintenance: each slot's length + 1 ≤ Usize.max is preserved.
-        -- In the no-push case (self'' = self') this follows directly from the invariant.
-        -- In the push case, slot iter'.start grows by 1 while all other slots are unchanged;
-        -- since each slot is visited at most once (poly = i), the growth from the initial state
-        -- is bounded by 1, and the precondition (initial + 2 ≤ Usize.max) provides the required
-        -- headroom.
-        rcases h_pts_change with ⟨_h_slot, h_other⟩ | h_no_push
-        · -- Push case: requires relating per-slot growth to the initial state via
-          -- the body's slot-isolation postcondition and the + 2 precondition.
-          by_cases hk_eq : k = iter'.start.val
-          · -- k is the pushed slot
-            subst hk_eq
+      · rcases h_pts_change with ⟨_h_slot, h_other⟩ | h_no_push
+        · by_cases hk_eq : k = iter'.start.val
+          · subst hk_eq
             simp only [Array.getElem!_Usize_eq] at _h_slot
             have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
             have h_orig := h_push_room iter'.start.val (by omega)
@@ -253,59 +232,64 @@ theorem loop_spec
               simp only [List.length_append, List.length_cons, List.length_nil] at this
               omega
             omega
-          · -- k is not the pushed slot
-            have h_ne : Usize.ofNatCore k (by scalar_tac) ≠ iter'.start := by
+          · have h_ne : Usize.ofNatCore k (by scalar_tac) ≠ iter'.start := by
               grind [UScalar.neq_to_neq_val]
-
             have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_ne
             simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
             simp only [h_eq]
             exact h_push_room' k hk
-        · -- No push case: self'' = self', invariant trivially maintained
-          subst h_no_push
+        · subst h_no_push
           exact h_push_room' k hk
-      · -- Processed slots: each slot in [iter.start, iter''.start) has a point.
-        -- iter''.start.val = iter'.start.val + 1, so we split:
-        --   k < iter'.start.val  → by h_processed and body preserving other slots
-        --   k = iter'.start.val  → by body_spec's point existence and h_unchanged
-        by_cases hk_eq : k = iter'.start.val
-        · -- k = iter'.start.val: use p_body from the body spec
-          subst hk_eq
+      · by_cases hk_eq : k = iter'.start.val
+        · subst hk_eq
           have h_unch := h_unchanged iter'.start.val (Or.inr (le_refl _))
           refine ⟨p_body, hpx, hpy, ?_⟩
           rcases h_pts_change with ⟨h_slot, _⟩ | h_no_push
-          · -- Push case
-            left
+          · left
             simp only [Array.getElem!_Usize_eq] at h_slot
             rw [h_unch] at h_slot
             exact h_slot
-          · -- No push case
-            right
+          · right
             rw [h_no_push]
             exact h_unch
-        · -- k < iter'.start.val: transfer from h_processed
-          have h_start_val : iter''.start.val = iter'.start.val + 1 := by scalar_tac
+        · have h_start_val : iter''.start.val = iter'.start.val + 1 := by scalar_tac
           have hk_lt : k < iter'.start.val := by omega
           obtain ⟨p_old, hpx_old, hpy_old, h_change_old⟩ := h_processed k hlo hk_lt
           refine ⟨p_old, hpx_old, hpy_old, ?_⟩
           rcases h_pts_change with ⟨_, h_other⟩ | h_no_push
-          · -- Push case: k ≠ iter'.start, so self'' agrees with self' at slot k
-            have h_k_ne : (Usize.ofNatCore k (by scalar_tac)) ≠ iter'.start := by
+          · have h_k_ne : (Usize.ofNatCore k (by scalar_tac)) ≠ iter'.start := by
               grind [UScalar.neq_to_neq_val]
             have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_k_ne
             simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
             rcases h_change_old with h_left | h_right
             · left; rw [h_eq]; exact h_left
             · right; rw [h_eq]; exact h_right
-          · -- No push case: self'' = self'
-            rw [h_no_push]
+          · rw [h_no_push]
             exact h_change_old
-      · -- Unchanged slots: slots outside [iter.start, iter''.start) are unchanged.
-        -- For k < iter.start or k ≥ iter''.start = iter'.start + 1:
-        --   by h_unchanged and body preserving other slots (k ≠ iter'.start)
-        sorry
-  · -- Initial state satisfies the invariant
-    exact ⟨rfl, le_refl _, h_start_le, rfl, rfl,
+      · have h_start_val : iter''.start.val = iter'.start.val + 1 := by scalar_tac
+        have h_unch_self' : self'.pts.val[k]! = self.pts.val[k]! := by
+          apply h_unchanged
+          rcases hk with hlt | hge
+          · exact Or.inl hlt
+          · exact Or.inr (by omega)
+        have h_self''_eq : self''.pts.val[k]! = self'.pts.val[k]! := by
+          rcases h_pts_change with ⟨_, h_other⟩ | h_no_push
+          · by_cases hk16 : k < 16
+            · have h_k_ne : (Usize.ofNatCore k (by scalar_tac)) ≠ iter'.start := by
+                grind [UScalar.neq_to_neq_val]
+              have h_eq := h_other (Usize.ofNatCore k (by scalar_tac)) h_k_ne
+              simp only [Array.getElem!_Usize_eq, Usize.ofNatCore_val_eq] at h_eq
+              exact h_eq
+            · have hbound'' : self''.pts.val.length ≤ k := by
+                have h := self''.pts.property; scalar_tac
+              have hbound' : self'.pts.val.length ≤ k := by
+                have h := self'.pts.property; scalar_tac
+              simp only [List.getElem!_eq_getElem?_getD]
+              rw [List.getElem?_eq_none hbound'', List.getElem?_eq_none hbound']
+          · rw [h_no_push]
+        rw [h_self''_eq]
+        exact h_unch_self'
+  · exact ⟨rfl, le_refl _, h_start_le, rfl, rfl,
            fun k hk => by have := h_push_room k hk; grind,
            fun k hlo hhi => by grind,
            fun k _ => rfl⟩
