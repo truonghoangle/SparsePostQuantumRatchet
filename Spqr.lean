@@ -115,7 +115,6 @@ import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOnce
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.MapCollect
-import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIter
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
 import Spqr.Specs.Encoding.Polynomial.Decoder.AddChunk
 import Spqr.Specs.Encoding.Polynomial.Decoder.DecodedMessage

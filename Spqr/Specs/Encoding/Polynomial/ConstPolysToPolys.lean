@@ -69,7 +69,6 @@ The function always succeeds and, for each index `j < N`:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 465:0-467:1)
 -/
-
 @[step]
 theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
     const_polys_to_polys cps ⦃ result =>
