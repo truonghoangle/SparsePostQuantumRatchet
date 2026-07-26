@@ -16,8 +16,7 @@ Specialized to the `const_polys_to_polys` pipeline.
 -/
 
 
-open Aeneas Aeneas.Std Result
-open spqr.encoding.polynomial spqr.encoding.gf Polynomial
+open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open const_polys_to_polys.closure.Insts
 
 namespace Aeneas.Std.core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
@@ -257,10 +256,7 @@ theorem collect_const_polys_spec
     core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect
       (core.iter.traits.iterator.IteratorSliceIter (PolyConst N))
       (const_polys_to_polys.closure.Insts.CoreOpsFunctionFnMutTupleSharedPolyConstPoly
-        N)
-      (core.iter.traits.collect.FromIteratorVec Poly)
-      m
-    ⦃ (result : alloc.vec.Vec Poly) =>
+        N) (core.iter.traits.collect.FromIteratorVec Poly) m ⦃ (result : alloc.vec.Vec Poly) =>
       result.val.length = m.iter.slice.val.length - m.iter.i ∧
       (∀ (j : Nat), j + m.iter.i < m.iter.slice.val.length →
         ∀ (hj : j < result.val.length)
@@ -269,8 +265,7 @@ theorem collect_const_polys_spec
             (m.iter.slice.val.get ⟨j + m.iter.i, hs⟩).coefficients.val ∧
           (result.val.get ⟨j, hj⟩).toGF216Poly =
             listToGF216Poly
-              (m.iter.slice.val.get ⟨j + m.iter.i, hs⟩).coefficients.val)
-      ⦄ := by
+              (m.iter.slice.val.get ⟨j + m.iter.i, hs⟩).coefficients.val) ⦄ := by
   simp only [core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec]
   unfold alloc.vec.FromIteratorVec.from_iter
   simp only [traits.collect.IntoIterator.Blanket.into_iter, bind_tc_ok, List.get_eq_getElem]
