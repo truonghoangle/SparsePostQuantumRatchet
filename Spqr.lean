@@ -59,9 +59,13 @@ import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
 import Spqr.Specs.Aeneas.SliceChunksExact
 import Spqr.Specs.Aeneas.SliceConcat
+<<<<<<< HEAD
 import Spqr.Specs.Aeneas.SliceIsEmpty
 import Spqr.Specs.Aeneas.SliceIter
 import Spqr.Specs.Aeneas.SliceIterMap
+=======
+import Spqr.Specs.Aeneas.SliceIter
+>>>>>>> e5c11f8a7cb325ffea09571e45159cbdb901258f
 import Spqr.Specs.Aeneas.SliceIteratorNext
 import Spqr.Specs.Aeneas.TryFromSliceToArray
 import Spqr.Specs.Aeneas.U16FromBeBytes
@@ -109,13 +113,17 @@ import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_30
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_34
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_36
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_5
+<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.Chunk.Clone
 import Spqr.Specs.Encoding.Polynomial.Chunk.Fmt
+=======
+>>>>>>> e5c11f8a7cb325ffea09571e45159cbdb901258f
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallMut
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.CallOnce
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.MapCollect
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
+<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.Decoder.AddChunk
 import Spqr.Specs.Encoding.Polynomial.Decoder.DecodedMessage
 import Spqr.Specs.Encoding.Polynomial.Decoder.New
@@ -123,6 +131,8 @@ import Spqr.Specs.Encoding.Polynomial.Encoder.EncodeBytes
 import Spqr.Specs.Encoding.Polynomial.EncodingError.Clone
 import Spqr.Specs.Encoding.Polynomial.EncodingError.Eq
 import Spqr.Specs.Encoding.Polynomial.EncodingError.Fmt
+=======
+>>>>>>> e5c11f8a7cb325ffea09571e45159cbdb901258f
 import Spqr.Specs.Encoding.Polynomial.LagrangePolysForCompletePoints
 import Spqr.Specs.Encoding.Polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1
 import Spqr.Specs.Encoding.Polynomial.MAX_STORED_POLYNOMIAL_DEGREE_V1
@@ -154,6 +164,7 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoop0
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.AddChunkLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallOnce
+<<<<<<< HEAD
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.Clone
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPb
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoop0
@@ -162,6 +173,9 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPb
+=======
+import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
+>>>>>>> e5c11f8a7cb325ffea09571e45159cbdb901258f
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.New
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount
@@ -248,6 +262,7 @@ import Spqr.Specs.Serialize.Error.From
 import Spqr.Specs.Util.Compare
 import Spqr.Specs.Util.Inz
 import Spqr.Specs.Util.IsNonZero
+<<<<<<< HEAD
 import Spqr.Specs.V1.Chunked.SendCt.NoHeaderReceived.New
 import Spqr.Specs.V1.Chunked.SendCt.Serialize.Ct1Acknowledged.IntoPb
 import Spqr.Specs.V1.Chunked.SendCt.Serialize.Ct1Sampled.IntoPb
@@ -264,6 +279,13 @@ import Spqr.Specs.V1.Chunked.SendEk.Serialize.KeysUnsampled.IntoPb
 import Spqr.Specs.V1.Chunked.States.Serialize.MAX_VARINT_BYTES_LEN
 import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.FromPayload
 import Spqr.Specs.V1.Chunked.States.Serialize.States.IntoPb
+=======
+import Spqr.Specs.V1.Chunked.States.Serialize.DecodeVarint
+import Spqr.Specs.V1.Chunked.States.Serialize.EncodeVarint
+import Spqr.Specs.V1.Chunked.States.Serialize.MAX_VARINT_BYTES_LEN
+import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.FromPayload
+import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.TryFrom
+>>>>>>> e5c11f8a7cb325ffea09571e45159cbdb901258f
 import Spqr.Specs.V1.Chunked.States.Serialize.U8.From
 import Spqr.Specs.V1.Chunked.States.States.InitA
 import Spqr.Specs.V1.Chunked.States.States.InitB
