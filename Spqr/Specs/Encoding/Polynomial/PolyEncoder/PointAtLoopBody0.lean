@@ -301,39 +301,36 @@ private lemma array_set_restore_set_getElem!
 
 /-! ## Axiom for the map+collect pipeline -/
 
-/-- Axiom: the `Iterator.map.default` + `Iterator.collect.default` pipeline for the
-    point_at case is equivalent to `FromIteratorVec.from_iter` with `mapIteratorTransformer`.
+/-- Axiom: `Iterator.collect.default` on a `Map (Enumerate (Iter GF16)) closure_1` value `m`
+    is equivalent to `FromIteratorVec.from_iter` with the `mapIteratorTransformer`-constructed
+    iterator instance, using `m.iter` as the initial state.
 
     This bridges the generated Aeneas code (which uses the generic trait-default
-    `Iterator.map.default` axiom followed by `Iterator.collect.default`) with the
-    hand-verified `from_iter_point_at_spec` that uses `mapIteratorTransformer`
+    `Iterator.collect.default` after `step*` has already resolved `Iterator.map.default`)
+    with the hand-verified `from_iter_point_at_spec` that uses `mapIteratorTransformer`
     (whose `next` is concretely defined).
 
-    The axiom is sound because `Iterator.map.default` in Rust simply constructs
-    `Map { iter, f }`, and collecting via the `Map` iterator instance is
-    equivalent to calling `from_iter` with `mapIteratorTransformer`. -/
-private axiom map_collect_eq_point_at
-    (enum_iter : PointAtEnumT) :
-    (do
-      let m ← core.iter.traits.iterator.Iterator.map.default
-        (core.iter.traits.iterator.IteratorEnumerate
-          (core.iter.traits.iterator.IteratorSliceIter GF16))
-        Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt
-        enum_iter ()
-      core.iter.traits.iterator.Iterator.collect.default
+    The axiom is sound because `Iterator.collect.default` unfolds to
+    `FromIterator.from_iter (IntoIterator.Blanket iterInst) self.iter`, and the
+    `Map` iterator instance delegates to `mapIteratorTransformer`. -/
+private theorem map_collect_eq_point_at
+    (m : PointAtMapT) :
+    core.iter.traits.iterator.Iterator.collect.default
         (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
           (core.iter.traits.iterator.IteratorEnumerate
             (core.iter.traits.iterator.IteratorSliceIter GF16))
           Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt)
-        (core.iter.traits.collect.FromIteratorVec Pt) m)
+        (core.iter.traits.collect.FromIteratorVec Pt)
+        m
     = alloc.vec.FromIteratorVec.from_iter
         (core.iter.traits.collect.IntoIterator.Blanket
           (core.iter.adapters.map.mapIteratorTransformer
-            ({ iter := enum_iter, f := () } : PointAtMapT)
+            ({ iter := m.iter, f := () } : PointAtMapT)
             (core.iter.traits.iterator.IteratorEnumerate
               (core.iter.traits.iterator.IteratorSliceIter GF16))
             Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
-        enum_iter
+        m.iter := by
+        sorry
 
 /-! ## Spec theorem for the point_at loop body -/
 
@@ -438,11 +435,9 @@ theorem body_spec
     have h_pts_lt : iter.start.val < pts.val.length := by rw [pts.property]; exact h_i_lt_16
     have h_eq : pts.val[iter.start.val] = pts.val[iter.start.val]! :=
       List.Inhabited_getElem_eq_getElem! pts.val iter.start.val h_pts_lt
-    rw [h_eq]; clear h_eq h_pts_lt
-    -- Restructure binds: left-associate to expose the map+collect pair
-    simp only [← bind_assoc_eq]
-    -- Apply the map+collect axiom, then right-associate back
-    simp only [map_collect_eq_point_at, bind_assoc_eq]
+    simp only [alloc.vec.Vec.len]
+    -- Apply the collect axiom, substitute m.iter via m_post, normalize with h_eq
+    simp only [map_collect_eq_point_at, m_post, h_eq]; clear h_eq h_pts_lt
     apply WP.spec_bind (from_iter_point_at_spec
       (alloc.vec.Vec.deref ((pts.val[iter.start.val]!).value)) h_len_le)
     intro pt_vec ⟨h_pt_len, h_pt_elts⟩

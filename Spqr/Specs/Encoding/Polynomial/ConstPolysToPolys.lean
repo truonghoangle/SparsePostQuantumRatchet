@@ -25,7 +25,7 @@ namespace spqr.encoding.polynomial
 /-- Bridge between the Aeneas-generated `collect.default` (with `Map.Insts` whose
 `next := sorry`, see https://github.com/AeneasVerif/aeneas/issues/1043) and the
 external `Map.Insts.collect` (with proper `mapIteratorTransformer`). -/
-private theorem collect_default_bridge {N : Usize}
+theorem collect_default_bridge {N : Usize}
     (m : core.iter.adapters.map.Map (core.slice.iter.Iter (PolyConst N))
       (const_polys_to_polys.closure N)) :
     core.iter.traits.iterator.Iterator.collect.default
