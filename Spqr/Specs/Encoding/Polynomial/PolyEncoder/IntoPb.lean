@@ -74,9 +74,7 @@ theorem body_spec
       match a.val, a.property with | [b0, b1], _ => ⟨b0, b1, rfl⟩
     refine ⟨h_lt, h_start1, h_end1, b0, b1, ?_, ?_⟩
     · simp_all [Array.to_slice]
-    · have h_be : [b0, b1] = List.map (@UScalar.mk UScalarTy.U8) pt.value.bv.toBEBytes := by
-        have := a_post; rw [h_a_eq] at this; exact this
-      have h_pair := toBEBytes_pair pt.value b0 b1 h_be
+    · simp_all [getElem!_pos]
       grind
   · grind
 

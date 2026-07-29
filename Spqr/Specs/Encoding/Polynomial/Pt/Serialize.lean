@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import SrcTranslated.Funs
+import Spqr.Specs.Aeneas.IndexRangeFull
 
 /-!
 # Spec Theorem for `Pt::serialize`
@@ -58,25 +59,26 @@ natural language specs:
     `Pt::deserialize(pt.serialize()) = ok pt`
 -/
 
-/-- `RangeFull` indexing on a slice is the identity: `slice[..] = slice`. -/
-private theorem rangeFull_index_eq {T : Type}
-    (r : core.ops.range.RangeFull) (s : Slice T) :
-    core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice.index r s =
-    ok s := by
-  rfl
+/- **Spec for `U16::to_be_bytes`**:
+The two-byte big-endian encoding of a `u16` value `x` satisfies
+  `result[0].val * 256 + result[1].val = x.val`.
 
-@[simp, step_simps]
-private theorem array_index_rangeFull_ok {T : Type} {N : Usize}
-    (a : Array T N) :
-    core.array.Array.index
-      (core.ops.index.IndexSlice
-        (core.ops.range.RangeFull.Insts.CoreSliceIndexSliceIndexSliceSlice T))
-      a () =
-    ok a.to_slice :=
-  rangeFull_index_eq () a.to_slice
+This is the core byte-decomposition lemma underlying `serialize_spec`: it isolates the
+`to_be_bytes` conversion so that its correctness can be reasoned about independently of the
+surrounding monadic plumbing.
+-/
 
-/--
-**Spec and proof concerning `encoding.polynomial.Pt.serialize`**:
+@[step]
+theorem to_be_bytes_spec (x : U16) :
+    lift (core.num.U16.to_be_bytes x) ⦃ result =>
+      (result[0]!).val * 256 + (result[1]!).val = x.val ⦄ := by
+  simp  [lift, core.num.U16.to_be_bytes]
+  simp only  [Std.UScalar.val]
+  simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
+  grind
+
+
+/-- **Spec and proof concerning `encoding.polynomial.Pt.serialize`**:
 • The function always succeeds (no panic) for any valid `Pt` input.
 • The first two bytes of the result encode `self.x.value` in big-endian: `result[0].val * 256 +
   result[1].val = self.x.value.val`
@@ -91,9 +93,5 @@ theorem serialize_spec (self : spqr.encoding.polynomial.Pt) :
   unfold serialize
   step*
   simp_all [List.setSlice!]
-  constructor <;>
-  · simp only [Std.UScalar.val]
-    simp [BitVec.toBEBytes, BitVec.toLEBytes, Nat.shiftRight_eq_div_pow]
-    grind
 
 end spqr.encoding.polynomial.Pt

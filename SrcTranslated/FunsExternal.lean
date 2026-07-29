@@ -2339,10 +2339,10 @@ axiom sorted_vec.SortedSet.Insts.CoreCloneClone.clone
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 309:2-309:30
     Name pattern: [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref]
 
-    Concrete model of Rust's `<SortedVec<T> as Deref>::deref`: since
-    `SortedVec T` is modelled as `alloc.vec.Vec T`, dereferencing simply
-    returns the value unchanged.  The outer `Result` is always `ok`
-    (the call never panics). -/
+    Concrete model of Rust's `<SortedVec<T> as Deref>::deref`: returns the
+    inner `Vec<T>`.  Since `SortedVec T` is definitionally equal to
+    `alloc.vec.Vec T` in the Lean model, `deref` is simply the identity
+    function. The outer `Result` is always `ok` (the call never panics). -/
 @[rust_fun
   "sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<@T>, alloc::vec::Vec<@T>>}::deref"]
 def sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
@@ -2351,15 +2351,14 @@ def sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref
   fun sv => ok sv
 
 /-- **Spec theorem for `<SortedVec<T> as Deref>::deref`**: since `SortedVec T`
-is modelled as `alloc.vec.Vec T`, `deref` is the identity. -/
-@[step]
+    is modelled as `alloc.vec.Vec T`, `deref` is the identity. -/
+@[simp, step_simps, step]
 theorem sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref_spec
-    {T : Type} (corecmpOrdInst : core.cmp.Ord T) (sv : sorted_vec.SortedVec T) :
-    sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref corecmpOrdInst sv
-      ⦃ (v : alloc.vec.Vec T) => v = sv ⦄ := by
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T)
+    (s : sorted_vec.SortedVec T) :
+    sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref corecmpOrdInst s
+      ⦃ (v : alloc.vec.Vec T) => v = s ⦄ := by
   simp [sorted_vec.SortedVec.Insts.CoreOpsDerefDerefVec.deref]
-
-
 
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::new]:
@@ -2451,7 +2450,7 @@ def sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref
 /-- **Spec theorem for `<SortedSet<T> as Deref>::deref`**: the call always
     succeeds and returns the set itself (since `SortedSet T` and `SortedVec T`
     are definitionally equal in the Lean model). -/
-@[step]
+@[simp, step_simps, step]
 theorem sorted_vec.SortedSet.Insts.CoreOpsDerefDerefSortedVec.deref_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T)
     (s : sorted_vec.SortedSet T) :
