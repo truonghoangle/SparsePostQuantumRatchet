@@ -157,10 +157,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.CallOnce
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.Clone
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPb
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoop1
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody0
-import Spqr.Specs.Encoding.Polynomial.PolyDecoder.FromPbLoopBody1
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.GetPtsNeeded
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.IntoPb
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints

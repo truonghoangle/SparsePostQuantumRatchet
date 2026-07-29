@@ -2385,11 +2385,61 @@ theorem sorted_vec.SortedSet.new_spec
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::with_capacity]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 351:2-351:49
-    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::with_capacity] -/
+    Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::with_capacity]
+
+    Concrete model of Rust's `SortedSet::with_capacity(capacity)`: returns an
+    empty `SortedSet` with pre-allocated space for `capacity` elements.
+
+    Upstream Rust source (`sorted-vec-0.8.6/src/lib.rs`):
+    ```rust
+    pub fn with_capacity (capacity : usize) -> Self {
+      SortedSet { set: SortedVec::with_capacity (capacity) }
+    }
+    ```
+    where the inner `SortedVec::with_capacity` is
+    ```rust
+    pub fn with_capacity (capacity : usize) -> Self {
+      SortedVec { vec: Vec::with_capacity (capacity) }
+    }
+    ```
+    and the standard-library `Vec::with_capacity`
+    (`/rustc/.../alloc/src/vec/mod.rs`) is
+    ```rust
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self::with_capacity_in(capacity, Global)
+    }
+    // ...
+    pub fn with_capacity_in(capacity: usize, alloc: A) -> Self {
+        Vec { buf: RawVec::with_capacity_in(capacity, alloc), len: 0 }
+    }
+    ```
+    i.e. it allocates a backing buffer with room for `capacity` elements but
+    sets `len = 0`, so the vector starts out empty.
+
+    Both `SortedSet`/`SortedVec` wrappers merely wrap `Vec::with_capacity`,
+    which pre-reserves allocation but inserts no elements (`len = 0`), so the
+    returned set is empty and, at the value level, indistinguishable from
+    `SortedSet::new()`.
+
+    Since `SortedSet T = SortedVec T = alloc.vec.Vec T` and we do not track
+    capacity in the Lean model, this is identical to `SortedSet::new()`.
+    The outer `Result` is always `ok` (the call never panics: its only failure
+    mode is allocation failure, which aborts rather than returning). -/
 @[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::with_capacity"]
-axiom sorted_vec.SortedSet.with_capacity
-  {T : Type} (corecmpOrdInst : core.cmp.Ord T) :
-  Std.Usize → Result (sorted_vec.SortedSet T)
+def sorted_vec.SortedSet.with_capacity
+  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
+  Std.Usize → Result (sorted_vec.SortedSet T) :=
+  fun _ => ok (alloc.vec.Vec.new T)
+
+
+/-- **Spec theorem for `SortedSet::with_capacity`**: the call always succeeds
+    and returns the empty set (empty `Vec`), ignoring the capacity hint. -/
+@[simp, step_simps, step]
+theorem sorted_vec.SortedSet.with_capacity_spec
+    {T : Type} (corecmpOrdInst : core.cmp.Ord T) (n : Std.Usize) :
+    sorted_vec.SortedSet.with_capacity corecmpOrdInst n
+      ⦃ (s : sorted_vec.SortedSet T) => s = alloc.vec.Vec.new T ⦄ := by
+  simp [sorted_vec.SortedSet.with_capacity]
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
@@ -3696,40 +3746,115 @@ https://datatracker.ietf.org/doc/html/rfc5869 -/
 axiom kdf.hkdf_to_slice_spec (salt ikm info okm : Slice U8) (h : okm.length ≤ 255 * 32) :
     kdf.hkdf_to_slice salt ikm info okm ⦃ (out : Slice U8) => out.length = okm.length ⦄
 
+/-- Forward declaration of `Poly.lagrange_interpolate` (defined in Funs.lean).
+    Takes a slice of points and returns the interpolated polynomial. -/
+axiom decodedMsg_lagrangeInterpolate
+  : Slice encoding.polynomial.Pt → Result encoding.polynomial.Poly
+
+/-- Forward declaration of `Poly.compute_at` (defined in Funs.lean).
+    Evaluates the polynomial at the given GF16 point. -/
+axiom decodedMsg_computeAt
+  : encoding.polynomial.Poly → encoding.gf.GF16 → Result encoding.gf.GF16
+
+/-- Helper: find y-coordinate for a `Pt` with matching `x.value` in a list of `Pt`s.
+    Models `binary_search` on `SortedSet<Pt>` where `Pt` equality is by `x.value`. -/
+private def decodedMsg_findY (pts : List encoding.polynomial.Pt) (x_val : Std.U16)
+    : Option encoding.gf.GF16 :=
+  match pts.find? (fun pt => pt.x.value == x_val) with
+  | some pt => some pt.y
+  | none => none
+
+/-- Helper: compute `necessary_points` as a pure `Nat`, mirroring the monadic
+    `PolyDecoder.necessary_points`. -/
+private def decodedMsg_necessaryPts (pts_needed : Nat) (poly : Nat) : Nat :=
+  let ppp := pts_needed / 16
+  let pr := pts_needed % 16
+  if poly < pr then ppp + 1 else ppp
+
+/-- Helper: first loop — check all 16 polynomials have enough points and collect
+    their truncated point slices.  Returns `none` if any polynomial is short;
+    otherwise `some` of the 16 collected slices. -/
+private def decodedMsg_collectPoints
+    (self : encoding.polynomial.PolyDecoder)
+    (i : Nat) (acc : List (Slice encoding.polynomial.Pt)) :
+    Result (Option (List (Slice encoding.polynomial.Pt))) :=
+  if h : i ≥ self.pts.val.length then ok (some acc)
+  else do
+    let np := decodedMsg_necessaryPts self.pts_needed.val i
+    let ss := self.pts.val[i]'(by omega)
+    if ss.val.length < np then ok none
+    else
+      let slice : Slice encoding.polynomial.Pt :=
+        ⟨ss.val.take np, by have := ss.property; simp [List.length_take]; omega⟩
+      decodedMsg_collectPoints self (i + 1) (acc ++ [slice])
+termination_by self.pts.val.length - i
+decreasing_by omega
+
+/-- Helper: main reconstruction loop — for each index `i` in `[start, pts_needed)`,
+    look up or interpolate the y value and push two big-endian bytes onto `out`.
+
+    This mirrors the Rust loop at lines 935–962 of `polynomial.rs`.  The lazy
+    polynomial cache (`polys: [Option<Poly>; 16]`) is not threaded through
+    because `lagrange_interpolate` is a pure function: recomputing it gives
+    the same result, so omitting the cache affects only performance, not
+    the returned byte sequence. -/
+private noncomputable def decodedMsg_reconstruct
+    (self : encoding.polynomial.PolyDecoder)
+    (points_vecs : List (Slice encoding.polynomial.Pt))
+    (i : Nat) (out : alloc.vec.Vec Std.U8) :
+    Result (alloc.vec.Vec Std.U8) :=
+  if i ≥ self.pts_needed.val then ok out
+  else do
+    let poly := i % 16
+    let poly_idx := i / 16
+    -- Construct the x-coordinate as U16
+    let x_u16 : Std.U16 := UScalar.ofNatCore poly_idx (by sorry)
+    -- Look up in pts[poly] by x value, or interpolate
+    let y ← match self.pts.val[poly]? with
+      | none => fail .panic
+      | some ss =>
+        match decodedMsg_findY ss.val x_u16 with
+        | some y_found => ok y_found
+        | none =>
+          match points_vecs[poly]? with
+          | none => fail .panic
+          | some slice => do
+            let p ← decodedMsg_lagrangeInterpolate slice
+            decodedMsg_computeAt p { value := x_u16 }
+    -- Push two bytes: high byte then low byte of y.value
+    let hi_u16 ← y.value >>> 8#i32
+    let hi ← lift (UScalar.cast .U8 hi_u16)
+    let out1 ← alloc.vec.Vec.push out hi
+    let lo ← lift (UScalar.cast .U8 y.value)
+    let out2 ← alloc.vec.Vec.push out1 lo
+    decodedMsg_reconstruct self points_vecs (i + 1) out2
+termination_by self.pts_needed.val - i
 
 /-- [spqr::encoding::polynomial::{spqr::encoding::Decoder for spqr::encoding::polynomial::PolyDecoder}::decoded_message]:
     Source: 'src/encoding/polynomial.rs', lines 911:4-963:5
     Visibility: public
 
-    Concrete model of Rust's
-    `<PolyDecoder as Decoder>::decoded_message`: returns the decoded message
-    as an `Option<Vec<u8>>`.  The Rust function returns `None` either when
-    the decoder is marked complete or when not enough points have been
-    collected to reconstruct the message, and otherwise returns
-    `Some(out)` where `out.len() == 2 * self.pts_needed`.
+    Concrete model of Rust's `PolyDecoder::decoded_message`:
+    If `is_complete` is true, returns `none`.
+    Otherwise, checks that all 16 polynomials have enough points;
+    if any is short, returns `none`.
+    If all have enough, reconstructs the message by iterating over
+    `pts_needed` entries, looking up or interpolating y values, and
+    encoding each as two big-endian bytes into a `Vec<u8>`. -/
+noncomputable def encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
+  (self : encoding.polynomial.PolyDecoder) :
+  Result (Option (alloc.vec.Vec Std.U8)) := do
+  if self.is_complete then
+    ok none
+  else do
+    let collect_result ← decodedMsg_collectPoints self 0 []
+    match collect_result with
+    | none => ok none
+    | some points_vecs => do
+      let out := alloc.vec.Vec.new Std.U8
+      let result ← decodedMsg_reconstruct self points_vecs 0 out
+      ok (some result)
 
-    Since the underlying cryptographic reconstruction (Lagrange
-    interpolation over `GF16`) is opaque, we model the result by always
-    returning `none`.  This trivially satisfies the upstream
-    `hax_lib::ensures` contract
-    `match res { Some(v) => v.len() / 2 == self.pts_needed, None => true }`.
-    The outer `Result` is always `ok` (the call never panics). -/
-@[rust_fun
-  "spqr::encoding::polynomial::{spqr::encoding::Decoder<spqr::encoding::polynomial::PolyDecoder>}::decoded_message"]
-def encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message
-  : encoding.polynomial.PolyDecoder → Result (Option (alloc.vec.Vec Std.U8)) :=
-  fun _ => ok none
-
-/-- **Spec theorem for
-    `encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message`**:
-    the call always succeeds and returns `none`.  This trivially satisfies the
-    upstream Rust contract on the optional return value. -/
-@[simp, step_simps]
-theorem encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message_spec
-    (self : encoding.polynomial.PolyDecoder) :
-    encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message self
-      ⦃ (o : Option (alloc.vec.Vec Std.U8)) => o = none ⦄ := by
-  simp [encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder.decoded_message]
 
 /-- [spqr::incremental_mlkem768::potentially_fix_state_incorrectly_encoded_by_libcrux_issue_1275]:
     Source: 'src/incremental_mlkem768.rs', lines 92:0-138:1 -/
