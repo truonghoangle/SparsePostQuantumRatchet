@@ -32,29 +32,32 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomi
 
 namespace spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder
 
-/-- **Spec theorem for `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk`**
-(byte-level):
+/-- **Spec theorem for `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk`**:
 
 Produces the next serialized chunk and advances the encoder's chunk counter.  The postcondition
-captures the chunk's structural properties, the byte-level encoding invariant, and the index update.
+captures the chunk's structural properties, the polynomial evaluation / Lagrange interpolation
+invariant, and the index update.
 
 The result satisfies:
   * `chunk.index.val = self.idx.val` — the chunk's U16 index equals the (pre-increment) encoder
     index (which fits in 16 bits by `h_idx_fits`).
   * `chunk.data.val.length = 32` — the data array contains exactly 32 bytes.
   * `self'.idx.val = (self.idx.val + 1) % U32.size` — the encoder's index is wrapping-incremented.
-  * If the encoder was initially in the `Polys` state, the encoder state field is unchanged:
-      `∀ polys, self.s = .Polys polys → self'.s = self.s`.
-  * For every `j ∈ [0, 16)`, the big-endian encoding invariant holds:
-      `∃ g hi lo, chunk.data.val[2*j]? = some hi ∧
-        chunk.data.val[2*j+1]? = some lo ∧
-        hi.val * 256 + lo.val = g.value.val`
+  * If the encoder was initially in the `Polys` state:
+      - The encoder state field is unchanged: `self'.s = self.s`.
+      - For every `j ∈ [0, 16)`, the big-endian encoding of the `j`-th polynomial evaluation
+        satisfies:
+        `Nat.toGF216 (256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]!) =
+          (polys[j]!).toGF216Poly.eval (self.idx.val.toGF216)`
+  * If the encoder was initially in the `Points` state:
+      - For any resulting `Polys polys'` state, each polynomial equals the Lagrange interpolation
+        of the corresponding points.
 
 This follows from composing:
   1. `UScalar.cast` — succeeds because `self.idx.val ≤ U16.max`.
-  2. `chunk_at_spec_nat`: the serialization returns a well-formed chunk with `chunk.index = idx` and
-     `chunk.data.val.length = 32`, preserving the encoder state for `Polys`, and satisfying the
-     per-byte big-endian encoding invariant.
+  2. `chunk_at_spec`: the serialization returns a well-formed chunk with `chunk.index = idx` and
+     `chunk.data.val.length = 32`, with the polynomial evaluation / Lagrange interpolation
+     invariant matching on the encoder state.
   3. `core.num.U32.wrapping_add`: the index is incremented modulo 2³².
 
     This corresponds to the Rust function:
@@ -68,75 +71,52 @@ This follows from composing:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 734:4-738:5)
 -/
-theorem next_chunk_spec_nat
-    (self : encoding.polynomial.PolyEncoder)
-    (h_idx_fits : self.idx.val ≤ U16.max)
-    (h_admissible : ∀ pts, self.s = .Points pts →
-        ∀ (j : Nat), j < 16 →
-          let len := (pts.val[j]!).value.val.length
-          len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
-          len = 30 ∨ len = 34 ∨ len = 36)
-    (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
-        ∀ (j : Nat), j < 16 →
-          (polys.val[j]!).coefficients.val.length + 1 ≤ Usize.max) :
-    next_chunk self ⦃ ((chunk, self') :
-        encoding.Chunk × encoding.polynomial.PolyEncoder) =>
-      chunk.index.val = self.idx.val ∧
-      chunk.data.val.length = 32 ∧
-      self'.idx.val = (self.idx.val + 1) % U32.size ∧
-      (∀ polys, self.s = .Polys polys → self'.s = self.s) ∧
-      (∀ (j : Nat), j < 16 →
-        ∃ (g : encoding.gf.GF16) (hi lo : Std.U8),
-          chunk.data.val[2 * j]? = some hi ∧
-          chunk.data.val[2 * j + 1]? = some lo ∧
-          hi.val * 256 + lo.val = g.value.val) ⦄ := by
-  unfold next_chunk
-  step
-  step with chunk_at_spec_nat
-  step*
-  obtain ⟨h_index, h_len, h_idx_preserved, h_stable, h_bytes, _⟩ := out_post
-  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_len, by simp_all, ?_, ?_⟩
-  · intro polys h_polys
-    have h_eq := h_stable polys h_polys
-    simp_all
-  · intro j hj
-    obtain ⟨g, hg⟩ := h_bytes j hj
-    exact ⟨g, out.data.val[2 * j]'(by omega), out.data.val[2 * j + 1]'(by omega),
-      List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega), by grind⟩
-
-
-/--
-For any encoder state whose chunk index fits in 16 bits, `next_chunk self` returns a `Chunk` whose
-`index` field records the current chunk index (cast to U16) and whose `data` array contains exactly
-32 bytes — the concatenation of the 2-byte big-endian encodings of 16 GF(2¹⁶) polynomial
-evaluations.  The encoder's chunk counter is wrapping-incremented modulo 2³², and if the encoder
-was in the `Polys` state, the `s` field is unchanged.
-
-This theorem lifts the byte-level postcondition of `next_chunk_spec_nat` to a form suitable for
-composition in higher-level proofs (e.g. chunked send paths in `v1::chunked`), dropping the
-explicit byte-encoding invariant while retaining the structural and state-preservation properties.
--/
-@[step]
 theorem next_chunk_spec
     (self : encoding.polynomial.PolyEncoder)
     (h_idx_fits : self.idx.val ≤ U16.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
-          let len := (pts.val[j]!).value.val.length
+          let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
         ∀ (j : Nat), j < 16 →
-          (polys.val[j]!).coefficients.val.length + 1 ≤ Usize.max) :
+          (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     next_chunk self ⦃ ((chunk, self') :
         encoding.Chunk × encoding.polynomial.PolyEncoder) =>
       chunk.index.val = self.idx.val ∧
       chunk.data.val.length = 32 ∧
       self'.idx.val = (self.idx.val + 1) % U32.size ∧
-      (∀ polys, self.s = .Polys polys → self'.s = self.s) ⦄ := by
-  have h_raw := next_chunk_spec_nat self h_idx_fits h_admissible h_coeff_bound
-  apply WP.spec_mono h_raw
-  intro (chunk, self') ⟨h_index, h_len, h_idx, h_stable, _⟩
-  exact ⟨h_index, h_len, h_idx, h_stable⟩
+      match self.s with
+      | .Polys polys =>
+          self'.s = self.s ∧
+          ∀ (j : Nat), j < 16 →
+            Nat.toGF216 (256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]!) =
+              (polys[j]!).toGF216Poly.eval (self.idx.val.toGF216)
+      | .Points pts =>
+          ∀ polys', self'.s = .Polys polys' →
+            ∀ (j : Nat), j < 16 →
+              polys'[j]!.toGF216Poly =
+                ∑ k ∈ Finset.range (pts[j]!).value.length,
+                  C (((pts[j]!).value[k]!).toGF216) *
+                    scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k ⦄ := by
+  unfold next_chunk
+  step
+  step with chunk_at_spec
+  step*
+  obtain ⟨h_index, h_len, h_idx_preserved, h_match⟩ := out_post
+  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_len, by simp_all, ?_⟩
+  cases h_s : self.s with
+  | Polys polys =>
+    simp only [h_s] at h_match ⊢
+    obtain ⟨h_self_eq, h_eval⟩ := h_match
+    refine ⟨by simp_all, fun j hj => ?_⟩
+    have := h_eval j hj
+    simp_all [UScalar.cast_val_eq]
+    grind
+  | Points pts =>
+    simp only [h_s] at h_match ⊢
+    intro polys' h_polys' j hj
+    exact h_match polys' (by simp_all) j hj
 
 end spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder

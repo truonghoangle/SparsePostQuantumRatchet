@@ -163,8 +163,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NecessaryPoints
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.New
 import Spqr.Specs.Encoding.Polynomial.PolyDecoder.NewWithPolyCount
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAtLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytesBase.CallMut
@@ -177,8 +175,6 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallMut
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoop0
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAtLoopBody0
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.Eq
 import Spqr.Specs.Encoding.Polynomial.PolynomialError.From
 import Spqr.Specs.Encoding.Polynomial.Pt.Cmp
