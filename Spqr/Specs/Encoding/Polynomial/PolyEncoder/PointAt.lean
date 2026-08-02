@@ -7,7 +7,7 @@ import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Encoding.Polynomial.Poly.ComputeAt
 import Spqr.Math.Poly.Lagrange.CompletePoints
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOne
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOnce
 import Spqr.Specs.Aeneas.MapIteratorTransformerNext
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
 
@@ -534,11 +534,10 @@ theorem point_at_spec
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_polys : ∀ polys, self.s = .Polys polys →
         (polys.val[poly.val]!).coefficients.length + 1 ≤ Usize.max) :
-    point_at self poly idx
-    ⦃ ((result, self') : encoding.gf.GF16 × encoding.polynomial.PolyEncoder) =>
-        self'.idx = self.idx ∧
-        match self.s with
-        | .Points pts =>
+    point_at self poly idx ⦃ ((result, self') : GF16 × PolyEncoder) =>
+      self'.idx = self.idx ∧
+      match self.s with
+      | .Points pts =>
             if idx < (pts.val[poly.val]!).value.length then
               result = (pts.val[poly.val]!).value.val[idx.val]! ∧
               self' = self
@@ -551,7 +550,7 @@ theorem point_at_spec
                           scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k) ∧
                   result.toGF216 = (polys'[poly]!).toGF216Poly.eval (idx.val.toGF216)
               | .Points _ => False
-        | .Polys polys =>
+      | .Polys polys =>
             result.toGF216 = (polys.val[poly.val]!).toGF216Poly.eval (idx.val.toGF216) ∧
             self' = self ⦄ := by
   unfold point_at
