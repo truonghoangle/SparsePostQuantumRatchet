@@ -1,119 +1,143 @@
 /-
-Copyright 2026 The Beneficial AI Foundation. All rights reserved.
+Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import SrcTranslated.Funs
+import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
 
 /-!
-# Spec theorem for `spqr::encoding::{Encoder for Option<T>}::encode_bytes`
+# Spec theorems for `spqr::encoding::{Encoder for Option<T>}::encode_bytes`
 
-The `Encoder` trait is canonically lifted to `Option<T>` whenever `T : Encoder`.  In Rust the
-associated constructor `encode_bytes` on `Option<T>` is defined by the one-line desugaring
-`Ok(Some(T::encode_bytes(msg)?))`: it delegates the construction to the inner encoder and, on
-success, wraps the resulting state in the `Some` constructor; on failure the `?` operator
-propagates the `EncodingError` unchanged.
+Whenever `T : Encoder`, the `Encoder` trait also applies to `Option<T>`. In Rust the definition
+is a single line, `Ok(Some(T::encode_bytes(msg)?))`: it hands the encoding to the inner encoder
+and, on success, wraps the result in `Some`; on failure the `?` operator passes the
+`EncodingError` straight through.
 
-After hax extraction this `?`-elaborated body becomes the following pure functional pipeline:
+After hax extraction this `?`-desugared body becomes a simple pipeline:
 
-  1. `EncoderInst.encode_bytes msg` — delegation to the inner `Encoder T` instance, producing a
+  1. `EncoderInst.encode_bytes msg` — run the inner `Encoder T` instance, yielding a
      `core::result::Result T EncodingError`.
-  2. `core.result.Result.Insts.CoreOpsTry_traitTry.branch r` — splits the inner `Result` into a
-     `ControlFlow`: `Continue val` on `Ok val`, `Break residual` on `Err _`.
-  3. Pattern match on the `ControlFlow`:
-       • `Continue val ↦ ok (Ok (some val))` — re-injection into the `Some` branch of `Option T`.
-       • `Break residual ↦ from_residual …` — identity transport of the residual error along
-         the canonical `FromSame EncodingError` instance.
+  2. `core.result.Result.Insts.CoreOpsTry.branch r` — convert the inner `Result` into a
+     `ControlFlow`: `Continue val` for `Ok val`, `Break residual` for `Err _`.
+  3. Match on the `ControlFlow`:
+       • `Continue val ↦ ok (Ok (some val))` — wrap the value in `Some`.
+       • `Break residual ↦ from_residual …` — forward the error unchanged via the
+         `FromSame EncodingError` instance.
 
-The composition is a *pure structural lift* along the functor `Some : T ↪ Option T`: the
-specification of the outer `encode_bytes` carries no mathematical content beyond that of the inner
-`EncoderInst.encode_bytes`; the `Option` layer merely repackages the success branch with the
-`Some` constructor and threads the error branch through verbatim.
+In other words the outer `encode_bytes` is just a structural wrapper around the inner one: it
+adds no mathematical content, only tagging successes with `Some` and passing errors through
+untouched.
+
+This file proves two theorems built on that observation:
+
+  • `encode_bytes_spec_lift` — transports an arbitrary postcondition of the inner encoder
+    through the `Option<T>` wrapper.
+  • `encode_bytes_spec_poly_encoder` — the `T = PolyEncoder` instance, obtained from the lift
+    plus the round-robin postcondition of
+    `PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes_spec`.
 
 **Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
 
-open Aeneas Aeneas.Std Result spqr
+open Aeneas Aeneas.Std Result spqr encoding.polynomial
 
 namespace spqr.core.option.Option.Insts.SpqrEncodingEncoder
 
-/-- **Spec theorem for `core.option.Option.Insts.SpqrEncodingEncoder.encode_bytes` (generic
-lifting)**:
+/-- **Predicate-lifting spec for `Option<T>::encode_bytes`**:
 
-The `Option<T>`-level `encode_bytes` is a transparent lift of `EncoderInst.encode_bytes` along the
-`Some` constructor, propagating errors unchanged.  Concretely, given an inner postcondition
-`Q : T → Prop` describing the success value produced by `EncoderInst.encode_bytes msg`, the
-`Option`-level call satisfies the lifted postcondition
+Given an `Encoder T` instance `EncoderInst`, a message `msg`, and a predicate `P` on the inner
+result, the hypothesis `h_inner` states that `EncoderInst.encode_bytes msg` satisfies `P`. The
+theorem concludes that `encode_bytes EncoderInst msg` satisfies the postcondition obtained by
+pushing `P` through the `Option<T>` wrapper:
 
-  `Q' (result : Result (Option T) EncodingError)  ≜
-      (∃ val, result = Ok (some val) ∧ Q val) ∨ (∃ e, result = Err e)`.
+  • `Ok (some val)` ↦ `P (Ok val)`  — the inner success value, retagged with `Some`.
+  • `Err e`         ↦ `P (Err e)`  — the inner error, forwarded unchanged.
+  • otherwise (`Ok none`) ↦ `False` — unreachable.
 
-The proof composes:
-  1. `EncoderInst.encode_bytes msg` — opaque inner call returning either `Ok val` or `Err e`.
-  2. `core.result.Result.Insts.CoreOpsTry_traitTry.branch` — pure decomposition of the inner
-     `Result` into a `ControlFlow`, succeeding total.
-  3. Case analysis on the `ControlFlow`:
-       • `Continue val` — repackage as `Ok (some val)`.
-       • `Break residual` — propagate the residual error verbatim via `from_residual`.
-
-No extra hypothesis on `EncoderInst` is required beyond the precondition `True` imposed by the
-Rust `#[hax_lib::requires(true)]` annotation.
+Since the `Option` layer only relabels the branches, whatever `P` holds for the inner encoder
+holds for the wrapped one. This is the reusable building block behind
+`encode_bytes_spec_poly_encoder`.
 
 **Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
-theorem encode_bytes_spec_generic
+@[step]
+theorem encode_bytes_spec_lift
     {T : Type} (EncoderInst : encoding.Encoder T) (msg : Slice Std.U8)
-    (Q : T → Prop)
+    (P : core.result.Result T encoding.EncodingError → Prop)
     (h_inner :
         EncoderInst.encode_bytes msg ⦃ (r : core.result.Result T encoding.EncodingError) =>
-          (∀ val, r = core.result.Result.Ok val → Q val) ⦄) :
+          P r ⦄) :
     encode_bytes EncoderInst msg ⦃
         (result : core.result.Result (Option T) encoding.EncodingError) =>
-      (∃ val, result = core.result.Result.Ok (some val) ∧ Q val) ∨
-      (∃ e, result = core.result.Result.Err e) ⦄ := by
+      match result with
+      | core.result.Result.Ok (some val) => P (core.result.Result.Ok val)
+      | core.result.Result.Err e => P (core.result.Result.Err e)
+      | _ => False ⦄ := by
   unfold encode_bytes
   step with h_inner
   cases r with
   | Ok val =>
     simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok, WP.spec_ok]
-    exact Or.inl ⟨val, rfl, r_post val rfl⟩
+    assumption
   | Err e =>
     simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok,
       core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
       core.convert.FromSame.from, WP.spec_ok]
-    exact Or.inr ⟨e, rfl⟩
+    assumption
 
+/-- **`encode_bytes` spec for `Option<PolyEncoder>`**:
 
-/--
-Specialised to the trivial postcondition `Q ≡ True`, the generic lifting theorem certifies that
-`encode_bytes` on `Option<T>` is total (no panic / no error from the lift layer itself): it
-always reduces either to `ok (Ok (some val))` for some `val : T` produced by the inner encoder,
-or to `ok (Err e)` for some `e : EncodingError` propagated unchanged from the inner encoder,
-provided the inner `EncoderInst.encode_bytes` is itself total on `msg`.
+Under the hypotheses `h_even` (`msg.length` is even) and `h_len` (`msg.length ≤ 2^16 * 16`),
+`encode_bytes PolyEncoder.Insts.SpqrEncodingEncoder msg` succeeds and its result matches the
+`Ok (some ⟨idx, Points pts⟩)` branch — no other branch (`Err`, `Ok none`, or a non-`Points`
+state) is reachable — with:
 
-This is the `Option`-level analogue of the structural fact that the `Encoder` trait is preserved
-under the `Some` injection `T ↪ Option T`, lifting the inner encoder's totality verbatim along
-the functor `Some` and the canonical `FromSame EncodingError` error-transport instance.
+  • `idx = 0#u32` — the encoder index.
+  • For every `j < 16`, `pts[j]!.value.length` equals `msg.length / 2 / 16`, plus one extra
+    coefficient when `j < (msg.length / 2) % 16` (the round-robin remainder).
+  • For every `j < 16` and every in-range coefficient index `k`, the byte pair at round-robin
+    positions `2·(j + 16·k)` and `2·(j + 16·k) + 1` lies within `msg`, and coefficient `k` of
+    `pts[j]` is their big-endian combination `256 * b_hi + b_lo` mapped into `GF(2^16)`.
+
+Proved by feeding `PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes_spec` (the inner
+`PolyEncoder` postcondition) into `encode_bytes_spec_lift`.
+
+**Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
 @[step]
-theorem encode_bytes_spec
-    {T : Type} (EncoderInst : encoding.Encoder T) (msg : Slice Std.U8)
-    (h_inner_total :
-        EncoderInst.encode_bytes msg ⦃ (_ : core.result.Result T encoding.EncodingError) =>
-          True ⦄) :
-    encode_bytes EncoderInst msg ⦃
-        (result : core.result.Result (Option T) encoding.EncodingError) =>
-      (∃ val, result = core.result.Result.Ok (some val)) ∨
-      (∃ e, result = core.result.Result.Err e) ⦄ := by
-  have h := encode_bytes_spec_generic EncoderInst msg (fun _ => True)
-    (by
-      apply WP.spec_mono h_inner_total
-      intro _ _ _ _
-      trivial)
-  apply WP.spec_mono h
-  intro result h_post
-  rcases h_post with ⟨val, h_eq, _⟩ | ⟨e, h_eq⟩
-  · left; exact ⟨val, h_eq⟩
-  · right; exact ⟨e, h_eq⟩
+theorem encode_bytes_spec_poly_encoder
+    (msg : Slice U8)
+    (h_even : msg.length % 2 = 0)
+    (h_len : msg.length ≤ 2 ^ 16 * 16) :
+    encode_bytes PolyEncoder.Insts.SpqrEncodingEncoder msg ⦃
+        (result : core.result.Result (Option PolyEncoder) encoding.EncodingError) =>
+      match result with
+      | core.result.Result.Ok (some ⟨idx, EncoderState.Points pts⟩) =>
+        idx = 0#u32 ∧
+        (∀ (j : Nat), j < 16 →
+          pts[j]!.value.length =
+            if j < (msg.length / 2) % 16
+            then msg.length / 2 / 16 + 1
+            else msg.length / 2 / 16) ∧
+        (∀ (j : Nat), j < 16 →
+          ∀ (k : Nat), k < pts[j]!.value.length →
+            2 * (j + 16 * k) + 1 < msg.length ∧
+            (listToGF216Poly pts[j]!.value).coeff k =
+              (256 * msg[2 * (j + 16 * k)]! + (msg[2 * (j + 16 * k) + 1]!).val).toGF216)
+      | _ => False ⦄ := by
+  have h_inner := PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes_spec msg h_even h_len
+  unfold encode_bytes
+  step with h_inner
+  cases r with
+  | Ok val =>
+    simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok, WP.spec_ok]
+    obtain ⟨idx, s⟩ := val
+    cases s <;> assumption
+  | Err e =>
+    simp only [core.result.Result.Insts.CoreOpsTry.branch, bind_tc_ok,
+      core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual,
+      core.convert.FromSame.from, WP.spec_ok]
+    assumption
 
 end spqr.core.option.Option.Insts.SpqrEncodingEncoder
