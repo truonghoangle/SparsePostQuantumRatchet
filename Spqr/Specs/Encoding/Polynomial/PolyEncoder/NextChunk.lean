@@ -71,6 +71,7 @@ This follows from composing:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 734:4-738:5)
 -/
+@[step]
 theorem next_chunk_spec
     (self : encoding.polynomial.PolyEncoder)
     (h_idx_fits : self.idx.val ≤ U16.max)
