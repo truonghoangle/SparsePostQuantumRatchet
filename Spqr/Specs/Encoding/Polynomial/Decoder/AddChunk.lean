@@ -100,8 +100,11 @@ postcondition of `PolyDecoder.Insts.SpqrEncodingDecoder.add_chunk`:
   • There is a chain `selfs 0 = pd0, …, selfs 16 = pd` of intermediate decoders, where each of the
     16 two-byte pairs of `chunk` is routed to polynomial `poly = (chunk.index * 16 + j) % 16` at
     x-coordinate `poly_idx = chunk.index`, building a point `p` (y being the big-endian pair
-    `256 * b_hi + b_lo`) that is either discarded or inserted into `pts[poly]` following the sorted
+    `256 * b_hi + b_lo`) that is conditionally inserted into `pts[poly]` following the sorted
     set's append / replace / `sortedInsert` cases.
+
+The postcondition is **conditional**: when `poly_idx < np ∨ pts[poly].len() < np` (where
+`np = necessary_points(poly)`), the point is inserted; otherwise the state is unchanged.
 
 The hypotheses `h_overflow` (no `usize` overflow of the base index) and `h_push_cap` (each bucket
 has room for the 16 potential pushes plus the length prefix) are forwarded verbatim to the inner
@@ -129,6 +132,8 @@ theorem add_chunk_spec_poly_decoder
             let total_idx := chunk.index.val * 16 + j
             let poly := total_idx % 16
             let poly_idx := total_idx / 16
+            let np := pd0.pts_needed.val / 16 +
+              (if poly < pd0.pts_needed.val % 16 then 1 else 0)
             (selfs (j + 1)).pts_needed = pd0.pts_needed ∧
             (selfs (j + 1)).is_complete = pd0.is_complete ∧
             poly < 16 ∧
@@ -136,29 +141,32 @@ theorem add_chunk_spec_poly_decoder
             ∃ (p : Pt),
               p.x.value.val = poly_idx ∧
               p.y.value.val = (chunk.data[j * 2]!) * 256 + (chunk.data[j * 2 + 1]!) ∧
-              (selfs (j + 1) = selfs j ∨
-               ((∀ (k : Nat), k ≠ poly → (selfs (j + 1)).pts[k]! = (selfs j).pts.val[k]!) ∧
-                match ((selfs j).pts.val[poly]!).val.getLast? with
-                | none =>
-                    ((selfs (j + 1)).pts.val[poly]!).val = ((selfs j).pts.val[poly]!).val ++ [p]
-                | some last =>
-                  match Pt.Insts.CoreCmpOrd.cmp p last with
-                  | ok Ordering.gt =>
-                      ((selfs (j + 1)).pts.val[poly]!).val = ((selfs j).pts.val[poly]!).val ++ [p]
-                  | ok Ordering.eq =>
-                      ((selfs (j + 1)).pts.val[poly]!).val =
-                      ((selfs j).pts.val[poly]!).val.dropLast ++ [p]
-                  | ok Ordering.lt =>
-                      ∃ (m : Nat),
-                        m ≤ ((selfs j).pts.val[poly]!).val.length ∧
-                        (((selfs (j + 1)).pts.val[poly]!).val =
-                            ((selfs j).pts.val[poly]!).val.take m ++ [p] ++
-                            ((selfs j).pts.val[poly]!).val.drop m ∨
-                         (m < ((selfs j).pts.val[poly]!).val.length ∧
-                          ((selfs (j + 1)).pts.val[poly]!).val =
-                            ((selfs j).pts.val[poly]!).val.take m ++ [p] ++
-                            ((selfs j).pts.val[poly]!).val.drop (m + 1)))
-                  | _ => False)) ⦄ := by
+              (if poly_idx < np ∨ ((selfs j).pts.val[poly]!).val.length < np
+               then
+                 (∀ (k : Nat), k ≠ poly → (selfs (j + 1)).pts[k]! = (selfs j).pts.val[k]!) ∧
+                 match ((selfs j).pts.val[poly]!).val.getLast? with
+                 | none =>
+                     ((selfs (j + 1)).pts.val[poly]!).val = ((selfs j).pts.val[poly]!).val ++ [p]
+                 | some last =>
+                   match Pt.Insts.CoreCmpOrd.cmp p last with
+                   | ok Ordering.gt =>
+                       ((selfs (j + 1)).pts.val[poly]!).val = ((selfs j).pts.val[poly]!).val ++ [p]
+                   | ok Ordering.eq =>
+                       ((selfs (j + 1)).pts.val[poly]!).val =
+                       ((selfs j).pts.val[poly]!).val.dropLast ++ [p]
+                   | ok Ordering.lt =>
+                       ∃ (m : Nat),
+                         m ≤ ((selfs j).pts.val[poly]!).val.length ∧
+                         (((selfs (j + 1)).pts.val[poly]!).val =
+                             ((selfs j).pts.val[poly]!).val.take m ++ [p] ++
+                             ((selfs j).pts.val[poly]!).val.drop m ∨
+                          (m < ((selfs j).pts.val[poly]!).val.length ∧
+                           ((selfs (j + 1)).pts.val[poly]!).val =
+                             ((selfs j).pts.val[poly]!).val.take m ++ [p] ++
+                             ((selfs j).pts.val[poly]!).val.drop (m + 1)))
+                   | _ => False
+               else
+                 selfs (j + 1) = selfs j) ⦄ := by
   apply add_chunk_spec_lift PolyDecoder.Insts.SpqrEncodingDecoder (some pd0) chunk (by simp)
   intro tmp h_eq
   simp only [Option.some.injEq] at h_eq

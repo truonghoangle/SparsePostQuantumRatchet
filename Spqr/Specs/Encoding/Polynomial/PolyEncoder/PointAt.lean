@@ -32,11 +32,8 @@ open PolyEncoder.point_at.closure_1  core.iter.adapters.map.Map
 
 namespace spqr.encoding.polynomial.PolyEncoder.point_at_loop
 
-/-- Default `Inhabited` instance for `Poly` (empty coefficient vector). -/
-instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
-
 /-- Default `Inhabited` instance for `Point` (empty value vector). -/
-instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
+instance instInhabitedPoint_spqr : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
 
 /-! ## Helper lemmas for the enumerate-map-collect pipeline -/
 
@@ -276,7 +273,7 @@ private theorem map_collect_eq_point_at
               (core.iter.traits.iterator.IteratorSliceIter GF16))
             Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
         m.iter := by
-        sorry
+  sorry
 
 /-! ## Spec theorem for the point_at loop body -/
 
@@ -314,6 +311,7 @@ theorem body_spec
           iter1.end = iter.end ∧
           (∀ k, k ≠ iter.start.val →
             polys'.val[k]! = polys.val[k]!) ∧
+            (polys'.val[iter.start.val]!).degree + 1 ≤ Usize.max ∧
             (polys'.val[iter.start.val]!.toGF216Poly =
             ∑ j ∈ Finset.range (pts.val[iter.start.val]!).value.val.length,
             C (((pts.val[iter.start.val]!).value.val[j]!).toGF216) *
@@ -373,7 +371,7 @@ theorem body_spec
       exact (h_pt_elts j hj (by omega)).1
     match res with
     | core.result.Result.Ok poly =>
-      obtain ⟨h_all_valid, h_sum⟩ := h_res
+      obtain ⟨h_all_valid, h_deg, h_sum⟩ := h_res
       simp only [core.result.Result.expect, bind_tc_ok]
       simp only [massert]
       have h_massert : (iter.start.val < 16) = True := by grind
@@ -393,31 +391,34 @@ theorem body_spec
                 rw [List.Inhabited_getElem_eq_getElem! polys.val iter.start.val
                   (by rw [polys.property]; exact h_i_lt_16)]
                 exact array_set_restore_set_getElem! polys iter.start poly (by grind)
-              have h_slicelen_eq : Slice.len (alloc.vec.Vec.deref pt_vec) =
-                  alloc.vec.Vec.len ((pts.val[iter.start.val]!).value) := by
-                simp only [Slice.len, alloc.vec.Vec.len, alloc.vec.Vec.deref] at h_deref_len ⊢
+              constructor
+              · simp only [Array.getElem!_Usize_eq] at h_a_eq
                 grind
-              rw [h_slicelen_eq] at h_sum
-              simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
-                  List.length_eq_zero_iff, not_true_eq_false, reduceCtorEq, false_and, implies_true,
-                  and_self,  UScalar.max_UScalarTy_U16_eq,
-                  List.get_eq_getElem, forall_true_left, List.getElem!_eq_getElem?_getD,
-                  eq_iff_iff, iff_true, Array.getElem!_Usize_eq, Array.set_val_eq,
-                  List.set_getElem_self, List.length_set, List.getElem_set_self, getElem?_pos,
+              · have h_slicelen_eq : Slice.len (alloc.vec.Vec.deref pt_vec) =
+                    alloc.vec.Vec.len ((pts.val[iter.start.val]!).value) := by
+                  simp [Slice.len, alloc.vec.Vec.len, alloc.vec.Vec.deref] at h_deref_len ⊢
+                  grind
+                rw [h_slicelen_eq] at h_sum
+                simp_all only [List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
+                    List.length_eq_zero_iff, not_true_eq_false, reduceCtorEq, false_and,
+                    implies_true, and_self,  UScalar.max_UScalarTy_U16_eq,
+                    List.get_eq_getElem, forall_true_left, List.getElem!_eq_getElem?_getD,
+                    eq_iff_iff, iff_true, Array.getElem!_Usize_eq, Array.set_val_eq,
+                    List.set_getElem_self, List.length_set, List.getElem_set_self, getElem?_pos,
+                    Option.getD_some]
+                apply Finset.sum_congr rfl
+                intro j hj
+                have hj_range := Finset.mem_range.mp hj
+                have hj_pt : j < pt_vec.val.length := by
+                  simp [alloc.vec.Vec.deref] at *; omega
+                have hy := (h_pt_elts j
+                  (by simp [alloc.vec.Vec.deref]; omega)).2
+                simp only [alloc.vec.Vec.deref] at hy
+                simp only [alloc.vec.Vec.deref,
+                  List.getElem?_eq_getElem hj_pt,
+                  List.getElem?_eq_getElem hj_range,
                   Option.getD_some]
-              apply Finset.sum_congr rfl
-              intro j hj
-              have hj_range := Finset.mem_range.mp hj
-              have hj_pt : j < pt_vec.val.length := by
-                simp [alloc.vec.Vec.deref] at *; omega
-              have hy := (h_pt_elts j
-                (by simp [alloc.vec.Vec.deref]; omega)).2
-              simp only [alloc.vec.Vec.deref] at hy
-              simp only [alloc.vec.Vec.deref,
-                List.getElem?_eq_getElem hj_pt,
-                List.getElem?_eq_getElem hj_range,
-                Option.getD_some]
-              rw [hy]
+                rw [hy]
     | core.result.Result.Err () =>
       exfalso
       obtain ⟨j, hj, h_neq⟩ := h_res
@@ -445,11 +446,13 @@ theorem loop_spec
         len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
         len = 30 ∨ len = 34 ∨ len = 36)
     (h_pre : ∀ (j : Nat), j < iter.start.val →
+        (polys.val[j]!).degree + 1 ≤ Usize.max ∧
         polys.val[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts.val[j]!).value.val.length,
             C (((pts.val[j]!).value.val[k]!).toGF216) *
               scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[j]!).value)) k) :
     point_at_loop iter pts polys ⦃ (polys' : Array encoding.polynomial.Poly 16#usize) =>
       ∀ (j : Nat), j < iter.end.val →
+        (polys'.val[j]!).degree + 1 ≤ Usize.max ∧
         polys'.val[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts.val[j]!).value.val.length,
             C (((pts.val[j]!).value.val[k]!).toGF216) *
               scaledLagrangeBasis (alloc.vec.Vec.len ((pts.val[j]!).value)) k ⦄ := by
@@ -465,6 +468,7 @@ theorem loop_spec
         iter'.end = iter.end ∧
         iter'.start.val ≤ iter'.end.val ∧
         (∀ (j : Nat), j < iter'.start.val →
+          (polys'.val[j]!).degree + 1 ≤ Usize.max ∧
           polys'.val[j]!.toGF216Poly =
             ∑ k ∈ Finset.range
                 (pts.val[j]!).value.val.length,
@@ -485,17 +489,20 @@ theorem loop_spec
       exact fun j hj => h_pre' j (by grind)
     | ControlFlow.cont (iter'', polys'') =>
       simp only [] at h_cf ⊢
-      obtain ⟨h_lt, h_start1, h_end1, h_preserve, h_sum⟩ := h_cf
+      obtain ⟨h_lt, h_start1, h_end1, h_preserve, h_deg_new, h_sum⟩ := h_cf
       constructor
       · refine ⟨by rw [h_end1]; exact h_end',
                by grind,
                fun j hj => ?_⟩
         by_cases hj_lt : j < iter'.start.val
-        · rw [h_preserve j (by omega)]
-          exact h_pre' j hj_lt
+        · constructor
+          · rw [h_preserve j (by omega)]
+            exact (h_pre' j hj_lt).1
+          · rw [h_preserve j (by omega)]
+            exact (h_pre' j hj_lt).2
         · have hj_eq : j = iter'.start.val := by omega
           subst hj_eq
-          exact h_sum
+          exact ⟨h_deg_new, h_sum⟩
       · grind
   · exact ⟨rfl, h_start_le, h_pre⟩
 
@@ -557,10 +564,11 @@ theorem point_at_spec
   cases hs : self.s with
   | Polys polys =>
     simp only
-    have h_deg : (polys.val[poly.val]!).coefficients.val.length + 1 ≤ Usize.max :=
+    have h_deg : (polys.val[poly.val]!).degree + 1 ≤ Usize.max :=
       h_coeff_polys polys hs
     have h_polys_len : poly.val < polys.val.length := by rw [polys.property]; exact h_poly
     step*
+    · grind
     simp only [Poly.evalAt] at g1_post
     subst p_post
     rw [List.Inhabited_getElem_eq_getElem! polys.val poly.val h_polys_len] at g1_post
@@ -604,16 +612,26 @@ theorem point_at_spec
         · scalar_tac
       case hlen => simp
       step*
-      simp only [h_not_lt_nat, ↓reduceIte]
+      case h_len =>
+        subst p1_post
+        have h_poly_lt : poly.val < polys1.val.length := by
+          rw [polys1.property]; exact h_poly
+        have h_poly_spec := polys1_post poly.val (by grind)
+        rw [List.Inhabited_getElem_eq_getElem! polys1.val poly.val h_poly_lt]
+        exact h_poly_spec.1
+      simp_all only [↓reduceIte]
       constructor
       · intro j hj
+        have := polys1_post j (by grind)
         grind
-      · simp only [Poly.evalAt] at g1_post
-        subst p1_post
-        rw [g1_post]
+      · have h_poly_lt : poly.val < polys1.val.length := by
+          rw [polys1.property]; exact h_poly
+        have h_eq : polys1.val[poly.val] = polys1.val[poly.val]! :=
+          List.Inhabited_getElem_eq_getElem! polys1.val poly.val h_poly_lt
+        simp only [Poly.evalAt, h_eq, Array.getElem!_Usize_eq]
         congr 1
-        · simp_all [UScalar.cast_val_eq, UScalarTy.U16_numBits_eq, Nat.reducePow]
-          grind
-        · grind
+        rw [g_post]
+        simp [UScalar.cast_val_eq, UScalarTy.U16_numBits_eq, Nat.reducePow]
+        grind
 
 end spqr.encoding.polynomial.PolyEncoder
