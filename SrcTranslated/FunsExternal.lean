@@ -2389,41 +2389,6 @@ theorem sorted_vec.SortedSet.new_spec
 
     Concrete model of Rust's `SortedSet::with_capacity(capacity)`: returns an
     empty `SortedSet` with pre-allocated space for `capacity` elements.
-<<<<<<< HEAD
-
-    Upstream Rust source (`sorted-vec-0.8.6/src/lib.rs`):
-    ```rust
-    pub fn with_capacity (capacity : usize) -> Self {
-      SortedSet { set: SortedVec::with_capacity (capacity) }
-    }
-    ```
-    where the inner `SortedVec::with_capacity` is
-    ```rust
-    pub fn with_capacity (capacity : usize) -> Self {
-      SortedVec { vec: Vec::with_capacity (capacity) }
-    }
-    ```
-    and the standard-library `Vec::with_capacity`
-    (`/rustc/.../alloc/src/vec/mod.rs`) is
-    ```rust
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self::with_capacity_in(capacity, Global)
-    }
-    // ...
-    pub fn with_capacity_in(capacity: usize, alloc: A) -> Self {
-        Vec { buf: RawVec::with_capacity_in(capacity, alloc), len: 0 }
-    }
-    ```
-    i.e. it allocates a backing buffer with room for `capacity` elements but
-    sets `len = 0`, so the vector starts out empty.
-
-    Both `SortedSet`/`SortedVec` wrappers merely wrap `Vec::with_capacity`,
-    which pre-reserves allocation but inserts no elements (`len = 0`), so the
-    returned set is empty and, at the value level, indistinguishable from
-    `SortedSet::new()`.
-
-=======
->>>>>>> 355dd115cdb5d12fc69867ad31de9a68019090d8
     Since `SortedSet T = SortedVec T = alloc.vec.Vec T` and we do not track
     capacity in the Lean model, this is identical to `SortedSet::new()`.
     The outer `Result` is always `ok` (the call never panics: its only failure
@@ -2443,8 +2408,6 @@ theorem sorted_vec.SortedSet.with_capacity_spec
     sorted_vec.SortedSet.with_capacity corecmpOrdInst n
       ⦃ (s : sorted_vec.SortedSet T) => s = alloc.vec.Vec.new T ⦄ := by
   simp [sorted_vec.SortedSet.with_capacity]
-<<<<<<< HEAD
-=======
 
 /-- Helper: sorted insertion into a sorted list, modelling `SortedVec::replace`
     (sorted-vec 0.8.6, `src/lib.rs`, lines 362-376).
@@ -2523,36 +2486,12 @@ theorem sorted_vec.SortedSet.sortedInsert_spec {T : Type}
       simp only [h_cmp, bind_tc_fail, reduceCtorEq] at h
     · -- cmp = div
       simp only [h_cmp, bind_tc_div, reduceCtorEq] at h
->>>>>>> 355dd115cdb5d12fc69867ad31de9a68019090d8
 
 /-- [sorted_vec::{sorted_vec::SortedSet<T>}::push]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 392:2-392:58
     Name pattern: [sorted_vec::{sorted_vec::SortedSet<@T>}::push]
 
     Concrete model of Rust's `SortedSet::push`: inserts an element into the
-<<<<<<< HEAD
-    sorted set.  We model this as appending the element to the underlying
-    vector (ignoring the sort invariant, which is not needed for the
-    verification properties we track).  Returns `(index, None)` where `index`
-    is the old length, and the updated set.  Fails if the vector would
-    overflow `Usize.max`. -/
-@[rust_fun "sorted_vec::{sorted_vec::SortedSet<@T>}::push"]
-def sorted_vec.SortedSet.push
-  {T : Type} (_corecmpOrdInst : core.cmp.Ord T) :
-  sorted_vec.SortedSet T → T → Result ((Std.Usize × (Option T)) ×
-    (sorted_vec.SortedSet T)) :=
-  fun s x =>
-    if h : s.val.length + 1 ≤ Usize.max then
-      ok ((⟨s.val.length, by scalar_tac⟩, none),
-          ⟨s.val ++ [x], by simp [List.length_append]; scalar_tac⟩)
-    else
-      fail .panic
-
-/-- **Spec theorem for `SortedSet::push`**: when the vector has room for one
-    more element, the call succeeds and returns `(old_length, none)` together
-    with the set extended by `x`.  The `none` indicates no duplicate was
-    displaced (our simplified model never reports duplicates). -/
-=======
     sorted set.  The method first compares the element with the last element
     of the underlying vector to determine the appropriate action:
 
@@ -2766,23 +2705,10 @@ theorem sorted_vec.SortedSet.push_spec_lt
     See also `push_spec_empty`, `push_spec_gt`, `push_spec_eq`, and
     `push_spec_lt` for per-branch spec theorems that match every case
     of the definition. -/
->>>>>>> 355dd115cdb5d12fc69867ad31de9a68019090d8
 @[step]
 theorem sorted_vec.SortedSet.push_spec
     {T : Type} (corecmpOrdInst : core.cmp.Ord T)
     (s : sorted_vec.SortedSet T) (x : T)
-<<<<<<< HEAD
-    (h : s.val.length + 1 ≤ Usize.max) :
-    sorted_vec.SortedSet.push corecmpOrdInst s x
-      ⦃ ((n, o), s') =>
-        n.val = s.val.length ∧
-        o = none ∧
-        s'.val = s.val ++ [x] ⦄ := by
-  unfold sorted_vec.SortedSet.push
-  simp only [dif_pos h, WP.spec_ok]
-  exact ⟨rfl, rfl, rfl⟩
-
-=======
     (h : s.val.length + 1 ≤ Usize.max)
     (hcmp : ∀ last, s.val.getLast? = some last →
       corecmpOrdInst.cmp x last = ok .gt) :
@@ -2802,7 +2728,6 @@ theorem sorted_vec.SortedSet.push_spec
   · next last hlast =>
     simp only [hcmp last hlast, bind_tc_ok, WP.spec_ok]
     exact ⟨rfl, rfl, rfl⟩
->>>>>>> 355dd115cdb5d12fc69867ad31de9a68019090d8
 
 /-- [sorted_vec::{core::ops::deref::Deref<sorted_vec::SortedVec<T>> for sorted_vec::SortedSet<T>}::deref]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sorted-vec-0.8.6/src/lib.rs', lines 543:2-543:36
