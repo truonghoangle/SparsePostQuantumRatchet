@@ -80,7 +80,6 @@ import Spqr.Specs.Encoding.Decoder.AddChunk
 import Spqr.Specs.Encoding.Decoder.New
 import Spqr.Specs.Encoding.Encoder.EncodeBytes
 import Spqr.Specs.Encoding.Encoder.NextChunk
-import Spqr.Specs.Encoding.EncodingError.From
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
@@ -189,6 +188,7 @@ import Spqr.Specs.Lib.DecodeState
 import Spqr.Specs.Lib.DecodeState.closure.CallOnce
 import Spqr.Specs.Lib.Direction.Switch
 import Spqr.Specs.Lib.EmptyState
+import Spqr.Specs.Lib.Error.From
 import Spqr.Specs.Lib.Error.FromAuthenticatorError
 import Spqr.Specs.Lib.Error.FromEncodingError
 import Spqr.Specs.Lib.InitInner
@@ -197,6 +197,8 @@ import Spqr.Specs.Lib.InitialState.ForwardSecrecy
 import Spqr.Specs.Lib.MsgVersion
 import Spqr.Specs.Lib.RatchetDefs
 import Spqr.Specs.Lib.Recv
+import Spqr.Specs.Lib.SecretOutput.Eq
+import Spqr.Specs.Lib.SecretOutput.Fmt
 import Spqr.Specs.Lib.SecretOutput.HasSecret
 import Spqr.Specs.Lib.SecretOutput.RecvSecret
 import Spqr.Specs.Lib.SecretOutput.Secret
