@@ -1,9 +1,10 @@
 /-
 Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
-Authors: Hoang Le Truong
+Authors: Hoang Le Truong, Lacramioara Astefanoaei
 -/
 import Spqr.Specs.Aeneas.SliceIter
+import Spqr.Specs.Aeneas.MapCollectBridge
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys.SliceIterMapCollect
 
 /-!
@@ -22,6 +23,7 @@ open Aeneas Aeneas.Std Result
 
 namespace spqr.encoding.polynomial
 
+<<<<<<< HEAD
 /-- Bridge between the Aeneas-generated `collect.default` (with `Map.Insts` whose
 `next := sorry`, see https://github.com/AeneasVerif/aeneas/issues/1043) and the
 external `Map.Insts.collect` (with proper `mapIteratorTransformer`). -/
@@ -39,6 +41,8 @@ theorem collect_default_bridge {N : Usize}
       (core.iter.traits.collect.FromIteratorVec Poly) m := by
   sorry -- Blocked on https://github.com/AeneasVerif/aeneas/issues/1043
 
+=======
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 /--
 **Spec theorem for `encoding.polynomial.const_polys_to_polys`**:
 
@@ -57,7 +61,10 @@ theorem const_polys_to_polys_spec {N : Usize} (cps : Array (PolyConst N) N) :
           result[j].toGF216Poly = listToGF216Poly cps[j].coefficients) ⦄ := by
   unfold const_polys_to_polys
   step*
-  rw [collect_default_bridge]
+  -- Cross from the generated instance (whose `next` is `sorry`, aeneas#1043) to the
+  -- hand-written `mapIteratorTransformer` semantics, then fold back up into `collect`.
+  rw [Spqr.Aeneas.collect_default_bridge (inferInstanceAs (Subsingleton Unit)) _ _ _ m,
+    ← core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_spec]
   apply WP.spec_mono
     (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator.collect_const_polys_spec m)
   intro result ⟨h_len, h_elts⟩

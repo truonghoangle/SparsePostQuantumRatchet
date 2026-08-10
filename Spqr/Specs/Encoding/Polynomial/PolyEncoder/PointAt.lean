@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
-Authors: Hoang Le Truong
+Authors: Hoang Le Truong, Lacramioara Astefanoaei
 -/
 import Spqr.Specs.Encoding.Polynomial.NUM_POLYS
 import Spqr.Specs.Encoding.Polynomial.Poly.ComputeAt
@@ -9,6 +9,7 @@ import Spqr.Math.Poly.Lagrange.CompletePoints
 import Spqr.Specs.Encoding.Polynomial.Poly.FromCompletePoints
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.CallOnce
 import Spqr.Specs.Aeneas.MapIteratorTransformerNext
+import Spqr.Specs.Aeneas.MapCollectBridge
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt.SliceIterEnumMapCollect
 
 
@@ -250,30 +251,7 @@ private lemma array_set_restore_set_getElem!
   have : i.val < arr.val.length := by rw [arr.property]; exact hi
   grind
 
-/-! ## Axiom for the map+collect pipeline -/
-
-/-- `Iterator.collect.default` on a `Map (Enumerate (Iter GF16)) closure_1` equals
-`FromIteratorVec.from_iter` with `mapIteratorTransformer`, using `m.iter` as initial state.
-
-This bridges generated Aeneas code with the hand-verified `from_iter_point_at_spec`. -/
-private theorem map_collect_eq_point_at
-    (m : PointAtMapT) :
-    core.iter.traits.iterator.Iterator.collect.default
-        (core.iter.adapters.map.Map.Insts.CoreIterTraitsIteratorIterator
-          (core.iter.traits.iterator.IteratorEnumerate
-            (core.iter.traits.iterator.IteratorSliceIter GF16))
-          Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt)
-        (core.iter.traits.collect.FromIteratorVec Pt)
-        m
-    = alloc.vec.FromIteratorVec.from_iter
-        (core.iter.traits.collect.IntoIterator.Blanket
-          (core.iter.adapters.map.mapIteratorTransformer
-            ({ iter := m.iter, f := () } : PointAtMapT)
-            (core.iter.traits.iterator.IteratorEnumerate
-              (core.iter.traits.iterator.IteratorSliceIter GF16))
-            Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt))
-        m.iter := by
-  sorry
+/-! ## Bridge for the map+collect pipeline -/
 
 /-! ## Spec theorem for the point_at loop body -/
 
@@ -346,7 +324,13 @@ theorem body_spec
       List.Inhabited_getElem_eq_getElem! pts.val iter.start.val h_pts_lt
     simp only [alloc.vec.Vec.len]
     -- Apply the collect axiom, substitute m.iter via m_post, normalize with h_eq
-    simp only [map_collect_eq_point_at, m_post, h_eq]; clear h_eq h_pts_lt
+    have h_bridge := Spqr.Aeneas.collect_default_bridge
+      (inferInstanceAs (Subsingleton Unit))
+      (core.iter.traits.iterator.IteratorEnumerate
+        (core.iter.traits.iterator.IteratorSliceIter GF16))
+      Insts.CoreOpsFunctionFnMutTuplePairUsizeSharedGF16Pt
+      (core.iter.traits.collect.FromIteratorVec Pt) m
+    simp only [h_bridge, m_post, h_eq]; clear h_eq h_pts_lt
     apply WP.spec_bind (from_iter_point_at_spec
       (alloc.vec.Vec.deref ((pts.val[iter.start.val]!).value)) h_len_le)
     intro pt_vec ⟨h_pt_len, h_pt_elts⟩
@@ -555,6 +539,8 @@ theorem point_at_spec
                     polys'[j]!.toGF216Poly = ∑ k ∈ Finset.range (pts[j]!).value.length,
                         C (((pts[j]!).value[k]!).toGF216) *
                           scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k) ∧
+                  (∀ (j : Nat), j < 16 →
+                    (polys'.val[j]!).coefficients.length + 1 ≤ Usize.max) ∧
                   result.toGF216 = (polys'[poly]!).toGF216Poly.eval (idx.val.toGF216)
               | .Points _ => False
       | .Polys polys =>
@@ -620,10 +606,14 @@ theorem point_at_spec
         rw [List.Inhabited_getElem_eq_getElem! polys1.val poly.val h_poly_lt]
         exact h_poly_spec.1
       simp_all only [↓reduceIte]
-      constructor
+      refine ⟨?_, ?_, ?_⟩
       · intro j hj
         have := polys1_post j (by grind)
         grind
+      · intro j hj
+        have h_spec := polys1_post j (by grind)
+        simp only [Poly.degree] at h_spec
+        exact h_spec.1
       · have h_poly_lt : poly.val < polys1.val.length := by
           rw [polys1.property]; exact h_poly
         have h_eq : polys1.val[poly.val] = polys1.val[poly.val]! :=

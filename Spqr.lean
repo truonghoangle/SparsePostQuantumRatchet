@@ -55,6 +55,7 @@ import Spqr.Specs.Aeneas.FmtArgumentsFromStr
 import Spqr.Specs.Aeneas.GF16New
 import Spqr.Specs.Aeneas.IndexRangeFull
 import Spqr.Specs.Aeneas.IntoIteratorSlice
+import Spqr.Specs.Aeneas.MapCollectBridge
 import Spqr.Specs.Aeneas.MapIteratorTransformerNext
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Aeneas.ResultExpect
@@ -65,8 +66,11 @@ import Spqr.Specs.Aeneas.SliceIter
 import Spqr.Specs.Aeneas.SliceIterMap
 import Spqr.Specs.Aeneas.SliceIteratorNext
 import Spqr.Specs.Aeneas.TryFromSliceToArray
+<<<<<<< HEAD
 import Spqr.Specs.Aeneas.U16FromBeBytes
 import Spqr.Specs.Aeneas.U16ToBeBytes
+=======
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 import Spqr.Specs.Aeneas.VecClone
 import Spqr.Specs.Aeneas.VecExtendFromSlice
 import Spqr.Specs.Aeneas.VecIndexRangeFull
@@ -77,9 +81,14 @@ import Spqr.Specs.Authenticator.Authenticator.New
 import Spqr.Specs.Authenticator.Serialize.Authenticator.FromPb
 import Spqr.Specs.Authenticator.Serialize.Authenticator.IntoPb
 import Spqr.Specs.Encoding.Decoder.AddChunk
+import Spqr.Specs.Encoding.Decoder.DecodedMessage
 import Spqr.Specs.Encoding.Decoder.New
 import Spqr.Specs.Encoding.Encoder.EncodeBytes
 import Spqr.Specs.Encoding.Encoder.NextChunk
+<<<<<<< HEAD
+=======
+import Spqr.Specs.Encoding.EncodingError.From
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 import Spqr.Specs.Encoding.Gf.GF16.Add
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
 import Spqr.Specs.Encoding.Gf.GF16.ConstDiv
@@ -180,6 +189,7 @@ import Spqr.Specs.Encoding.Polynomial.Pt.PartialCmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.IncrementalMlkem768.FlipEndianness
 import Spqr.Specs.IncrementalMlkem768.Generate
+<<<<<<< HEAD
 import Spqr.Specs.Lib.Axioms
 import Spqr.Specs.Lib.ChainFrom
 import Spqr.Specs.Lib.ChainFromVersionNegotiation
@@ -234,6 +244,9 @@ import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSent.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.EkSentCt1Received.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.HeaderReceived.Clone
 import Spqr.Specs.Proto.PqRatchet.V1_state.Unchunked.NoHeaderReceived.Clone
+=======
+import Spqr.Specs.Lib.EmptyState
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 import Spqr.Specs.Serialize.Error.Clone
 import Spqr.Specs.Serialize.Error.Eq
 import Spqr.Specs.Serialize.Error.From
@@ -264,6 +277,7 @@ import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.FromPayload
 import Spqr.Specs.V1.Chunked.States.Serialize.MessageType.TryFrom
 import Spqr.Specs.V1.Chunked.States.Serialize.States.IntoPb
 import Spqr.Specs.V1.Chunked.States.Serialize.U8.From
+<<<<<<< HEAD
 import Spqr.Specs.V1.Chunked.States.States.InitA
 import Spqr.Specs.V1.Chunked.States.States.InitB
 import Spqr.Specs.V1.Unchunked.SendCt.NoHeaderReceived.New
@@ -274,6 +288,18 @@ import Spqr.Specs.V1.Unchunked.SendCt.Serialize.HeaderReceived.IntoPb
 import Spqr.Specs.V1.Unchunked.SendCt.Serialize.NoHeaderReceived.IntoPb
 import Spqr.Specs.V1.Unchunked.SendEk.EkSentCt1Received.IntoPb
 import Spqr.Specs.V1.Unchunked.SendEk.KeysUnsampled.New
+=======
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct1Sent.FromPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct1Sent.IntoPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct1SentEkReceived.FromPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct1SentEkReceived.IntoPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct2Sent.FromPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.Ct2Sent.IntoPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.HeaderReceived.FromPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.HeaderReceived.IntoPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.NoHeaderReceived.FromPb
+import Spqr.Specs.V1.Unchunked.SendCt.Serialize.NoHeaderReceived.IntoPb
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.EkSent.FromPb
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.EkSent.IntoPb
 import Spqr.Specs.V1.Unchunked.SendEk.Serialize.EkSentCt1Received.FromPb

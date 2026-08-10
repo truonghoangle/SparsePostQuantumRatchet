@@ -1,10 +1,15 @@
 /-
+<<<<<<< HEAD
 Copyright 2026 The Beneficial AI Foundation. All rights reserved.
+=======
+Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
 
+<<<<<<< HEAD
 /-!
 # Spec theorem for `spqr::encoding::polynomial::{Encoder for PolyEncoder}::next_chunk`
 
@@ -27,6 +32,13 @@ The function composes:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 734:4-738:5)
 -/
+=======
+/-! # Spec theorem for `spqr::encoding::polynomial::{Encoder for PolyEncoder}::next_chunk`
+
+Casts `self.idx` to U16, calls `chunk_at`, then wrapping-increments the index mod 2³².
+
+**Source**: spqr/src/encoding/polynomial.rs -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 
@@ -34,6 +46,7 @@ namespace spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder
 
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk`**:
 
+<<<<<<< HEAD
 Produces the next serialized chunk and advances the encoder's chunk counter.  The postcondition
 captures the chunk's structural properties, the polynomial evaluation / Lagrange interpolation
 invariant, and the index update.
@@ -71,6 +84,11 @@ This follows from composing:
 
 **Source**: spqr/src/encoding/polynomial.rs (lines 734:4-738:5)
 -/
+=======
+Postcondition: `chunk.index = self.idx`, `chunk.data.length = 32`,
+`self'.idx = (self.idx + 1) % 2³²`, plus polynomial-evaluation (`Polys`) or
+Lagrange-interpolation (`Points`) invariants on the chunk data. -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 @[step]
 theorem next_chunk_spec
     (self : encoding.polynomial.PolyEncoder)
@@ -80,19 +98,31 @@ theorem next_chunk_spec
           let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
+<<<<<<< HEAD
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
+=======
+    (h_coeff_bound : ∀ polys, self.s = .Polys polys →
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         ∀ (j : Nat), j < 16 →
           (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     next_chunk self ⦃ ((chunk, self') :
         encoding.Chunk × encoding.polynomial.PolyEncoder) =>
       chunk.index.val = self.idx.val ∧
+<<<<<<< HEAD
       chunk.data.val.length = 32 ∧
+=======
+      chunk.data.length = 32 ∧
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
       self'.idx.val = (self.idx.val + 1) % U32.size ∧
       match self.s with
       | .Polys polys =>
           self'.s = self.s ∧
           ∀ (j : Nat), j < 16 →
+<<<<<<< HEAD
             Nat.toGF216 (256 * chunk.data.val[2 * j]! + chunk.data.val[2 * j + 1]!) =
+=======
+            Nat.toGF216 (256 * chunk.data[2 * j]! + chunk.data[2 * j + 1]!) =
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
               (polys[j]!).toGF216Poly.eval (self.idx.val.toGF216)
       | .Points pts =>
           ∀ polys', self'.s = .Polys polys' →
@@ -105,8 +135,13 @@ theorem next_chunk_spec
   step
   step with chunk_at_spec
   step*
+<<<<<<< HEAD
   obtain ⟨h_index, h_len, h_idx_preserved, h_match⟩ := out_post
   refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_len, by simp_all, ?_⟩
+=======
+  obtain ⟨h_idx_eq, h_data_len, h_self_idx, h_match⟩ := out_post
+  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_data_len, by simp_all, ?_⟩
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
   cases h_s : self.s with
   | Polys polys =>
     simp only [h_s] at h_match ⊢
@@ -118,6 +153,10 @@ theorem next_chunk_spec
   | Points pts =>
     simp only [h_s] at h_match ⊢
     intro polys' h_polys' j hj
+<<<<<<< HEAD
     exact h_match polys' (by simp_all) j hj
+=======
+    exact h_match polys' h_polys' j hj
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 
 end spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder

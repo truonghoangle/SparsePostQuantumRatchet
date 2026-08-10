@@ -23,6 +23,7 @@ open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomi
 
 namespace spqr.encoding.polynomial.PolyEncoder.chunk_at_loop
 
+<<<<<<< HEAD
 /-! ## Inhabited instances -/
 
 /-- Default `Inhabited` instance for `Poly` (empty coefficient vector). -/
@@ -32,6 +33,8 @@ instance : Inhabited encoding.polynomial.Poly := ⟨⟨alloc.vec.Vec.new _⟩⟩
 instance : Inhabited encoding.polynomial.Point := ⟨⟨alloc.vec.Vec.new _⟩⟩
 
 
+=======
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.chunk_at_loop.body`**:
 
 One iteration of the chunk serialization loop. Retrieves the next index `i` from the range
@@ -84,6 +87,11 @@ theorem body_spec
                           ∑ k ∈ Finset.range (pts[j]!).value.length,
                             C (((pts[j]!).value[k]!).toGF216) *
                               scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k) ∧
+<<<<<<< HEAD
+=======
+                      (∀ (j : Nat), j < 16 →
+                        (polys'[j]!).coefficients.length + 1 ≤ Usize.max) ∧
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
                       g.toGF216 = (polys'[iter.start.val]!).toGF216Poly.eval (idx.val.toGF216)
                   | .Points _ => False
             | .Polys polys =>
@@ -173,7 +181,11 @@ theorem loop_spec
           let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
+<<<<<<< HEAD
     (h_coeff_bound : ∀ (polys : Array Poly 16#usize),
+=======
+    (h_coeff_bound : ∀ polys, self.s = .Polys polys →
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         ∀ (j : Nat), j < 16 →
           (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     chunk_at_loop iter self idx out ⦃ (result : PolyEncoder × (alloc.vec.Vec U8)) =>
@@ -226,6 +238,12 @@ theorem loop_spec
                 2 * (j - iter.start) + 1]!) =
                (polys[j]!).toGF216Poly.eval (idx.val.toGF216)) ∧
         (∀ pts', p.2.1.s = .Points pts' → p.2.1 = self) ∧
+<<<<<<< HEAD
+=======
+        (∀ polys, p.2.1.s = .Polys polys →
+            ∀ (j : Nat), j < 16 →
+              (polys[j]!).coefficients.length + 1 ≤ Usize.max) ∧
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         (∀ pts, self.s = .Points pts →
           ∀ polys', p.2.1.s = .Polys polys' →
             ∀ (j : Nat), j < 16 →
@@ -235,15 +253,26 @@ theorem loop_spec
                     scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k))
   · rintro ⟨iter', self', out'⟩ ⟨h_end', h_iter_ge, h_start_le', h_idx', h_out_len',
                                   h_stable', h_adm', h_pre', h_poly_pre',
+<<<<<<< HEAD
                                   h_pts_stable', h_lagrange'⟩
     simp only at h_end' h_iter_ge h_start_le' h_idx' h_out_len' h_stable' h_adm'
     simp only at  h_pre' h_pts_stable' ⊢
     dsimp at h_poly_pre' h_lagrange'
+=======
+                                  h_pts_stable', h_coeff_inv', h_lagrange'⟩
+    simp only at h_end' h_iter_ge h_start_le' h_idx' h_out_len' h_stable' h_adm'
+    simp only at  h_pre' h_pts_stable' ⊢
+    dsimp at h_poly_pre' h_coeff_inv' h_lagrange'
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
     have h_end_val : iter'.end.val = iter.end.val := by rw [h_end']
     have h_coeff' : ∀ polys, self'.s = .Polys polys →
         ∀ (j : Nat), j < 16 →
           (polys[j]!).coefficients.length + 1 ≤ Usize.max :=
+<<<<<<< HEAD
       fun polys _ j hj => h_coeff_bound polys j hj
+=======
+      h_coeff_inv'
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
     by_cases h_iter_lt : iter'.start.val < iter'.end.val
     · have h_body := body_spec idx iter' self' out'
         (by omega) h_idx_overflow (by grind) h_adm' h_coeff'
@@ -264,7 +293,11 @@ theorem loop_spec
                  h_idx1.trans h_idx',
                  by rw [h_out_eq]; simp [h_out_len', h_start1]; grind,
                  ?_, ?_, fun j hj1 hj2 => ?_, fun polys h_polys j hj1 hj2 => ?_,
+<<<<<<< HEAD
                  ?_, ?_⟩
+=======
+                 ?_, ?_, ?_⟩
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
           · intro polys h_polys
             have h_self'_eq := h_stable' polys h_polys
             subst h_self'_eq
@@ -313,6 +346,24 @@ theorem loop_spec
               simp only [h_s] at h_match
               rw [h_match.2] at h_pts_new
               simp [h_s] at h_pts_new
+<<<<<<< HEAD
+=======
+          · intro polys_coeff h_polys_coeff j hj
+            cases h_s : self'.s with
+            | Points pts_curr =>
+              simp only [h_s] at h_match
+              by_cases h_cache : idx < (pts_curr[iter'.start]!).value.length
+              · simp only [if_pos h_cache] at h_match
+                rw [h_match.2] at h_polys_coeff
+                simp [h_s] at h_polys_coeff
+              · simp only [if_neg h_cache] at h_match
+                simp only [h_polys_coeff] at h_match
+                exact h_match.2.1 j hj
+            | Polys polys_curr =>
+              simp only [h_s] at h_match
+              rw [h_match.2] at h_polys_coeff
+              exact h_coeff_inv' polys_coeff h_polys_coeff j hj
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
           · intro pts_init h_pts_init polys_new h_polys_new j hj
             cases h_s : self'.s with
             | Points pts_curr =>
@@ -361,6 +412,12 @@ theorem loop_spec
     constructor; · exact fun j h1 h2 => absurd h2 (by omega)
     constructor; · exact fun _ _ j h1 h2 => absurd h2 (by omega)
     constructor; · exact fun _ _ => rfl
+<<<<<<< HEAD
+=======
+    constructor
+    · intro polys h_polys
+      exact h_coeff_bound polys h_polys
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
     intro pts h1 polys' h2 j hj
     exfalso
     have h2' : self.s = .Polys polys' := by simpa using h2
@@ -414,7 +471,11 @@ theorem chunk_at_spec
           let len := (pts[j]!).value.length
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
+<<<<<<< HEAD
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
+=======
+    (h_coeff_bound : ∀ polys, self.s = .Polys polys →
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         ∀ (j : Nat), j < 16 →
           (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     chunk_at self idx ⦃ ((chunk, self') :

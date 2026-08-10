@@ -6,6 +6,7 @@ Authors: Hoang Le Truong
 import SrcTranslated.Funs
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
 
+<<<<<<< HEAD
 /-!
 # Spec theorems for `spqr::encoding::{Encoder for Option<T>}::encode_bytes`
 
@@ -39,6 +40,18 @@ This file proves two theorems built on that observation:
 
 **Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
+=======
+/-! # Spec theorems for `spqr::encoding::{Encoder for Option<T>}::encode_bytes`
+
+The `Option<T>` encoder wraps the inner `T` encoder: successes are tagged with `Some`, errors
+pass through unchanged.
+
+Two theorems:
+  • `encode_bytes_spec_lift` — lifts any postcondition of the inner encoder through the wrapper.
+  • `encode_bytes_spec_poly_encoder` — instantiates the lift for `T = PolyEncoder`.
+
+**Source**: spqr/src/encoding.rs -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial
 
@@ -46,6 +59,7 @@ namespace spqr.core.option.Option.Insts.SpqrEncodingEncoder
 
 /-- **Predicate-lifting spec for `Option<T>::encode_bytes`**:
 
+<<<<<<< HEAD
 Given an `Encoder T` instance `EncoderInst`, a message `msg`, and a predicate `P` on the inner
 result, the hypothesis `h_inner` states that `EncoderInst.encode_bytes msg` satisfies `P`. The
 theorem concludes that `encode_bytes EncoderInst msg` satisfies the postcondition obtained by
@@ -61,6 +75,10 @@ holds for the wrapped one. This is the reusable building block behind
 
 **Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
+=======
+If the inner encoder satisfies `P`, then the wrapped encoder satisfies `P` relabelled through
+`Option`: `Ok (some val) ↦ P (Ok val)`, `Err e ↦ P (Err e)`, `Ok none ↦ False`. -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 @[step]
 theorem encode_bytes_spec_lift
     {T : Type} (EncoderInst : encoding.Encoder T) (msg : Slice Std.U8)
@@ -88,6 +106,7 @@ theorem encode_bytes_spec_lift
 
 /-- **`encode_bytes` spec for `Option<PolyEncoder>`**:
 
+<<<<<<< HEAD
 Under the hypotheses `h_even` (`msg.length` is even) and `h_len` (`msg.length ≤ 2^16 * 16`),
 `encode_bytes PolyEncoder.Insts.SpqrEncodingEncoder msg` succeeds and its result matches the
 `Ok (some ⟨idx, Points pts⟩)` branch — no other branch (`Err`, `Ok none`, or a non-`Points`
@@ -105,6 +124,11 @@ Proved by feeding `PolyEncoder.Insts.SpqrEncodingEncoder.encode_bytes_spec` (the
 
 **Source**: spqr/src/encoding.rs (lines 55:4-60:5)
 -/
+=======
+Instantiates `encode_bytes_spec_lift` with the `PolyEncoder` postcondition. Given `h_even` and
+`h_len`, the result is `Ok (some ⟨0#u32, Points pts⟩)` where each `pts[j]` has the expected
+round-robin length and coefficients matching big-endian byte pairs from `msg`. -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 @[step]
 theorem encode_bytes_spec_poly_encoder
     (msg : Slice U8)

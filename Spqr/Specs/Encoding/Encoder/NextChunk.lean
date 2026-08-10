@@ -9,6 +9,7 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.NextChunk
 /-!
 # Spec theorems for `spqr::encoding::{Encoder for Option<T>}::next_chunk`
 
+<<<<<<< HEAD
 Whenever `T : Encoder`, the `Encoder` trait also applies to `Option<T>`. In Rust the `next_chunk`
 method on `Option<T>` takes `&mut self` (which must be `Some`), extracts the inner encoder via
 `Option::take` + `unwrap`, delegates to `T::next_chunk` to produce the next serialized chunk, and
@@ -40,6 +41,16 @@ This file proves two theorems built on that observation:
 
 **Source**: spqr/src/encoding.rs (lines 63:4-71:5)
 -/
+=======
+The `Option<T>` encoder's `next_chunk` unwraps `self`, delegates to `T::next_chunk`, and re-wraps
+the result in `Some`. It is a pure structural lift adding no mathematical content.
+
+This file proves:
+  • `next_chunk_spec_lift` — lifts any postcondition of the inner `next_chunk` through `Option<T>`.
+  • `next_chunk_spec_poly_encoder` — the `T = PolyEncoder` specialisation.
+
+**Source**: spqr/src/encoding.rs -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial encoding.gf Polynomial
 
@@ -47,6 +58,7 @@ namespace spqr.core.option.Option.Insts.SpqrEncodingEncoder
 
 /-- **Predicate-lifting spec for `Option<T>::next_chunk`**:
 
+<<<<<<< HEAD
 Given an `Encoder T` instance `EncoderInst`, an option `self` with `self.isSome`, and a
 predicate `P` on the inner result `(chunk, T)`, the hypothesis `h_inner` states that whenever
 `self = some tmp` the inner call `EncoderInst.next_chunk tmp` satisfies `P`. The theorem
@@ -69,6 +81,10 @@ holds — retagged with `Some` — for the wrapped one. This is the reusable bui
 
 **Source**: spqr/src/encoding.rs (lines 63:4-71:5)
 -/
+=======
+If `self.isSome` and the inner `EncoderInst.next_chunk` satisfies predicate `P`, then
+`next_chunk EncoderInst self` satisfies `P` lifted through `Some`. -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 @[step]
 theorem next_chunk_spec_lift
     {T : Type} (EncoderInst : encoding.Encoder T) (self : Option T)
@@ -89,6 +105,7 @@ theorem next_chunk_spec_lift
 
 /-- **`next_chunk` spec for `Option<PolyEncoder>`**:
 
+<<<<<<< HEAD
 `next_chunk PolyEncoder.Insts.SpqrEncodingEncoder (some pe0)` inherits, through the `Option<T>`
 wrapper, the chunk-serialization behaviour of the underlying `PolyEncoder`: the call succeeds in
 the `(chunk, some pe)` shape — the option stays `Some` — and the inner state `pe` together with
@@ -118,6 +135,11 @@ postcondition) into `next_chunk_spec_lift`, whose `Some`-lifted conclusion match
 
 **Source**: spqr/src/encoding.rs (lines 63:4-71:5)
 -/
+=======
+Lifts `PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk_spec` through the `Option` wrapper via
+`next_chunk_spec_lift`. The result stays `Some` and the inner postcondition (chunk index, 32-byte
+data, wrapping index increment, polynomial evaluation / Lagrange interpolation) holds verbatim. -/
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
 @[step]
 theorem next_chunk_spec_poly_encoder
     (pe0 : PolyEncoder)
@@ -128,11 +150,20 @@ theorem next_chunk_spec_poly_encoder
           len = 0 ∨ len = 1 ∨ len = 3 ∨ len = 5 ∨
           len = 30 ∨ len = 34 ∨ len = 36)
     (h_coeff_bound : ∀ (polys : Array encoding.polynomial.Poly 16#usize),
+<<<<<<< HEAD
+=======
+        pe0.s = .Polys polys →
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         ∀ (j : Nat), j < 16 →
           (polys[j]!).coefficients.length + 1 ≤ Usize.max) :
     next_chunk PolyEncoder.Insts.SpqrEncodingEncoder (some pe0) ⦃
         ((chunk, result) : encoding.Chunk × (Option PolyEncoder)) =>
+<<<<<<< HEAD
       ∃ pe, result = some pe ∧
+=======
+      match result with
+      | some pe =>
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
         chunk.index.val = pe0.idx.val ∧
         chunk.data.val.length = 32 ∧
         pe.idx.val = (pe0.idx.val + 1) % U32.size ∧
@@ -148,7 +179,12 @@ theorem next_chunk_spec_poly_encoder
                 polys'[j]!.toGF216Poly =
                   ∑ k ∈ Finset.range (pts[j]!).value.length,
                     C (((pts[j]!).value[k]!).toGF216) *
+<<<<<<< HEAD
                       scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k ⦄ := by
+=======
+                      scaledLagrangeBasis (alloc.vec.Vec.len ((pts[j]!).value)) k
+      | none => False ⦄ := by
+>>>>>>> 323abb23ea297aa116adeb54d44a0ab5037942f5
   unfold next_chunk
   simp only [Aeneas.Std.core.option.Option.take]
   step with Aeneas.Std.core.option.Option.unwrap.spec
