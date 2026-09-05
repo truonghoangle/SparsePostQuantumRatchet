@@ -6,11 +6,13 @@
     "aeneas-extract": "tsx scripts/aeneas-extract.ts",
     "src-diff": "tsx scripts/src-diff.ts",
     "verification-status": "lake exe status",
+    "report-slides": "tsx scripts/report-slides.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
+    "pptxgenjs": "^4.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   },
