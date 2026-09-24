@@ -267,6 +267,295 @@ is [`docs/chain.rs`](./chain.rs); the tests alone are in
 
 ---
 
+## 11. `compare` silently truncates when slice lengths differ — potential authentication bypass (MEDIUM)
+
+**Location**: `src/util.rs`, lines 25–33.
+
+```rust
+pub(crate) fn compare(lhs: &[u8], rhs: &[u8]) -> u8 {
+    let mut r: u8 = 0;
+
+    for i in 0..lhs.len() {
+        r |= lhs[i] ^ rhs[i];
+    }
+
+    is_non_zero(r)
+}
+```
+
+**Defect.** The loop iterates over `0..lhs.len()` only. The equal-length precondition
+(`lhs.len() == rhs.len()`) is guarded by `#[cfg_attr(hax, hax_lib::requires(...))]`, which is
+**erased in non-hax builds** — there is no runtime check. Two failure modes result:
+
+| Condition | Behaviour |
+|---|---|
+| `rhs.len() > lhs.len()` | Trailing bytes in `rhs` are never examined; `compare` returns `0` (equal) even when the slices differ beyond `lhs.len()`. This is a **silent truncation** that could allow an authentication bypass if an attacker controls one slice's length. |
+| `rhs.len() < lhs.len()` | Index `rhs[i]` panics at `i == rhs.len()`, causing a denial-of-service and leaking timing information (panic vs. normal return). |
+
+**Current callers are safe.** Both `verify_ct` and `verify_hdr` in `src/authenticator.rs` pass
+`expected_mac` (whose length is checked by a `hax_lib::requires` with `MACSIZE`) and the output of
+`mac_ct`/`mac_hdr` (which always returns exactly `MACSIZE` bytes). So the bug is **latent** today.
+
+**Why it still matters.** `compare` is a security-critical constant-time primitive. The original
+code in `libcrux-ml-kem/src/constant_time_ops.rs` operates on fixed-size arrays where a length
+mismatch is impossible at the type level. When it was ported to accept slices in this codebase,
+the type-level safety was lost and replaced only with a hax-time annotation that has no runtime
+effect. Any future caller passing mismatched-length slices would silently get a wrong answer or a
+panic.
+
+**Fix**: add a runtime assertion at the top of `compare`:
+
+```rust
+assert_eq!(lhs.len(), rhs.len());
+```
+
+Alternatively, return `1` (not-equal) when lengths differ, which avoids panics entirely:
+
+```rust
+if lhs.len() != rhs.len() {
+    return 1;
+}
+```
+
+---
+
+## 12. Audit of the constant-time comparison / FO-transform path (NO DEFECT FOUND in SPQR; libcrux 0.0.7 clean)
+
+**Motivation.** Several ML-KEM implementations shipped bugs in the Fujisaki–Okamoto re-encryption
+check where the comparison was incomplete or the constant-time select was a no-op, so
+decapsulation returned a value that depended on the decrypted message even when re-encryption
+failed (key-recovery class). This item records a targeted check of the analogous code reachable
+from SPQR.
+
+**Where the FO transform lives.** *Not* in `src/`. `incremental_mlkem768::decaps` delegates to
+`libcrux_ml_kem::ind_cca::incremental::decapsulate_compressed_key`, which concatenates
+`ct1 ‖ ct2` into the full 1088-byte ciphertext and calls `ind_cca::decapsulate`. The FO check is
+`compare_ciphertexts_select_shared_secret_in_constant_time(ciphertext, expected_ciphertext,
+shared_secret, implicit_rejection_shared_secret)` in `libcrux-ml-kem-0.0.7/src/constant_time_ops.rs`.
+
+**Checked in libcrux-ml-kem 0.0.7 (pinned in `Cargo.lock`).**
+
+| Property | Result |
+|---|---|
+| `compare` iterates `0..lhs.len()` over the **full** `CIPHERTEXT_SIZE` array | ✔ complete comparison |
+| `inz(v) = ((!v as u16).wrapping_add(1) >> 8) & 1` | ✔ exhaustively verified `= (v≠0)` for all 256 bytes |
+| `select_ct`: `mask = is_non_zero(sel).wrapping_sub(1)`; `out = (lhs & mask) \| (rhs & !mask)` | ✔ verified: `sel=0 → lhs`, all `sel∈1..=255 → rhs` (implicit-rejection secret) |
+| Both candidate secrets computed **before** the select, unconditionally | ✔ no data-dependent early return |
+| `#[inline(never)]` + `black_box` on compare/select wrappers | ✔ |
+
+**Checked in SPQR's own port (`src/util.rs`, used by `Authenticator::verify_ct/verify_hdr`).**
+
+- `inz` uses `((v \| (!v).wrapping_add(1)) >> 8) & 1` lifted to `u16`. Proved in
+  `Spqr/Specs/Util/Inz.lean` (`inz_spec`) and exhaustively tested.
+- `compare` proved in `Spqr/Specs/Util/Compare.lean`: `0 ↔ ∀ j, lhs[j] = rhs[j]`.
+  `verify_ct_spec`/`verify_hdr_spec` give `Ok () ↔ expected_mac = mac_*(…)`. All three modules
+  rebuilt with `lake build` for this item.
+- Release AArch64 assembly inspected: `compare` inlines into the verifiers as a NEON `eor/orr`
+  accumulation loop plus scalar tail — no early exit, no data-dependent branch; `is_non_zero`
+  survives out-of-line and branchless. The only branch is the final `!= 0` on the public
+  accept/reject outcome.
+- Protocol level (`v1/unchunked/send_ek.rs::recv_ct2`): `decaps` (never fails, implicit
+  rejection) → HKDF → `auth.update` → `verify_ct(…)?`. On MAC failure, `?` discards the updated
+  state and returns `Err(InvalidCtMac)` with **no** secret-derived data; `EpochSecret` is built
+  only on the `Ok` path.
+- Chunked path: `decoded_message()` yields exactly `pts_needed*2` bytes, so
+  `split_off(CIPHERTEXT2_SIZE)` / `split_off(HEADER_SIZE)` always yield a 32-byte MAC, satisfying
+  the `expected_mac.len() == MACSIZE` requirement item 11 relies on.
+
+**Residual observations (hardening, not bugs).**
+
+1. Item 11 still stands: `compare` has no runtime length guard; all current callers are safe by construction.
+2. SPQR's `compare` lacks libcrux's `#[inline(never)]`; it is inlined and auto-vectorised. Still
+   branchless, but this relies on LLVM rather than a barrier. Adding `#[inline(never)]` is cheap hardening.
+3. The Lean model of `core::hint::black_box` is the identity, so the spec theorems establish
+   *functional* correctness only; constant-time behaviour was checked via assembly inspection.
+4. On any `libcrux-ml-kem` bump, re-run the two exhaustive checks (`inz` over all bytes;
+   `select_ct` over all selectors) — milliseconds, and they catch the no-op-mask bug class.
+
+---
+
+## 13. `PolyEncoder::from_pb` does not validate per-polynomial point counts → `debug_assert` panic / silently wrong chunks (MEDIUM)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean`, `ChunkAt.lean`, `NextChunk.lean` all
+  require
+  `h_admissible : ∀ pts, self.s = .Points pts → ∀ j < 16, len ∈ {0, 1, 3, 5, 30, 34, 36}`.
+- `Spqr/Specs/Encoding/Polynomial/Poly/FromCompletePoints.lean` (`from_complete_points_spec`)
+  requires the same `h_len_ok` disjunction; there is *no* spec for the `_ =>` fallback arm.
+- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/FromPb.lean` (`from_pb_spec`) has **no** such
+  hypothesis and proves `Ok` for any `pb.pts` whose 16 entries have even length.
+
+**Rust defect** (`src/encoding/polynomial.rs`)
+
+`from_pb` (L573-603) only checks `pts.len() % 2 == 0` per slot. The admissible-length fact is
+carried into `point_at` solely by `hax_lib::assume!(pt_vec.len() == 0 || … || 36)` (L646-654),
+which is erased at runtime. On the first cache miss `point_at` calls
+`Poly::from_complete_points`, whose fallback arm is
+
+```rust
+_ => { debug_assert!(false, "missing precomputed poly of size {}", pts.len()); … }   // L310
+```
+
+| Build | Behaviour with a persisted `PolynomialEncoder` whose slots hold 2 points each |
+|---|---|
+| debug | **panic** `missing precomputed poly of size 2` on the 3rd `next_chunk()` |
+| release | `debug_assert!` is compiled out; the fallback Lagrange path runs and emits chunks (observed all-zero for the probe input), i.e. the encoder produces data for a state the protocol never defines |
+
+Reproduced by `encoder_from_pb_inadmissible_len` in
+[`docs/polynomial_from_pb_counterexample.rs.txt`](./polynomial_from_pb_counterexample.rs.txt)
+(run against a scratch copy of the crate with the `test-utils` feature). Reachable from any
+chunked-state `from_pb` (`v1/chunked/send_ek/serialize.rs`, `send_ct/serialize.rs`) given a
+prost-valid but semantically inconsistent state blob — the same trust boundary as item 1.
+
+**Fix**: in `PolyEncoder::from_pb`, reject slots whose `pts.len()/2 ∉ {0,1,3,5,30,34,36}` (and
+`polys[i].len()/2 > MAX_STORED_POLYNOMIAL_DEGREE_V1 + 1`) with `SerializationInvalid`. That would
+let `h_admissible` become a provable invariant instead of a hypothesis.
+
+## 14. `PolyDecoder::from_pb` does not bound stored point-set sizes → `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` precondition violated at runtime (LOW–MEDIUM)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Encoding/Polynomial/Poly/LagrangeInterpolate.lean` and friends are stated for
+  arbitrary `pts.length` (only `+1 ≤ Usize.max`), but the Rust carries
+  `#[hax_lib::requires(pts.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1)]` (L105, L143, L230)
+  and the struct refinement `coefficients.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1 + 1` (L86).
+- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/FromPb.lean` (`from_pb_spec`) proves `Ok` with
+  `decoder.pts_needed = pb.pts_needed` for any `pts_needed : u32` and any number of 4-byte points
+  per slot — nothing ties them to `MAX_STORED_POLYNOMIAL_DEGREE_V1` or to the fixed V1 message
+  sizes.
+
+**Rust defect** (`src/encoding/polynomial.rs` L815-854)
+
+`from_pb` validates `pts.len() != 16` and `% 4`, nothing else. `into_pb` (L800) and
+`decoded_message` (L949-951) both rely on `hax_lib::assume!(… ≤ MAX_*)`, erased at runtime.
+The probe `decoder_from_pb_interpolate_oversized` builds a decoder with `pts_needed = 1600` and
+100 points per slot (x = 1..100, so every lookup misses and `lagrange_interpolate` runs on 100
+points — ~3× the stated maximum); `decoded_message()` returns `Some(3200 bytes)` without error.
+
+Consequences: (a) the `hax_lib::requires`/`refine` annotations on the polynomial core are
+*not* invariants of the deployed code — they are only true for states the honest protocol
+produces; (b) O(N²) interpolation cost is controlled by the state blob (`pts_needed` is a
+free `u32`), so a corrupted state can make `recv` arbitrarily slow — bounded only by the
+protobuf size. No memory-safety issue: all indexing is bounds-checked.
+
+**Fix**: in `PolyDecoder::from_pb`, require `pts_needed ≤ 576` (the V1 maximum noted in the
+struct comment, L743) and each slot `len/4 ≤ 2·MAX_STORED_POLYNOMIAL_DEGREE_V1 + 1 = 71`,
+returning `SerializationInvalid` otherwise.
+
+## 15. Remaining `sorry`s and axioms bounding what the specs can claim (INFO)
+
+Not Rust defects, but they delimit findings above:
+
+- `Spqr/Specs/Lib/DecodeState.lean:54` — `decode_state` round-trip left as `sorry` because
+  the prost-generated `Message` impl is replaced by `sorry` in translation (issue #102). Hence
+  nothing about *which* state blobs `decode_state` accepts is formally established; items 1,
+  13, 14 all sit behind this boundary.
+- `Spqr/Specs/Aeneas/MapCollectBridge.lean` — single assumed bridge for `.map().collect()`
+  (aeneas#1043); `ConstPolysToPolys.lean` depends on it.
+- `SrcTranslated/Funs.lean` still contains four `sorry`-using declarations (reported by
+  `lake build`), all in generated protobuf code.
+
+---
+
+# Part II — Logic defects not tied to erased `hax_lib` annotations
+
+The items above mostly stem from `assume!`/`requires` that vanish at runtime. The following
+are ordinary logic bugs that the spec *postconditions* pin down directly.
+
+## 16. `Poly::serialize`/`Poly::deserialize` are not inverses on the zero polynomial → `PolyEncoder` state round-trip fails (MEDIUM)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Encoding/Polynomial/Poly/Zero.lean` (`zero_spec`): `result.coefficients.length = 0`.
+- `Spqr/Specs/Encoding/Polynomial/Poly/Serialize.lean` (`serialize_spec`):
+  `result.length = 2 * self.degree` — so a zero polynomial serialises to `[]`.
+- `Spqr/Specs/Encoding/Polynomial/Poly/Deserialize.lean` (`deserialize_spec`) explicitly requires
+  `h_nonempty : serialized.length ≠ 0`; the docstring states *"rejects empty … input"*.
+- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/FromPb.lean` (`FromPbWellFormed`) requires every
+  `polys[j]` to be non-empty for the `Polys` branch to succeed.
+
+Together these say: **`from_pb ∘ into_pb` is not the identity whenever any of the 16 stored
+polynomials is zero.**
+
+**Rust defect** (`src/encoding/polynomial.rs`)
+
+```rust
+pub fn serialize(&self) -> Vec<u8> { /* 2 bytes per coefficient; zero poly → [] */ }   // L329
+pub fn deserialize(serialized: &[u8]) -> Result<Self, _> {
+    if serialized.is_empty() || serialized.len() % 2 == 1 { return Err(SerializationInvalid) } // L343
+```
+
+`Poly::zero(_)` has **no** coefficients (`Vec::with_capacity`, L94–97), and `from_complete_points`
+of an empty point list returns `lagrange_sum([], [])` = zero polynomial (L302, L279). So any
+`PolyEncoder` in `EncoderState::Polys` with an empty slot serialises to `polys[j] = []` and can
+never be reloaded.
+
+**When is a slot empty?** Whenever the encoded message has fewer than 32 bytes: `encode_bytes`
+round-robins 2-byte words over 16 slots, so a 10-byte message leaves 11 slots with 0 points. The
+V1 protocol only encodes 96/1152/960/160-byte messages, so **the honest V1 protocol never hits
+this**; but the encoder is a public, `pub struct`, generic component and its own tests
+(`encode_and_decode_small`, L972) use exactly such a short message.
+
+**Reproduction** ([`docs/poly_roundtrip_counterexample.rs.txt`](./poly_roundtrip_counterexample.rs.txt),
+release build):
+
+```
+encoder_polys_roundtrip_with_empty_poly: polys = 16, empty polys = 11
+from_pb(into_pb(e)) = Some(SerializationInvalid)      ← FAILED
+encoder_polys_roundtrip_v1_size:                       ← ok (control, 96-byte message)
+```
+
+**Fix**: either make `deserialize` accept `[]` as the zero polynomial (drop the `is_empty()`
+check — the loop already handles length 0), or make `serialize` emit `[0, 0]` for the zero
+polynomial. The first is simpler and also matches `zero_spec`.
+
+## 17. `PolyDecoder::is_complete` is write-never → dead field, redundant O(N²) work, and a misleading spec surface (LOW)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Encoding/Decoder/New.lean`: `pd.is_complete = false`.
+- `Spqr/Specs/Encoding/Decoder/AddChunk.lean`, `PolyDecoder/IntoPb.lean`, `PolyDecoder/FromPb.lean`:
+  `is_complete` is *preserved* by every operation.
+
+No spec ever establishes `is_complete = true`, because no Rust code path does.
+
+**Rust defect** (`src/encoding/polynomial.rs`)
+
+`grep is_complete` finds five sites: declaration (L760), `false` in `new_with_poly_count`
+(L789), copy in `into_pb`/`from_pb` (L797, L851), and the *read* at the top of
+`decoded_message` (L912: `if self.is_complete { return None; }`). It is never assigned `true`.
+Consequences:
+
+1. The early-return in `decoded_message` is dead code; a fully-received decoder recomputes the
+   Lagrange interpolation (up to 16 polynomials of degree ≤ 35) on **every** call. The chunked
+   state machine calls `decoded_message()` after each `add_chunk`, so once a message is complete
+   any further late chunk for that epoch triggers a full redundant decode.
+2. The persisted `PolynomialDecoder.is_complete` protobuf field carries no information, yet
+   `from_pb` honours it: a state blob with `is_complete = true` makes `decoded_message()` return
+   `None` forever, silently stalling that epoch of the ratchet (no error is surfaced).
+
+Confirmed by `decoder_is_complete_never_set` in
+[`docs/decoder_logic_probe.rs.txt`](./decoder_logic_probe.rs.txt): after a successful
+1088-byte decode, `into_pb().is_complete == false`.
+
+**Fix**: either set `is_complete = true` (and drop the point sets) when `decoded_message`
+succeeds — which the state machines already treat as terminal — or delete the field and the
+protobuf column. If kept, `from_pb` should reject `is_complete = true` with a non-empty `pts`.
+
+## 18. Duplicate chunk index → last write wins (confirms item 4 behaviourally) (LOW)
+
+`decoder_duplicate_index_last_wins` in the same probe file feeds two chunks with index 0 from two
+different messages and observes the decoder output follows the **second** one
+(`"ABCDEFGHIJ"`), contradicting the source comment *"This will discard new points whose X value
+matches a previous old point"* (L896–898). The Lean models in
+`Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` / `FromPb.lean`
+(`.eq ⇒ … dropLast ++ [p]`) are correct; the comment is not. Behaviourally benign for an honest
+peer and MAC-protected against a malicious one, but it means a replayed chunk with a bit-flip
+*does* corrupt the reconstruction until the MAC check fails, rather than being ignored.
+
+---
+
 ## Notes / limitations
 
 - All findings are grounded in hypotheses the existing (proved) spec theorems require, or in

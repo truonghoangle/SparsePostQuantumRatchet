@@ -1,0 +1,30 @@
+use spqr::encoding::polynomial::PolyEncoder;
+use spqr::encoding::Encoder;
+
+// Poly::serialize(zero poly) = [] but Poly::deserialize([]) = Err(SerializationInvalid).
+// Reachable: encode a message with < 32 bytes (so some of the 16 slots hold 0 points),
+// force the Points -> Polys conversion via a cache-miss chunk, then into_pb -> from_pb.
+#[test]
+fn encoder_polys_roundtrip_with_empty_poly() {
+    let mut e = PolyEncoder::encode_bytes(b"abcdefghij").expect("encode");
+    let _ = e.next_chunk(); // idx 0: cache hit
+    let _ = e.next_chunk(); // idx 1: cache miss -> converts to Polys, 11 of them zero
+    let pb = e.into_pb();
+    let empty_polys = pb.polys.iter().filter(|p| p.is_empty()).count();
+    println!("polys = {}, empty polys = {}", pb.polys.len(), empty_polys);
+    let r = PolyEncoder::from_pb_test(pb);
+    println!("from_pb(into_pb(e)) = {:?}", r.as_ref().err());
+    assert!(r.is_ok(), "into_pb/from_pb roundtrip failed for encoder with zero polynomial");
+}
+
+// Control: V1-sized message (96 bytes = hdr+mac) has 3 points per slot -> roundtrip works.
+#[test]
+fn encoder_polys_roundtrip_v1_size() {
+    let mut e = PolyEncoder::encode_bytes(&[7u8; 96]).expect("encode");
+    for _ in 0..4 {
+        let _ = e.next_chunk();
+    }
+    let pb = e.into_pb();
+    assert!(pb.polys.iter().all(|p| !p.is_empty()));
+    assert!(PolyEncoder::from_pb_test(pb).is_ok());
+}

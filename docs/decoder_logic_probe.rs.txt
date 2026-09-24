@@ -1,0 +1,34 @@
+use spqr::encoding::polynomial::{PolyDecoder, PolyEncoder};
+use spqr::encoding::{Decoder, Encoder};
+
+// Candidate: PolyDecoder::is_complete is never set to true anywhere in the crate, so
+// decoded_message() re-runs O(N^2) interpolation on every call and the field is dead.
+#[test]
+fn decoder_is_complete_never_set() {
+    let mut e = PolyEncoder::encode_bytes(&[3u8; 1088]).expect("encode");
+    let mut d = PolyDecoder::new(1088).expect("new");
+    for _ in 0..(1088 / 32 + 1) {
+        d.add_chunk(&e.next_chunk());
+    }
+    assert!(d.decoded_message().is_some());
+    let pb = d.into_pb_test();
+    println!("is_complete after successful decode = {}", pb.is_complete);
+    assert!(!pb.is_complete);
+}
+
+// Candidate: add_chunk with a duplicate index but different payload overwrites (item 4);
+// verify the decoded result follows the *last* chunk.
+#[test]
+fn decoder_duplicate_index_last_wins() {
+    let mut e1 = PolyEncoder::encode_bytes(b"abcdefghij").expect("encode");
+    let mut e2 = PolyEncoder::encode_bytes(b"ABCDEFGHIJ").expect("encode");
+    let c1 = e1.next_chunk();
+    let c2 = e2.next_chunk();
+    assert_eq!(c1.index, c2.index);
+    let mut d = PolyDecoder::new(10).expect("new");
+    d.add_chunk(&c1);
+    d.add_chunk(&c2);
+    let m = d.decoded_message().expect("decoded");
+    println!("decoded = {:?}", String::from_utf8_lossy(&m));
+    assert_eq!(&m, b"ABCDEFGHIJ");
+}
