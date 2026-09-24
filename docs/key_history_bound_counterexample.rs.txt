@@ -1,0 +1,67 @@
+// Reproducer tests for docs/defects.md finding 10.
+// Paste into the `mod test` block of src/chain.rs (after `fn clear_old_send_keys`) and run:
+//   cargo test --lib chain::test::key_history_
+// Verified passing against the pinned src/ on 2026-09-24 (run on a scratch copy of the crate).
+
+    /// Counterexample to `data.len() <= KEY_SIZE * trim_size()` (struct comment L94, and the
+    /// hax_lib::requires on KeyHistory::add L138 / assume! in key L281-282).
+    #[test]
+    fn key_history_exceeds_trim_size_before_gc() {
+        let params = pqrpb::ChainParams { max_jump: 100, max_ooo_keys: 10 };
+        let trim_bytes = KeyHistory::KEY_SIZE * params.trim_size();
+        assert_eq!(trim_bytes, 12 * 36);
+        let mut ced = ChainEpochDirection::new(&[1u8; 32]);
+        ced.key(11, &params).unwrap();
+        assert_eq!(ced.prev.data.len(), 10 * 36);
+        ced.key(14, &params).unwrap();
+        // pre-GC 12 records == threshold -> GC ran (horizon 3), dropping keys 1 and 2.
+        assert_eq!(ced.prev.data.len(), 10 * 36);
+        // Now ats = ctr + max_ooo, so prev is NOT cleared and 9 more keys are added on top
+        // of 10 -> 19 records = 684 B > 432 B before GC. Observe via what GC leaves behind.
+        ced.key(24, &params).unwrap();
+        assert_eq!(ced.ctr, 24);
+        assert_eq!(ced.prev.data.len(), 10 * 36);
+        for k in [15u32, 16, 17, 18, 19, 20, 21, 22, 23] {
+            ced.prev.get(k, ced.ctr, &params).unwrap();
+        }
+        // Record 13 survived GC (horizon = 23 - 10 = 13 is not > 13) ...
+        assert_eq!(ced.prev.data.len(), 36);
+        assert_eq!(&ced.prev.data[0..4], &13u32.to_be_bytes()[..]);
+        // ... yet `get` refuses it, because its window test is `at + max_ooo < ctr` with the
+        // post-increment ctr = 24: gc and get disagree at the boundary by one.
+        assert!(matches!(ced.prev.get(13, ced.ctr, &params), Err(Error::KeyTrimmed(13))));
+    }
+
+    /// Instrumented copy of `key`'s advancing loop to directly observe the maximum history
+    /// length passed to `KeyHistory::add`, and check the corrected bound.
+    #[test]
+    fn key_history_add_precondition_violated_and_corrected_bound() {
+        let params = pqrpb::ChainParams { max_jump: 100, max_ooo_keys: 10 };
+        let max_ooo = params.max_ooo_keys_or_default();
+        let ts = params.trim_size();
+        let claimed = KeyHistory::KEY_SIZE * ts;
+        let corrected = KeyHistory::KEY_SIZE * ((ts - 1) + (max_ooo as usize - 1));
+        let mut ced = ChainEpochDirection::new(&[1u8; 32]);
+        let mut worst_before_add = 0usize;
+        for at in [11u32, 14, 24] {
+            // replicate `key` body for the Greater branch, instrumenting `add`
+            if at > ced.ctr + max_ooo {
+                ced.prev.clear();
+            }
+            while at > ced.ctr + 1 {
+                let k = ChainEpochDirection::next_key_internal(&mut ced.next, &mut ced.ctr);
+                if ced.ctr + max_ooo >= at {
+                    worst_before_add = worst_before_add.max(ced.prev.data.len());
+                    ced.prev.add(k, &params);
+                }
+            }
+            assert!(ced.prev.data.len() <= corrected, "corrected pre-GC bound");
+            ced.prev.gc(ced.ctr, &params);
+            assert!(ced.prev.data.len() < claimed, "at-rest bound");
+            ChainEpochDirection::next_key_internal(&mut ced.next, &mut ced.ctr);
+        }
+        // 18 records (648 B) were already present when `add` was last called: > 432 B.
+        assert_eq!(worst_before_add, 18 * 36);
+        assert!(worst_before_add > claimed);
+        assert!(worst_before_add + 36 <= corrected);
+    }
