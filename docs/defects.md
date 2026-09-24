@@ -554,15 +554,134 @@ matches a previous old point"* (L896–898). The Lean models in
 peer and MAC-protected against a malicious one, but it means a replayed chunk with a bit-flip
 *does* corrupt the reconstruction until the MAC check fails, rather than being ignored.
 
+## 19. Unauthenticated chunk poisoning is *persistent*: one forged low-index chunk permanently stalls the epoch (MEDIUM, protocol-level DoS)
+
+Sharpens items 4 and 18. Those items note that a same-index chunk with a different payload
+overwrites the stored point and that "tampering is caught by the MAC". The MAC check happens only
+*after* `decoded_message()` returns `Some` (in `recv_header`/`recv_ct2`), and on failure the whole
+`recv` returns `Err` — the *poisoned decoder state is not rolled back or flagged*, because the
+state that was already persisted on the earlier `Ok` path contains the poisoned point.
+
+**Specs that expose it**
+
+- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` / `Decoder/AddChunk.lean`: the
+  guard is `poly_idx < necessary_points(i) ∨ pts[poly].len() < necessary_points(i)`. For any
+  `chunk.index < necessary_points` the first disjunct is *unconditionally* true, so the point is
+  always inserted, and the `IsSortedPushResult` `.eq` branch is *replacement*
+  (`FunsExternal.lean:2146`, `sorted_vec 0.8.6 SortedSet::push`).
+- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/IntoPb.lean` / `FromPb.lean`: every stored point
+  (including a replaced one) round-trips through the persisted protobuf unchanged.
+- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean`: `Message::deserialize`
+  performs no authentication; `Chunk.index`/`Chunk.data` are attacker-controlled.
+
+**Rust defect** (`src/encoding/polynomial.rs` L888–899, `src/v1/chunked/*.rs`)
+
+1. An on-path attacker sends `{epoch, Hdr/Ek/Ct1/Ct2, index: k, data: garbage}` with `k` below
+   `necessary_points` (e.g. `k = 0`) for the epoch currently being received.
+2. `add_chunk` replaces the honest `x = k` point (or pre-seeds it if not yet received).
+   `decoded_message()` is still `None` → `recv` returns `Ok` and the poisoned decoder is
+   **persisted** in the returned `SerializedState`.
+3. When the honest chunks complete the message, interpolation uses the garbage point →
+   `verify_hdr`/`verify_ct` fails → `recv` returns `Err(MacVerifyFailed)`. The caller keeps the
+   *old* (poisoned) state. Every later honest chunk yields the same `Err`, because the only way to
+   overwrite the `x = k` point is another chunk with index exactly `k`, and the honest sender
+   emits index `k` again only after wrapping through 65 536 chunks (`PolyEncoder::next_chunk`).
+   (Honest indices `≥ necessary_points` are dropped once the slot is full, so they never help.)
+
+Net effect: **one forged, unauthenticated ~40-byte message permanently blocks the PQ ratchet
+epoch for the receiver** — no new epoch secret can ever be derived for that direction, and the
+peer never learns why. In contrast, the design intent (comment at L896–898: *discard* new points
+with a matching X) would make the attack a no-op once the honest chunk arrives first.
+
+Reproduced by `poisoned_low_index_point_persists_and_wins` in
+[`docs/decoder_poison_persistence_counterexample.rs.txt`](./decoder_poison_persistence_counterexample.rs.txt)
+(run on a scratch copy with `--features test-utils`; the honest `index 0` chunk is received first,
+then poisoned, persisted through `into_pb`/`from_pb`, and the completed decode never matches the
+original message even after ten more honest chunks).
+
+**Fix options** (any one suffices): (a) use `find_or_push` — first write wins, matching the source
+comment; (b) on MAC failure, reset the decoder for that epoch (drop `pts`) so honest retransmits
+can recover; (c) keep *both* candidate `y` values per `x` and try alternatives on MAC failure.
+Option (a) is the smallest change; note it makes the Lean model in `AddChunk.lean` (replacement)
+*wrong* and it would need to be updated to the `find_or_push` semantics.
+
+---
+
+# Part III — Defects in the hand-written Lean models (trusted base)
+
+## 20. `VecDeque::into_iter` model yields the wrong elements whenever `head ≠ 0` (HIGH for soundness of any future spec built on `Chain::into_pb`)
+
+**Location**: `SrcTranslated/FunsExternal.lean` L3733–3759,
+`alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next`.
+
+The rest of the project deliberately uses a **growing-list model** for `VecDeque`
+(`push_back` appends to `buf`; `pop_front` increments `head` and decrements `length`;
+`index`/`index_mut` read `buf[head + idx]`; see L1241–1381). Under that model the logical
+elements are `buf[head .. head+length)`. The `into_iter.next` model instead
+
+```lean
+if deq.length == 0 then ok (none, intoIter)
+else
+  let newhead ← (Usize.wrapping_add deq.head 1) % len   -- ← ring-buffer arithmetic
+  ok (deq.buf.get? deq.head, { inner := { buf, head := newhead, length := len } })
+```
+
+- **never decrements `length`**, so the iterator never terminates on its own; and
+- **wraps `head` modulo `length`**, which is the *ring-buffer* invariant of real `std`, not the
+  growing-list invariant used everywhere else. It is therefore internally inconsistent with the
+  project's own `pop_front`/`push_back`/`index` models.
+
+**Executable counterexample**
+([`docs/vecdeque_into_iter_model_counterexample.lean.txt`](./vecdeque_into_iter_model_counterexample.lean.txt),
+run with `lake env lean`): after one `pop_front` the growing-list deque is
+`{buf := [10,20,30], head := 1, length := 2}` (Rust would iterate `20, 30, None`). Four calls to
+the model's `next` yield
+
+```
+Aeneas.Std.Result.ok ([some 20, some 10, some 20, some 10], 2)
+```
+
+i.e. it returns `10` (the *popped* element), never returns `30`, never terminates, and `length`
+is still `2`. Any theorem about `Chain::into_pb` that unfolds this instance would prove
+properties of a serialisation containing already-discarded epochs and missing the newest one.
+
+**Current impact**: `Chain.into_pb` (`Funs.lean` L5875 ff.) *does* use this instance, but every
+`.map(...).collect()` is routed through the `sorryAx`-based bridge (item 15,
+`Spqr/Specs/Aeneas/MapCollectBridge.lean`), and no spec theorem currently states a postcondition
+for `Chain::into_pb`/`from_pb` — so nothing proved today is falsified. It is a latent unsoundness
+in the trusted base that will bite as soon as chain-serialisation specs are written (the natural
+next step after `SendKey.lean`/`RecvKey.lean`, both of which do move `head`).
+
+**Fix**: replace the body with the growing-list semantics consistent with `pop_front`:
+
+```lean
+if deq.length.val = 0 then ok (none, intoIter)
+else match deq.buf.val[deq.head.val]? with
+  | none => fail .panic
+  | some elem => do
+    let head' ← deq.head + 1#usize
+    let len'  ← deq.length - 1#usize
+    ok (some elem, ⟨{ deq with head := head', length := len' }⟩)
+```
+
+and add a `@[step]` spec mirroring `pop_front_spec_nonempty`.
+
 ---
 
 ## Notes / limitations
 
 - All findings are grounded in hypotheses the existing (proved) spec theorems require, or in
-  postconditions they establish. Items 1, 4 and 10 are the recommended priorities (item 1 for
-  robustness, items 4 and 10 for correcting erroneous source annotations/comments that informally
-  reason about arithmetic bounds).
-- Finding 10 is the only one backed by an executable counterexample (Python model + two Rust tests
-  in `docs/`); the Rust tests were run on a scratch copy because `src/` is a pinned upstream tree.
-- The full `lake build` of all 221 spec files was not re-run for this report; only the chain
-  modules touched by findings 1–3 were built.
+  postconditions they establish. Items 1, 19, 10 and 20 are the recommended priorities (item 1
+  for robustness, item 19 for a concrete protocol-level DoS, item 10 for correcting erroneous
+  source annotations, item 20 for the soundness of the Lean trusted base).
+- Findings 10, 13, 16, 17, 18, 19 and 20 are backed by executable counterexamples in `docs/`;
+  the Rust tests were run on a scratch copy because `src/` is a pinned upstream tree.
+- A full `lake build Spqr SrcTranslated` (2553 jobs) was re-run for the 2026-09-24 additions
+  (items 19–20) and completes with only the two known `sorry` warnings (`DecodeState.lean`,
+  `MapCollectBridge.lean`).
+- Axiom audit (`#print axioms`) on representative theorems: `send_key_spec` and `key_spec_*`
+  depend only on `hkdf_to_slice_spec` and the `get_unchecked{,_mut}` externals;
+  `point_at_spec` additionally depends on `sorryAx` via the `MapCollectBridge` (item 15).
+  `mul2_u16_spec` is axiom-free because `aeneas-config.yml` excludes the accelerated
+  (`PCLMULQDQ`/`PMULL`) path, so the SIMD GF(2¹⁶) multiplication is *not* covered by any proof —
+  only the portable `unaccelerated::mul` is.

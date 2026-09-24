@@ -3736,27 +3736,49 @@ def
   (intoIter: alloc.collections.vec_deque.into_iter.IntoIter T A):
     Result ((Option T) × (alloc.collections.vec_deque.into_iter.IntoIter T A)) :=
         let deq: alloc.collections.vec_deque.VecDeque T A := intoIter.inner
-        let len := deq.length
-        -- strictly speaking, we don't need to ITE here.
-        -- If length = 0 then (in `else`) newInner = inner and get? returns none, but
-        -- this way short-circuits computation
-        if (deq.length == 0#usize) then ok (none, intoIter)
+        -- Growing-list model (consistent with pop_front/push_back/index):
+        -- logical elements are buf[head .. head+length).
+        -- Each call yields buf[head], increments head, and decrements length.
+        if deq.length.val = 0 then ok (none, intoIter)
         else
-          do
-            -- "`self[0]`, if it exists, is `buf[head]`. `head < buf.capacity()`, unless `buf.capacity() == 0` when `head == 0`."
-            -- [https://doc.rust-lang.org/src/alloc/collections/vec_deque/mod.rs.html#108]
-            -- Therefore, instead of modifying the buffer, the iteration over deq only needs
-            -- to cycle through the head index to yield all elements
-            let newhead ←
-              -- "if `len == 0`, the exact value of `head` is unimportant"  [https://doc.rust-lang.org/src/alloc/collections/vec_deque/mod.rs.html#112]
-              if len == 0#usize then ok deq.head
-              else (Usize.wrapping_add deq.head 1#usize) % len -- mod actually never fails, since len !=0
-            let newInner: alloc.collections.vec_deque.VecDeque T A:= {
-              buf := deq.buf,
-              head := newhead,
-              length := len
-            }
-            ok (deq.buf.get? deq.head, {inner:= newInner})
+          match deq.buf.val[deq.head.val]? with
+          | none => fail .panic
+          | some elem => do
+            let head' ← deq.head + 1#usize
+            let len'  ← deq.length - 1#usize
+            ok (some elem, ⟨{ deq with head := head', length := len' }⟩)
+
+/-- `into_iter.next` on an empty deque returns `(none, self)`.
+  `into_iter.next` on a non-empty deque returns `(some elem, self')`
+  where `elem = buf[head]`, `self'.head = head + 1`,
+  `self'.length = length - 1`, and `self'.buf` is unchanged.
+
+  Growing-list model: mirrors `pop_front_spec_nonempty`. -/
+@[step]
+theorem alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next_spec
+    {T : Type} {A : Type} (intoIter : alloc.collections.vec_deque.into_iter.IntoIter T A)
+    (hidx : intoIter.inner.head < intoIter.inner.buf.length) :
+    alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next
+      intoIter ⦃ (res : (Option T) × (alloc.collections.vec_deque.into_iter.IntoIter T A)) =>
+      (intoIter.inner.length.val = 0 → res.1 = none ∧ res.2 = intoIter) ∧
+      (intoIter.inner.length.val ≠ 0 →
+        res.1 = intoIter.inner.buf.val[intoIter.inner.head.val]? ∧
+        res.2.inner.head.val = intoIter.inner.head + 1 ∧
+        res.2.inner.length = intoIter.inner.length.val - 1 ∧
+        res.2.inner.buf = intoIter.inner.buf) ⦄ := by
+  unfold alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next
+  simp only
+  split
+  · rename_i hempty
+    simp [hempty]
+  · rename_i hne
+    simp only [List.getElem?_eq_getElem hidx]
+    have : intoIter.inner.head + (1#usize).val ≤ Usize.max := by
+      have := intoIter.inner.buf.property; scalar_tac
+    have : (1#usize).val ≤ intoIter.inner.length := by scalar_tac
+    step*
+
+
 
 /-- [alloc::collections::vec_deque::into_iter::{core::iter::traits::iterator::Iterator<T> for alloc::collections::vec_deque::into_iter::IntoIter<T, A>}::map]:
     Source: '/rustc/library/alloc/src/collections/vec_deque/into_iter.rs', lines 43:0-43:49

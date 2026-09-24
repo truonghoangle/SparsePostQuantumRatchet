@@ -1,0 +1,19 @@
+import SrcTranslated
+open Aeneas Aeneas.Std Result
+
+-- Deque after one `pop_front` in the growing-list model: buf = [10,20,30], head = 1, length = 2.
+-- Rust semantics: into_iter yields 20, 30, then None.
+def d : alloc.collections.vec_deque.VecDeque Nat Global :=
+  { buf := ⟨[10, 20, 30], by scalar_tac⟩, head := 1#usize, length := 2#usize }
+
+abbrev nxt := @alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next Nat Global
+
+def run : Result (List (Option Nat) × Nat) := do
+  let it0 : alloc.collections.vec_deque.into_iter.IntoIter Nat Global := ⟨d⟩
+  let (a, it1) ← nxt it0
+  let (b, it2) ← nxt it1
+  let (c, it3) ← nxt it2
+  let (e, it4) ← nxt it3
+  ok ([a, b, c, e], it4.inner.length.val)
+
+#eval run

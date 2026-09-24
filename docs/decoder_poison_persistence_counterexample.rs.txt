@@ -1,0 +1,32 @@
+#[cfg(test)]
+mod t {
+    use crate::encoding::polynomial::{PolyDecoder, PolyEncoder};
+    use crate::encoding::{Chunk, Decoder, Encoder};
+
+    /// A single unauthenticated chunk with a low index replaces an honest point
+    /// (last-write-wins in SortedSet::push), survives state persistence, and
+    /// corrupts every subsequent decode; later honest chunks never repair it.
+    #[test]
+    fn poisoned_low_index_point_persists_and_wins() {
+        let msg = [7u8; 160];
+        let mut enc = PolyEncoder::encode_bytes(&msg).unwrap();
+        let mut dec = PolyDecoder::new(160).unwrap();
+        dec.add_chunk(&enc.next_chunk()); // honest idx 0
+        for _ in 0..3 {
+            dec.add_chunk(&enc.next_chunk()); // honest idx 1..=3
+        }
+        assert!(dec.decoded_message().is_none());
+        // Attacker replays index 0 with flipped payload: replaces the honest x=0 point.
+        dec.add_chunk(&Chunk { index: 0, data: [0xAA; 32] });
+        // Still incomplete => recv() returned Ok and the poisoned decoder is persisted.
+        let mut dec = PolyDecoder::from_pb_test(dec.into_pb_test()).unwrap();
+        dec.add_chunk(&enc.next_chunk()); // honest idx 4 completes the message
+        let out = dec.decoded_message().expect("complete");
+        assert_ne!(out, msg.to_vec(), "decode corrupted by the persisted poisoned point");
+        // Further honest chunks (idx 5..) do not repair it.
+        for _ in 0..10 {
+            dec.add_chunk(&enc.next_chunk());
+        }
+        assert_ne!(dec.decoded_message().unwrap(), msg.to_vec());
+    }
+}
