@@ -668,12 +668,117 @@ and add a `@[step]` spec mirroring `pop_front_spec_nonempty`.
 
 ---
 
+## 21. `Chain::from_pb` does not validate `next_root` length, `links` non-emptiness, or epoch ordering invariants → panics or silent misbehaviour from corrupted state (MEDIUM)
+
+**Extends item 1** (which covers `ChainEpochDirection::from_pb`) to the `Chain`-level deserialiser.
+
+**Rust defect** (`src/chain.rs`, L434–452)
+
+```rust
+pub(crate) fn from_pb(pb: pqrpb::Chain) -> Result<Self, Error> {
+    Ok(Self {
+        dir: pb.direction.try_into().map_err(|_| Error::StateDecode)?,
+        current_epoch: pb.current_epoch,
+        send_epoch: pb.send_epoch,
+        next_root: pb.next_root,                  // ← no length check
+        links: pb.links.into_iter().map(…).collect()?,  // ← may be empty
+        params: pb.params.ok_or(Error::StateDecode)?,
+    })
+}
+```
+
+Three invariants established by `Chain::new` are not verified on deserialisation:
+
+| Invariant | Established by `new` | Consumers that assume it | Failure mode |
+|---|---|---|---|
+| `next_root.len() == 32` | `genr8r[0..32].to_vec()` (L345) | `add_epoch` → `hkdf_to_slice(&self.next_root, …)` (L358) | No panic (HKDF accepts any salt length), but KDF output differs from what a correctly-constructed chain would produce — silent state divergence between peers |
+| `links.len() ≥ 1` | `VecDeque::from([…])` (L341) | `epoch_idx` computes `links.len() - 1 - back` (L381); `send_key` indexes `self.links[i]` (L398) | Arithmetic underflow on `0 - 1` → panic in debug, wrapping index in release → out-of-bounds panic |
+| `send_epoch ≤ current_epoch` | Both start at 0 (L339–340); `send_epoch` only advances to ≤ `current_epoch` in `send_key` (L390) | `send_key` rejects `epoch < self.send_epoch` (L385–386); `epoch_idx` rejects `epoch > self.current_epoch` (L373–374) | If `send_epoch > current_epoch`, *every* `send_key(epoch)` call fails: `epoch ≤ current_epoch < send_epoch` → `Err(SendKeyEpochDecreased)`, or `epoch > current_epoch` → `Err(EpochOutOfRange)` — chain is permanently stuck |
+
+**Impact**: same class as item 1 — a prost-valid but semantically corrupt state blob turns
+subsequent operations into panics or silent divergence. No security impact in the absence of a
+state-blob injection vector. The `next_root` length case is particularly subtle because it does
+not panic; peers would silently derive different chain keys after the next `add_epoch`.
+
+**Fix**: add checks in `Chain::from_pb`:
+
+```rust
+if pb.next_root.len() != 32 { return Err(Error::StateDecode); }
+// … after collecting links:
+if links.is_empty() { return Err(Error::StateDecode); }
+if pb.send_epoch > pb.current_epoch { return Err(Error::StateDecode); }
+```
+
+---
+
+## 22. `Authenticator::from_pb` does not validate `root_key` / `mac_key` lengths → HMAC with wrong-length keys (LOW)
+
+**Rust defect** (`src/authenticator/serialize.rs`, L16–21)
+
+```rust
+pub fn from_pb(pb: &proto::pq_ratchet::Authenticator) -> Self {
+    Self {
+        root_key: pb.root_key.clone(),   // ← no length check
+        mac_key: pb.mac_key.clone(),     // ← no length check
+    }
+}
+```
+
+`Authenticator::new` always produces 32-byte keys via `hkdf_to_vec(…, 64)[..32]` and `[32..]`
+(L51–53). `from_pb` accepts arbitrary-length keys. Consequences:
+
+- **`mac_key` wrong length**: HMAC-SHA256 handles any key length (pads/hashes as needed), so no
+  panic, but the MAC tag space changes. A 0-byte `mac_key` means every authenticator produces
+  the same tags — an attacker who can inject a state blob with `mac_key: []` can then forge
+  ciphertext MACs.
+- **`root_key` wrong length**: similarly, `update` concatenates `root_key` with the epoch secret
+  as IKM to HKDF (L45), so a short/empty `root_key` weakens forward secrecy of the
+  authenticator chain.
+
+**Impact**: low. Requires state-blob injection (same attack model as items 1 and 21). No
+runtime panic. The HMAC/HKDF APIs are length-agnostic, so the failure is purely semantic.
+
+**Fix**: validate in `from_pb`:
+
+```rust
+if pb.root_key.len() != 32 || pb.mac_key.len() != 32 { return Err(…); }
+```
+
+(Requires changing the return type to `Result<Self, Error>` and updating the two call sites in
+`src/v1/unchunked/send_ek/serialize.rs` and `src/v1/unchunked/send_ct/serialize.rs`.)
+
+---
+
+## 23. `RoundRobinEncoder::chunk_at` panics on empty input; `RoundRobinDecoder::is_complete` is never set (LOW, test-only code)
+
+**Rust defect** (`src/encoding/round_robin.rs`)
+
+Two issues in the `#[cfg(test)]`-only round-robin encoder/decoder:
+
+1. **Empty-input panic** (L17): `chunk_at` computes `idx as usize % self.num_chunks()`. For
+   empty input, `num_chunks()` returns 0, so this is a division-by-zero panic. Similarly, for
+   input whose length is not a multiple of 32, `chunk_at` slices `data[lb..ub]` where
+   `ub = lb + 32` may exceed `data.len()` — index-out-of-bounds panic.
+
+2. **`is_complete` never set** (L76): `decoded_message` returns `None` when
+   `self.is_complete` is true, but no code path ever sets it to `true`. This mirrors item 17
+   (`PolyDecoder::is_complete`). Unlike the `PolyDecoder` case, this only affects test code,
+   but means `decoded_message()` re-checks `can_reconstruct()` on every call after completion
+   instead of short-circuiting.
+
+**Impact**: negligible — `round_robin.rs` is gated behind `#[cfg(test)]` (L3) and is not used
+in any protocol path.
+
+---
+
 ## Notes / limitations
 
 - All findings are grounded in hypotheses the existing (proved) spec theorems require, or in
-  postconditions they establish. Items 1, 19, 10 and 20 are the recommended priorities (item 1
-  for robustness, item 19 for a concrete protocol-level DoS, item 10 for correcting erroneous
-  source annotations, item 20 for the soundness of the Lean trusted base).
+  postconditions they establish. Items 1, 19, 10, 20 and 21 are the recommended priorities
+  (item 1 for robustness, item 19 for a concrete protocol-level DoS, item 10 for correcting
+  erroneous source annotations, item 20 for the soundness of the Lean trusted base, item 21
+  for silent state divergence). Items 21–23 extend the deserialisation-validation theme of
+  item 1 to `Chain::from_pb`, `Authenticator::from_pb`, and the test-only round-robin codec.
 - Findings 10, 13, 16, 17, 18, 19 and 20 are backed by executable counterexamples in `docs/`;
   the Rust tests were run on a scratch copy because `src/` is a pinned upstream tree.
 - A full `lake build Spqr SrcTranslated` (2553 jobs) was re-run for the 2026-09-24 additions
