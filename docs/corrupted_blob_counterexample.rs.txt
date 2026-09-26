@@ -144,3 +144,144 @@
         assert!(matches!(c.send_key(0), Err(Error::SendKeyEpochDecreased(7, 0))));
     }
     // --- END TEMPORARY Q4 probes ---
+
+
+// ============================================================================
+// Q5 probes (can the malformed state be persisted / round-tripped?)
+// Run: cargo test --lib q5_probe -- --nocapture --test-threads=1   (debug)
+//      cargo test --release --lib q5_probe -- --test-threads=1
+// Result (2026-09-26, stable-aarch64): 4 passed in both profiles.
+// ============================================================================
+    // --- TEMPORARY Q5 probes (can the malformed state be persisted / round-tripped?) ---
+    fn q5_chain() -> Chain {
+        Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap()
+    }
+
+    /// Every corruption class the report names survives `Chain::from_pb` -> `into_pb`
+    /// byte-for-byte (`pqrpb::Chain` derives `PartialEq`).
+    #[test]
+    fn q5_probe_chain_level_roundtrip_is_identity_on_corrupted_blobs() {
+        let mutations: Vec<(&str, Box<dyn Fn(&mut pqrpb::Chain)>)> = vec![
+            ("I1 recv.next=31B", Box::new(|pb| pb.links[0].recv.as_mut().unwrap().next = vec![0u8; 31])),
+            ("I1 recv.next=[]", Box::new(|pb| pb.links[0].recv.as_mut().unwrap().next = vec![])),
+            ("I2 recv.prev=37B", Box::new(|pb| { let d = pb.links[0].recv.as_mut().unwrap(); d.ctr = 5; d.prev = vec![0u8; 37]; })),
+            ("I3 ctr=0 prev=36*2201", Box::new(|pb| { let d = pb.links[0].recv.as_mut().unwrap(); d.ctr = 0; d.prev = vec![0u8; 36 * 2201]; })),
+            ("I4 ctr=u32::MAX", Box::new(|pb| pb.links[0].recv.as_mut().unwrap().ctr = u32::MAX)),
+            ("I6 next_root=16B", Box::new(|pb| pb.next_root = vec![0u8; 16])),
+            ("I7 send_epoch>current", Box::new(|pb| pb.send_epoch = 7)),
+            ("I9 send.next=[]", Box::new(|pb| pb.links[0].send.as_mut().unwrap().next = vec![])),
+            ("I10 max_ooo=u32::MAX", Box::new(|pb| pb.params.as_mut().unwrap().max_ooo_keys = u32::MAX)),
+            ("params max_jump=u32::MAX", Box::new(|pb| pb.params.as_mut().unwrap().max_jump = u32::MAX)),
+        ];
+        for (name, m) in mutations {
+            let mut pb = q5_chain().into_pb();
+            m(&mut pb);
+            let c = Chain::from_pb(pb.clone()).unwrap_or_else(|e| panic!("{name}: from_pb rejected: {e:?}"));
+            let pb2 = c.into_pb();
+            assert_eq!(pb, pb2, "{name}: into_pb(from_pb(pb)) != pb");
+            // And a second cycle, through the real prost wire encoding.
+            use prost::Message as _;
+            let bytes = pb2.encode_to_vec();
+            let pb3 = pqrpb::Chain::decode(bytes.as_slice()).unwrap();
+            assert_eq!(pb, pb3, "{name}: prost encode/decode changed the blob");
+            eprintln!("Q5 round-trip identity OK: {name}");
+        }
+    }
+
+    /// Latent corruption: a misaligned `prev` on the forward path (`index > ctr`, below the GC
+    /// threshold) does NOT panic. `key()` returns `Ok`, appends 36 more bytes, and the state
+    /// that would be re-persisted is still misaligned. The panic only fires later, on the
+    /// first out-of-order `recv_key`.
+    #[test]
+    fn q5_probe_misaligned_prev_survives_ok_recv_and_is_repersisted() {
+        let mut pb = q5_chain().into_pb();
+        {
+            let d = pb.links[0].recv.as_mut().unwrap();
+            d.ctr = 5;
+            d.prev = vec![0u8; 37]; // misaligned
+        }
+        let mut c = Chain::from_pb(pb).unwrap();
+        // Forward path, skips index 6 so one key is added to prev (37 + 36 = 73, still misaligned).
+        let k = c.recv_key(0, 7).expect("forward recv_key must succeed");
+        assert_eq!(k.len(), 32);
+        let pb_after = c.into_pb();
+        let d = pb_after.links[0].recv.as_ref().unwrap();
+        assert_eq!(d.ctr, 7);
+        assert_eq!(d.prev.len(), 73, "misalignment persisted (and grew) through an Ok call");
+        assert_ne!(d.prev.len() % 36, 0);
+        // Reload the re-persisted blob: from_pb accepts it again...
+        let mut c2 = Chain::from_pb(pb_after).unwrap();
+        // ...and the *next* out-of-order recv panics.
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c2.recv_key(0, 6)));
+        assert!(r.is_err(), "expected panic at chain.rs:191 on reloaded misaligned prev");
+    }
+    /// Same, through the public API: `spqr::recv` returns `Ok` and the *returned* serialized
+    /// state still contains the misaligned `prev`. This is the "propagating" form of
+    /// persistence - not just "old blob reloaded after a panic".
+    #[test]
+    fn q5_probe_top_level_recv_ok_repersists_misaligned_prev() {
+        use crate::{Params, Version};
+        use prost::Message as _;
+        let mk = |direction| {
+            crate::initial_state(Params {
+                version: Version::V1,
+                min_version: Version::V1,
+                direction,
+                auth_key: &[41u8; 32],
+                chain_params: crate::ChainParams::default(),
+            })
+            .unwrap()
+        };
+        let a = mk(Direction::A2B);
+        let b = mk(Direction::B2A);
+        let mut rng = rand::rngs::OsRng.unwrap_err();
+        let s1 = crate::send(&a, &mut rng).unwrap();
+        let r1 = crate::recv(&b, &s1.msg).unwrap();
+        let s2 = crate::send(&r1.state, &mut rng).unwrap();
+        let r2 = crate::recv(&s1.state, &s2.msg).unwrap();
+        let a = r2.state;
+        // Corrupt A's chain: append one byte to every recv.prev (36-aligned -> misaligned).
+        let mut st = crate::proto::pq_ratchet::PqRatchetState::decode(a.as_slice()).unwrap();
+        let chain = st.chain.as_mut().expect("chain present");
+        for l in chain.links.iter_mut() {
+            l.recv.as_mut().unwrap().prev.push(0u8);
+        }
+        let corrupted = st.encode_to_vec();
+        // B sends the next in-order message; A receives it successfully with the corrupted blob.
+        let s3 = crate::send(&s2.state, &mut rng).unwrap();
+        let r3 = crate::recv(&corrupted, &s3.msg).expect("in-order recv on misaligned prev returns Ok");
+        assert_eq!(r3.key, s3.key, "keys still agree - corruption is invisible to the protocol");
+        // The state that spqr::recv hands back for persistence still carries the corruption.
+        let st2 = crate::proto::pq_ratchet::PqRatchetState::decode(r3.state.as_slice()).unwrap();
+        let mis: Vec<usize> = st2
+            .chain
+            .as_ref()
+            .unwrap()
+            .links
+            .iter()
+            .map(|l| l.recv.as_ref().unwrap().prev.len())
+            .filter(|n| n % 36 != 0)
+            .collect();
+        assert!(!mis.is_empty(), "expected at least one misaligned recv.prev in the Ok-returned state");
+        eprintln!("Q5: spqr::recv returned Ok and re-persisted misaligned recv.prev lengths {mis:?}");
+    }
+
+    /// `Authenticator` and `PolyDecoder` blobs also round-trip corrupted fields verbatim.
+    #[test]
+    fn q5_probe_authenticator_and_poly_decoder_roundtrip_corruption() {
+        use crate::authenticator::Authenticator;
+        use crate::encoding::polynomial::PolyDecoder;
+        let pb_auth = crate::proto::pq_ratchet::Authenticator { root_key: vec![1u8; 5], mac_key: vec![] };
+        let back = Authenticator::from_pb(&pb_auth).into_pb();
+        assert_eq!(back, pb_auth, "Authenticator wrong-length keys survive round-trip");
+
+        let pb_dec = crate::proto::pq_ratchet::PolynomialDecoder {
+            pts_needed: 576,
+            polys: 16,
+            is_complete: true,
+            pts: vec![vec![]; 16],
+        };
+        let back = PolyDecoder::from_pb(pb_dec.clone()).unwrap().into_pb();
+        assert_eq!(back, pb_dec, "PolyDecoder is_complete=true with empty slots survives round-trip");
+    }
+    // --- END TEMPORARY Q5 probes ---

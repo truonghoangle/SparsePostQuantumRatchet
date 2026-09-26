@@ -1172,4 +1172,206 @@ mod lib_test {
         }
         Ok(())
     }
+
+/// §16.10 probes: can an *authenticated* peer persist attacker-chosen bytes into the
+/// victim's SPQR state through the public `recv()` API?
+/// Run: cargo test --lib q16c_ -- --nocapture --test-threads=1   (and --release)
+#[cfg(test)]
+mod q16c_probes {
+    use super::*;
+    use rand::TryRngCore;
+    use rand_core::OsRng;
+
+    fn init(direction: Direction) -> SerializedState {
+        initial_state(Params {
+            version: Version::V1,
+            min_version: Version::V0, // libsignal's setting (ratchet.rs:109)
+            direction,
+            auth_key: &[41u8; 32],
+            chain_params: ChainParams::default(),
+        })
+        .unwrap()
+    }
+
+    /// Parse a serialized V1 message; return (epoch, index, msg_type, payload_start).
+    /// payload_start points just past the chunk-index varint (if the type carries a chunk).
+    fn parse(msg: &SerializedMessage) -> (u64, u32, u8, usize) {
+        fn varint(m: &[u8], at: &mut usize) -> u64 {
+            let mut v = 0u64;
+            let mut shift = 0;
+            loop {
+                let b = m[*at];
+                *at += 1;
+                v |= ((b & 0x7f) as u64) << shift;
+                if b < 0x80 {
+                    return v;
+                }
+                shift += 7;
+            }
+        }
+        let mut at = 1;
+        let epoch = varint(msg, &mut at);
+        let index = varint(msg, &mut at) as u32;
+        let ty = msg[at];
+        at += 1;
+        if matches!(ty, 1 | 2 | 3 | 5 | 6) {
+            let _ci = varint(msg, &mut at);
+        }
+        (epoch, index, ty, at)
+    }
+
+    fn v1_encoded_len(state: &SerializedState) -> usize {
+        let st = pqrpb::PqRatchetState::decode(state.as_slice()).unwrap();
+        match st.inner {
+            Some(pqrpb::pq_ratchet_state::Inner::V1(v1)) => v1.encoded_len(),
+            None => 0,
+        }
+    }
+
+    /// C1: an authenticated peer's *chunk bytes* are persisted verbatim into the victim's
+    /// PolyDecoder point sets (64 B/chunk = 16 points × 4 B). No invariant is violated —
+    /// growth is bounded by add_chunk gating (≤ 71 points/slot) — but attacker-chosen
+    /// bytes *are* what `from_pb` reloads on every subsequent call.
+    #[test]
+    fn q16c_probe_peer_chunk_bytes_persist_verbatim() {
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B);
+        let b = init(Direction::B2A);
+        let s1 = send(&a, &mut rng).unwrap();
+        let (_, _, ty, at) = parse(&s1.msg);
+        eprintln!("C1: A's first msg type={ty} payload@{at}");
+        let r1 = recv(&b, &s1.msg).unwrap();
+        let base = v1_encoded_len(&r1.state);
+        let mut state = r1.state.clone();
+        let mut sizes = vec![];
+        let mut first_err = None;
+        for k in 0..40u8 {
+            let mut m = s1.msg[..at].to_vec();
+            m[at - 1] = 100 + k; // 1-byte chunk-index varint → distinct high indices
+            m.extend_from_slice(&[0xA5u8 ^ k; 32]);
+            match recv(&state, &m) {
+                Ok(r) => {
+                    state = r.state;
+                    sizes.push(v1_encoded_len(&state));
+                }
+                Err(e) => {
+                    first_err = Some((k, e));
+                    break;
+                }
+            }
+        }
+        eprintln!("C1: base={base} sizes={sizes:?} first_err={first_err:?}");
+        // Observed: the first forged chunk is persisted (+64 B: 16 points × 4 B). The header
+        // needs only 3 points per slot, so the *second* forged chunk completes the decoder
+        // with garbage → verify_hdr fails → Err (clone dropped). The first one stays.
+        assert_eq!(sizes.len(), 1, "exactly one forged chunk persists before MAC failure");
+        assert!((64..=80).contains(&(sizes[0] - base)), "16 attacker-chosen points × 4 B (+ varint length bytes) persisted");
+        assert!(matches!(first_err, Some((1, Error::MacVerifyFailed))));
+        // The persisted poison makes every later honest chunk fail too (stall) — see C2.
+        let s = send(&s1.state, &mut rng).unwrap();
+        assert!(matches!(recv(&state, &s.msg), Err(Error::MacVerifyFailed)));
+    }
+
+    /// C2: authenticated poison → stall. The peer replays chunk index 0 with garbage while
+    /// the header decoder is incomplete (no SPQR MAC has run yet, and the outer Signal MAC
+    /// passes because the peer is genuine). recv() returns Ok, so the poisoned point is
+    /// persisted. When honest chunks later complete the header, verify_hdr fails and every
+    /// retry fails identically → permanent epoch stall from a *remote authenticated* source.
+    #[test]
+    fn q16c_probe_authenticated_poison_then_stall() {
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B);
+        let b = init(Direction::B2A);
+        let s1 = send(&a, &mut rng).unwrap();
+        let (_, _, _, at) = parse(&s1.msg);
+        let r1 = recv(&b, &s1.msg).unwrap();
+        let mut m = s1.msg[..at].to_vec();
+        m[at - 1] = 0; // same chunk index as the honest first chunk → replaces its points
+        m.extend_from_slice(&[0xEE; 32]);
+        let r_poison = recv(&r1.state, &m).expect("poison accepted: decoder still incomplete");
+        assert_ne!(r_poison.state, r1.state, "poisoned state differs and is persisted");
+        let mut b_state = r_poison.state;
+        let mut a_state = s1.state;
+        let mut outcome = None;
+        for i in 0..8 {
+            let s = send(&a_state, &mut rng).unwrap();
+            a_state = s.state;
+            match recv(&b_state, &s.msg) {
+                Ok(r) => b_state = r.state,
+                Err(e) => {
+                    outcome = Some((i, e));
+                    break;
+                }
+            }
+        }
+        eprintln!("C2: outcome after poison = {outcome:?}");
+        let (_, e) = outcome.expect("poisoned header must fail its MAC");
+        assert!(matches!(e, Error::MacVerifyFailed), "expected hdr MAC failure, got {e:?}");
+        let s = send(&a_state, &mut rng).unwrap();
+        assert!(recv(&b_state, &s.msg).is_err(), "retry fails again → permanent stall");
+    }
+
+    /// C3: version downgrade. While `version_negotiation` is still open (before the victim
+    /// has received any message) a peer can send an empty V0 message; with libsignal's
+    /// `min_version = V0` the victim persists `inner: None, version_negotiation: None` —
+    /// SPQR permanently disabled for the session. Attacker-chosen *absence* of state.
+    #[test]
+    fn q16c_probe_peer_forces_v0_downgrade() {
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B);
+        let b = init(Direction::B2A);
+        let r = recv(&b, &vec![]).unwrap();
+        let st = pqrpb::PqRatchetState::decode(r.state.as_slice()).unwrap();
+        eprintln!(
+            "C3: after V0 msg: inner={} vn={} chain={}",
+            st.inner.is_some(),
+            st.version_negotiation.is_some(),
+            st.chain.is_some()
+        );
+        assert!(st.inner.is_none(), "downgraded to V0: SPQR disabled");
+        assert!(st.version_negotiation.is_none(), "no further negotiation");
+        // Subsequent *V1* messages from the honest peer are accepted as Ok with no key:
+        // msg_version V1 > state V0 → `Ordering::Greater` arm keeps the V0 state (lib.rs:373),
+        // and `inner: None` → `Ok(Recv{ key: None })`. SPQR is silently and permanently off;
+        // the victim's own `send()` also emits empty msgs / no key (lib.rs:268).
+        let s2 = send(&a, &mut rng).unwrap();
+        let r2 = recv(&r.state, &s2.msg).unwrap();
+        assert!(r2.key.is_none());
+        let st2 = pqrpb::PqRatchetState::decode(r2.state.as_slice()).unwrap();
+        assert!(st2.inner.is_none() && st2.chain.is_none(), "still V0 after a V1 msg");
+        let sb = send(&r2.state, &mut rng).unwrap();
+        assert!(sb.msg.is_empty() && sb.key.is_none(), "victim now sends V0 (empty) forever");
+        eprintln!("C3: V1 msg after downgrade → Ok(no key); victim sends empty msgs: silent PQ loss");
+        // Once the victim has received a V1 message, negotiation is closed (lib.rs:442) and
+        // a V0 message is rejected.
+        let s1 = send(&a, &mut rng).unwrap();
+        let r1 = recv(&b, &s1.msg).unwrap();
+        let e = recv(&r1.state, &vec![]).err().expect("must fail");
+        assert!(matches!(e, Error::VersionMismatch), "downgrade window closed: {e:?}");
+    }
+
+    /// C4: unauthenticated attacker: SPQR recv() runs before the outer Signal MAC
+    /// (session_cipher.rs:633 vs :657), so a forged index costs the victim max_jump KDFs.
+    /// SPQR returns Ok (it cannot authenticate the envelope); the host MAC then fails and
+    /// drops the clone. Nothing persists — CPU only.
+    #[test]
+    fn q16c_probe_unauth_cpu_only_no_persist() {
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B);
+        let b = init(Direction::B2A);
+        let s1 = send(&a, &mut rng).unwrap();
+        let r1 = recv(&b, &s1.msg).unwrap();
+        let s2 = send(&r1.state, &mut rng).unwrap();
+        let r2 = recv(&s1.state, &s2.msg).unwrap();
+        let s3 = send(&s2.state, &mut rng).unwrap();
+        let (epoch, idx, _, _) = parse(&s3.msg);
+        assert!(epoch < 128 && idx < 128, "1-byte varints assumed");
+        let mut m = vec![s3.msg[0], s3.msg[1], 0xA8, 0xC3, 0x01]; // index := 25_000
+        m.extend_from_slice(&s3.msg[3..]);
+        let t = std::time::Instant::now();
+        let r = recv(&r2.state, &m);
+        eprintln!("C4: forged index 25000 → ok={} in {:?}", r.is_ok(), t.elapsed());
+        assert!(r.is_ok(), "SPQR alone cannot reject; host MAC must (and does) drop the clone");
+    }
+}
 }

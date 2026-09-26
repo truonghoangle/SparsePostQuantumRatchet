@@ -460,6 +460,263 @@ mod test {
     use rand::TryRngCore;
     use rand::seq::SliceRandom;
 
+    /// TEMPORARY PROBE (§16 review): can message-controlled `index` alone push the
+    /// persisted `recv.ctr` past `h_ctr_bound` (u32::MAX - 390451572) with no blob mutation?
+    /// ~156K recv_key calls × 25_000 HKDFs ≈ 4·10^9 HKDFs: ~25 min in release, hours in
+    /// debug. Run explicitly: `cargo test --release --lib q16_probe -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn q16_probe_remote_index_drives_ctr_past_bound() {
+        let bound = u32::MAX - 390_451_572;
+        let mut c = Chain::new(b"1", Direction::B2A, ChainParams::default().into_pb()).unwrap();
+        let max_jump = DEFAULT_CHAIN_PARAMS.max_jump; // 25_000 per call
+        // Phase 1: honest-looking, in-range jumps. Each recv_key(0, ctr+max_jump) is Ok
+        // (max_jump > max_ooo so prev is cleared each time; the KDF loop is the cost).
+        let mut ctr: u32 = 0;
+        let mut calls = 0u64;
+        while ctr < bound + 1 {
+            let at = ctr.saturating_add(max_jump);
+            c.recv_key(0, at).expect("in-range jump must be Ok");
+            ctr = at;
+            calls += 1;
+        }
+        eprintln!("reached ctr={ctr} (> bound {bound}) after {calls} recv_key calls");
+        // Phase 2: persist and reload — this is what the host would store.
+        let pb = c.into_pb();
+        let persisted_ctr = pb.links[0].recv.as_ref().unwrap().ctr;
+        assert!(persisted_ctr > bound, "persisted ctr {persisted_ctr} exceeds h_ctr_bound");
+        let mut c2 = Chain::from_pb(pb).expect("from_pb accepts it");
+        // Phase 3: one more message. index = ctr + 1 is a perfectly ordinary in-order
+        // message, yet the addition at L265 overflows in debug builds.
+        // CORRECTION (§16.9): `h_ctr_bound` is a *proof-side slack* bound, not the runtime
+        // overflow threshold. L265 computes `ctr + max_ooo_keys` (2_000 by default), which
+        // overflows only when ctr > u32::MAX - 2_000. At ctr ≈ bound + max_jump the addition
+        // fits, so this call returns Ok in BOTH profiles. The state is Lean-invalid
+        // (recvKeyPre unsatisfiable) but runtime-benign. See q16b_* for the real thresholds.
+        let next_index = persisted_ctr + 1;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            c2.recv_key(0, next_index)
+        }));
+        let inner = result.expect("no overflow yet: ctr + max_ooo fits in u32");
+        assert!(inner.is_ok(), "in-order key after Lean bound is still Ok");
+        eprintln!("Phase 3: recv_key Ok in both profiles; Lean I4 violated, no runtime fault yet");
+    }
+
+    // ---------------------------------------------------------------------------------
+    // §16.9 probes. Each seeds the *exact state* a malicious authenticated peer would
+    // reach by steering `ctr` (only `ctr`/`prev`/`next` matter to `key()`, and `prev` is
+    // empty after any jump > max_ooo), so the 4·10^9-HKDF steering loop is not needed.
+    // Run: cargo test --lib q16b_ -- --nocapture --test-threads=1   (and --release)
+    // ---------------------------------------------------------------------------------
+
+    const LEAN_CTR_BOUND: u32 = u32::MAX - 390_451_572;
+
+    fn chain_with_recv_ctr(ctr: u32, params: pqrpb::ChainParams) -> Chain {
+        let c = Chain::new(b"1", Direction::B2A, params).unwrap();
+        let mut pb = c.into_pb();
+        pb.links[0].recv.as_mut().unwrap().ctr = ctr;
+        pb.links[0].recv.as_mut().unwrap().prev = vec![];
+        Chain::from_pb(pb).expect("from_pb accepts any ctr")
+    }
+
+    fn chain_with_recv_ctr_and_stored(ctr: u32, stored: u32, params: pqrpb::ChainParams) -> Chain {
+        let c = Chain::new(b"1", Direction::B2A, params).unwrap();
+        let mut pb = c.into_pb();
+        let d = pb.links[0].recv.as_mut().unwrap();
+        d.ctr = ctr;
+        d.prev = stored.to_be_bytes().to_vec();
+        d.prev.extend_from_slice(&[7u8; 32]);
+        Chain::from_pb(pb).expect("from_pb accepts any ctr")
+    }
+
+    fn recv_prev_len(c: Chain) -> usize {
+        c.into_pb().links[0].recv.as_ref().unwrap().prev.len()
+    }
+
+    /// S1: the Lean bound is not the runtime threshold. Any ctr in
+    /// (LEAN_CTR_BOUND, u32::MAX - max_ooo] is Lean-invalid but every in-order and
+    /// max_jump key request is Ok in both profiles.
+    #[test]
+    fn q16b_probe_lean_bound_is_not_runtime_threshold() {
+        let params = ChainParams::default().into_pb();
+        for ctr in [LEAN_CTR_BOUND + 1, LEAN_CTR_BOUND + 25_000, u32::MAX - 2_000 - 25_001] {
+            let mut c = chain_with_recv_ctr(ctr, params);
+            c.recv_key(0, ctr + 1).expect("in-order Ok");
+            c.recv_key(0, ctr + 1 + 25_000).expect("max_jump Ok");
+        }
+        // Exact threshold: ctr = u32::MAX - max_ooo is the last ctr for which L265 fits.
+        let mut c = chain_with_recv_ctr(u32::MAX - 2_000, params);
+        c.recv_key(0, u32::MAX - 1_999).expect("ctr + max_ooo == u32::MAX still fits");
+        eprintln!("S1: ctr in (Lean bound, u32::MAX - max_ooo] → all Ok in both profiles");
+    }
+
+    /// S2: L265 overflow. First ctr for which `ctr + max_ooo` overflows is
+    /// u32::MAX - max_ooo + 1. Debug: panic. Release: wrap → `at > tiny` is true →
+    /// spurious `prev.clear()` — every stored OOO key of the epoch is discarded.
+    #[test]
+    fn q16b_probe_l265_threshold_and_spurious_clear() {
+        let params = ChainParams::default().into_pb();
+        let ctr = u32::MAX - 1_999;
+        let mut c = chain_with_recv_ctr_and_stored(ctr, ctr - 1, params);
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, ctr + 1)));
+        if cfg!(debug_assertions) {
+            assert!(r.is_err(), "debug: attempt to add with overflow at L265");
+            eprintln!("S2 debug: panic at L265 for ctr = u32::MAX - max_ooo + 1");
+        } else {
+            r.unwrap().expect("release: Ok");
+            // Honest semantics: at = ctr+1 <= ctr+max_ooo, prev must be untouched (36 B).
+            assert_eq!(recv_prev_len(c), 0, "release: wrap took the prev.clear() arm");
+            eprintln!("S2 release: Ok, but prev.clear() fired spuriously (36 → 0 bytes)");
+        }
+    }
+
+    /// S3: L279 overflow *inside* the KDF loop, reached during steering itself (no
+    /// reload needed). ctr = u32::MAX - 3000, index = u32::MAX - 1000 (jump 2000 ≤ max_jump).
+    /// Honest semantics: store 1999 skipped keys (u32::MAX-2999 .. u32::MAX-1001).
+    /// Debug: panic when ctr reaches u32::MAX - 1999. Release: keys with
+    /// ctr > u32::MAX - 2000 are silently NOT stored → 1000 stored, 999 lost.
+    #[test]
+    fn q16b_probe_l279_midloop_overflow_drops_keys() {
+        let params = ChainParams::default().into_pb();
+        let ctr = u32::MAX - 3_000;
+        let at = u32::MAX - 1_000;
+        let mut c = chain_with_recv_ctr(ctr, params);
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, at)));
+        if cfg!(debug_assertions) {
+            assert!(r.is_err(), "debug: overflow at L279");
+            eprintln!("S3 debug: panic at L279 mid-loop (remote-triggerable while steering)");
+        } else {
+            r.unwrap().expect("release Ok");
+            // Keys stored: indices ctr+1 ..= u32::MAX-2000  → 1000 records.
+            let stored = recv_prev_len(c) / 36;
+            assert_eq!(stored, 1_000, "release: wrap drops keys > u32::MAX - max_ooo");
+            eprintln!("S3 release: Ok, stored {stored}/1999 skipped keys — 999 silently lost");
+        }
+    }
+
+    /// S4: I12 (`index + max_ooo` at L192) is remotely reachable once ctr is steered
+    /// high. index = u32::MAX - 1500 < ctr = u32::MAX - 1000, key legitimately stored.
+    /// Debug: panic at L192. Release: wrap → `tiny < ctr` → Err(KeyTrimmed) for a key
+    /// that IS in prev — message undecryptable.
+    #[test]
+    fn q16b_probe_l192_get_overflow_misreports_trimmed() {
+        let params = ChainParams::default().into_pb();
+        let ctr = u32::MAX - 1_000;
+        let want = u32::MAX - 1_500;
+        let mut c = chain_with_recv_ctr_and_stored(ctr, want, params);
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, want)));
+        if cfg!(debug_assertions) {
+            assert!(r.is_err(), "debug: overflow at L192");
+            eprintln!("S4 debug: panic at L192 (get) on OOO index near u32::MAX");
+        } else {
+            let res = r.unwrap();
+            assert!(matches!(res, Err(Error::KeyTrimmed(x)) if x == want));
+            eprintln!("S4 release: Err(KeyTrimmed) although the key is present in prev");
+        }
+    }
+
+    /// S5: counter exhaustion is a per-direction hard stop. Once ctr == u32::MAX no
+    /// index is > ctr, so the recv direction of this epoch returns only
+    /// KeyAlreadyRequested / KeyTrimmed forever (until an epoch advance).
+    #[test]
+    fn q16b_probe_counter_exhaustion_hard_stop() {
+        let params = ChainParams::default().into_pb();
+        // Reaching u32::MAX itself needs the L265 wrap (release) — seed post-wrap state.
+        let mut c = chain_with_recv_ctr(u32::MAX, params);
+        assert!(matches!(c.recv_key(0, u32::MAX), Err(Error::KeyAlreadyRequested(_))));
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, 5)));
+        // at=5 < ctr → get(); `5 + 2000 < u32::MAX` fits → KeyTrimmed in both profiles.
+        assert!(matches!(r.unwrap(), Err(Error::KeyTrimmed(5))));
+        // recv_key can never call next_key_internal here (needs at > ctr), so the
+        // `*ctr += 1` at L230 is unreachable through recv — no panic, permanent Err.
+        eprintln!("S5: ctr == u32::MAX → recv direction permanently Err (self-DoS only)");
+    }
+
+    /// S6: remote CPU amplification. One message with index = ctr + max_jump costs the
+    /// victim max_jump HKDF invocations. Err(KeyJump) for index > ctr + max_jump costs
+    /// nothing and leaves the state byte-identical.
+    #[test]
+    fn q16b_probe_key_jump_cpu_cost_and_err_is_pure() {
+        let params = ChainParams::default().into_pb();
+        let mut c = Chain::new(b"1", Direction::B2A, params).unwrap();
+        let t = std::time::Instant::now();
+        c.recv_key(0, 25_000).expect("max_jump Ok");
+        let dt = t.elapsed();
+        eprintln!("S6: one max_jump message = 25_000 HKDFs in {dt:?}");
+        let before = c.into_pb();
+        let mut c = Chain::from_pb(before.clone()).unwrap();
+        assert!(matches!(c.recv_key(0, 25_000 + 25_001), Err(Error::KeyJump(25_000, 50_001))));
+        assert_eq!(c.into_pb(), before, "KeyJump path does not mutate state");
+        // prev is bounded by trim_size regardless of how many keys are skipped.
+        let mut c = Chain::from_pb(before).unwrap();
+        for i in 1..=60u32 {
+            c.recv_key(0, 25_000 + i * 1_999).unwrap();
+        }
+        let len = recv_prev_len(c);
+        assert!(len <= 36 * 2_201, "prev bounded by GC: {len}");
+        eprintln!("S6: after 60 near-max_ooo jumps prev.len() = {len} ≤ {}", 36 * 2_201);
+    }
+
+    /// S7: non-default params shrink the steering cost. With max_ooo_keys large the
+    /// overflow threshold u32::MAX - max_ooo drops; with max_jump large one message
+    /// suffices. Here max_ooo = 2^31: threshold ctr > 2^31 - 1 (~2048 messages of 2^20).
+    #[test]
+    fn q16b_probe_nondefault_params_lower_threshold() {
+        let params = pqrpb::ChainParams {
+            max_jump: 1 << 20,
+            max_ooo_keys: 1 << 31,
+        };
+        let ctr = (1u32 << 31) - 1;
+        let mut c = chain_with_recv_ctr(ctr, params);
+        c.recv_key(0, ctr + 1).expect("ctr + max_ooo == u32::MAX fits");
+        let mut c = chain_with_recv_ctr(ctr + 1, params);
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, ctr + 2)));
+        if cfg!(debug_assertions) {
+            assert!(r.is_err(), "debug: L265 overflow at ctr = 2^31");
+            eprintln!("S7 debug: max_ooo = 2^31 → L265 overflow already at ctr = 2^31");
+        } else {
+            r.unwrap().expect("release Ok (wrap)");
+            eprintln!("S7 release: silent wrap at ctr = 2^31");
+        }
+    }
+
+    /// S8: KDF-derived invariants I1–I3 are preserved by every Ok `key()` call, so a
+    /// remote peer cannot steer them. Random walk of in-range indices, then check.
+    #[test]
+    fn q16b_probe_steering_preserves_i1_i2_i3() {
+        let params = pqrpb::ChainParams {
+            max_jump: 50,
+            max_ooo_keys: 10,
+        };
+        let mut c = Chain::new(b"1", Direction::B2A, params).unwrap();
+        let mut ctr = 0u32;
+        let mut seed = 0x9E37_79B9u32;
+        let mut stored: Vec<u32> = vec![];
+        for _ in 0..2_000 {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            if seed % 4 == 0 && !stored.is_empty() {
+                let k = stored.swap_remove((seed as usize / 4) % stored.len());
+                let _ = c.recv_key(0, k); // Ok or KeyTrimmed, both fine
+            } else {
+                let jump = 1 + seed % 50;
+                for a in ctr + 1..ctr + jump {
+                    stored.push(a);
+                }
+                ctr += jump;
+                c.recv_key(0, ctr).unwrap();
+            }
+        }
+        let pb = c.into_pb();
+        let d = pb.links[0].recv.as_ref().unwrap();
+        assert_eq!(d.next.len(), 32, "I1");
+        assert_eq!(d.prev.len() % 36, 0, "I2");
+        assert!(d.prev.len() <= 36 * d.ctr as usize, "I3");
+        assert!(d.prev.len() <= 36 * 12, "GC bound (trim_size = 12)");
+        eprintln!("S8: after 2000 steered calls ctr={} prev={} B — I1–I3 hold", d.ctr, d.prev.len());
+    }
+
     #[test]
     fn directions_match() {
         let mut a2b = Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap();

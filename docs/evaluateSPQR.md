@@ -16,8 +16,10 @@
 | 2 | Which SPQR invariants can be violated by a state returned as `Ok` from `from_pb`? | **Yes — answered (substantially)** | High for the primary set; Medium for the `Chain`‑level and `PolyDecoder` rows | Per‑invariant tables in report §3, §7, §8, §9, §10.2; 9 of 15 identified invariants have a Lean witness |
 | 3 | Can such an invalid state reach a downstream SPQR operation such as `key`, `get`, or `gc`? | **Yes — answered** | High for `recv_key` → `key`/`get`/`gc` (Lean end‑to‑end + runtime repro, §3A); Medium for `send_key` → `next_key` (prose in report, runtime repro added here) | Report §2, §2.1, §4–§6 call chains, §12; Lean Phases 3, 4, 9, 10; **five compiled‑Rust probes executed during this evaluation** (§3A.3) |
 | 4 | Does the downstream operation panic/assert rather than return a recoverable error? | **Yes — answered (with one correction and two omissions)** | High for the three `assert!` sites + `copy_from_slice` (source + Lean + runtime); Medium for the failure‑mode *taxonomy* (report treats "panic" as the only hard failure and omits two sites and the profile dependence) | Report §4–§6 (source excerpts), §7/§13 (graceful `Err` cases), §14.6 (panic vs `Err` fix); Lean `*_never_ok` theorems; **five additional compiled probes in debug and release** (§3B.3) |
+| 5 | Can the malformed state be persisted/round‑tripped, allowing the same invalid state to be restored again? | **Partially answered** — *Yes* is asserted and mechanised for `ChainEpochDirection` only (Phase 5); the `Chain`/`Authenticator`/`PolyDecoder` levels, the prost wire layer, and the **`Ok`‑path re‑persistence** (corruption written back by a *successful* `send`/`recv`) are missing or prose‑only | High that the answer is "yes" (confirmed at runtime here, §3C.3); Medium on the report's own evidence and framing | Report Exec. Summary / §1 / §12.1 / §13 ("crash loop"), §10.4 Phase 5 `corrupted_state_roundtrips`, §9 (cites `ProtocolDoS.lean`), §14.6 test #1; **four compiled probes in debug and release** (§3C.3) |
 
-**Result: 4 of 4 requested questions answered.** Q2 is answered *completely* at the level of
+**Result: 4 of 5 requested questions fully answered; Q5 is partially answered by the report
+and is closed empirically by this evaluation (§3C).** Q2 is answered *completely* at the level of
 "which invariants", but the *evidence* for six of the fifteen invariants is prose‑only and
 one invariant (`ctr` range) is named without analysis. Q3 is answered affirmatively and
 mechanised for the `recv` path; the `send_key` path (I9) was prose‑only in the report and has
@@ -25,7 +27,11 @@ now been confirmed at runtime (§3A.3). Q4 is answered affirmatively for every p
 invariant the report names, and the report also correctly identifies the *non*‑panicking
 outcomes (`Err(EpochOutOfRange)`, silent divergence, stall); the residuals are one
 mis‑attributed panic site, two unlisted panic sites and the debug/release dependence of the
-overflow cases (§3B.4). An execution plan to close the remaining gaps is given in §5.
+overflow cases (§3B.4). Q5 is answered "yes" in prose and mechanised for one of the four
+`from_pb` levels; the report's crash‑loop argument also conflates *reloading an unchanged old
+blob after a panic* with *re‑persisting the corruption through an `Ok` call* — only the
+latter is a property of SPQR, and the report never demonstrates it (§3C.4). An execution
+plan to close the remaining gaps is given in §5.
 
 ---
 
@@ -300,6 +306,110 @@ practically relevant consequence is unbounded `prev` growth, as §7's `trim_size
 
 ---
 
+## 3C. Q5 — Can the malformed state be persisted/round‑tripped, allowing the same invalid state to be restored again?
+
+**Short answer: Yes — and the report says so, but proves it for only one of the four
+`from_pb` layers and only in the weakest of the three senses that matter.** Every
+`into_pb` in the persistence path is a pure field‑by‑field repackaging with no
+normalisation, so `into_pb ∘ from_pb` is the identity on every protobuf‑valid blob,
+corrupted or not. This evaluation confirmed the identity at runtime for all ten corruption
+classes of §3 (I1–I4, I6, I7, I9, I10 plus `max_jump`) at the `Chain` level, through the
+real prost wire encoding, and for `Authenticator` and `PolyDecoder`. It also demonstrated
+the stronger, previously undocumented form: a corrupted blob can pass through a
+**successful** `spqr::recv()` and be written back — still corrupted — into the state the
+caller is told to persist.
+
+### 3C.1. What the report says
+
+| Report location | Claim | Verified? |
+|---|---|---|
+| Exec. Summary; §1 table ("crash loop on reload"); §12.1 steps 4–6 ("Every restart loads the corrupted state and panics"); §13 ("every restart loads the same corrupted state and panics again") | The corrupted blob is reloaded on every restart and the panic recurs | ✅ True, but this is the **panic → no re‑write** case: the state is never replaced *because* the call aborted. That property depends on the host keeping the pre‑call blob (libsignal does, `docs/evaluate.md` Q7), not on anything SPQR does. |
+| §10.4 / Phase 5 `corrupted_state_roundtrips` (`CorruptedBlobs.lean:581‑607`) | `into_pb (from_pb pb)` returns `pb'` with `pb'.ctr = pb.ctr ∧ pb'.next = pb.next ∧ pb'.prev = pb.prev` | ✅ Machine‑checked, 0 `sorry`. Scope: **`ChainEpochDirection` only.** Composed from `from_pb_spec` and `into_pb_spec` (`Spqr/Specs/Chain/ChainEpochDirection/IntoPb.lean:25`). |
+| §9 (cites `Spqr/Specs/Bugs/ProtocolDoS.lean` `poison_survives_persistence`) | Poisoned `PolyDecoder` points survive `into_pb` | ✅ Mechanised, but for **`into_pb` alone** (point coordinates + `is_complete` preserved), and for Finding 2's poisoned *y*‑values rather than the corrupted‑blob fields of this study. |
+| §7 Phase 7 `chain_from_pb_admits_wrong_next_root` | `next_root` survives `Chain::from_pb` | ✅ Mechanised — but only the `from_pb` half. `Chain::into_pb` is `#[hax_lib::opaque]` (`chain.rs:414`), so no Lean statement exists for `Chain`‑level `into_pb ∘ from_pb`. |
+| §14.6 recommended test #1 | A proptest that round‑trips `Chain::into_pb → from_pb` on *valid* states | Recommended, not done. Purpose is regression protection for the §14.2 fix, not evidence for Q5. |
+| §8 `Authenticator` | Wrong‑length keys accepted | ✅ (Phase 6), but **no round‑trip statement at all** for `Authenticator`, although `serialize.rs:9‑21` is trivially identity. |
+
+**Absent from the report:** (a) any statement that the *prost* layer preserves the blob
+(`encode_to_vec`/`decode` on `pqrpb::Chain`); (b) any demonstration that a corrupted state
+can be re‑serialised by an **`Ok`** `send`/`recv` — i.e. that SPQR itself, not the host's
+"keep old state on error" policy, propagates the corruption; (c) the observation that some
+corruptions are **latent** (survive many successful round‑trips before the first panic).
+
+### 3C.2. Source analysis: why the round‑trip is the identity
+
+| Layer | `into_pb` | `from_pb` | Identity on corrupted input? |
+|---|---|---|---|
+| `ChainEpochDirection` | `chain.rs:298‑304` — moves `ctr`, `next`, `prev.data` | `chain.rs:306‑312` — moves them back | ✅ Trivially (mechanised, Phase 5) |
+| `Chain` | `chain.rs:415‑431` — `dir.into()`, epochs, `links.map(into_pb)`, `next_root`, `Some(params)` | `chain.rs:434‑452` — `direction.try_into()`, epochs, `links.map(from_pb)`, `next_root`, `params.ok_or` | ✅ For every blob `from_pb` accepts: the only lossy step is `Direction` `i32 ↔ enum`, and `from_pb` rejects unknown values, so accepted blobs round‑trip exactly. `links` ordering is preserved by `VecDeque` ↔ `Vec`. |
+| `Authenticator` | `serialize.rs:9‑14` | `serialize.rs:16‑21` (`clone`) | ✅ Byte‑exact for any key lengths |
+| `PolyDecoder` | `polynomial.rs:793‑811` — re‑serialises each `Pt` as 4 bytes, `polys = 16`, copies `is_complete`, `pts_needed as u32` | `polynomial.rs:815‑854` — requires 16 slots, each `%4 == 0` | ✅ For accepted blobs with `polys == 16` and `pts_needed ≤ u32::MAX` (both hold for any blob `into_pb` produced). `Pt::deserialize`/`serialize` are inverse on 4‑byte groups; `SortedSet::push` only de‑duplicates equal `x` — a corrupted slot with **duplicate `x`** would be *normalised* (last‑write‑wins), the one non‑identity case, and it moves the state *toward* validity. |
+| prost wire | `PqRatchetState::encode_to_vec` (`lib.rs:315, 445`) | `decode_state` (`lib.rs:472‑481`) | ✅ Proto3 scalars/bytes/repeated fields are canonical; verified empirically (§3C.3, probe 1). |
+
+Because `spqr::send`/`recv` unconditionally re‑encode `chain.into_pb()` into the returned
+`state` (`lib.rs:301, 313, 443`), **whatever `Chain::from_pb` accepted and the operation did
+not mutate is written back verbatim.**
+
+### 3C.3. Runtime confirmation (performed during this evaluation)
+
+Four probes were added to `#[cfg(test)] mod test` in `src/chain.rs`, run with
+`cargo test --lib q5_probe -- --nocapture --test-threads=1` (debug) and
+`cargo test --release --lib q5_probe -- --test-threads=1` (release) — **4 passed in each
+profile** — then removed (`git checkout -- src/chain.rs`). The source is appended to
+`docs/corrupted_blob_counterexample.rs.txt` under the "Q5 probes" banner.
+
+| Probe | What it does | Result |
+|---|---|---|
+| `q5_probe_chain_level_roundtrip_is_identity_on_corrupted_blobs` | For each of 10 mutations (`recv.next` = 31 B / `[]`; `recv.prev` = 37 B; `ctr = 0` + 79 236 B `prev`; `ctr = u32::MAX`; `next_root` = 16 B; `send_epoch = 7 > current_epoch`; `send.next = []`; `max_ooo_keys = u32::MAX`; `max_jump = u32::MAX`): `Chain::from_pb(pb)` → `Ok`, `into_pb()` `== pb`, and prost `encode_to_vec`/`decode` `== pb` | ✅ All 10 blobs round‑trip **byte‑for‑byte** through both the struct layer and the wire layer |
+| `q5_probe_misaligned_prev_survives_ok_recv_and_is_repersisted` | `recv.ctr = 5`, `recv.prev = 37 B`; `recv_key(0, 7)` (in‑order, forward) | ✅ Returns **`Ok`** (32‑byte key); `into_pb()` shows `ctr = 7`, `prev.len() = 73` (37 + 36 — still `% 36 ≠ 0`). Reloading that blob with `from_pb` succeeds; the next out‑of‑order `recv_key(0, 6)` then panics at `chain.rs:191`. |
+| `q5_probe_top_level_recv_ok_repersists_misaligned_prev` | Full public‑API path: two real `send`/`recv` exchanges, decode A's blob, `prev.push(0)` on every `recv.prev`, re‑encode; B sends one more in‑order message | ✅ **`spqr::recv(&corrupted, &msg)` returns `Ok`**, the derived key equals B's send key (corruption is invisible to the protocol), and the **returned `state`** decodes to a chain whose `recv.prev` length is `1` — misaligned. The host would persist this as the new good state. |
+| `q5_probe_authenticator_and_poly_decoder_roundtrip_corruption` | `Authenticator { root_key: 5 B, mac_key: [] }`; `PolynomialDecoder { is_complete: true, pts: 16 × [] }` | ✅ Both `into_pb(from_pb(pb)) == pb` |
+
+Both overflow‑class blobs (`ctr = u32::MAX`, `max_ooo_keys = u32::MAX`) also round‑trip
+unchanged in release; combined with §3B.4/G8 this means the release‑profile *wrapping*
+behaviour is applied to a value that persists indefinitely.
+
+### 3C.4. Verdict on Q5
+
+- **Answered: Yes, the malformed state persists and can be restored** — in three distinct
+  senses, of which the report covers only the first explicitly and mechanises the second
+  for one layer:
+  1. **Reload after panic** (report §12.1/§13): the aborted call never produces a new blob,
+     so the host reloads the old one. True, but a host‑policy property, not an SPQR one.
+  2. **Identity round‑trip** (report Phase 5, `ChainEpochDirection` only): `into_pb ∘ from_pb
+     = id` on corrupted input. Now confirmed at every layer — `Chain`, prost wire,
+     `Authenticator`, `PolyDecoder` — by probes 1 and 4.
+  3. **Propagation through an `Ok` call** (not in the report): a corrupted blob can be
+     loaded, used successfully, and written back still corrupted (probes 2 and 3). This is
+     the form that defeats any host‑side "roll back to last good state" strategy, because
+     the *last good state* is itself corrupted; it also means corruption survives backups
+     taken *after* the corruption event and can reach another device via state sync while
+     looking healthy.
+- **Latent vs immediate corruption.** The report treats all §3 corruptions as crashing on
+  the "next `recv()`". That is accurate for `next.len() ≠ 32` (`next_key_internal` runs on
+  every forward message) and for `ctr = 0` + large `prev` (GC fires on the next message),
+  but **misaligned `prev`** panics only on the *out‑of‑order* path (`get`, `:191`) or once
+  `prev` exceeds the GC threshold (`gc` slice index, `:157`, G7). Until then every in‑order
+  message succeeds and re‑persists the misalignment (probe 2 shows it *growing*: 37 → 73).
+- **Residual gaps** (feed into §5):
+  - **G11** — Round‑trip is mechanised only for `ChainEpochDirection`. `Chain::into_pb` /
+    `from_pb` are `#[hax_lib::opaque]`, so a `Chain`‑level `corrupted_chain_roundtrips`
+    theorem needs the manual case‑split style of Phase 7; `Authenticator` and
+    `PolyDecoder` round‑trip theorems are straightforward (`into_pb_spec`/`from_pb_spec`
+    already exist for both) but absent.
+  - **G12** — No statement (Lean or prose) of the `Ok`‑path re‑persistence in sense 3.
+    `Key.lean`'s forward‑path spec should imply `prev.data.length % 36` is *preserved*
+    (adds are 36 bytes); stating that as a corollary would formalise "misalignment is
+    invariant under successful `key`".
+  - **G13** — §12.1/§13 attribute the crash loop to SPQR ("no graceful recovery path *inside
+    SPQR*") without separating host‑policy reload (sense 1) from SPQR re‑serialisation
+    (senses 2–3). §2.1 and `docs/evaluate.md` Q7 already establish the host behaviour; §13
+    should cite them and add senses 2–3.
+  - **G14** — No executable round‑trip evidence in the report (§14.6 test #1 is a
+    *valid*‑state regression proptest, not a corrupted‑state witness). Supplied here.
+
+---
+
 ## 4. Assessment of the Q2 Answer
 
 ### 4.1. Strengths
@@ -337,9 +447,10 @@ practically relevant consequence is unbounded `prev` growth, as §7's `trim_size
 
 ---
 
-## 5. Execution Plan to Close the Q2 and Q4 Gaps
+## 5. Execution Plan to Close the Q2, Q4 and Q5 Gaps
 
-Ordered by value‑per‑effort.
+Ordered by value‑per‑effort. Steps 1–5 address Q2/Q4 (G1–G10); Step 6 addresses Q5
+(G11–G14) and is independent of the others.
 
 ### Step 1 — Docs corrections: `ctr` row, I15 severity, I10 hypothesis, traceability (closes G1, G3, G4, G6) — ~1 h
 
@@ -451,11 +562,58 @@ of "no §3 invariant can be violated by an `Ok` state" is then: every blob‑der
 of `recvKeyPre` (`Defs.lean:95‑106`, i.e. all but the `index`‑dependent I12 and I5's
 `index` term) is a provable **postcondition** of `Chain::from_pb`.
 
+### Step 6 — Close the Q5 gaps (G11–G14) — ~half a day total
+
+**6a. Docs (`CorruptedBlobs.md`) — ~1 h, closes G13, G14**
+
+1. §13 "Availability" bullet: split the crash‑loop claim into the three senses of §3C.4 —
+   (1) host reloads the unchanged blob after a panic (cite §2.1 / `docs/evaluate.md` Q7);
+   (2) `into_pb ∘ from_pb = id` at every layer (cite Phase 5 + the new theorems from 6c);
+   (3) a corrupted blob can be *re‑persisted by a successful call* (cite the probes from 6b).
+2. §12.3 (one‑byte alignment DoS): add the latent‑corruption observation — in‑order traffic
+   succeeds and re‑persists the misalignment (37 → 73 → …); the panic fires on the first
+   out‑of‑order message or, via `:157`, once `prev` reaches the GC threshold.
+3. §14.6 recommended tests: add a **corrupted‑state** round‑trip test alongside the existing
+   valid‑state proptest, and a "re‑persisted‑after‑`Ok`" test (probe 3 of §3C.3). After the
+   §14 fixes land, both flip to `assert!(matches!(Chain::from_pb(pb), Err(Error::StateDecode)))`.
+
+**6b. Permanent Rust tests — ~1 h, closes G14**
+
+Promote the four `q5_probe_*` tests from `docs/corrupted_blob_counterexample.rs.txt` into
+`src/chain.rs`'s `#[cfg(test)] mod test` next to the Step‑2 tests, under a
+`corrupted_blob_roundtrip_*` naming scheme; keep the `catch_unwind` on the final
+out‑of‑order call until §14.6 removes the panic. Run in both profiles in CI
+(`cargo test --lib` and `cargo test --release --lib`).
+
+**6c. Lean — ~2–3 h, closes G11, G12**
+
+Add a Phase 11 to `Spqr/Specs/Bugs/CorruptedBlobs.lean`:
+
+1. `authenticator_corrupted_roundtrips` — `into_pb (from_pb pb) = pb` for any key lengths;
+   both `Spqr/Specs/Authenticator/Serialize` specs already exist, so this is a two‑line
+   `spec_mono` composition like Phase 5.
+2. `poly_decoder_corrupted_roundtrips` — for `pb.pts.length = 16`, all slots `% 4 = 0`,
+   `pb.polys = 16`: `from_pb pb = Ok d → into_pb d ⦃ pb' => pb'.is_complete = pb.is_complete ∧
+   pb'.pts_needed = pb.pts_needed ∧ pb'.pts = pb.pts ⦄`. Reuse
+   `PolyDecoder/FromPb.lean` + `IntoPb.lean` (`into_pb_spec`); the `pts` equality needs the
+   `Pt.serialize ∘ Pt.deserialize = id` lemma on 4‑byte groups and the no‑duplicate‑`x`
+   side condition (state it as a hypothesis; the duplicate case is the documented
+   normalisation exception of §3C.2).
+3. `chain_corrupted_roundtrips` — `Chain.from_pb pb = ok (Ok c) → Chain.into_pb c = ok pb`.
+   Both functions are `#[hax_lib::opaque]`, so follow Phase 7's manual case‑split on the
+   Aeneas `?` arms; the `links` component reduces to `List.map` over Phase 5.
+4. `key_preserves_prev_misalignment` (G12) — from `Key.lean`'s forward‑path spec: if
+   `at > ctr`, `at ≤ ctr + maxOoo` and `prev.data.length < trim_threshold` then
+   `key … = ok (Ok (k, self'))` with `self'.prev.data.length % 36 = self.prev.data.length % 36`.
+   This is the formal statement of sense 3 in §3C.4 and complements
+   `key_never_ok_of_misaligned_prev` (which covers the out‑of‑order path).
+
 ---
 
 ## 6. Conclusion
 
-- **Questions requested**: 4. **Answered**: 4.
+- **Questions requested**: 5. **Fully answered by the report**: 4 (Q1–Q4). **Partially
+  answered**: 1 (Q5) — now closed empirically by this evaluation.
 - **Q1: Yes** — all four `from_pb` variants accept protobuf‑valid, semantically invalid
   state (machine‑checked for each function).
 - **Q3: Yes** — an invalid `Ok` state reaches `key`, `get` and `gc` through `Chain::recv_key`
@@ -482,7 +640,23 @@ of `recvKeyPre` (`Defs.lean:95‑106`, i.e. all but the `index`‑dependent I12 
   listed (G7), (b) the I4/I10 overflow is a **debug‑only** panic and a release‑only silent
   wrap — the report says neither (G8), (c) §12.1/§13 conflate the `:229` and `:243` panic
   sites (G9), (d) §13's blanket "not `Err` returns" needs scoping (G10).
+- **Q5: Yes (partially answered by the report; confirmed here)** — the report asserts a
+  "crash loop on reload" (§1, §12.1, §13) and mechanises `into_pb (from_pb pb) = pb` for
+  `ChainEpochDirection` only (Phase 5). This evaluation verified by source reading (§3C.2)
+  and four compiled probes in debug and release (§3C.3) that **every** `from_pb`/`into_pb`
+  pair — `ChainEpochDirection`, `Chain`, `Authenticator`, `PolyDecoder` — and the prost wire
+  layer are the identity on all ten corruption classes of §3, so the same invalid state is
+  restored verbatim on every load. Beyond the report, it showed that a corrupted blob can be
+  **re‑persisted by a successful `spqr::recv()`** (misaligned `prev`: `Ok` returned, correct
+  key derived, state written back still misaligned and growing 37 → 73 bytes) — a latent
+  form of persistence that survives host‑side rollback and post‑corruption backups, and
+  that the report does not distinguish from the host's reload‑after‑panic behaviour.
+  Residual gaps: (a) round‑trip mechanised for one of four layers (G11), (b) no
+  formal/prose statement of `Ok`‑path re‑persistence (G12), (c) §12.1/§13 conflate host
+  reload with SPQR re‑serialisation (G13), (d) no executable round‑trip evidence in the
+  report (G14; supplied in `docs/corrupted_blob_counterexample.rs.txt`).
 - **Recommended next action**: Step 1 (docs corrections, ~1 h), Step 2a (Q4 taxonomy fixes,
-  ~1 h), then Step 2 (permanent runtime repros in both profiles, ~2 h). Together they make
-  the Q2 and Q4 answers both complete and concretely evidenced.
+  ~1 h), Step 6a (Q5 docs, ~1 h), then Steps 2 and 6b (permanent runtime repros in both
+  profiles, ~3 h). Together they make the Q2, Q4 and Q5 answers complete and concretely
+  evidenced; Steps 3, 4 and 6c then bring the Lean coverage up to the same level.
 
