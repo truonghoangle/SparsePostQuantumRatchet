@@ -1,0 +1,260 @@
+// Dolev-Yao network attacker: cannot forge (no session keys) but can DELAY, REORDER and
+// REPLAY honest, correctly-MACed SPQR messages. These pass libsignal's verify_mac, so
+// whatever spqr::recv does with them IS committed -> any SPQR misbehaviour here is
+// remotely exploitable through the deployed V1 protocol.
+use rand::{RngCore, SeedableRng};
+use spqr::{initial_state, recv, send, ChainParams, Direction, Error, Params, Version};
+
+fn init(direction: Direction) -> Vec<u8> {
+    initial_state(Params {
+        version: Version::V1,
+        min_version: Version::V0,
+        direction,
+        auth_key: &[7u8; 32],
+        chain_params: ChainParams::default(),
+    })
+    .unwrap()
+}
+
+struct Msg {
+    bytes: Vec<u8>,
+    key: Option<Vec<u8>>,
+}
+
+fn honest_send(state: &mut Vec<u8>, rng: &mut impl rand::CryptoRng) -> Msg {
+    let s = send(state, rng).unwrap();
+    *state = s.state;
+    Msg { bytes: s.msg, key: s.key }
+}
+
+fn epoch_of(state: &[u8]) -> u64 {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(9);
+    let s = send(&state.to_vec(), &mut rng).unwrap();
+    if s.msg.is_empty() { return 0; }
+    let mut at = 1usize; let mut v = 0u64; let mut sh = 0;
+    loop { let b = s.msg[at]; at += 1; v |= ((b & 0x7f) as u64) << sh; if b < 0x80 { return v; } sh += 7; }
+}
+
+/// Angle 1 - DELAY across epochs (retention mismatch SPQR vs DR).
+#[test]
+fn delay_across_epochs_loses_honest_message() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    let mut delayed: Option<Msg> = None;
+    let mut outcomes = vec![];
+    for round in 0..400 {
+        let m = honest_send(&mut a, &mut rng);
+        let r = recv(&b, &m.bytes).unwrap();
+        b = r.state;
+        assert_eq!(r.key, m.key);
+        let m = honest_send(&mut b, &mut rng);
+        if round == 40 && delayed.is_none() {
+            eprintln!("holding back B->A msg sent at B-epoch {}", epoch_of(&b));
+            delayed = Some(m);
+            continue;
+        }
+        let r = recv(&a, &m.bytes).unwrap();
+        a = r.state;
+        assert_eq!(r.key, m.key);
+        if let Some(d) = &delayed {
+            if round % 40 == 0 {
+                let res = recv(&a, &d.bytes);
+                outcomes.push((round, epoch_of(&a), res.map(|r| r.key == d.key).map_err(|e| format!("{e:?}"))));
+            }
+        }
+    }
+    for o in &outcomes { eprintln!("  deliver at round {} (A epoch {}): {:?}", o.0, o.1, o.2); }
+    let last = outcomes.last().unwrap();
+    assert!(matches!(last.2, Err(ref e) if e.contains("EpochOutOfRange")),
+        "expected permanent EpochOutOfRange, got {:?}", last.2);
+}
+
+
+/// Angle 2 - REPLAY of an honest message must be idempotent (no key, no state change).
+#[test]
+fn replay_is_idempotent_or_errors() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(2);
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    let mut bad_key = 0;
+    let mut state_changed = 0;
+    let mut errs = std::collections::BTreeMap::<String, usize>::new();
+    for _ in 0..300 {
+        let m = honest_send(&mut a, &mut rng);
+        let r1 = recv(&b, &m.bytes).unwrap();
+        b = r1.state;
+        match recv(&b, &m.bytes) {
+            Ok(r2) => {
+                if r2.key.is_some() { bad_key += 1; }
+                if r2.state != b { state_changed += 1; }
+            }
+            Err(e) => *errs.entry(format!("{e:?}").split('(').next().unwrap().to_string()).or_default() += 1,
+        }
+        let m = honest_send(&mut b, &mut rng);
+        let r = recv(&a, &m.bytes).unwrap();
+        a = r.state;
+    }
+    eprintln!("replay: bad_key={bad_key} state_changed={state_changed} errs={errs:?}");
+    assert_eq!(bad_key, 0, "replay re-yielded a key");
+}
+
+/// Angle 3 - adversarial REORDER (LIFO delivery): key agreement + state growth.
+#[test]
+fn adversarial_reorder_key_agreement_and_state_growth() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(3);
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    let (mut q_ab, mut q_ba): (Vec<Msg>, Vec<Msg>) = (vec![], vec![]);
+    let mut max_state = 0usize;
+    let mut disagreements = 0;
+    let mut errs = std::collections::BTreeMap::<String, usize>::new();
+    let mut bump = |e: Error, errs: &mut std::collections::BTreeMap<String, usize>| {
+        *errs.entry(format!("{e:?}").split('(').next().unwrap().to_string()).or_default() += 1
+    };
+    for tick in 0..6000 {
+        match rng.next_u32() % 4 {
+            0 => q_ab.push(honest_send(&mut a, &mut rng)),
+            1 => q_ba.push(honest_send(&mut b, &mut rng)),
+            2 if !q_ab.is_empty() => {
+                let m = q_ab.pop().unwrap();
+                match recv(&b, &m.bytes) {
+                    Ok(rr) => { if rr.key != m.key { disagreements += 1; } b = rr.state; }
+                    Err(e) => bump(e, &mut errs),
+                }
+            }
+            3 if !q_ba.is_empty() => {
+                let m = q_ba.pop().unwrap();
+                match recv(&a, &m.bytes) {
+                    Ok(rr) => { if rr.key != m.key { disagreements += 1; } a = rr.state; }
+                    Err(e) => bump(e, &mut errs),
+                }
+            }
+            _ => {}
+        }
+        max_state = max_state.max(a.len()).max(b.len());
+        if tick % 1500 == 0 { eprintln!("tick {tick}: |a|={} |b|={} q={}/{}", a.len(), b.len(), q_ab.len(), q_ba.len()); }
+    }
+    eprintln!("reorder: max_state={max_state} disagreements={disagreements} errs={errs:?}");
+    assert_eq!(disagreements, 0, "receiver derived a different key than sender");
+}
+
+/// Angle 3b - which reorder-induced errors are TRANSIENT (would succeed if retried after
+/// in-order traffic) vs PERMANENT (message lost forever)? libsignal does not retry.
+#[test]
+fn reorder_transient_vs_permanent_loss() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(4);
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    let (mut q_ab, mut q_ba): (Vec<Msg>, Vec<Msg>) = (vec![], vec![]);
+    let (mut fail_ab, mut fail_ba): (Vec<Msg>, Vec<Msg>) = (vec![], vec![]);
+    let mut first_err = std::collections::BTreeMap::<String, usize>::new();
+    for _ in 0..6000 {
+        match rng.next_u32() % 4 {
+            0 => q_ab.push(honest_send(&mut a, &mut rng)),
+            1 => q_ba.push(honest_send(&mut b, &mut rng)),
+            2 if !q_ab.is_empty() => {
+                let m = q_ab.pop().unwrap();
+                match recv(&b, &m.bytes) {
+                    Ok(rr) => b = rr.state,
+                    Err(e) => { *first_err.entry(format!("{e:?}")).or_default() += 1; fail_ab.push(m); }
+                }
+            }
+            3 if !q_ba.is_empty() => {
+                let m = q_ba.pop().unwrap();
+                match recv(&a, &m.bytes) {
+                    Ok(rr) => a = rr.state,
+                    Err(e) => { *first_err.entry(format!("{e:?}")).or_default() += 1; fail_ba.push(m); }
+                }
+            }
+            _ => {}
+        }
+    }
+    // drain remaining queues in order so both sides are caught up
+    for m in q_ab.drain(..) { if let Ok(r) = recv(&b, &m.bytes) { b = r.state; } }
+    for m in q_ba.drain(..) { if let Ok(r) = recv(&a, &m.bytes) { a = r.state; } }
+    // retry every failed message now
+    let mut recovered = 0; let mut permanent = std::collections::BTreeMap::<String, usize>::new();
+    for m in &fail_ab { match recv(&b, &m.bytes) { Ok(r) => { recovered += 1; b = r.state; } Err(e) => *permanent.entry(format!("{e:?}").split('(').next().unwrap().to_string()).or_default() += 1 } }
+    for m in &fail_ba { match recv(&a, &m.bytes) { Ok(r) => { recovered += 1; a = r.state; } Err(e) => *permanent.entry(format!("{e:?}").split('(').next().unwrap().to_string()).or_default() += 1 } }
+    eprintln!("first-attempt errors (epoch shown): {first_err:?}");
+    eprintln!("after catch-up: recovered={recovered} permanent={permanent:?} (A epoch {}, B epoch {})", epoch_of(&a), epoch_of(&b));
+}
+
+/// Angle 5 - MONOLOGUE / drop-all-replies: attacker drops every B->A message. A keeps
+/// sending; its PolyEncoder emits chunk idx 0,1,2,... forever. Check: state size, time
+/// per send, chunk-index wrap at 65536 (u16), and whether B can still decode afterwards.
+#[test]
+fn monologue_chunk_index_exhaustion() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(6);
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    // get A into a "sending a large blob" state: A sends Hdr, B answers Ct1, A sends Ek chunks
+    let m = honest_send(&mut a, &mut rng); b = recv(&b, &m.bytes).unwrap().state;
+    let m = honest_send(&mut b, &mut rng); a = recv(&a, &m.bytes).unwrap().state; // A now HeaderSent, sends Ek (1152B = 36 chunks)
+    let mut sizes = vec![];
+    let mut last_bytes = vec![];
+    let n = 70_000usize;
+    let t = std::time::Instant::now();
+    for i in 0..n {
+        let m = honest_send(&mut a, &mut rng);
+        if i % 10_000 == 0 || (65_530..65_540).contains(&i) { sizes.push((i, a.len(), m.bytes.len())); }
+        last_bytes = m.bytes;
+    }
+    eprintln!("monologue {n} sends in {:?}; (i,|state|,|msg|) samples: {sizes:?}", t.elapsed());
+    // now let B receive the LAST chunk A produced (idx wrapped) - must not panic
+    let r = recv(&b, &last_bytes);
+    eprintln!("B recv of post-wrap chunk: ok={} key={:?}", r.is_ok(), r.as_ref().map(|r| r.key.is_some()));
+    // and B receives 36 fresh chunks after wrap -> does it complete the EK and answer?
+    let mut b2 = b.clone();
+    for _ in 0..40 { let m = honest_send(&mut a, &mut rng); if let Ok(r) = recv(&b2, &m.bytes) { b2 = r.state; } }
+    let e_before = epoch_of(&b);
+    let e_after = epoch_of(&b2);
+    let mb = honest_send(&mut b2, &mut rng);
+    eprintln!("B epoch before/after post-wrap chunks: {e_before}/{e_after}; B's next msg type byte {:?}", mb.bytes.get(3));
+}
+
+/// Angle 4 - does SPQR forget an epoch FASTER than the Double Ratchet forgets a receiver
+/// chain? DR keeps MAX_RECEIVER_CHAINS = 5 chains, i.e. a message up to 5 direction
+/// changes old is still decryptable by DR. If SPQR rejects it earlier, a network attacker
+/// who merely DELAYS an honest message causes a permanent, DR-accepted message loss.
+/// Traffic pattern: k messages per turn (monologues make SPQR epochs advance per turn).
+#[test]
+fn spqr_epoch_retention_vs_dr_receiver_chain_retention() {
+    for k in [1usize, 5, 10, 20, 40, 80] {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(5);
+        let mut a = init(Direction::A2B);
+        let mut b = init(Direction::B2A);
+        // warm up a few turns so the machine is mid-protocol
+        for _ in 0..6 {
+            for _ in 0..k { let m = honest_send(&mut a, &mut rng); b = recv(&b, &m.bytes).unwrap().state; }
+            for _ in 0..k { let m = honest_send(&mut b, &mut rng); a = recv(&a, &m.bytes).unwrap().state; }
+        }
+        // B's turn: hold back its FIRST message of this turn, deliver the rest
+        let held = honest_send(&mut b, &mut rng);
+        for _ in 1..k { let m = honest_send(&mut b, &mut rng); a = recv(&a, &m.bytes).unwrap().state; }
+        let e0 = epoch_of(&a);
+        // now alternate turns and after each direction change try to deliver `held`
+        let mut fail_after: Option<(usize, String)> = None;
+        let mut turns = 0usize;
+        for t in 0..60 {
+            let a_turn = t % 2 == 0;
+            for _ in 0..k {
+                if a_turn { let m = honest_send(&mut a, &mut rng); b = recv(&b, &m.bytes).unwrap().state; }
+                else { let m = honest_send(&mut b, &mut rng); a = recv(&a, &m.bytes).unwrap().state; }
+            }
+            turns += 1;
+            match recv(&a, &held.bytes) {
+                Ok(r) => { assert_eq!(r.key, held.key); }
+                Err(e) => { fail_after = Some((turns, format!("{e:?}"))); break; }
+            }
+        }
+        eprintln!(
+            "k={k:>3} msgs/turn: A epoch at hold={e0} -> SPQR rejects delayed msg after {} direction changes (A epoch now {}) {}",
+            fail_after.as_ref().map(|f| f.0.to_string()).unwrap_or("never(12)".into()),
+            epoch_of(&a),
+            fail_after.as_ref().map(|f| f.1.clone()).unwrap_or_default()
+        );
+    }
+}
+

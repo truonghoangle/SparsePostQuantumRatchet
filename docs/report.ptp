@@ -1,0 +1,79 @@
+================================================================================
+                  Code Defects Identified from Specification Theorems
+              Sparse Post-Quantum Ratchet (SPQR) — Formal Verification Audit
+================================================================================
+
+METHODOLOGY
+  • 221 Lean spec files under Spqr/Specs/ surveyed
+  • Preconditions/postconditions cross-referenced against Rust src/ and sorted-vec 0.8.6
+  • All referenced theorems compile (lake build); 28 defects identified in Rust source
+
+─── HIGH SEVERITY ─────────────────────────────────────────────────────────────
+
+  #1  Unvalidated from_pb → panics from corrupted state blobs
+      next.len()≠32, prev.len()%36≠0, prev too large for ctr — all assumed by
+      specs (NextKeyInternal, Get, Gc) but never checked in ChainEpochDirection::from_pb.
+      Fix: validate and return Err(StateDecode).
+
+  #24 Unauthenticated Ct2Sampled→KeysUnsampled epoch advance
+      A single 4-byte forged message [1,2,1,0] permanently deadlocks both parties.
+      recv_next_epoch consults neither MAC nor Authenticator.
+      Fix: require MAC verification before epoch state transition.
+
+─── MEDIUM SEVERITY ───────────────────────────────────────────────────────────
+
+  #2  u32 overflow in KeyHistory::get (at + max_ooo wraps at u32::MAX)
+      Fix: use checked_add / saturating_add.
+
+  #3  u64→usize truncation on 32-bit targets (chain trim_size)
+      Fix: guard with explicit range check or use u64 throughout.
+
+  #19 Chunk replacement poisoning persists through into_pb/from_pb
+      SortedSet::push replaces on duplicate x; attacker chunk overwrites honest
+      point → permanent decoder stall. Fix: reset decoder on MAC failure.
+
+  #25 Epoch-0 chain key emitted without any authentication
+      recv at epoch 0 returns key from initial_state; no MAC ever runs.
+      Fix: reject epoch 0 in recv or require authentication gate.
+
+  #28 Unvalidated ChainParams overflow (max_ooo ≥ 390,451,572)
+      Release builds silently wrap; key storage inverts meaning.
+      Fix: validate params in initial_state.
+
+─── LOW SEVERITY ──────────────────────────────────────────────────────────────
+
+  #4  hax_lib::assume! guards erased at runtime (multiple locations)
+  #5  SortedSet::push comment contradicts actual replacement semantics
+  #6  Encoder u32→u16 chunk-index truncation after 65,535 chunks
+  #7  PolyDecoder::is_complete never set → redundant reconstruction attempts
+  #8  usize overflow in trim_size on 32-bit (max_ooo ≥ 390M)
+  #9  VecDeque IntoIter model unsound (FunsExternal.lean)
+  #10 Source comment says "discard new" but code replaces old point
+  #11-18 Various spec-assumption gaps (polynomial, authenticator, round-robin)
+  #20 MapCollectBridge sorry → axiom gap in point_at_spec
+  #21 Chain::from_pb missing next_root/links/send_epoch validation
+  #22 Authenticator::from_pb admits empty root_key/mac_key
+  #23 RoundRobinEncoder panics on empty input (test-only)
+  #26-27 recv_key epoch-1 indexing, state-blob injection edge cases
+
+─── CLASSIFICATION SUMMARY ────────────────────────────────────────────────────
+
+  Category                          Count   Remote?
+  Unvalidated deserialization        12      No (state-blob injection required)
+  Integer overflow / truncation       5      No
+  Silent semantic corruption          4      No
+  Protocol-level DoS                  3      Auth peer / forged message
+  Spec model gaps                     4      N/A (proof infrastructure)
+
+  CWE mapping: CWE-20 (input validation), CWE-190 (integer overflow),
+               CWE-502 (deserialization), CWE-345 (insufficient auth)
+
+─── KEY TAKEAWAY ──────────────────────────────────────────────────────────────
+
+  The Lean specification theorems mechanically surface every invariant the Rust
+  code fails to establish. All 28 defects exist because from_pb / recv accept
+  inputs violating preconditions that specs must assume. The V1 protocol's
+  MAC-before-commit pattern prevents remote exploitation of most findings, but
+  SPQR's own API boundary is unsound without the proposed validation fixes.
+
+================================================================================

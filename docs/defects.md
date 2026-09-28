@@ -771,8 +771,250 @@ in any protocol path.
 
 ---
 
+## 24. Unauthenticated `Ct2Sampled → KeysUnsampled` epoch advance → one 4-byte forged message deadlocks the ratchet (MEDIUM, protocol-level DoS)
+
+**Specs that expose it**
+
+- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean` (`Message.deserialize_spec`):
+  the only facts established about an accepted message are the wire layout, `0 < msg.epoch`
+  and `at ≤ from.len()`. For `payloadTag .None` the message is exactly
+  `[1, varint(epoch), varint(index), 0]` — **no MAC, no chunk, nothing peer-derived**.
+- `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct2Sent/{From,Into}Pb.lean`: `Ct2Sent` carries only
+  `epoch` and `auth`; there is no spec (and no Rust code) that consults `auth` on the
+  `recv_next_epoch` edge. Every other state transition that *changes* the protocol state either
+  runs `verify_hdr`/`verify_ct` or is preceded by one.
+- `Spqr/Specs/Chain/Chain/AddEpoch.lean` requires `h_epoch : epoch_secret.epoch = current_epoch + 1`
+  and `Spqr/Specs/Chain/Chain/EpochIdx.lean` rejects `epoch > current_epoch`, i.e. the chain
+  layer *assumes* epochs advance in lock-step on both sides.
+
+**Rust defect** (`src/v1/chunked/states.rs` L513–526 → `src/v1/chunked/send_ct.rs` L295 →
+`src/v1/unchunked/send_ct.rs` L200–208)
+
+```rust
+Self::Ct2Sampled(state) => match msg.epoch.cmp(&state.epoch()) {
+    Ordering::Greater => {
+        if msg.epoch == state.epoch() + 1 {
+            Self::KeysUnsampled(state.recv_next_epoch(msg.epoch))   // no verify_*
+        } else { return Err(Error::EpochOutOfRange(msg.epoch)); }
+    }
+    …
+```
+
+`recv_next_epoch` (`unchunked/send_ct.rs`) only does `assert_eq!(epoch + 1, next_epoch)` and
+rebuilds `KeysUnsampled { epoch: epoch + 1, auth }`. The payload type is not even inspected: any
+`MessagePayload` with `epoch == self.epoch + 1` triggers it.
+
+The honest protocol only emits `epoch + 1` after the peer has received *all* `Ct2` chunks and
+derived the epoch secret, so this edge is meant to be reached only when the peer has already
+authenticated `ct2 ‖ mac`. Nothing in `recv` enforces that; the `Authenticator` — keyed per epoch
+precisely to bind transitions to the shared secret — is never consulted on this edge.
+
+**Consequence (reproduced).** With A in epoch 1 (still collecting `Ct2` chunks) and B in
+`Ct2Sampled(1)`, an on-path attacker delivers `[1, 2, 1, 0]` to B:
+
+| step | B | A |
+|---|---|---|
+| forged msg | `recv` → `Ok`, `key: Some(_)` (!), state `KeysUnsampled(2)`, chain `recv_key(1, 1)` consumed | — |
+| B sends | `Hdr` chunk at **epoch 2** | `recv` → `Err(EpochOutOfRange(2))` on every message, forever |
+| A sends | `Ct1Ack` at epoch 1 | B: `Ordering::Less` → ignored |
+
+B never sends the remaining `Ct2` chunks for epoch 1, so A can never complete epoch 1; A never
+sends epoch 2, so B never leaves `KeysUnsampled(2)`. **The PQ ratchet is permanently deadlocked in
+both directions by a single 4-byte unauthenticated message**, and `recv` additionally hands the
+caller a Double-Ratchet chain key (`r.key.is_some()`) for a message that was never authenticated.
+`d24_unauthenticated_epoch_advance_deadlocks_ratchet` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
+reproduces this end-to-end through the public `send`/`recv` API (debug and release).
+
+**Relation to other items.** Item 19 is a *chunk* poisoning that stalls one epoch on one side; this
+item needs no chunk at all and stalls both sides. `docs/bugSecurityRemote.md` (R‑1) observes that
+libsignal's clone-then-commit-after-MAC discards the mutated clone for a *network-only* attacker;
+that mitigation lives outside SPQR, does not apply to any other embedder of the crate, and does not
+protect against an authenticated-but-malicious peer (who can then blame the stall on the victim).
+
+**Fix**: gate the transition on authenticated evidence — e.g. only accept `epoch + 1` from a
+`Hdr` chunk *after* that header's MAC verifies (defer `recv_next_epoch` until
+`recv_hdr_chunk … Done`), or have the `epoch + 1` message carry `mac_hdr`-style authentication.
+At minimum, do not return a chain key for a payload of type `None` that changed the epoch.
+
+---
+
+## 25. Empty (0-byte) unauthenticated message finalises a V0 downgrade while `min_version == V0` (LOW–MEDIUM, downgrade / DoS)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Lib/DecodeState/CallOnce.lean`: an empty state decodes to
+  `{ inner := none, version_negotiation := none, chain := none }` — i.e. "V0, negotiation
+  closed".
+- `Spqr/Specs/Proto/PqRatchet/Version/TryFrom.lean` and `msg_version` (`lib.rs` L464–470):
+  `msg.is_empty() ⇒ Some(V0)`. There is no authentication anywhere in the negotiation path.
+
+**Rust defect** (`src/lib.rs` L377–412, L417–421)
+
+When `msg_version(msg) = V0 < state_version = V1` and `version_negotiation` is `Some(vn)` with
+`vn.min_version ≤ V0`, `recv` rebuilds the state with `init_inner(V0, …) = None` and
+`version_negotiation: None`, then falls into the `state_pb.inner == None` arm and returns
+`Recv { state: vec![], key: None }`. The **empty byte string** is thus a valid downgrade message
+that (a) requires no MAC or peer secret, (b) permanently disables the PQ ratchet for that session
+(`current_version` reports `NegotiationComplete(V0)`), and (c) makes every later honest V1 message
+a silent no-op (`Ordering::Greater` on an `inner: None` state returns `Ok` with `state: vec![]`).
+
+Reproduced by `d25_unauthenticated_v0_downgrade_with_empty_message` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
+
+**Impact**: the downgrade is *by design* while negotiation is open, but the trigger being the
+empty message means an intermediary that simply strips the `pq_ratchet` field from the first
+message (rather than forging anything) completes it. libsignal currently initialises with
+`min_version = V0` (see `docs/CorruptedBlobs.md` §15.4), so the window is real. Only the
+commit-after-MAC pattern of the host prevents persistence for a network-only attacker.
+
+**Fix**: require `min_version ≥ V1` by default, or only accept a downgrade from a message that
+also carries authenticated V0 content (not the empty string), and surface it to the host via a
+distinct `Error`/`SecretOutput` so it can decide whether to accept it.
+
+---
+
+## 26. `epoch == 0` accepted by every `*::from_pb`, then `msg.epoch - 1` underflows in `lib::send` (LOW)
+
+**Specs that expose it**
+
+- All eleven `Spqr/Specs/V1/Unchunked/{SendEk,SendCt}/Serialize/*/FromPb.lean` theorems prove
+  `Ok` with `epoch := pb.epoch` **for any `u64`** — no positivity is checked.
+- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean` proves `0 < msg.epoch` on
+  the *wire* path, so the protocol relies on `epoch ≥ 1` (both `new()` constructors start at 1,
+  and `lib.rs` computes `msg.epoch - 1` at L300 and L427).
+- `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct2Sent/FromPb.lean` docstring: "The call always
+  succeeds (no panic)".
+
+**Rust defect** (`src/lib.rs` L300; `src/v1/unchunked/*/serialize.rs`)
+
+```rust
+let (index, msg_key) = chain.send_key(msg.epoch - 1)?;     // lib.rs L300
+```
+
+A persisted blob whose inner `uc.epoch` is `0` (the prost default for a missing field) is accepted
+by `from_pb`; `States::send` then emits a `Message { epoch: 0, … }` and `lib::send` evaluates
+`0u64 - 1`:
+
+| Build | Behaviour (reproduced) |
+|---|---|
+| debug | **panic** `attempt to subtract with overflow` at `lib.rs:302` |
+| release | wraps to `u64::MAX` → `Err(EpochOutOfRange(18446744073709551615))` — every `send` fails, session stuck |
+
+`recv` has the same expression at L427 but is shielded by `deserialize`'s `epoch == 0` check.
+Reproduced by `d26_epoch_zero_state_underflows_in_send` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
+(Listed as a one-liner in `docs/reportI.md` §11; recorded here with the executable evidence.)
+
+**Fix**: reject `pb.epoch == 0` in the unchunked `from_pb` functions (same trust boundary as items
+1, 13, 14, 21, 22), and use `checked_sub` in `lib.rs`.
+
+---
+
+## 27. `lib::send` panics on `assert!(key.is_none())` when the state emits an `EpochSecret` but no chain is available (LOW–MEDIUM, panic from persisted state)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Lib/ChainFromVersionNegotiation/CallOnce.lean` and the `send` driver: the chain is
+  materialised only when `chain.is_some()` **or** `vn.min_version > V0`. There is no spec for
+  `send` itself (`#[hax_lib::fstar::verification_status(lax)]`, `lib.rs` L264), so the
+  `hax_lib::assume!(key.is_none())` at L292 is *unverified* and erased at runtime, leaving the
+  `assert!` at L293.
+- `HeaderReceived::send_ct1_chunk` (`src/v1/chunked/send_ct.rs` L120–139) unconditionally
+  returns `Some(EpochSecret)`; `Spqr/Specs/V1/Unchunked/SendCt/Serialize/HeaderReceived/FromPb.lean`
+  accepts any such state from disk.
+
+**Rust defect** (`src/lib.rs` L290–295)
+
+```rust
+let (index, msg_key, chain_pb) = match chain {
+    None => {
+        hax_lib::assume!(key.is_none());
+        assert!(key.is_none());          // ← panics
+        (0, vec![], None)
+    }
+```
+
+The `None` arm is reached when `state_pb.chain == None` and `vn.min_version == V0`. In the honest
+flow `recv` always persists `chain: Some(_)`, so the only V1 inner states that co-exist with
+`chain: None` are the two initial ones. But `from_pb` accepts **any** inner state alongside
+`chain: None` + an open V0-min negotiation; with inner `HeaderReceived` (or any other state whose
+`send` yields `Some(EpochSecret)`) the assertion fires — in **both** debug and release, because it
+is an `assert!`, not a `debug_assert!`.
+
+Reproduced by `d27_send_asserts_when_epoch_secret_but_no_chain` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
+(blob = honest `HeaderReceived` state with `chain` dropped and the original
+`version_negotiation` restored).
+
+**Fix**: return `Err(Error::ChainNotAvailable)` instead of asserting, or always materialise the
+chain from `version_negotiation` when a key is produced (mirroring `recv`'s `chain_from`).
+
+---
+
+## 28. `ChainParams` are never range-checked (`Error::InvalidParams` is dead) → `u32` overflow in `ChainEpochDirection::key`/`KeyHistory::get` with large `max_ooo_keys` (MEDIUM)
+
+**Specs that expose it**
+
+- `Spqr/Specs/Chain/ChainParams/MaxOooKeysOrDefault.lean`: result is `self.max_ooo_keys` for any
+  positive value — "always succeeds".
+- `Spqr/Specs/Chain/ChainParams/TrimSize.lean` needs `h_ooo : max_ooo_keys < 390451572`.
+- `Spqr/Specs/Chain/ChainEpochDirection/Key.lean` (`key_spec_*`) needs
+  `h_maxooo_bound : maxOoo < 390451572`, `h_at_bound : at ≤ U32.max − 390451572` and
+  `h_ooo_no_overflow : at + maxOoo ≤ U32.max`; `Get.lean`/`Key32.lean` need the same.
+  None of these is established by any constructor or deserialiser; the Rust carries them only as
+  `hax_lib::assume!` (`chain.rs` L86, L262–264, L275–277), erased at runtime.
+
+**Rust defect** (`src/chain.rs` L86, L192, L265, L279; `src/lib.rs` L128, L212–240)
+
+`ChainParams` is a public struct; `initial_state` copies it into the state blob unchanged and
+`Chain::new`/`Chain::from_pb` accept any `ChainParamsPB`. The variant
+`Error::InvalidParams(&'static str)` exists (`lib.rs` L128) but **is never constructed anywhere
+in `src/`**. With `max_ooo_keys = u32::MAX` (a natural way to spell "never trim"):
+
+| Build | `recv_key(0, 3)` on a fresh chain | then `recv_key(0, 1)` |
+|---|---|---|
+| debug | **panic** `attempt to add with overflow` at `chain.rs:279` (`self.ctr + max_ooo`) | — |
+| release | `Ok(32 bytes)`, but the wrapped test `ctr + max_ooo >= at` is *false*, so skipped keys 1, 2 are **never stored** | `Err(KeyTrimmed(1))` — `get`'s `at + max_ooo < current_ctr` wraps to `0 < 3` |
+
+I.e. in release the parameter's meaning inverts: "keep every out-of-order key" becomes "store none
+and report every out-of-order key as trimmed", silently losing message keys. `trim_size()` also
+overflows `usize` on 32-bit for `max_ooo ≥ 390 451 572` (item 8). Reproduced by
+`d28_unvalidated_chain_params_overflow_in_key` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
+
+**Impact**: local configuration only (params are never taken from the wire), but the crate's
+public API accepts them without complaint and the failure is silent in release. This is the
+runtime counterpart of the arithmetic hypotheses the chain specs cannot discharge (see
+`docs/invariantsSPQR.md` §3).
+
+**Fix**: validate in `initial_state` (and `Chain::from_pb`) and finally use the dead variant:
+
+```rust
+if params.max_ooo_keys >= 390_451_572 {
+    return Err(Error::InvalidParams("max_ooo_keys too large"));
+}
+if params.max_jump as u64 + params.max_ooo_keys as u64 > u32::MAX as u64 {
+    return Err(Error::InvalidParams("max_jump + max_ooo_keys overflows u32"));
+}
+```
+
+and replace the `+` at `chain.rs` L192/L265/L279 with `saturating_add`.
+
+---
+
 ## Notes / limitations
 
+- Items 24–28 (added 2026-09-27) come from auditing the *driver* layer (`src/lib.rs`,
+  `src/v1/chunked/states.rs`), which has no Lean spec of its own (`send` is
+  `verification_status(lax)`), against the hypotheses the chain/state specs require of it
+  (`h_epoch`, `epoch ≥ 1`, the `390451572` arithmetic bounds) and against the *absence* of any
+  authentication postcondition in `Message.deserialize_spec`. All five are reproduced through the
+  public `send`/`recv`/`initial_state` API in
+  [`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
+  (debug and release, scratch copy with `--features test-utils`, `--test-threads=1`). Item 24 is
+  the new top priority: it is the only finding where a single unauthenticated message deadlocks
+  *both* parties, and — unlike item 19 — needs no chunk data at all.
 - All findings are grounded in hypotheses the existing (proved) spec theorems require, or in
   postconditions they establish. Items 1, 19, 10, 20 and 21 are the recommended priorities
   (item 1 for robustness, item 19 for a concrete protocol-level DoS, item 10 for correcting

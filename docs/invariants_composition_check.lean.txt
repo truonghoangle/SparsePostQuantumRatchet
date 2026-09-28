@@ -1,0 +1,283 @@
+import Spqr.Specs.Chain.Chain.Defs
+/-! Scratch check (not part of the library): the per-direction invariant used by
+`recvKeyPre` is *inductive* under the postcondition `cedKeyPost` of `ChainEpochDirection.key`,
+under `next_key_spec`, and under `clear_next_spec` (modulo `next`). -/
+
+open Aeneas Aeneas.Std Result spqr
+
+namespace spqr.chain
+
+/-- Per-direction structural invariant (the part of `recvKeyPre` that talks about the state). -/
+def CedInv (ced : chain.ChainEpochDirection) : Prop :=
+  ced.next.length = 32 ∧
+  ced.prev.data.length % 36 = 0 ∧
+  ced.prev.data.length ≤ 36 * ced.ctr.val
+
+theorem cedKeyPost_preserves_CedInv
+    (self self' : chain.ChainEpochDirection) (ats : U32)
+    (params : proto.pq_ratchet.ChainParams)
+    (result : core.result.Result (alloc.vec.Vec U8) Error)
+    (h_inv : CedInv self)
+    (h_post : cedKeyPost self ats params result self') :
+    CedInv self' := by
+  obtain ⟨h_next, h_al, h_ctr⟩ := h_inv
+  obtain ⟨h_eq, h_lt, h_jump, h_adv⟩ := h_post
+  rcases lt_trichotomy ats self.ctr with h | h | h
+  · -- ats < ctr : `KeyHistory.get`
+    obtain ⟨hc, hn, hres⟩ := h_lt h
+    refine ⟨by rw [hn]; exact h_next, ?_, ?_⟩
+    · split at hres
+      · rcases hres with ⟨_, _, hp⟩ | ⟨_, _, hp, _⟩ <;> rw [hp] <;> exact h_al
+      · exact hres.2.2.2.1
+    · split at hres
+      · rcases hres with ⟨_, _, hp⟩ | ⟨_, _, hp, _⟩ <;> rw [hp, hc] <;> exact h_ctr
+      · rw [hres.2.2.1, hc]; omega
+  · -- ats = ctr : error, unchanged
+    obtain ⟨_, rfl⟩ := h_eq h
+    exact ⟨h_next, h_al, h_ctr⟩
+  · by_cases hj : ats.val - self.ctr.val ≤ (chain.maxJump params).val
+    · -- advance case
+      have hp := h_adv h hj
+      simp only [cedKeyAdvancePost] at hp
+      obtain ⟨_, hctr', hnext', _, hal', _, hle, _⟩ := hp
+      refine ⟨hnext', hal', ?_⟩
+      have : self'.ctr.val = ats.val := by rw [hctr']
+      rw [this]
+      have hlt : self.ctr.val < ats.val := (UScalar.lt_equiv _ _).mp h
+      omega
+    · -- KeyJump error, unchanged
+      obtain ⟨_, rfl⟩ := h_jump h (by omega)
+      exact ⟨h_next, h_al, h_ctr⟩
+
+/-- Logical send-epoch index inside the deque. -/
+def sendIdx (c : chain.Chain) : Nat :=
+  c.links.length.val - 1 - (c.current_epoch.val - c.send_epoch.val)
+
+/-- Per-slot invariant. `j` is the *physical* index; `hs` is the physical send-epoch index. -/
+def SlotInv (hs j : Nat) (ce : chain.ChainEpoch) : Prop :=
+  CedInv ce.recv ∧
+  ce.send.prev.data.length % 36 = 0 ∧
+  ce.send.prev.data.length ≤ 36 * ce.send.ctr.val ∧
+  (hs ≤ j → ce.send.next.length = 32)
+
+/-- Global chain invariant. -/
+def ChainInv (c : chain.Chain) : Prop :=
+  c.next_root.length = 32 ∧
+  1 ≤ c.links.length.val ∧
+  c.send_epoch.val ≤ c.current_epoch.val ∧
+  c.current_epoch.val - c.send_epoch.val < c.links.length.val ∧
+  c.links.head.val + c.links.length.val = c.links.buf.val.length ∧
+  (∀ j, c.links.head.val ≤ j → j < c.links.head.val + c.links.length.val →
+    ∀ ce, c.links.buf.val[j]? = some ce → SlotInv (c.links.head.val + sendIdx c) j ce)
+
+/-! ### `recv_key` preserves `ChainInv` (from `recvKeyPost` alone) -/
+theorem recvKeyPost_preserves_ChainInv (self self' : chain.Chain) (epoch : U64) (index : U32)
+    (result : core.result.Result (alloc.vec.Vec U8) Error)
+    (h_inv : ChainInv self)
+    (h_post : recvKeyPost self epoch index result self') :
+    ChainInv self' := by
+  obtain ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩ := h_inv
+  obtain ⟨h_err, h_ok⟩ := h_post
+  by_cases h_in : epoch.val ≤ self.current_epoch.val ∧
+      self.current_epoch.val - epoch.val < self.links.length.val
+  · obtain ⟨⟨hd, hce, hse, hnr, hp, hhd, hln, hbl, hwf', hoth⟩, hphys⟩ := h_ok h_in
+    have hidx : sendIdx self' = sendIdx self := by
+      simp only [sendIdx, hce, hse, hln]
+    refine ⟨by rw [hnr]; exact h_root, by rw [hln]; exact h_len1,
+      by rw [hce, hse]; exact h_se, by rw [hce, hse, hln]; exact h_diff,
+      by rw [hhd, hln, hbl]; exact h_wf, ?_⟩
+    intro j hj1 hj2 ce' hce'
+    simp only [hhd, hln] at hj1 hj2
+    rw [hidx, hhd]
+    by_cases hj : j = self.links.head.val + recvKeyIdx self epoch
+    · subst hj
+      revert hphys
+      cases h1 : self.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+      | none => simp
+      | some ce =>
+        cases h2 : self'.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+        | none => simp
+        | some ce2 =>
+          simp only
+          intro hep
+          rw [hce'] at h2
+          cases h2
+          obtain ⟨hsend, hcedpost⟩ := hep
+          obtain ⟨hr, hs1, hs2, hs3⟩ := h_slots _ hj1 hj2 ce h1
+          exact ⟨cedKeyPost_preserves_CedInv _ _ _ _ _ hr hcedpost,
+            by rw [hsend]; exact hs1, by rw [hsend]; exact hs2, by rw [hsend]; exact hs3⟩
+    · rw [hoth j hj] at hce'
+      exact h_slots j hj1 hj2 ce' hce'
+  · have hout : epoch.val > self.current_epoch.val ∨
+        self.current_epoch.val - epoch.val ≥ self.links.length.val := by omega
+    obtain ⟨_, rfl⟩ := h_err hout
+    exact ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩
+
+/-! ### `add_epoch` preserves `ChainInv` (from the `add_epoch_spec` postcondition) -/
+theorem addEpochPost_preserves_ChainInv (self result : chain.Chain) (epoch_secret : EpochSecret)
+    (h_epoch : epoch_secret.epoch.val = self.current_epoch.val + 1)
+    (h_inv : ChainInv self)
+    (hce : result.current_epoch = epoch_secret.epoch)
+    (hse : result.send_epoch = self.send_epoch)
+    (hnr : result.next_root.length = 32)
+    (hln : result.links.length.val = self.links.length.val + 1)
+    (hhd : result.links.head = self.links.head)
+    (newEpoch : chain.ChainEpoch)
+    (hbuf : result.links.buf.val = self.links.buf.val ++ [newEpoch])
+    (h_new : newEpoch.send.ctr = 0#u32 ∧ newEpoch.send.prev.data.length = 0 ∧
+      newEpoch.send.next.length = 32 ∧ newEpoch.recv.ctr = 0#u32 ∧
+      newEpoch.recv.prev.data.length = 0 ∧ newEpoch.recv.next.length = 32) :
+    ChainInv result := by
+  obtain ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩ := h_inv
+  obtain ⟨hn1, hn2, hn3, hn4, hn5, hn6⟩ := h_new
+  have hce' : result.current_epoch.val = self.current_epoch.val + 1 := by rw [hce, h_epoch]
+  have hidx : sendIdx result = sendIdx self := by
+    simp only [sendIdx, hce', hse, hln]; omega
+  have hbl : result.links.buf.val.length = self.links.buf.val.length + 1 := by
+    simp [hbuf]
+  refine ⟨hnr, by omega, by rw [hce', hse]; omega, by rw [hce', hse, hln]; omega,
+    by rw [hhd, hln, hbl]; omega, ?_⟩
+  intro j hj1 hj2 ce hcej
+  simp only [hidx, hhd, hln] at *
+  rw [hbuf] at hcej
+  by_cases hj : j < self.links.buf.val.length
+  · rw [List.getElem?_append_left hj] at hcej
+    exact h_slots j hj1 (by omega) ce hcej
+  · have hj' : j = self.links.buf.val.length := by
+      have := List.getElem?_eq_some_iff.mp hcej
+      simp only [List.length_append, List.length_singleton] at this
+      omega
+    subst hj'
+    rw [List.getElem?_append_right (le_refl _)] at hcej
+    simp at hcej
+    subst hcej
+    refine ⟨⟨hn6, by rw [hn5], by rw [hn5]; omega⟩, by rw [hn2], by rw [hn2]; omega, fun _ => hn3⟩
+
+/-! ### `send_key` preserves `ChainInv` (from `sendKeyPost` alone) -/
+theorem sendKeyPost_preserves_ChainInv (self self' : chain.Chain) (epoch : U64)
+    (result : core.result.Result (U32 × alloc.vec.Vec U8) Error)
+    (h_inv : ChainInv self)
+    (h_post : sendKeyPost self epoch result self') :
+    ChainInv self' := by
+  obtain ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩ := h_inv
+  obtain ⟨h_dec, h_oor, h_ok⟩ := h_post
+  by_cases h_lt : epoch.val < self.send_epoch.val
+  · obtain ⟨_, rfl⟩ := h_dec h_lt
+    exact ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩
+  · have h_ge : self.send_epoch.val ≤ epoch.val := by omega
+    by_cases h_in : epoch.val ≤ self.current_epoch.val ∧
+        self.current_epoch.val - epoch.val < self.links.length.val
+    · obtain ⟨hd, hce, hse, hnr, hp, ⟨hhd, hln, hbl, hwf', hei, hsame, hmoved, hout⟩, hslot⟩ :=
+        h_ok h_ge h_in.1 h_in.2
+      have hidx_val : sendKeyIdx self epoch =
+          self.links.length.val - 1 - (self.current_epoch.val - epoch.val) := rfl
+      have hei_le : sendKeyEi self epoch ≤ sendKeyIdx self epoch := by
+        simp only [sendKeyEi]; split <;> simp
+      have hsi_old : sendIdx self ≤ sendKeyIdx self epoch := by
+        simp only [sendIdx, hidx_val]; omega
+      have hsi_new : sendIdx self' = sendKeyEi self epoch := by
+        simp only [sendIdx, hce, hse, hln]; omega
+      refine ⟨by rw [hnr]; exact h_root, by omega, by rw [hce, hse]; exact h_in.1,
+        by rw [hce, hse, hln]; omega, by rw [hhd, hln, hbl]; omega, ?_⟩
+      intro j hj1 hj2 ce' hce'
+      rw [hsi_new, hhd]
+      rw [hhd] at hj1
+      rw [hhd, hln] at hj2
+      have hj1o : self.links.head.val ≤ j := by omega
+      have hj2o : j < self.links.head.val + self.links.length.val := by omega
+      rcases lt_trichotomy j (self.links.head.val + sendKeyIdx self epoch) with hjlt | hjeq | hjgt
+      · by_cases hmv : self.send_epoch = self'.send_epoch
+        · obtain ⟨_, _, hoth⟩ := hsame hmv
+          rw [hoth j (by omega)] at hce'
+          obtain ⟨hr, hs1, hs2, _⟩ := h_slots j hj1o hj2o ce' hce'
+          refine ⟨hr, hs1, hs2, fun h => ?_⟩
+          have : sendKeyEi self epoch = sendKeyIdx self epoch := by
+            have : self.send_epoch = epoch := by rw [hmv, hse]
+            simp only [sendKeyEi, if_pos this]
+          omega
+        · obtain ⟨ce0, ce0', h0, h0', hr, hnext, hctr, hprev⟩ := hmoved hmv j hj1 hjlt
+          rw [hce'] at h0'; cases h0'
+          obtain ⟨hr0, hs1, hs2, _⟩ := h_slots j hj1o hj2o ce0 h0
+          refine ⟨by rw [hr]; exact hr0, by rw [hprev]; exact hs1,
+            by rw [hprev, hctr]; exact hs2, fun h => absurd h (by omega)⟩
+      · subst hjeq
+        revert hslot
+        cases h1 : self.links.buf.val[self.links.head.val + sendKeyIdx self epoch]? with
+        | none => simp
+        | some ce =>
+          cases h2 : self'.links.buf.val[self.links.head.val + sendKeyIdx self epoch]? with
+          | none => simp
+          | some ce2 =>
+            simp only
+            rintro ⟨i, key, _, hi, _, _, hrecv, hctr, hnl, _, hprev⟩
+            rw [hce'] at h2; cases h2
+            obtain ⟨hr, hs1, hs2, hs3⟩ := h_slots _ hj1o hj2o ce h1
+            refine ⟨by rw [hrecv]; exact hr, by rw [hprev]; exact hs1, ?_, fun _ => ?_⟩
+            · rw [hprev, hctr, hi]; omega
+            · rw [hnl]; exact hs3 (by omega)
+      · rw [hout j (Or.inr hjgt)] at hce'
+        obtain ⟨hr, hs1, hs2, hs3⟩ := h_slots j hj1o hj2o ce' hce'
+        exact ⟨hr, hs1, hs2, fun _ => hs3 (by omega)⟩
+    · have hout : epoch.val > self.current_epoch.val ∨
+          self.current_epoch.val - epoch.val ≥ self.links.length.val := by omega
+      obtain ⟨_, rfl⟩ := h_oor h_ge hout
+      exact ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩
+
+/-! ### `ChainInv` discharges the *structural* hypotheses of the top-level specs. -/
+
+theorem ChainInv_gives_send_key_structural (self : chain.Chain) (epoch : U64)
+    (h_inv : ChainInv self)
+    (h_ge : self.send_epoch.val ≤ epoch.val) (h_le : epoch.val ≤ self.current_epoch.val)
+    (h_back : self.current_epoch.val - epoch.val < self.links.length.val) :
+    self.links.head.val + self.links.length.val ≤ self.links.buf.val.length ∧
+    match self.links.buf.val[self.links.head.val + sendKeyIdx self epoch]? with
+    | none => True
+    | some ce => ce.send.next.length = 32 := by
+  obtain ⟨_, _, _, _, h_wf, h_slots⟩ := h_inv
+  refine ⟨by omega, ?_⟩
+  cases h : self.links.buf.val[self.links.head.val + sendKeyIdx self epoch]? with
+  | none => trivial
+  | some ce =>
+    have hidx : sendKeyIdx self epoch < self.links.length.val := by
+      simp only [sendKeyIdx]; omega
+    have hsi : sendIdx self ≤ sendKeyIdx self epoch := by
+      simp only [sendIdx, sendKeyIdx]; omega
+    exact (h_slots _ (by omega) (by omega) ce h).2.2.2 (by omega)
+
+theorem ChainInv_gives_recv_key_structural (self : chain.Chain) (epoch : U64)
+    (h_inv : ChainInv self)
+    (h_le : epoch.val ≤ self.current_epoch.val)
+    (h_back : self.current_epoch.val - epoch.val < self.links.length.val) :
+    match self.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+    | none => True
+    | some ce => CedInv ce.recv := by
+  obtain ⟨_, _, _, _, h_wf, h_slots⟩ := h_inv
+  cases h : self.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+  | none => trivial
+  | some ce =>
+    have hidx : recvKeyIdx self epoch < self.links.length.val := by
+      simp only [recvKeyIdx]; omega
+    exact (h_slots _ (by omega) (by omega) ce h).1
+
+/-! ### `Chain.new` establishes `ChainInv` (from the `new_spec` postcondition shape). -/
+theorem newPost_establishes_ChainInv (c : chain.Chain) (epoch : chain.ChainEpoch)
+    (hce : c.current_epoch = 0#u64) (hse : c.send_epoch = 0#u64)
+    (hnr : c.next_root.length = 32)
+    (hln : c.links.length = 1#usize) (hhd : c.links.head = 0#usize)
+    (hbuf : c.links.buf.val = [epoch])
+    (h_ep : epoch.send.ctr = 0#u32 ∧ epoch.send.prev.data.length = 0 ∧
+      epoch.send.next.length = 32 ∧ epoch.recv.ctr = 0#u32 ∧
+      epoch.recv.prev.data.length = 0 ∧ epoch.recv.next.length = 32) :
+    ChainInv c := by
+  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h_ep
+  refine ⟨hnr, by simp [hln], by simp [hce, hse], by simp [hce, hse, hln],
+    by simp [hhd, hln, hbuf], ?_⟩
+  intro j hj1 hj2 ce hj
+  simp only [hhd, hln] at hj1 hj2
+  simp only [UScalar.ofNatCore_val_eq] at hj1 hj2
+  have : j = 0 := by omega
+  subst this
+  simp [hbuf] at hj; subst hj
+  exact ⟨⟨h6, by rw [h5], by rw [h5]; omega⟩, by rw [h2], by rw [h2]; omega, fun _ => h3⟩
+
+end spqr.chain

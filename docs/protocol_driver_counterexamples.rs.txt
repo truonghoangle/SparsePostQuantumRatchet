@@ -1,0 +1,183 @@
+// Scratch probes for candidate defects 24-28 (not part of the pinned upstream tree).
+#[cfg(test)]
+mod t {
+    use crate::proto::pq_ratchet as pqrpb;
+    use crate::v1::chunked::states as v1states;
+    use crate::*;
+    use prost::Message as _;
+    use rand::TryRngCore;
+    use rand_core::OsRng;
+
+    fn init(dir: Direction, min: Version) -> SerializedState {
+        initial_state(Params {
+            version: Version::V1,
+            min_version: min,
+            direction: dir,
+            auth_key: &[41u8; 32],
+            chain_params: ChainParams::default(),
+        })
+        .unwrap()
+    }
+
+    fn states_of(state: &SerializedState) -> v1states::States {
+        let pb = pqrpb::PqRatchetState::decode(state.as_slice()).unwrap();
+        match pb.inner.unwrap() {
+            pqrpb::pq_ratchet_state::Inner::V1(v1) => v1states::States::from_pb(v1).unwrap(),
+        }
+    }
+
+    fn epoch_of(state: &SerializedState) -> Epoch {
+        match states_of(state) {
+            v1states::States::KeysUnsampled(s) => s.epoch(),
+            v1states::States::KeysSampled(s) => s.epoch(),
+            v1states::States::HeaderSent(s) => s.epoch(),
+            v1states::States::Ct1Received(s) => s.epoch(),
+            v1states::States::EkSentCt1Received(s) => s.epoch(),
+            v1states::States::NoHeaderReceived(s) => s.epoch(),
+            v1states::States::HeaderReceived(s) => s.epoch(),
+            v1states::States::Ct1Sampled(s) => s.epoch(),
+            v1states::States::EkReceivedCt1Sampled(s) => s.epoch(),
+            v1states::States::Ct1Acknowledged(s) => s.epoch(),
+            v1states::States::Ct2Sampled(s) => s.epoch(),
+        }
+    }
+
+    fn is_ct2_sampled(state: &SerializedState) -> bool {
+        matches!(states_of(state), v1states::States::Ct2Sampled(_))
+    }
+
+    /// 24: forged `[V1, epoch+1, index, None]` (no MAC) moves the Ct2Sampled party to the
+    /// next epoch; the peer, still in epoch e, rejects every later message -> deadlock.
+    #[test]
+    fn d24_unauthenticated_epoch_advance_deadlocks_ratchet() {
+        let mut rng = OsRng.unwrap_err();
+        let mut a = init(Direction::A2B, Version::V1);
+        let mut b = init(Direction::B2A, Version::V1);
+        let mut rounds = 0;
+        while !is_ct2_sampled(&b) {
+            let s = send(&a, &mut rng).unwrap();
+            a = s.state;
+            b = recv(&b, &s.msg).unwrap().state;
+            let s = send(&b, &mut rng).unwrap();
+            b = s.state;
+            a = recv(&a, &s.msg).unwrap().state;
+            rounds += 1;
+            assert!(rounds < 200);
+        }
+        assert_eq!(epoch_of(&b), 1);
+        assert_eq!(epoch_of(&a), 1, "A has not yet completed epoch 1");
+
+        // Attacker: version=1, epoch=2 (varint), index=1 (varint), type None=0.
+        let forged: SerializedMessage = vec![1, 2, 1, 0];
+        let r = recv(&b, &forged).expect("forged message is accepted");
+        assert!(r.key.is_some(), "a chain key was even derived for the forgery");
+        let b2 = r.state;
+        assert_eq!(epoch_of(&b2), 2, "B jumped to epoch 2 without any MAC");
+        assert!(matches!(states_of(&b2), v1states::States::KeysUnsampled(_)));
+
+        for _ in 0..50 {
+            let s = send(&b2, &mut rng).unwrap();
+            let e = recv(&a, &s.msg).err().expect("A must reject epoch-2 msgs");
+            assert!(matches!(e, Error::EpochOutOfRange(2)), "{e:?}");
+            let s = send(&a, &mut rng).unwrap();
+            a = s.state;
+            let _ = recv(&b2, &s.msg).unwrap();
+        }
+        println!("d24: B at epoch 2 (KeysUnsampled), A stuck at epoch {} -- deadlocked", epoch_of(&a));
+    }
+
+    /// 25: a single unauthenticated *empty* message forces V0 while min_version == V0.
+    #[test]
+    fn d25_unauthenticated_v0_downgrade_with_empty_message() {
+        let b = init(Direction::B2A, Version::V0);
+        assert!(matches!(current_version(&b).unwrap(), CurrentVersion::StillNegotiating { .. }));
+        let r = recv(&b, &vec![]).unwrap();
+        assert!(r.state.is_empty(), "state collapsed to V0 (empty)");
+        assert!(matches!(current_version(&r.state).unwrap(), CurrentVersion::NegotiationComplete(Version::V0)));
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B, Version::V0);
+        let s = send(&a, &mut rng).unwrap();
+        let r2 = recv(&r.state, &s.msg).unwrap();
+        assert!(r2.state.is_empty() && r2.key.is_none());
+        println!("d25: one empty message => permanent V0");
+    }
+
+    /// 26: `epoch == 0` accepted by `from_pb`; `send` then evaluates `msg.epoch - 1`.
+    #[test]
+    fn d26_epoch_zero_state_underflows_in_send() {
+        let mut rng = OsRng.unwrap_err();
+        let a = init(Direction::A2B, Version::V1);
+        let mut pb = pqrpb::PqRatchetState::decode(a.as_slice()).unwrap();
+        if let Some(pqrpb::pq_ratchet_state::Inner::V1(ref mut v1)) = pb.inner {
+            if let Some(pqrpb::v1_state::InnerState::KeysUnsampled(ref mut ku)) = v1.inner_state {
+                ku.uc.as_mut().unwrap().epoch = 0;
+            } else {
+                panic!("unexpected state");
+            }
+        }
+        let blob = pb.encode_to_vec();
+        assert_eq!(epoch_of(&blob), 0, "from_pb accepts epoch 0");
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| send(&blob, &mut rng)));
+        match res {
+            Err(_) => println!("d26: send panicked (debug overflow on `msg.epoch - 1`)"),
+            Ok(Ok(_)) => panic!("send unexpectedly succeeded"),
+            Ok(Err(e)) => println!("d26: send returned Err({e:?}) (release wrap to u64::MAX)"),
+        }
+    }
+
+    /// 27: `HeaderReceived` (which emits an EpochSecret on send) + `chain: None` +
+    /// `min_version == V0` => `assert!(key.is_none())` panics in `lib::send`.
+    #[test]
+    fn d27_send_asserts_when_epoch_secret_but_no_chain() {
+        let mut rng = OsRng.unwrap_err();
+        let mut a = init(Direction::A2B, Version::V1);
+        let b = init(Direction::B2A, Version::V0);
+        let mut b_states = b.clone();
+        for _ in 0..3 {
+            let s = send(&a, &mut rng).unwrap();
+            a = s.state;
+            b_states = recv(&b_states, &s.msg).unwrap().state;
+        }
+        assert!(matches!(states_of(&b_states), v1states::States::HeaderReceived(_)));
+        let mut pb = pqrpb::PqRatchetState::decode(b_states.as_slice()).unwrap();
+        let orig = pqrpb::PqRatchetState::decode(b.as_slice()).unwrap();
+        pb.chain = None;
+        pb.version_negotiation = orig.version_negotiation;
+        let blob = pb.encode_to_vec();
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| send(&blob, &mut rng)));
+        assert!(res.is_err(), "expected panic from assert!(key.is_none())");
+        println!("d27: send panicked on assert!(key.is_none())");
+    }
+
+    /// 28: `ChainParams` is never validated (`Error::InvalidParams` is dead); a huge
+    /// `max_ooo_keys` overflows `self.ctr + max_ooo` (u32) in `ChainEpochDirection::key`.
+    #[test]
+    fn d28_unvalidated_chain_params_overflow_in_key() {
+        let params = ChainParams { max_ooo_keys: u32::MAX, max_jump: 10 };
+        let mut c = chain::Chain::new(b"k", Direction::A2B, params.into_pb_test()).unwrap();
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.recv_key(0, 3)));
+        match res {
+            Err(_) => println!("d28: recv_key panicked (debug u32 overflow at chain.rs L265/L279)"),
+            Ok(r) => println!("d28: recv_key returned {:?} (release wrap)", r.map(|k| k.len())),
+        }
+        // Release semantics: with max_ooo = u32::MAX ("keep everything"), the wrapped
+        // `self.ctr + max_ooo >= at` test is false, so skipped keys are never stored.
+        let mut c2 = chain::Chain::new(b"k", Direction::A2B, params.into_pb_test()).unwrap();
+        if let Ok(Ok(_)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c2.recv_key(0, 3))) {
+            let ooo = c2.recv_key(0, 1);
+            println!("d28: release: after recv_key(0,3), recv_key(0,1) = {:?}", ooo.as_ref().map(|k| k.len()));
+            // `get`: `at + max_ooo < current_ctr` wraps (1 + u32::MAX = 0 < 3) => KeyTrimmed,
+            // the opposite of the requested "never trim" semantics.
+            assert!(matches!(ooo, Err(Error::KeyTrimmed(1))));
+        }
+        let st = initial_state(Params {
+            version: Version::V1,
+            min_version: Version::V1,
+            direction: Direction::A2B,
+            auth_key: &[1u8; 32],
+            chain_params: params,
+        });
+        assert!(st.is_ok(), "no InvalidParams ever returned");
+    }
+}
+

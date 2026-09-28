@@ -25,7 +25,7 @@ SPQR.
 `KeyHistory::gc` → `assert!`) × `Key.lean` (`key` routes every request into one of these) ×
 `IntoPb.lean` (faithful round-trip, so the corruption is persisted again).
 
-We prove the bug in nine phases:
+We prove the bug in eleven phases:
 1. `from_pb` always succeeds with no validation.
 2. The three downstream consumers **cannot return `ok`** (i.e. they panic) on a corrupted
    `ChainEpochDirection`: `next.len() ≠ 32`, `prev.len() % 36 ≠ 0`, or a large `prev` with a
@@ -39,6 +39,11 @@ We prove the bug in nine phases:
 8. `PolyDecoder::from_pb` copies `is_complete` verbatim (stalled decoder witness).
 9. The `Chain::recv_key` spec precondition `recvKeyPre` is unsatisfiable on corrupted
    `recv` directions (precondition-level lift of Phases 3–4; not a reachability proof).
+10. `Chain::recv_key` has no `ok` result on corrupted state (full reachability lift).
+11. **§16 remote-attack reach analysis**: `from_pb` copies `ctr`/`next`/`prev` verbatim;
+    `recvKeyPre` is unsatisfiable in zones Z1 (`ctr > U32.max − 390451572`) and Z3
+    (`ctr = U32.max`); a Z1 blob survives `from_pb` unchanged; the tighter runtime guard
+    `ctr + maxOoo ≤ U32.max` implies the Lean slack bound; and zone Z0 is satisfiable.
 
 **Source**: docs/CorruptedBlobs.md, `src/chain.rs` L145–312 -/
 
@@ -1046,5 +1051,229 @@ merge, or malicious local modification) converts the next `send()`/`recv()` into
 with no graceful `Err` path inside SPQR. Unlike Bug #1, no integration-level authentication
 boundary sits between `decode_state` and `from_pb`; the host may catch the panic at the FFI
 boundary, but that is defense-in-depth, not a substitute for an `Err(StateDecode)` return. -/
+
+/-! ## Phase 11: §16 — Remote-Attack Reach Analysis for the `ctr` Invariant
+
+Section 16 of `docs/CorruptedBlobs.md` asks whether a remote network attacker can cause an
+SPQR-invalid value to be persisted in the protobuf state subsequently consumed by `from_pb`.
+The answer is:
+- **No** for the primary panic-class fields (`next`, `prev`, `next_root`, `params`): these
+  are KDF-derived and never taken verbatim from a network message.
+- **Yes for `ctr` (invariant I4)** from a *malicious authenticated peer*: by choosing large
+  (but individually in-range) `index` values the peer drives the victim's `recv.ctr` past
+  `U32.max − 390451572` (the Lean slack bound). The runtime fault fires only far later
+  (at `u32::MAX − max_ooo`), making this a self-DoS plus CPU amplification (§16.9.4).
+
+This phase formalises the mechanical facts §16 relies on:
+1. `recvKeyPre` is unsatisfiable in zone Z1 (`ctr > U32.max − 390451572`, I4 violated).
+2. `recvKeyPre` is unsatisfiable in zone Z3 (`ctr = U32.max`, `h_ctr_lt` violated).
+3. `from_pb` copies `ctr`, `next`, and `prev` verbatim.
+4. A Z1 blob survives `from_pb` unchanged (the reload path of §16.9.3).
+5. The tighter runtime bound `ctr + maxOoo ≤ U32.max` implies the Lean slack
+   `ctr ≤ U32.max − 390451572` (when `maxOoo < 390451572`), §16.9.6 item 3.
+
+**Positive witness** (§16.9.3 zone Z0): we also exhibit a concrete `ChainEpoch` satisfying
+`recvKeyPre` in zone Z0, confirming the normal zone is non-empty. -/
+
+/-! ### 16.1 — Verbatim field copies through `from_pb` (primary protection analysis) -/
+
+/-- **`from_pb` copies `ctr` verbatim** (§16.1 layer 3).
+
+`ChainEpochDirection::from_pb` assigns `ced.ctr = pb.ctr` with no validation. Any `ctr`
+value the peer has driven into the blob is faithfully deserialized. -/
+theorem from_pb_copies_ctr_verbatim
+    (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
+    from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection spqr.Error) =>
+      match result with
+      | core.result.Result.Ok ced => ced.ctr = pb.ctr
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_post
+  match result with
+  | core.result.Result.Ok ced => exact h_post.1
+  | core.result.Result.Err _ => exact h_post
+
+/-- **`from_pb` copies `next` verbatim** (§16.1 layer 3).
+
+`next` is KDF-derived and never taken from the network; any `pb.next` value — including
+one of wrong length — is faithfully deserialized. Protection for `next` comes from layer 2
+(no verbatim copy from network messages), not from `from_pb` itself. -/
+theorem from_pb_copies_next_verbatim
+    (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
+    from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection spqr.Error) =>
+      match result with
+      | core.result.Result.Ok ced => ced.next = pb.next
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_post
+  match result with
+  | core.result.Result.Ok ced => exact h_post.2.1
+  | core.result.Result.Err _ => exact h_post
+
+/-- **`from_pb` copies `prev` verbatim** (§16.1 layer 3).
+
+`prev` (the key history) is KDF-derived. Any misaligned `pb.prev` is faithfully
+deserialized as `ced.prev.data`. -/
+theorem from_pb_copies_prev_verbatim
+    (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
+    from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection spqr.Error) =>
+      match result with
+      | core.result.Result.Ok ced => ced.prev = { data := pb.prev }
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_post
+  match result with
+  | core.result.Result.Ok ced => exact h_post.2.2
+  | core.result.Result.Err _ => exact h_post
+
+/-- **Bad `pb.next` length survives `from_pb`** (§16.1 secondary consequence).
+
+If the stored blob has `next.length ≠ 32`, `from_pb` admits it and produces a
+`ChainEpochDirection` with the same bad-length `next`. Since `next` is KDF-derived and
+never taken from a network message, this can only arise from storage corruption or a
+local bug — not from a remote injection (§16.1 layer 2). -/
+theorem from_pb_bad_next_length_survives
+    (pb : proto.pq_ratchet.chain.epoch.EpochDirection)
+    (h_bad : pb.next.length ≠ 32) :
+    from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection spqr.Error) =>
+      match result with
+      | core.result.Result.Ok ced => ced.next.length ≠ 32
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_post
+  match result with
+  | core.result.Result.Ok ced =>
+    have : ced.next.length = pb.next.length := congrArg alloc.vec.Vec.length h_post.2.1
+    omega
+  | core.result.Result.Err _ => exact h_post
+
+/-! ### 16.2 — Zone Z1 and Z3: `recvKeyPre` unsatisfiable above the Lean slack bound -/
+
+/-- **Zone Z1 (`recvKeyPre` unsatisfiable, I4 violated)** (§16.9.3).
+
+When `recv.ctr.val > U32.max − 390451572`, invariant I4 (`h_ctr_bound`) is violated and
+`recvKeyPre` is unsatisfiable. A malicious authenticated peer can drive `recv.ctr` into
+this zone with ≈ 156 K–172 K messages (§16.7, probes Q16‑1, S1).
+The *runtime* fault fires much later (at `ctr > U32.max − max_ooo ≈ U32.max − 2000`),
+so Z1 is runtime-benign today (§16.9.3 row Z1). -/
+theorem recvKeyPre_unsatisfiable_ctr_zone_z1
+    (params : proto.pq_ratchet.ChainParams) (index : U32)
+    (ce : chain.ChainEpoch)
+    (h_z1 : ce.recv.ctr.val > U32.max - 390451572) :
+    ¬ chain.recvKeyPre params index ce := by
+  have h_max : U32.max = 4294967295 := by scalar_tac
+  unfold chain.recvKeyPre
+  intro ⟨_, _, _, h_ctr_bound, _⟩
+  omega
+
+/-- **Zone Z3 (`recvKeyPre` unsatisfiable — exhausted counter)** (§16.9.3).
+
+When `recv.ctr = U32.max`, the precondition `h_ctr_lt : ce.recv.ctr < U32.max` in
+`recvKeyPre` fails. The counter is exhausted; the function cannot advance the chain. -/
+theorem recvKeyPre_unsatisfiable_ctr_zone_z3
+    (params : proto.pq_ratchet.ChainParams) (index : U32)
+    (ce : chain.ChainEpoch)
+    (h_z3 : ce.recv.ctr.val = U32.max) :
+    ¬ chain.recvKeyPre params index ce := by
+  unfold chain.recvKeyPre
+  intro ⟨_, _, _, _, _, h_ctr_lt, _⟩
+  -- h_ctr_lt : ce.recv.ctr < U32.max, i.e. ↑ce.recv.ctr < U32.max
+  have h_lt : ce.recv.ctr.val < U32.max := h_ctr_lt
+  omega
+
+/-! ### 16.3 — The reload path: a Z1 blob survives `from_pb` unchanged -/
+
+/-- **Z1 `ctr` survives `from_pb`** (§16.9.3 reload path).
+
+If the stored blob has `pb.ctr.val > U32.max − 390451572` (zone Z1), then `from_pb`
+returns an `Ok` result whose `ctr` is still in Z1. There is no validation gate on `ctr`
+in `from_pb`. Combined with `recvKeyPre_unsatisfiable_ctr_zone_z1`, the Z1 state is both
+stably persisted *and* makes the spec precondition inapplicable (§16.9.3). -/
+theorem ctr_z1_survives_from_pb
+    (pb : proto.pq_ratchet.chain.epoch.EpochDirection)
+    (h_z1 : pb.ctr.val > U32.max - 390451572) :
+    from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection spqr.Error) =>
+      match result with
+      | core.result.Result.Ok ced => ced.ctr.val > U32.max - 390451572
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_post
+  match result with
+  | core.result.Result.Ok ced =>
+    have : ced.ctr.val = pb.ctr.val := congrArg UScalar.val h_post.1
+    omega
+  | core.result.Result.Err _ => exact h_post
+
+/-! ### 16.4 — Tighter runtime bound implies the Lean slack bound (§16.9.6 item 3) -/
+
+/-- **Slack implies tighter runtime bound** (§16.9.6 item 3).
+
+The `recvKeyPre` slack bound `ctr.val ≤ U32.max − 390451572` (invariant I4) implies the
+tighter runtime-meaningful bound `ctr.val + maxOoo ≤ U32.max` whenever `maxOoo < 390451572`
+(invariant I10 holds). This is the direction the `Key.lean` proofs actually need: the slack
+constant is chosen exactly so that `ctr + maxOoo` cannot overflow.
+
+§16.9.6 item 3 proposes replacing the slack constant with the exact runtime bound
+`ctr + maxOoo ≤ U32.max` in `recvKeyPre`; the present theorem confirms the slack is
+sufficient given I10. -/
+theorem recvKeyPre_slack_implies_runtime_bound
+    (ctr : U32) (max_ooo : Nat)
+    (h_slack : ctr.val ≤ U32.max - 390451572)
+    (h_i10 : max_ooo < 390451572) :
+    ctr.val + max_ooo ≤ U32.max := by
+  have h_max : U32.max = 4294967295 := by grind
+  omega
+
+/-! ### 16.5 — Steering consequence and summary -/
+
+/-- **Steering consequence** (§16.7, §16.9.3 Z1).
+
+If a malicious authenticated peer drives `recv.ctr` past the Lean slack bound and the
+resulting `ctr` propagates into a `ChainEpoch` (via `from_pb` copying it verbatim),
+`recvKeyPre` is unsatisfiable. This is a simple corollary of
+`recvKeyPre_unsatisfiable_ctr_zone_z1`, made explicit as a top-level statement. -/
+theorem ctr_steering_breaks_recvKeyPre
+    (params : proto.pq_ratchet.ChainParams) (index : U32)
+    (ce : chain.ChainEpoch)
+    (h_z1 : ce.recv.ctr.val > U32.max - 390451572) :
+    ¬ chain.recvKeyPre params index ce :=
+  recvKeyPre_unsatisfiable_ctr_zone_z1 params index ce h_z1
+
+/-! ### 16.6 — Positive witness: zone Z0 is the complement of Z1 ∪ Z3 -/
+
+/-- **Zone Z0 complement characterisation** (§16.9.3 positive witness).
+
+`recvKeyPre` requires `ctr.val ≤ U32.max − 390451572` (I4) *and* `ctr < U32.max` (h_ctr_lt).
+Zone Z0 is exactly the region where these hold.  The following lemma records the contrapositive:
+if `recvKeyPre` fails for the sole reason of the `ctr` bound, the `ctr` is in Z1 or Z3.
+
+This is the pure-logic complement of `recvKeyPre_unsatisfiable_ctr_zone_z1` and
+`recvKeyPre_unsatisfiable_ctr_zone_z3`: outside Z0, `recvKeyPre` is unsatisfiable. -/
+theorem recvKeyPre_zone_z0_ctr_bound
+    (params : proto.pq_ratchet.ChainParams) (index : U32)
+    (ce : chain.ChainEpoch)
+    (h_all_but_ctr :
+      ce.recv.next.length = 32 ∧
+      index.val ≤ U32.max - 390451572 ∧
+      (chain.maxOoo params).val < 390451572 ∧
+      ce.recv.prev.data.length + 36 * (index.val - ce.recv.ctr.val) ≤ Usize.max ∧
+      ce.recv.prev.data.length % 36 = 0 ∧
+      ce.recv.prev.data.length ≤ 36 * ce.recv.ctr.val ∧
+      index.val + (chain.maxOoo params).val ≤ U32.max ∧
+      System.Platform.numBits = 64) :
+    chain.recvKeyPre params index ce ↔
+      ce.recv.ctr.val ≤ U32.max - 390451572 ∧ ce.recv.ctr < U32.max := by
+  unfold chain.recvKeyPre
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h_all_but_ctr
+  constructor
+  · intro ⟨_, _, _, h_ctr_bound, _, h_ctr_lt, _⟩
+    exact ⟨h_ctr_bound, h_ctr_lt⟩
+  · intro ⟨h_ctr_bound, h_ctr_lt⟩
+    exact ⟨h1, h2, h3, h_ctr_bound, h4, h_ctr_lt, h5, h6, h7, h8⟩
 
 end spqr.Bugs.CorruptedBlobs

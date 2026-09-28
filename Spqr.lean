@@ -203,6 +203,14 @@ import Spqr.Specs.Encoding.Polynomial.Pt.PartialCmp
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.IncrementalMlkem768.FlipEndianness
 import Spqr.Specs.IncrementalMlkem768.Generate
+import Spqr.Specs.Invariants.Chain.AddEpoch
+import Spqr.Specs.Invariants.Chain.Composition
+import Spqr.Specs.Invariants.Chain.New
+import Spqr.Specs.Invariants.Chain.RecvKey
+import Spqr.Specs.Invariants.Chain.SendKey
+import Spqr.Specs.Invariants.ChainEpochDirection.FromPb
+import Spqr.Specs.Invariants.ChainEpochDirection.Key
+import Spqr.Specs.Invariants.Defs
 import Spqr.Specs.Kdf.HkdfToSlice
 import Spqr.Specs.Kdf.HkdfToVec
 import Spqr.Specs.Lib.ChainFromVersionNegotiation.CallOnce

@@ -1,0 +1,179 @@
+// Temporary harness: network-only attacker vs honest SPQR states.
+// Drives spqr::recv with random / structurally-mutated messages against a set of
+// honest states captured from a legitimate A<->B run, and checks that recv never
+// panics and never emits a key for a forged message.
+use rand::{RngCore, SeedableRng};
+use spqr::{initial_state, recv, send, ChainParams, Direction, Params, Version};
+
+fn init(direction: Direction) -> Vec<u8> {
+    initial_state(Params {
+        version: Version::V1,
+        min_version: Version::V0,
+        direction,
+        auth_key: &[7u8; 32],
+        chain_params: ChainParams::default(),
+    })
+    .unwrap()
+}
+
+/// Epoch of the SPQR side: read from the state by round-tripping a `send` from it.
+/// (send never changes epoch on the state we pass; the emitted message's epoch varint
+/// equals the state machine's current epoch.)
+fn epoch_of(state: &[u8]) -> u64 {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(9);
+    let s = send(&state.to_vec(), &mut rng).unwrap();
+    if s.msg.is_empty() {
+        return 0;
+    }
+    let mut at = 1usize;
+    let mut v = 0u64;
+    let mut shift = 0;
+    loop {
+        let b = s.msg[at];
+        at += 1;
+        v |= ((b & 0x7f) as u64) << shift;
+        if b < 0x80 {
+            return v;
+        }
+        shift += 7;
+    }
+}
+
+fn honest_states(rng: &mut impl rand::CryptoRng) -> Vec<(Vec<u8>, Vec<u8>)> {
+    // returns (state, last honest msg addressed to that state)
+    let mut a = init(Direction::A2B);
+    let mut b = init(Direction::B2A);
+    let mut out = vec![];
+    for round in 0..120 {
+        let s = send(&a, rng).unwrap();
+        a = s.state;
+        out.push((b.clone(), s.msg.clone()));
+        let r = recv(&b, &s.msg).unwrap();
+        b = r.state;
+        if round % 3 != 0 {
+            let s = send(&b, rng).unwrap();
+            b = s.state;
+            out.push((a.clone(), s.msg.clone()));
+            let r = recv(&a, &s.msg).unwrap();
+            a = r.state;
+        }
+    }
+    out
+}
+
+#[test]
+fn remote_random_and_mutated_messages_never_panic_or_yield_key() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(0xC0FFEE);
+    let states = honest_states(&mut rng);
+    let mut ok = 0usize;
+    let mut err = 0usize;
+    let mut key_from_forgery = 0usize;
+    let mut worst = std::time::Duration::ZERO;
+    for (state, honest_msg) in &states {
+        for trial in 0..200 {
+            let m: Vec<u8> = match trial % 4 {
+                0 => {
+                    // fully random, random length 0..80, force V1 marker half the time
+                    let n = (rng.next_u32() % 80) as usize;
+                    let mut v = vec![0u8; n];
+                    rng.fill_bytes(&mut v);
+                    if n > 0 && trial % 8 == 0 {
+                        v[0] = 1;
+                    }
+                    v
+                }
+                1 => {
+                    // bit-flip mutation of the honest message
+                    let mut v = honest_msg.clone();
+                    let flips = 1 + rng.next_u32() % 4;
+                    for _ in 0..flips {
+                        let i = (rng.next_u32() as usize) % v.len();
+                        v[i] ^= 1 << (rng.next_u32() % 8);
+                    }
+                    v
+                }
+                2 => {
+                    // truncate / extend
+                    let mut v = honest_msg.clone();
+                    if rng.next_u32() % 2 == 0 {
+                        v.truncate((rng.next_u32() as usize) % v.len());
+                    } else {
+                        let mut extra = vec![0u8; (rng.next_u32() % 64) as usize];
+                        rng.fill_bytes(&mut extra);
+                        v.extend(extra);
+                    }
+                    v
+                }
+                _ => {
+                    // keep V1 marker, randomise epoch/index/type varints, then random chunk
+                    let mut v = vec![1u8];
+                    let mut hdr = vec![0u8; 1 + (rng.next_u32() % 12) as usize];
+                    rng.fill_bytes(&mut hdr);
+                    v.extend(hdr);
+                    let mut chunk = vec![0u8; 33];
+                    rng.fill_bytes(&mut chunk);
+                    v.extend(chunk);
+                    v
+                }
+            };
+            if m == *honest_msg {
+                continue;
+            }
+            let t = std::time::Instant::now();
+            let res = std::panic::catch_unwind(|| recv(state, &m));
+            worst = worst.max(t.elapsed());
+            match res {
+                Err(_) => panic!("PANIC reachable from network msg: {:?}", m),
+                Ok(Ok(r)) => {
+                    ok += 1;
+                    // Real invariant: a forged message must never advance the SCKA epoch
+                    // (an EpochSecret is only minted after verify_hdr / verify_ct succeed).
+                    if epoch_of(state) != epoch_of(&r.state) {
+                        key_from_forgery += 1;
+                        eprintln!("EPOCH ADVANCED by forgery: {:?}", m);
+                    }
+                }
+                Ok(Err(_)) => err += 1,
+            }
+        }
+    }
+    eprintln!(
+        "states={} ok={} err={} key_from_forgery={} worst_recv={:?}",
+        states.len(),
+        ok,
+        err,
+        key_from_forgery,
+        worst
+    );
+    // Finding: SPQR *alone* does advance the SCKA epoch on an unauthenticated
+    // `epoch+1` message while in `Ct2Sampled` (recv_next_epoch has no MAC), and it
+    // ingests unauthenticated chunks into PolyDecoder. Neither yields a message key
+    // that libsignal would accept, and libsignal only commits the mutated state after
+    // `verify_mac` succeeds, so the mutation is dropped for a network-only attacker.
+    assert!(key_from_forgery > 0, "expected the known unauthenticated epoch-advance path");
+}
+
+/// Worst-case CPU a single unauthenticated message can cost: forged chain index = max_jump.
+#[test]
+fn remote_max_jump_cpu_bound() {
+    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+    let a = init(Direction::A2B);
+    let b = init(Direction::B2A);
+    let s1 = send(&a, &mut rng).unwrap();
+    let r1 = recv(&b, &s1.msg).unwrap();
+    let s2 = send(&r1.state, &mut rng).unwrap();
+    let r2 = recv(&s1.state, &s2.msg).unwrap();
+    let s3 = send(&s2.state, &mut rng).unwrap();
+    // s3.msg = [ver][epoch varint(1B)][index varint(1B)][type]...  -> set index = 25_000
+    let mut m = vec![s3.msg[0], s3.msg[1], 0xA8, 0xC3, 0x01];
+    m.extend_from_slice(&s3.msg[3..]);
+    let t = std::time::Instant::now();
+    let r = recv(&r2.state, &m);
+    eprintln!("index=25000 -> ok={} in {:?}", r.is_ok(), t.elapsed());
+    // index far beyond max_jump (e.g. 40_000 = 0xC0 0xB8 0x02) must be rejected (KeyJump)
+    let mut m2 = vec![s3.msg[0], s3.msg[1], 0xC0, 0xB8, 0x02];
+    m2.extend_from_slice(&s3.msg[3..]);
+    let e = recv(&r2.state, &m2);
+    eprintln!("index=40000 -> {:?}", e.as_ref().err());
+    assert!(e.is_err());
+}
