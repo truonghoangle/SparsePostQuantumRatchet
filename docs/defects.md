@@ -1,794 +1,133 @@
 # Code Defects Identified from Specification Theorems
 
-This report lists properties of the **Rust code** in `src/` that the Lean spec theorems under
-`Spqr/Specs/` had to *assume away* as preconditions, or *surprising behaviour* that their
-postconditions pin down. All spec theorems referenced are proved; the "defects" are in the Rust
-source (or its documentation), not in the proofs. Findings are ranked by practical impact.
+This report lists properties of the **Rust code** in `src/` (and of its integration into
+libsignal) that the Lean spec theorems under `Spqr/Specs/` had to assume as preconditions, or
+behaviour that their postconditions expose. All spec theorems referenced are proved; the defects
+are in the Rust source, its annotations, or the trusted Lean models — not in the proofs.
 
-Methodology: the 221 spec files under `Spqr/Specs/` were surveyed, their
-preconditions/postconditions were cross-referenced against the Rust sources in `src/` (and the
-`sorted-vec` 0.8.6 dependency), and the chain-related spec modules were rebuilt with `lake build`
-to confirm the referenced theorems compile as read.
+## How to read this report
+
+**Numbering.** Each finding has a stable identifier `D1`–`D40`, shared with
+`Spqr/Specs/Bugs/*.lean`, the counterexample files in `docs/`, and the companion reports
+(`CorruptedBlobs.md`, `network.md`, `bugSecurityRemote.md`). Findings are arranged **by theme**
+rather than by identifier so that interconnected issues read together. Not every identifier is a
+defect: D9, D12 and D15 are *audit notes* (rated INFO or NO DEFECT) kept under the same numbering
+because the companion files cite them.
+
+**Grouping.** Related identifiers appear in one of three forms:
+
+- *combined heading* (`D22 / D31 / D35 / D36`) — one fix closes all of them;
+- *nested sub-finding* (`D4 / D18` under D19; `D37` under D14) — a consequence or documentation
+  facet of the parent, kept separate because it has its own evidence;
+- *sibling with cross-reference* (`D32` after D28; `D38` after D24) — shares a root cause but has
+  a distinct trigger or fix.
+
+**Severity.** Each heading carries `(SEVERITY; qualifier)`:
+
+| Level | Meaning |
+|---|---|
+| HIGH | Panic, key divergence, or unsound trusted-base model reachable in a realistic deployment |
+| MEDIUM | Denial of service, downgrade, silent wrong result, or a false verification annotation |
+| LOW | Latent, needs an unrealistic precondition, or documentation-only |
+| INFO / NO DEFECT | Audit result recorded for completeness |
+
+Qualifiers name the reach: `message` (an on-path message suffices), `blob` (needs influence over
+the persisted state), `local-config` (needs a bad `ChainParams`), `32-bit`, `spec` (affects
+soundness of annotations or models, not runtime). D10 is rated on both the `spec` and runtime axes
+because they differ.
+
+**Attacker model and terms.** *On-path* / *network-only* attacker: can read, drop, inject and
+modify messages but holds no session secret. *Authenticated-but-malicious peer*: the legitimate
+remote party behaving adversarially. *Blob*: the persisted `pq_ratchet_state` protobuf. DR =
+Double Ratchet; PCS = post-compromise security; FO = Fujisaki–Okamoto transform; IKM = HKDF input
+keying material. The full attacker-model discussion is in [`docs/network.md`](./network.md) and
+[`docs/bugSecurityRemote.md`](./bugSecurityRemote.md).
+
+**Host mitigation (referenced throughout).** libsignal (`session_cipher.rs` L607–694) clones the session, calls
+`pq_ratchet_recv` (`session_cipher.rs` L633), derives the Double-Ratchet message keys with the
+SPQR key as HKDF salt (`ratchet/keys.rs` L25, L96), and only then runs `verify_mac` (L657–668);
+on failure the clone is dropped. A network-only attacker's forgery is therefore not persisted in
+libsignal. This mitigation (a) lives outside SPQR and is not documented as a requirement of the
+SPQR API, (b) does not protect any other embedder of the crate, and (c) does not protect against
+an authenticated-but-malicious peer, who can then blame the resulting stall on the victim.
+Findings below are stated for SPQR itself; libsignal reach is noted in each.
+
+**Methodology.** All 231 spec files under `Spqr/Specs/` were surveyed; their
+preconditions/postconditions were cross-referenced against the 39 Rust sources in `src/`, the
+`sorted-vec 0.8.6` and `libcrux-ml-kem 0.0.7` dependencies pinned in `Cargo.lock`, and the
+libsignal integration at commit `a47ba487` (`rust/protocol/src/{ratchet.rs, session_cipher.rs,
+state/session.rs, ratchet/keys.rs, consts.rs}`). `lake build Spqr SrcTranslated` (2553 jobs)
+completes with only the two expected `sorry` warnings (see D15), confirming the referenced
+theorems compile as read. Every finding with a **Reproduced:** line has an executable
+counterexample under `docs/`; the [Evidence and coverage](#evidence-and-coverage) table is the
+authoritative mapping from identifier to file. Rust harnesses were run on a scratch copy of the
+crate, since `src/` is a pinned upstream tree.
+
+**Line numbers** refer to `src/` at the commit this repository pins (spqr v1.5.0) and to
+libsignal `a47ba487`; they are given for orientation and may drift.
 
 ---
 
-## 1. Deserialized chain state is never validated → panics reachable from a corrupted/malicious state blob (HIGH)
+## Index
 
-**Specs that expose it**
-
-- `Spqr/Specs/Chain/ChainEpochDirection/FromPb.lean`: postcondition is
-  `ced.ctr = pb.ctr ∧ ced.next = pb.next ∧ ced.prev = { data := pb.prev }`; docstring says
-  *"Always succeeds (no validation)"*.
-- `Spqr/Specs/Chain/ChainEpochDirection/NextKeyInternal.lean` requires
-  `h_next_len : next.length = 32`.
-- `Spqr/Specs/Chain/KeyHistory/Get.lean` (`get_spec`) requires
-  `h_data_aligned : self.data.length % 36 = 0`; docstring: *"Preconditions model the Rust
-  `assert_eq!` panic"*.
-- `Spqr/Specs/Chain/KeyHistory/Gc.lean` (`gc_spec`) requires
-  `h_key_ge : trim_threshold ≤ data.length → max_ooo ≤ current_key` (models
-  `assert!(current_key >= max_ooo)`), and `Key.lean` needs the extra invariant
-  `h_prev_ctr : prev.data.length ≤ 36 * ctr` to discharge it.
-
-**Rust defect** (`src/chain.rs`)
-
-```rust
-fn from_pb(pb) -> Result<Self, Error> {
-    Ok(Self { ctr: pb.ctr, next: pb.next, prev: KeyHistory { data: pb.prev } })   // L306-312
-}
-```
-
-None of `next.len() == 32`, `prev.len() % 36 == 0`, or `prev.len() ≤ 36·ctr` is checked, yet
-each is required downstream:
-
-| Field | Consumer | Failure |
+| Part | Theme | Items (in reading order) |
 |---|---|---|
-| `next.len() ≠ 32` (non-empty) | `next_key_internal`: `next.copy_from_slice(&genr8r[..32])` (L241) | panic (length mismatch) |
-| `prev.len() % 36 ≠ 0` | `KeyHistory::get`: `assert_eq!(self.data.len() % KEY_SIZE, 0)` (L191) | panic |
-| `prev` large, `ctr` small | `KeyHistory::gc`: `assert!(current_key >= max_ooo)` (L149) | panic |
+| I | Unauthenticated control plane: forged messages that stall, deadlock or downgrade | 24, 38, 19 (4, 18), 25, 39, 40 |
+| II | Arithmetic and parameter bounds the specs could not discharge | 2, 28, 32, 8, 10, 3, 5 |
+| III | Deserialisation without validation (corrupted / injected state blobs) | 1, 21, 22 (31, 35, 36), 26, 34, 13, 14 (37), 16, 17, 27, 30 |
+| IV | Cryptographic hygiene and constant-time primitives | 11, 12, 29 (33) |
+| V | Soundness of the Lean trusted base and limits of the verified surface | 20, 15, 6 (7), 9, 23 |
 
-The spec theorems are only provable because these facts are *assumed*; nothing in
-`from_pb`/`decode_state` establishes them. A state blob that is prost-valid but semantically
-inconsistent turns `recv`/`send` into a panic instead of `Err(StateDecode)`.
+Closing sections: **Priorities** · **Evidence and coverage** · **Limitations**.
 
-**Fix**: validate in `ChainEpochDirection::from_pb` (return `Error::StateDecode`), which would let
-the `h_*` hypotheses become provable invariants.
+**Identifier → Part.**
+D1 III · D2 II · D3 II · D4 I · D5 II · D6 V · D7 V · D8 II · D9 V · D10 II ·
+D11 IV · D12 IV · D13 III · D14 III · D15 V · D16 III · D17 III · D18 I · D19 I · D20 V ·
+D21 III · D22 III · D23 V · D24 I · D25 I · D26 III · D27 III · D28 II · D29 IV · D30 III ·
+D31 III · D32 II · D33 IV · D34 III · D35 III · D36 III · D37 III · D38 I · D39 I · D40 I
 
-## 2. `u32` overflow in `KeyHistory::get` trimmed-check (MEDIUM)
+**Reading order** for someone new to the report: Part I first (the findings reachable by a
+message alone in normal operation), then Part III (the largest attack surface once a state blob
+can be influenced), then Part II (which explains most of the `hax_lib::assume!` sites), then IV
+and V.
 
-`Spqr/Specs/Chain/KeyHistory/Get.lean` and `Key32.lean` require
-`h_ooo_no_overflow : at1 + maxOoo ≤ U32.max`.
-
-```rust
-if at + (params.max_ooo_keys_or_default()) < current_ctr {   // chain.rs L192
-```
-
-`at` is the attacker-supplied message `index` (a `u32` decoded from a varint). When `ctr`
-approaches `u32::MAX`, `at + max_ooo` overflows: debug builds panic, release builds wrap to a
-small value so the branch is taken and a *valid* key is reported as `KeyTrimmed`. `key()` itself
-guards the analogous `self.ctr + max_ooo` only via `hax_lib::assume!`, which Aeneas erases — hence
-`h_ctr_bound : i + 1 ≤ U32.max - 390451572` in `Key.lean`.
-
-**Fix**: use `at.checked_add(..)` / `saturating_add`.
-
-## 3. `u64 → usize` truncation in `Chain::epoch_idx` on 32-bit targets (MEDIUM, 32-bit only)
-
-`Spqr/Specs/Chain/Chain/EpochIdx.lean` needs
-`h_diff_fits : epoch ≤ current_epoch → current_epoch - epoch ≤ Usize.max` and proves it with
-`cases System.Platform.numBits_eq`.
-
-```rust
-let back = (self.current_epoch - epoch) as usize;   // chain.rs L376
-if back >= links { return Err(EpochOutOfRange) }
-Ok(links - 1 - back)
-```
-
-On a 32-bit platform a difference ≥ 2³² truncates, so the bounds check can pass and the function
-returns an index for the **wrong epoch**, silently handing out a key from another epoch.
-Impractical to reach today (requires 2³² epochs) but the spec correctly refuses to prove
-correctness without the hypothesis.
-
-**Fix**: `usize::try_from(..).map_err(..)`.
-
-## 4. Rust comment in `PolyDecoder::add_chunk` contradicts actual semantics (LOW / documentation, potentially behavioural)
-
-`Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` models the push as
-`IsSortedPushResult`, whose second disjunct is `new = old.take j ++ [p] ++ old.drop (j+1)` —
-i.e. **replacement**. The external model `SrcTranslated/FunsExternal.lean:2146` has
-`.eq => ok (i, some a, x :: rest)`.
-
-The Rust source claims the opposite (`polynomial.rs` L896-898):
-
-```rust
-// This will discard new points whose X value matches a previous
-// old point, since we've implemented equality for the Pt object
-// to only care about the X value.
-self.pts[poly].push(Pt { x, y });
-```
-
-`sorted-vec 0.8.6` `SortedSet::push` on `Equal` does `pop()` then `push(element)` (and `replace`
-swaps), so the **new** `y` wins. The verified model is right; the comment is wrong. Because
-`Pt::eq`/`Ord` ignore `y` (`Spqr/Specs/Encoding/Polynomial/Pt/Eq.lean`: *"returns true iff
-self.x.value = other.x.value (y ignored)"*), a re-sent chunk index with different payload
-overwrites earlier points rather than being ignored. For the honest protocol it is harmless (same
-index ⇒ same data) and tampering is caught by the MAC.
-
-**Fix**: correct the comment, or use `find_or_push` if "discard new" is the intended semantics.
-
-## 5. `PolyEncoder` index truncation `u32 → u16` (LOW)
-
-`Spqr/Specs/Encoding/Polynomial/PolyEncoder/NextChunk.lean` needs `h_idx_fits : self.idx ≤ U16.max`
-to prove `chunk.index = self.idx`; `PolyEncoder/FromPb.lean` yields `encoder.idx = pb.idx` for any
-`u32`.
-
-```rust
-let out = self.chunk_at(self.idx as u16);      // polynomial.rs L735
-self.idx = self.idx.wrapping_add(1);
-```
-
-`idx` is a `u32` but only 16 bits are meaningful; after 65 535 chunks (or from a persisted
-`pb.idx > 65535`) the emitted `chunk.index` silently wraps.
-
-**Fix**: store `idx: u16`, or reject out-of-range values in `from_pb`.
-
-## 6. `decode_chunk` mutates the cursor before its bounds check (LOW)
-
-Documented in `Spqr/Specs/V1/Chunked/States/Serialize/DecodeChunk.lean`: *"on the two error paths
-of `decode_chunk` itself the cursor has already advanced by `n + 32`"*, so the postcondition only
-proves `at ≤ *future(at)` rather than `*future(at) = at` on error — unlike `decode_varint`, which
-restores it. `Message::deserialize` discards the cursor on error, so no exploit, but it is an
-inconsistent contract. Also `hax_lib::assume!(*at < usize::MAX - 32)` is erased in translation, so
-the spec needs `from.len() + 32 ≤ usize::MAX`.
-
-## 7. `decode_varint` accepts non-canonical encodings and truncates bit 64+ (LOW)
-
-`DecodeVarint.lean` (`varintBlockAt`) explicitly: *"admit non-canonical encodings (`1` as
-`0x81 0x00`)"* and *"truncated to 64 bits… silent truncation of the 10th byte's high bits"*.
-Multiple byte strings decode to the same value, i.e. serialisation is not injective; benign for
-this protocol but worth noting for any future roundtrip theorem.
-
-## 8. `usize` overflow in `ChainParams::trim_size` on 32-bit (LOW, local config only)
-
-`Spqr/Specs/Chain/ChainParams/TrimSize.lean` needs `h_ooo : max_ooo_keys < 390451572` because
-`hax_lib::assume!` is erased; `Gc.lean`/`Key32.lean` tighten it to `< 108458770` so
-`trim_size * 36` fits in 32 bits. `max_ooo * 11` overflows for large (mis)configured
-`max_ooo_keys`. Since `chain_params` comes from the local `Params` (not the peer), this is a
-configuration footgun rather than an attack surface.
-
-## 9. Design smells surfaced by biconditional specs (INFO)
-
-- `MaxJumpOrDefault.lean` / `MaxOooKeysOrDefault.lean` / `ChainParams/IntoPb.lean`: "zero means
-  unset" makes `max_jump = 0` / `max_ooo_keys = 0` unrepresentable and `into_pb ∘ from_pb` not the
-  identity (default values are zeroed).
-- `Pt/Eq.lean` `pt_eq_iff`: `PartialEq` is strictly coarser than structural equality, violating the
-  usual expectation that `derive(Clone)`-ed values compare equal to themselves iff structurally
-  equal.
-
-## 10. Arithmetic bug in the claimed bound `data.len() <= KEY_SIZE * trim_size()` on `KeyHistory` (MEDIUM / specification, LOW / behavioural)
-
-**Summary.** `src/chain.rs` asserts — as a `hax_lib::requires` precondition on `KeyHistory::add`
-and `KeyHistory::remove`, as a `hax_lib::assume!` inside `ChainEpochDirection::key`, and as the
-struct-level comment on `KeyHistory::data` — that the key history never exceeds the GC threshold:
-
-```rust
-struct KeyHistory {
-    // data.len() <= KEY_SIZE*TRIM_SIZE                                            // L94
-    data: Vec<u8>,
-}
-#[hax_lib::requires(... && self.data.len() <= KeyHistory::KEY_SIZE * _params.trim_size())]
-fn add(&mut self, k: (u32, [u8; 32]), _params: &pqrpb::ChainParams) { ... }        // L138
-#[hax_lib::requires(... && self.data.len() <= KeyHistory::KEY_SIZE * _params.trim_size())]
-fn remove(&mut self, ...)                                                           // L174
-// inside key():
-hax_lib::assume!(params.trim_size() < 119304647
-    && self.prev.data.len() <= KeyHistory::KEY_SIZE * params.trim_size());         // L281-282
-self.prev.add(k, params);
-```
-
-The bound is **false**: the history can grow to almost twice the threshold before `gc` runs.
-While attempting to prove `add_spec` with this bound as a *provable invariant* rather than a
-hypothesis, the proof agent produced the counterexample below; the statement was then weakened to
-the correct bound and the proof completed for the corrected statement. The bound the Rust code
-actually maintains is
-
-  * **at rest** (between calls to `key`): `data.len() < KEY_SIZE * trim_size()` (strict — `gc`
-    runs whenever `≥` holds, and afterwards at most `max_ooo` live records remain); and
-  * **inside `key`, immediately before `gc`**:
-    `data.len() ≤ KEY_SIZE * ((trim_size() − 1) + (max_ooo − 1))`.
-
-With the library defaults (`max_ooo_keys = 2000`, `trim_size() = 2201`) the claimed maximum is
-2201 records (79 236 B) whereas the true pre-GC maximum is 4199 records (151 164 B).
-
-**Why the bound is wrong.** `key(at)` only clears `prev` when `at > ctr + max_ooo`. In the
-boundary case `at = ctr + max_ooo` nothing is cleared and the advancing loop stores every one of
-the `at − ctr − 1 = max_ooo − 1` intermediate keys **on top of** whatever is already there, and
-`gc` is called only *after* the loop (L288). So the loop can start from `trim_size() − 1` records
-(the largest at-rest size) and add `max_ooo − 1` more before anything is trimmed.
-
-**Counterexample** (`max_ooo_keys = 10`, `max_jump = 100`, hence `trim_size() = 12`, threshold
-`432 B`), reproduced both by the arithmetic model in
-[`docs/key_history_bound_counterexample.py`](./key_history_bound_counterexample.py) and by a test
-against the real crate (run on a scratch copy, see below):
-
-| call | `prev` cleared? | records added | records before `gc` | records after `gc` |
-|---|---|---|---|---|
-| `key(11)` | yes (`11 > 0 + 10`) | 1…10 | 10 (360 B) | 10 |
-| `key(14)` | no | 12, 13 | 12 (432 B) | 10 (drops 1, 2) |
-| `key(24)` | **no** (`24 = 14 + 10`) | 15…23 | **19 (684 B)** | 10 |
-
-During `key(24)` the 4th to 9th `add` calls execute with `data.len() ∈ {468, …, 648} B`, all
-strictly greater than `KEY_SIZE * trim_size() = 432 B`, so the `hax_lib::requires` on `add` is
-violated at run time by the crate's own caller. The instrumented Rust test observed
-`worst_before_add = 18 * 36 = 648 B` and confirmed `648 + 36 ≤ 36 * (11 + 9) = 720 B`, the
-corrected bound.
-
-**Impact.**
-
-- *Specification / proof*: any proof that relies on the `hax_lib::requires` of `add`/`remove` (or on
-  the `assume!` in `key`) as a real invariant is unsound — the hypothesis is unsatisfiable on
-  reachable states. The Lean specs are **not** affected: `Add.lean` (`add_spec`) only assumes
-  `self.data.length + 36 ≤ Usize.max`, `Remove.lean` only assumes
-  `my_array_index + 36 ≤ self.data.length`, and `Key.lean` carries the honest hypotheses
-  `h_prev_ctr : self.prev.data.length ≤ 36 * self.ctr.val` and
-  `h_kh_cap : self.prev.data.length + 36 * (ats − self.ctr) ≤ Usize.max`. This finding *explains*
-  why those weaker hypotheses were the strongest ones that could be discharged.
-- *Behavioural*: memory use of `prev` is up to ~2× what the comment promises (bounded, so not a
-  DoS vector). The 32-bit `trim_size() < 119304647` guard in the same `requires` is also stated
-  against the wrong quantity: what must not overflow is `KEY_SIZE * (trim_size − 1 + max_ooo − 1)`,
-  not `KEY_SIZE * trim_size`.
-
-**Related off-by-one surfaced by the same counterexample.** After `key(24)` the record with tag 13
-survives `gc` (horizon `23 − 10 = 13`, and `gc` drops only tags *strictly below* the horizon,
-L152), yet `prev.get(13, 24, ..)` returns `Err(KeyTrimmed(13))` because `get` tests
-`at + max_ooo < current_ctr` with the *post-increment* counter 24 (L192). `gc` and `get` therefore
-disagree at the window boundary by exactly one: a key that is still stored is reported as trimmed.
-This is consistent with `Get.lean`, whose postcondition pins the `KeyTrimmed` branch to
-`ats + maxOoo < self.ctr`, and with the `KeyTrimmed`-vs-`KeyAlreadyRequested` case split in
-`Key.lean`; both specs faithfully describe the asymmetric behaviour rather than a symmetric window.
-
-**Fixes.**
-
-1. Correct the comment on `KeyHistory::data` and the `hax_lib::requires`/`assume!` to
-   `self.data.len() <= KEY_SIZE * ((trim_size() - 1) + (max_ooo_keys_or_default() - 1))`
-   (or drop the length clause from `add`/`remove`, which only need `len + 36 ≤ usize::MAX` and
-   `idx + 36 ≤ len` respectively — exactly what `add_spec`/`remove_spec` require).
-2. Either call `gc` inside the loop (restoring `len < KEY_SIZE * trim_size()` as a true
-   invariant) or accept the larger bound and size `Vec::with_capacity` accordingly.
-3. Make `get` and `gc` agree on the window: use `at + max_ooo < current_ctr - 1` in `get`, or
-   pass the pre-increment counter, or make `gc` use `>=`.
-
-**Verification of this finding.** `docs/key_history_bound_counterexample.py` reproduces the table
-above and, over 2000 random 30-step walks, observed a maximum pre-GC size of exactly
-`(trim_size − 1) + (max_ooo − 1) = 20` records while the at-rest invariant `< trim_size` never
-failed. Two `cargo test` cases exercising the real `ChainEpochDirection::key`, `KeyHistory::add`,
-`gc` and `get` (added to a scratch copy of the crate, not to `src/`, per project policy) pass and
-assert the numbers quoted here. The full demonstration file — `src/chain.rs` plus the two tests —
-is [`docs/chain.rs`](./chain.rs); the tests alone are in
-[`docs/key_history_bound_counterexample.rs.txt`](./key_history_bound_counterexample.rs.txt).
+**Finding template.** Long-form findings use the sections **Specs that expose it → Rust defect →
+Consequence → Reproduced → Fix**. Short-form findings compress these into one or two paragraphs
+but keep the **Reproduced:** and **Fix:** labels where they apply.
 
 ---
 
-## 11. `compare` silently truncates when slice lengths differ — potential authentication bypass (MEDIUM)
-
-**Location**: `src/util.rs`, lines 25–33.
-
-```rust
-pub(crate) fn compare(lhs: &[u8], rhs: &[u8]) -> u8 {
-    let mut r: u8 = 0;
-
-    for i in 0..lhs.len() {
-        r |= lhs[i] ^ rhs[i];
-    }
-
-    is_non_zero(r)
-}
-```
-
-**Defect.** The loop iterates over `0..lhs.len()` only. The equal-length precondition
-(`lhs.len() == rhs.len()`) is guarded by `#[cfg_attr(hax, hax_lib::requires(...))]`, which is
-**erased in non-hax builds** — there is no runtime check. Two failure modes result:
-
-| Condition | Behaviour |
-|---|---|
-| `rhs.len() > lhs.len()` | Trailing bytes in `rhs` are never examined; `compare` returns `0` (equal) even when the slices differ beyond `lhs.len()`. This is a **silent truncation** that could allow an authentication bypass if an attacker controls one slice's length. |
-| `rhs.len() < lhs.len()` | Index `rhs[i]` panics at `i == rhs.len()`, causing a denial-of-service and leaking timing information (panic vs. normal return). |
-
-**Current callers are safe.** Both `verify_ct` and `verify_hdr` in `src/authenticator.rs` pass
-`expected_mac` (whose length is checked by a `hax_lib::requires` with `MACSIZE`) and the output of
-`mac_ct`/`mac_hdr` (which always returns exactly `MACSIZE` bytes). So the bug is **latent** today.
-
-**Why it still matters.** `compare` is a security-critical constant-time primitive. The original
-code in `libcrux-ml-kem/src/constant_time_ops.rs` operates on fixed-size arrays where a length
-mismatch is impossible at the type level. When it was ported to accept slices in this codebase,
-the type-level safety was lost and replaced only with a hax-time annotation that has no runtime
-effect. Any future caller passing mismatched-length slices would silently get a wrong answer or a
-panic.
-
-**Fix**: add a runtime assertion at the top of `compare`:
-
-```rust
-assert_eq!(lhs.len(), rhs.len());
-```
-
-Alternatively, return `1` (not-equal) when lengths differ, which avoids panics entirely:
-
-```rust
-if lhs.len() != rhs.len() {
-    return 1;
-}
-```
-
----
-
-## 12. Audit of the constant-time comparison / FO-transform path (NO DEFECT FOUND in SPQR; libcrux 0.0.7 clean)
-
-**Motivation.** Several ML-KEM implementations shipped bugs in the Fujisaki–Okamoto re-encryption
-check where the comparison was incomplete or the constant-time select was a no-op, so
-decapsulation returned a value that depended on the decrypted message even when re-encryption
-failed (key-recovery class). This item records a targeted check of the analogous code reachable
-from SPQR.
-
-**Where the FO transform lives.** *Not* in `src/`. `incremental_mlkem768::decaps` delegates to
-`libcrux_ml_kem::ind_cca::incremental::decapsulate_compressed_key`, which concatenates
-`ct1 ‖ ct2` into the full 1088-byte ciphertext and calls `ind_cca::decapsulate`. The FO check is
-`compare_ciphertexts_select_shared_secret_in_constant_time(ciphertext, expected_ciphertext,
-shared_secret, implicit_rejection_shared_secret)` in `libcrux-ml-kem-0.0.7/src/constant_time_ops.rs`.
-
-**Checked in libcrux-ml-kem 0.0.7 (pinned in `Cargo.lock`).**
-
-| Property | Result |
-|---|---|
-| `compare` iterates `0..lhs.len()` over the **full** `CIPHERTEXT_SIZE` array | ✔ complete comparison |
-| `inz(v) = ((!v as u16).wrapping_add(1) >> 8) & 1` | ✔ exhaustively verified `= (v≠0)` for all 256 bytes |
-| `select_ct`: `mask = is_non_zero(sel).wrapping_sub(1)`; `out = (lhs & mask) \| (rhs & !mask)` | ✔ verified: `sel=0 → lhs`, all `sel∈1..=255 → rhs` (implicit-rejection secret) |
-| Both candidate secrets computed **before** the select, unconditionally | ✔ no data-dependent early return |
-| `#[inline(never)]` + `black_box` on compare/select wrappers | ✔ |
-
-**Checked in SPQR's own port (`src/util.rs`, used by `Authenticator::verify_ct/verify_hdr`).**
-
-- `inz` uses `((v \| (!v).wrapping_add(1)) >> 8) & 1` lifted to `u16`. Proved in
-  `Spqr/Specs/Util/Inz.lean` (`inz_spec`) and exhaustively tested.
-- `compare` proved in `Spqr/Specs/Util/Compare.lean`: `0 ↔ ∀ j, lhs[j] = rhs[j]`.
-  `verify_ct_spec`/`verify_hdr_spec` give `Ok () ↔ expected_mac = mac_*(…)`. All three modules
-  rebuilt with `lake build` for this item.
-- Release AArch64 assembly inspected: `compare` inlines into the verifiers as a NEON `eor/orr`
-  accumulation loop plus scalar tail — no early exit, no data-dependent branch; `is_non_zero`
-  survives out-of-line and branchless. The only branch is the final `!= 0` on the public
-  accept/reject outcome.
-- Protocol level (`v1/unchunked/send_ek.rs::recv_ct2`): `decaps` (never fails, implicit
-  rejection) → HKDF → `auth.update` → `verify_ct(…)?`. On MAC failure, `?` discards the updated
-  state and returns `Err(InvalidCtMac)` with **no** secret-derived data; `EpochSecret` is built
-  only on the `Ok` path.
-- Chunked path: `decoded_message()` yields exactly `pts_needed*2` bytes, so
-  `split_off(CIPHERTEXT2_SIZE)` / `split_off(HEADER_SIZE)` always yield a 32-byte MAC, satisfying
-  the `expected_mac.len() == MACSIZE` requirement item 11 relies on.
-
-**Residual observations (hardening, not bugs).**
-
-1. Item 11 still stands: `compare` has no runtime length guard; all current callers are safe by construction.
-2. SPQR's `compare` lacks libcrux's `#[inline(never)]`; it is inlined and auto-vectorised. Still
-   branchless, but this relies on LLVM rather than a barrier. Adding `#[inline(never)]` is cheap hardening.
-3. The Lean model of `core::hint::black_box` is the identity, so the spec theorems establish
-   *functional* correctness only; constant-time behaviour was checked via assembly inspection.
-4. On any `libcrux-ml-kem` bump, re-run the two exhaustive checks (`inz` over all bytes;
-   `select_ct` over all selectors) — milliseconds, and they catch the no-op-mask bug class.
-
----
-
-## 13. `PolyEncoder::from_pb` does not validate per-polynomial point counts → `debug_assert` panic / silently wrong chunks (MEDIUM)
-
-**Specs that expose it**
-
-- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/PointAt.lean`, `ChunkAt.lean`, `NextChunk.lean` all
-  require
-  `h_admissible : ∀ pts, self.s = .Points pts → ∀ j < 16, len ∈ {0, 1, 3, 5, 30, 34, 36}`.
-- `Spqr/Specs/Encoding/Polynomial/Poly/FromCompletePoints.lean` (`from_complete_points_spec`)
-  requires the same `h_len_ok` disjunction; there is *no* spec for the `_ =>` fallback arm.
-- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/FromPb.lean` (`from_pb_spec`) has **no** such
-  hypothesis and proves `Ok` for any `pb.pts` whose 16 entries have even length.
-
-**Rust defect** (`src/encoding/polynomial.rs`)
-
-`from_pb` (L573-603) only checks `pts.len() % 2 == 0` per slot. The admissible-length fact is
-carried into `point_at` solely by `hax_lib::assume!(pt_vec.len() == 0 || … || 36)` (L646-654),
-which is erased at runtime. On the first cache miss `point_at` calls
-`Poly::from_complete_points`, whose fallback arm is
-
-```rust
-_ => { debug_assert!(false, "missing precomputed poly of size {}", pts.len()); … }   // L310
-```
-
-| Build | Behaviour with a persisted `PolynomialEncoder` whose slots hold 2 points each |
-|---|---|
-| debug | **panic** `missing precomputed poly of size 2` on the 3rd `next_chunk()` |
-| release | `debug_assert!` is compiled out; the fallback Lagrange path runs and emits chunks (observed all-zero for the probe input), i.e. the encoder produces data for a state the protocol never defines |
-
-Reproduced by `encoder_from_pb_inadmissible_len` in
-[`docs/polynomial_from_pb_counterexample.rs.txt`](./polynomial_from_pb_counterexample.rs.txt)
-(run against a scratch copy of the crate with the `test-utils` feature). Reachable from any
-chunked-state `from_pb` (`v1/chunked/send_ek/serialize.rs`, `send_ct/serialize.rs`) given a
-prost-valid but semantically inconsistent state blob — the same trust boundary as item 1.
-
-**Fix**: in `PolyEncoder::from_pb`, reject slots whose `pts.len()/2 ∉ {0,1,3,5,30,34,36}` (and
-`polys[i].len()/2 > MAX_STORED_POLYNOMIAL_DEGREE_V1 + 1`) with `SerializationInvalid`. That would
-let `h_admissible` become a provable invariant instead of a hypothesis.
-
-## 14. `PolyDecoder::from_pb` does not bound stored point-set sizes → `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` precondition violated at runtime (LOW–MEDIUM)
-
-**Specs that expose it**
-
-- `Spqr/Specs/Encoding/Polynomial/Poly/LagrangeInterpolate.lean` and friends are stated for
-  arbitrary `pts.length` (only `+1 ≤ Usize.max`), but the Rust carries
-  `#[hax_lib::requires(pts.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1)]` (L105, L143, L230)
-  and the struct refinement `coefficients.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1 + 1` (L86).
-- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/FromPb.lean` (`from_pb_spec`) proves `Ok` with
-  `decoder.pts_needed = pb.pts_needed` for any `pts_needed : u32` and any number of 4-byte points
-  per slot — nothing ties them to `MAX_STORED_POLYNOMIAL_DEGREE_V1` or to the fixed V1 message
-  sizes.
-
-**Rust defect** (`src/encoding/polynomial.rs` L815-854)
-
-`from_pb` validates `pts.len() != 16` and `% 4`, nothing else. `into_pb` (L800) and
-`decoded_message` (L949-951) both rely on `hax_lib::assume!(… ≤ MAX_*)`, erased at runtime.
-The probe `decoder_from_pb_interpolate_oversized` builds a decoder with `pts_needed = 1600` and
-100 points per slot (x = 1..100, so every lookup misses and `lagrange_interpolate` runs on 100
-points — ~3× the stated maximum); `decoded_message()` returns `Some(3200 bytes)` without error.
-
-Consequences: (a) the `hax_lib::requires`/`refine` annotations on the polynomial core are
-*not* invariants of the deployed code — they are only true for states the honest protocol
-produces; (b) O(N²) interpolation cost is controlled by the state blob (`pts_needed` is a
-free `u32`), so a corrupted state can make `recv` arbitrarily slow — bounded only by the
-protobuf size. No memory-safety issue: all indexing is bounds-checked.
-
-**Fix**: in `PolyDecoder::from_pb`, require `pts_needed ≤ 576` (the V1 maximum noted in the
-struct comment, L743) and each slot `len/4 ≤ 2·MAX_STORED_POLYNOMIAL_DEGREE_V1 + 1 = 71`,
-returning `SerializationInvalid` otherwise.
-
-## 15. Remaining `sorry`s and axioms bounding what the specs can claim (INFO)
-
-Not Rust defects, but they delimit findings above:
-
-- `Spqr/Specs/Lib/DecodeState.lean:54` — `decode_state` round-trip left as `sorry` because
-  the prost-generated `Message` impl is replaced by `sorry` in translation (issue #102). Hence
-  nothing about *which* state blobs `decode_state` accepts is formally established; items 1,
-  13, 14 all sit behind this boundary.
-- `Spqr/Specs/Aeneas/MapCollectBridge.lean` — single assumed bridge for `.map().collect()`
-  (aeneas#1043); `ConstPolysToPolys.lean` depends on it.
-- `SrcTranslated/Funs.lean` still contains four `sorry`-using declarations (reported by
-  `lake build`), all in generated protobuf code.
-
----
-
-# Part II — Logic defects not tied to erased `hax_lib` annotations
-
-The items above mostly stem from `assume!`/`requires` that vanish at runtime. The following
-are ordinary logic bugs that the spec *postconditions* pin down directly.
-
-## 16. `Poly::serialize`/`Poly::deserialize` are not inverses on the zero polynomial → `PolyEncoder` state round-trip fails (MEDIUM)
-
-**Specs that expose it**
-
-- `Spqr/Specs/Encoding/Polynomial/Poly/Zero.lean` (`zero_spec`): `result.coefficients.length = 0`.
-- `Spqr/Specs/Encoding/Polynomial/Poly/Serialize.lean` (`serialize_spec`):
-  `result.length = 2 * self.degree` — so a zero polynomial serialises to `[]`.
-- `Spqr/Specs/Encoding/Polynomial/Poly/Deserialize.lean` (`deserialize_spec`) explicitly requires
-  `h_nonempty : serialized.length ≠ 0`; the docstring states *"rejects empty … input"*.
-- `Spqr/Specs/Encoding/Polynomial/PolyEncoder/FromPb.lean` (`FromPbWellFormed`) requires every
-  `polys[j]` to be non-empty for the `Polys` branch to succeed.
-
-Together these say: **`from_pb ∘ into_pb` is not the identity whenever any of the 16 stored
-polynomials is zero.**
-
-**Rust defect** (`src/encoding/polynomial.rs`)
-
-```rust
-pub fn serialize(&self) -> Vec<u8> { /* 2 bytes per coefficient; zero poly → [] */ }   // L329
-pub fn deserialize(serialized: &[u8]) -> Result<Self, _> {
-    if serialized.is_empty() || serialized.len() % 2 == 1 { return Err(SerializationInvalid) } // L343
-```
-
-`Poly::zero(_)` has **no** coefficients (`Vec::with_capacity`, L94–97), and `from_complete_points`
-of an empty point list returns `lagrange_sum([], [])` = zero polynomial (L302, L279). So any
-`PolyEncoder` in `EncoderState::Polys` with an empty slot serialises to `polys[j] = []` and can
-never be reloaded.
-
-**When is a slot empty?** Whenever the encoded message has fewer than 32 bytes: `encode_bytes`
-round-robins 2-byte words over 16 slots, so a 10-byte message leaves 11 slots with 0 points. The
-V1 protocol only encodes 96/1152/960/160-byte messages, so **the honest V1 protocol never hits
-this**; but the encoder is a public, `pub struct`, generic component and its own tests
-(`encode_and_decode_small`, L972) use exactly such a short message.
-
-**Reproduction** ([`docs/poly_roundtrip_counterexample.rs.txt`](./poly_roundtrip_counterexample.rs.txt),
-release build):
-
-```
-encoder_polys_roundtrip_with_empty_poly: polys = 16, empty polys = 11
-from_pb(into_pb(e)) = Some(SerializationInvalid)      ← FAILED
-encoder_polys_roundtrip_v1_size:                       ← ok (control, 96-byte message)
-```
-
-**Fix**: either make `deserialize` accept `[]` as the zero polynomial (drop the `is_empty()`
-check — the loop already handles length 0), or make `serialize` emit `[0, 0]` for the zero
-polynomial. The first is simpler and also matches `zero_spec`.
-
-## 17. `PolyDecoder::is_complete` is write-never → dead field, redundant O(N²) work, and a misleading spec surface (LOW)
-
-**Specs that expose it**
-
-- `Spqr/Specs/Encoding/Decoder/New.lean`: `pd.is_complete = false`.
-- `Spqr/Specs/Encoding/Decoder/AddChunk.lean`, `PolyDecoder/IntoPb.lean`, `PolyDecoder/FromPb.lean`:
-  `is_complete` is *preserved* by every operation.
-
-No spec ever establishes `is_complete = true`, because no Rust code path does.
-
-**Rust defect** (`src/encoding/polynomial.rs`)
-
-`grep is_complete` finds five sites: declaration (L760), `false` in `new_with_poly_count`
-(L789), copy in `into_pb`/`from_pb` (L797, L851), and the *read* at the top of
-`decoded_message` (L912: `if self.is_complete { return None; }`). It is never assigned `true`.
-Consequences:
-
-1. The early-return in `decoded_message` is dead code; a fully-received decoder recomputes the
-   Lagrange interpolation (up to 16 polynomials of degree ≤ 35) on **every** call. The chunked
-   state machine calls `decoded_message()` after each `add_chunk`, so once a message is complete
-   any further late chunk for that epoch triggers a full redundant decode.
-2. The persisted `PolynomialDecoder.is_complete` protobuf field carries no information, yet
-   `from_pb` honours it: a state blob with `is_complete = true` makes `decoded_message()` return
-   `None` forever, silently stalling that epoch of the ratchet (no error is surfaced).
-
-Confirmed by `decoder_is_complete_never_set` in
-[`docs/decoder_logic_probe.rs.txt`](./decoder_logic_probe.rs.txt): after a successful
-1088-byte decode, `into_pb().is_complete == false`.
-
-**Fix**: either set `is_complete = true` (and drop the point sets) when `decoded_message`
-succeeds — which the state machines already treat as terminal — or delete the field and the
-protobuf column. If kept, `from_pb` should reject `is_complete = true` with a non-empty `pts`.
-
-## 18. Duplicate chunk index → last write wins (confirms item 4 behaviourally) (LOW)
-
-`decoder_duplicate_index_last_wins` in the same probe file feeds two chunks with index 0 from two
-different messages and observes the decoder output follows the **second** one
-(`"ABCDEFGHIJ"`), contradicting the source comment *"This will discard new points whose X value
-matches a previous old point"* (L896–898). The Lean models in
-`Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` / `FromPb.lean`
-(`.eq ⇒ … dropLast ++ [p]`) are correct; the comment is not. Behaviourally benign for an honest
-peer and MAC-protected against a malicious one, but it means a replayed chunk with a bit-flip
-*does* corrupt the reconstruction until the MAC check fails, rather than being ignored.
-
-## 19. Unauthenticated chunk poisoning is *persistent*: one forged low-index chunk permanently stalls the epoch (MEDIUM, protocol-level DoS)
-
-Sharpens items 4 and 18. Those items note that a same-index chunk with a different payload
-overwrites the stored point and that "tampering is caught by the MAC". The MAC check happens only
-*after* `decoded_message()` returns `Some` (in `recv_header`/`recv_ct2`), and on failure the whole
-`recv` returns `Err` — the *poisoned decoder state is not rolled back or flagged*, because the
-state that was already persisted on the earlier `Ok` path contains the poisoned point.
-
-**Specs that expose it**
-
-- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` / `Decoder/AddChunk.lean`: the
-  guard is `poly_idx < necessary_points(i) ∨ pts[poly].len() < necessary_points(i)`. For any
-  `chunk.index < necessary_points` the first disjunct is *unconditionally* true, so the point is
-  always inserted, and the `IsSortedPushResult` `.eq` branch is *replacement*
-  (`FunsExternal.lean:2146`, `sorted_vec 0.8.6 SortedSet::push`).
-- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/IntoPb.lean` / `FromPb.lean`: every stored point
-  (including a replaced one) round-trips through the persisted protobuf unchanged.
-- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean`: `Message::deserialize`
-  performs no authentication; `Chunk.index`/`Chunk.data` are attacker-controlled.
-
-**Rust defect** (`src/encoding/polynomial.rs` L888–899, `src/v1/chunked/*.rs`)
-
-1. An on-path attacker sends `{epoch, Hdr/Ek/Ct1/Ct2, index: k, data: garbage}` with `k` below
-   `necessary_points` (e.g. `k = 0`) for the epoch currently being received.
-2. `add_chunk` replaces the honest `x = k` point (or pre-seeds it if not yet received).
-   `decoded_message()` is still `None` → `recv` returns `Ok` and the poisoned decoder is
-   **persisted** in the returned `SerializedState`.
-3. When the honest chunks complete the message, interpolation uses the garbage point →
-   `verify_hdr`/`verify_ct` fails → `recv` returns `Err(MacVerifyFailed)`. The caller keeps the
-   *old* (poisoned) state. Every later honest chunk yields the same `Err`, because the only way to
-   overwrite the `x = k` point is another chunk with index exactly `k`, and the honest sender
-   emits index `k` again only after wrapping through 65 536 chunks (`PolyEncoder::next_chunk`).
-   (Honest indices `≥ necessary_points` are dropped once the slot is full, so they never help.)
-
-Net effect: **one forged, unauthenticated ~40-byte message permanently blocks the PQ ratchet
-epoch for the receiver** — no new epoch secret can ever be derived for that direction, and the
-peer never learns why. In contrast, the design intent (comment at L896–898: *discard* new points
-with a matching X) would make the attack a no-op once the honest chunk arrives first.
-
-Reproduced by `poisoned_low_index_point_persists_and_wins` in
-[`docs/decoder_poison_persistence_counterexample.rs.txt`](./decoder_poison_persistence_counterexample.rs.txt)
-(run on a scratch copy with `--features test-utils`; the honest `index 0` chunk is received first,
-then poisoned, persisted through `into_pb`/`from_pb`, and the completed decode never matches the
-original message even after ten more honest chunks).
-
-**Fix options** (any one suffices): (a) use `find_or_push` — first write wins, matching the source
-comment; (b) on MAC failure, reset the decoder for that epoch (drop `pts`) so honest retransmits
-can recover; (c) keep *both* candidate `y` values per `x` and try alternatives on MAC failure.
-Option (a) is the smallest change; note it makes the Lean model in `AddChunk.lean` (replacement)
-*wrong* and it would need to be updated to the `find_or_push` semantics.
-
----
-
-# Part III — Defects in the hand-written Lean models (trusted base)
-
-## 20. `VecDeque::into_iter` model yields the wrong elements whenever `head ≠ 0` (HIGH for soundness of any future spec built on `Chain::into_pb`)
-
-**Location**: `SrcTranslated/FunsExternal.lean` L3733–3759,
-`alloc.collections.vec_deque.into_iter.IntoIter.Insts.CoreIterTraitsIteratorIterator.next`.
-
-The rest of the project deliberately uses a **growing-list model** for `VecDeque`
-(`push_back` appends to `buf`; `pop_front` increments `head` and decrements `length`;
-`index`/`index_mut` read `buf[head + idx]`; see L1241–1381). Under that model the logical
-elements are `buf[head .. head+length)`. The `into_iter.next` model instead
-
-```lean
-if deq.length == 0 then ok (none, intoIter)
-else
-  let newhead ← (Usize.wrapping_add deq.head 1) % len   -- ← ring-buffer arithmetic
-  ok (deq.buf.get? deq.head, { inner := { buf, head := newhead, length := len } })
-```
-
-- **never decrements `length`**, so the iterator never terminates on its own; and
-- **wraps `head` modulo `length`**, which is the *ring-buffer* invariant of real `std`, not the
-  growing-list invariant used everywhere else. It is therefore internally inconsistent with the
-  project's own `pop_front`/`push_back`/`index` models.
-
-**Executable counterexample**
-([`docs/vecdeque_into_iter_model_counterexample.lean.txt`](./vecdeque_into_iter_model_counterexample.lean.txt),
-run with `lake env lean`): after one `pop_front` the growing-list deque is
-`{buf := [10,20,30], head := 1, length := 2}` (Rust would iterate `20, 30, None`). Four calls to
-the model's `next` yield
-
-```
-Aeneas.Std.Result.ok ([some 20, some 10, some 20, some 10], 2)
-```
-
-i.e. it returns `10` (the *popped* element), never returns `30`, never terminates, and `length`
-is still `2`. Any theorem about `Chain::into_pb` that unfolds this instance would prove
-properties of a serialisation containing already-discarded epochs and missing the newest one.
-
-**Current impact**: `Chain.into_pb` (`Funs.lean` L5875 ff.) *does* use this instance, but every
-`.map(...).collect()` is routed through the `sorryAx`-based bridge (item 15,
-`Spqr/Specs/Aeneas/MapCollectBridge.lean`), and no spec theorem currently states a postcondition
-for `Chain::into_pb`/`from_pb` — so nothing proved today is falsified. It is a latent unsoundness
-in the trusted base that will bite as soon as chain-serialisation specs are written (the natural
-next step after `SendKey.lean`/`RecvKey.lean`, both of which do move `head`).
-
-**Fix**: replace the body with the growing-list semantics consistent with `pop_front`:
-
-```lean
-if deq.length.val = 0 then ok (none, intoIter)
-else match deq.buf.val[deq.head.val]? with
-  | none => fail .panic
-  | some elem => do
-    let head' ← deq.head + 1#usize
-    let len'  ← deq.length - 1#usize
-    ok (some elem, ⟨{ deq with head := head', length := len' }⟩)
-```
-
-and add a `@[step]` spec mirroring `pop_front_spec_nonempty`.
-
----
-
-## 21. `Chain::from_pb` does not validate `next_root` length, `links` non-emptiness, or epoch ordering invariants → panics or silent misbehaviour from corrupted state (MEDIUM)
-
-**Extends item 1** (which covers `ChainEpochDirection::from_pb`) to the `Chain`-level deserialiser.
-
-**Rust defect** (`src/chain.rs`, L434–452)
-
-```rust
-pub(crate) fn from_pb(pb: pqrpb::Chain) -> Result<Self, Error> {
-    Ok(Self {
-        dir: pb.direction.try_into().map_err(|_| Error::StateDecode)?,
-        current_epoch: pb.current_epoch,
-        send_epoch: pb.send_epoch,
-        next_root: pb.next_root,                  // ← no length check
-        links: pb.links.into_iter().map(…).collect()?,  // ← may be empty
-        params: pb.params.ok_or(Error::StateDecode)?,
-    })
-}
-```
-
-Three invariants established by `Chain::new` are not verified on deserialisation:
-
-| Invariant | Established by `new` | Consumers that assume it | Failure mode |
-|---|---|---|---|
-| `next_root.len() == 32` | `genr8r[0..32].to_vec()` (L345) | `add_epoch` → `hkdf_to_slice(&self.next_root, …)` (L358) | No panic (HKDF accepts any salt length), but KDF output differs from what a correctly-constructed chain would produce — silent state divergence between peers |
-| `links.len() ≥ 1` | `VecDeque::from([…])` (L341) | `epoch_idx` computes `links.len() - 1 - back` (L381); `send_key` indexes `self.links[i]` (L398) | Arithmetic underflow on `0 - 1` → panic in debug, wrapping index in release → out-of-bounds panic |
-| `send_epoch ≤ current_epoch` | Both start at 0 (L339–340); `send_epoch` only advances to ≤ `current_epoch` in `send_key` (L390) | `send_key` rejects `epoch < self.send_epoch` (L385–386); `epoch_idx` rejects `epoch > self.current_epoch` (L373–374) | If `send_epoch > current_epoch`, *every* `send_key(epoch)` call fails: `epoch ≤ current_epoch < send_epoch` → `Err(SendKeyEpochDecreased)`, or `epoch > current_epoch` → `Err(EpochOutOfRange)` — chain is permanently stuck |
-
-**Impact**: same class as item 1 — a prost-valid but semantically corrupt state blob turns
-subsequent operations into panics or silent divergence. No security impact in the absence of a
-state-blob injection vector. The `next_root` length case is particularly subtle because it does
-not panic; peers would silently derive different chain keys after the next `add_epoch`.
-
-**Fix**: add checks in `Chain::from_pb`:
-
-```rust
-if pb.next_root.len() != 32 { return Err(Error::StateDecode); }
-// … after collecting links:
-if links.is_empty() { return Err(Error::StateDecode); }
-if pb.send_epoch > pb.current_epoch { return Err(Error::StateDecode); }
-```
-
----
-
-## 22. `Authenticator::from_pb` does not validate `root_key` / `mac_key` lengths → HMAC with wrong-length keys (LOW)
-
-**Rust defect** (`src/authenticator/serialize.rs`, L16–21)
-
-```rust
-pub fn from_pb(pb: &proto::pq_ratchet::Authenticator) -> Self {
-    Self {
-        root_key: pb.root_key.clone(),   // ← no length check
-        mac_key: pb.mac_key.clone(),     // ← no length check
-    }
-}
-```
-
-`Authenticator::new` always produces 32-byte keys via `hkdf_to_vec(…, 64)[..32]` and `[32..]`
-(L51–53). `from_pb` accepts arbitrary-length keys. Consequences:
-
-- **`mac_key` wrong length**: HMAC-SHA256 handles any key length (pads/hashes as needed), so no
-  panic, but the MAC tag space changes. A 0-byte `mac_key` means every authenticator produces
-  the same tags — an attacker who can inject a state blob with `mac_key: []` can then forge
-  ciphertext MACs.
-- **`root_key` wrong length**: similarly, `update` concatenates `root_key` with the epoch secret
-  as IKM to HKDF (L45), so a short/empty `root_key` weakens forward secrecy of the
-  authenticator chain.
-
-**Impact**: low. Requires state-blob injection (same attack model as items 1 and 21). No
-runtime panic. The HMAC/HKDF APIs are length-agnostic, so the failure is purely semantic.
-
-**Fix**: validate in `from_pb`:
-
-```rust
-if pb.root_key.len() != 32 || pb.mac_key.len() != 32 { return Err(…); }
-```
-
-(Requires changing the return type to `Result<Self, Error>` and updating the two call sites in
-`src/v1/unchunked/send_ek/serialize.rs` and `src/v1/unchunked/send_ct/serialize.rs`.)
-
----
-
-## 23. `RoundRobinEncoder::chunk_at` panics on empty input; `RoundRobinDecoder::is_complete` is never set (LOW, test-only code)
-
-**Rust defect** (`src/encoding/round_robin.rs`)
-
-Two issues in the `#[cfg(test)]`-only round-robin encoder/decoder:
-
-1. **Empty-input panic** (L17): `chunk_at` computes `idx as usize % self.num_chunks()`. For
-   empty input, `num_chunks()` returns 0, so this is a division-by-zero panic. Similarly, for
-   input whose length is not a multiple of 32, `chunk_at` slices `data[lb..ub]` where
-   `ub = lb + 32` may exceed `data.len()` — index-out-of-bounds panic.
-
-2. **`is_complete` never set** (L76): `decoded_message` returns `None` when
-   `self.is_complete` is true, but no code path ever sets it to `true`. This mirrors item 17
-   (`PolyDecoder::is_complete`). Unlike the `PolyDecoder` case, this only affects test code,
-   but means `decoded_message()` re-checks `can_reconstruct()` on every call after completion
-   instead of short-circuiting.
-
-**Impact**: negligible — `round_robin.rs` is gated behind `#[cfg(test)]` (L3) and is not used
-in any protocol path.
-
----
-
-## 24. Unauthenticated `Ct2Sampled → KeysUnsampled` epoch advance → one 4-byte forged message deadlocks the ratchet (MEDIUM, protocol-level DoS)
-
-**Specs that expose it**
-
-- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean` (`Message.deserialize_spec`):
-  the only facts established about an accepted message are the wire layout, `0 < msg.epoch`
-  and `at ≤ from.len()`. For `payloadTag .None` the message is exactly
-  `[1, varint(epoch), varint(index), 0]` — **no MAC, no chunk, nothing peer-derived**.
+## Part I — Unauthenticated control plane
+
+**Common root cause.** SPQR authenticates *content* (the `hdr ‖ mac` and `ct2 ‖ mac` blobs,
+checked by `verify_hdr`/`verify_ct` once a chunked message is fully reassembled) but not
+*control flow*. `Message::deserialize` establishes only the wire layout and `0 < epoch`
+(`Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean`); nothing in
+`States::recv` consults the per-epoch `Authenticator` before acting on `epoch`, `index`, the
+message type tag, or a chunk's `index`. Several state-machine edges therefore fire on data an
+on-path attacker can produce for free. In libsignal the host mitigation described above stops
+persistence for a network-only attacker but not for a malicious peer.
+
+**Verified non-defects on this surface.** `ek_matches_header` (libcrux 0.0.7
+`validate_pk_parts`) re-hashes `pk2 ‖ seed` against the MAC-authenticated `hdr` and checks the
+modulus domain of `t`, so a forged `ek` cannot pass. Forged `ct1` chunks are bound to the peer's
+`hdr` via `decaps` implicit rejection + `verify_ct`, so they cost the epoch (D19) but never the
+secret.
+
+### D24. Unauthenticated `Ct2Sampled → KeysUnsampled` epoch advance: one 4-byte forged message deadlocks the ratchet (MEDIUM; message, protocol-level DoS)
+
+**Specs that expose it.**
+
+- `Message.deserialize_spec`: for `payloadTag .None` the message is exactly
+  `[1, varint(epoch), varint(index), 0]` — no MAC, no chunk, nothing peer-derived.
 - `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct2Sent/{From,Into}Pb.lean`: `Ct2Sent` carries only
-  `epoch` and `auth`; there is no spec (and no Rust code) that consults `auth` on the
-  `recv_next_epoch` edge. Every other state transition that *changes* the protocol state either
-  runs `verify_hdr`/`verify_ct` or is preceded by one.
-- `Spqr/Specs/Chain/Chain/AddEpoch.lean` requires `h_epoch : epoch_secret.epoch = current_epoch + 1`
-  and `Spqr/Specs/Chain/Chain/EpochIdx.lean` rejects `epoch > current_epoch`, i.e. the chain
-  layer *assumes* epochs advance in lock-step on both sides.
+  `epoch` and `auth`; no spec (and no Rust) consults `auth` on the `recv_next_epoch` edge. Every
+  other state-changing transition either runs `verify_hdr`/`verify_ct` or is preceded by one.
+- `Spqr/Specs/Chain/Chain/AddEpoch.lean` requires `epoch_secret.epoch = current_epoch + 1` and
+  `EpochIdx.lean` rejects `epoch > current_epoch` — the chain layer *assumes* lock-step epochs.
 
-**Rust defect** (`src/v1/chunked/states.rs` L513–526 → `src/v1/chunked/send_ct.rs` L295 →
-`src/v1/unchunked/send_ct.rs` L200–208)
+**Rust defect** (`src/v1/chunked/states.rs` L513–526 → `chunked/send_ct.rs` L295 →
+`unchunked/send_ct.rs` L200–208).
 
 ```rust
 Self::Ct2Sampled(state) => match msg.epoch.cmp(&state.epoch()) {
@@ -800,235 +139,915 @@ Self::Ct2Sampled(state) => match msg.epoch.cmp(&state.epoch()) {
     …
 ```
 
-`recv_next_epoch` (`unchunked/send_ct.rs`) only does `assert_eq!(epoch + 1, next_epoch)` and
-rebuilds `KeysUnsampled { epoch: epoch + 1, auth }`. The payload type is not even inspected: any
-`MessagePayload` with `epoch == self.epoch + 1` triggers it.
+`recv_next_epoch` only does `assert_eq!(epoch + 1, next_epoch)` and rebuilds
+`KeysUnsampled { epoch: epoch + 1, auth }`. The payload type is not inspected.
 
-The honest protocol only emits `epoch + 1` after the peer has received *all* `Ct2` chunks and
-derived the epoch secret, so this edge is meant to be reached only when the peer has already
-authenticated `ct2 ‖ mac`. Nothing in `recv` enforces that; the `Authenticator` — keyed per epoch
-precisely to bind transitions to the shared secret — is never consulted on this edge.
+**Consequence.** With A in epoch 1 (still collecting `Ct2` chunks) and B in `Ct2Sampled(1)`, an
+on-path attacker delivers `[1, 2, 1, 0]` to B:
 
-**Consequence (reproduced).** With A in epoch 1 (still collecting `Ct2` chunks) and B in
-`Ct2Sampled(1)`, an on-path attacker delivers `[1, 2, 1, 0]` to B:
-
-| step | B | A |
+| event | B | A |
 |---|---|---|
-| forged msg | `recv` → `Ok`, `key: Some(_)` (!), state `KeysUnsampled(2)`, chain `recv_key(1, 1)` consumed | — |
-| B sends | `Hdr` chunk at **epoch 2** | `recv` → `Err(EpochOutOfRange(2))` on every message, forever |
-| A sends | `Ct1Ack` at epoch 1 | B: `Ordering::Less` → ignored |
+| forged message arrives at B | `recv` → `Ok`, `key: Some(_)` (!), state `KeysUnsampled(2)`, chain `recv_key(1, 1)` consumed | — |
+| B sends its next message | emits `Hdr` chunk at **epoch 2** | `recv` → `Err(EpochOutOfRange(2))` on every message, forever |
+| A sends its next message | `Ordering::Less` → ignored | emits `Ct1Ack` at epoch 1 |
 
-B never sends the remaining `Ct2` chunks for epoch 1, so A can never complete epoch 1; A never
-sends epoch 2, so B never leaves `KeysUnsampled(2)`. **The PQ ratchet is permanently deadlocked in
-both directions by a single 4-byte unauthenticated message**, and `recv` additionally hands the
-caller a Double-Ratchet chain key (`r.key.is_some()`) for a message that was never authenticated.
-`d24_unauthenticated_epoch_advance_deadlocks_ratchet` in
-[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
-reproduces this end-to-end through the public `send`/`recv` API (debug and release).
+B never sends the remaining `Ct2` chunks for epoch 1; A never sends epoch 2. **Both directions
+are permanently deadlocked**, and `recv` additionally hands the caller a DR chain key for a
+message that was never authenticated.
 
-**Relation to other items.** Item 19 is a *chunk* poisoning that stalls one epoch on one side; this
-item needs no chunk at all and stalls both sides. `docs/bugSecurityRemote.md` (R‑1) observes that
-libsignal's clone-then-commit-after-MAC discards the mutated clone for a *network-only* attacker;
-that mitigation lives outside SPQR, does not apply to any other embedder of the crate, and does not
-protect against an authenticated-but-malicious peer (who can then blame the stall on the victim).
+**Reproduced:** `d24_unauthenticated_epoch_advance_deadlocks_ratchet` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt),
+through the public `send`/`recv` API (debug and release). Formal model:
+`Spqr/Specs/Bugs/ProtocolDoS.lean`.
 
-**Fix**: gate the transition on authenticated evidence — e.g. only accept `epoch + 1` from a
-`Hdr` chunk *after* that header's MAC verifies (defer `recv_next_epoch` until
-`recv_hdr_chunk … Done`), or have the `epoch + 1` message carry `mac_hdr`-style authentication.
-At minimum, do not return a chain key for a payload of type `None` that changed the epoch.
+**Fix:** gate the transition on authenticated evidence — only accept `epoch + 1` from a `Hdr`
+chunk *after* that header's MAC verifies (defer `recv_next_epoch` until `recv_hdr_chunk … Done`),
+or have the `epoch + 1` message carry `mac_hdr`-style authentication. At minimum, do not return a
+chain key for a payload of type `None` that changed the epoch.
 
----
+### D38. Unauthenticated `Ct1Ack` stalls epoch completion on both sides (MEDIUM; message, protocol-level DoS — sibling of D24)
 
-## 25. Empty (0-byte) unauthenticated message finalises a V0 downgrade while `min_version == V0` (LOW–MEDIUM, downgrade / DoS)
+D24 is the one control edge that *advances* the epoch; D38 is its counterpart on the edges that
+*suppress future sends*. Both are triggered by data the `Authenticator` never sees.
 
-**Specs that expose it**
+**Specs that expose it.**
+
+- `Message.deserialize_spec`: `MessageType::Ct1Ack` (tag 4) decodes to
+  `MessagePayload::Ct1Ack(true)`; the wire form is `[1, varint(epoch), varint(index), 4]`.
+- `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct1SentEkReceived/*` and `Ct2Sent/*`: the
+  transition `Ct1SentEkReceived → Ct2Sent` (`send_ct2`) is a pure function of local state; the
+  only MAC on this path (`mac_ct`) is *produced*, not verified.
+
+**Rust defect** (`src/v1/chunked/states.rs` L463–477 → `chunked/send_ct.rs` L232–240).
+
+```rust
+Self::EkReceivedCt1Sampled(state) => match msg.epoch.cmp(&state.epoch()) {
+    Ordering::Equal => {
+        if matches!(msg.payload, MessagePayload::Ct1Ack(true) | MessagePayload::EkCt1Ack(_)) {
+            Self::Ct2Sampled(state.recv_ct1_ack(msg.epoch))   // drops `sending_ct1` forever
+        } …
+```
+
+`Ct1Ack` is the peer's claim "I have fully decoded your `ct1`". B trusts it blindly, discards
+`sending_ct1`, and moves to `Ct2Sampled`, which only emits `Ct2` chunks. A, still in
+`HeaderSent`, only accepts `Ct1` chunks (L305–331) and ignores `Ct2`; B in `Ct2Sampled` ignores
+A's `Ek` chunks. Neither side ever emits `epoch + 1`.
+
+**Consequence.** After B has received the full `ek` but A has not finished `ct1`, the 5-byte
+forgery `[1, 1, 0xE8, 0x07, 4]` makes B switch to `Ct2`; 200 further round-trips never leave
+epoch 1 (the control run without the forgery advances). `recv` again returns `key: Some(_)`.
+
+*Why distinct from D24.* D24 needs B in `Ct2Sampled` and produces a *permanent error*
+(`EpochOutOfRange` forever). D38 needs B in `EkReceivedCt1Sampled` — a large window, the whole
+time B is streaming its 960-byte `ct1` at ≤ 32 B/message — and produces a *silent stall*: every
+call returns `Ok` with sensible-looking state, so no host-side error handling can notice. The
+`Ct1Ack` flag is also implicit in `EkCt1Ack` (tag 3): a forged `EkCt1Ack` chunk with garbage
+data has the same effect from `Ct1Sampled` (L419–420, `ack = true`) *and* poisons the `ek`
+decoder (D19).
+
+**Reproduced:** `d38_forged_ct1ack_stalls_epoch` in
+[`docs/forged_control_message_counterexamples.rs.txt`](./forged_control_message_counterexamples.rs.txt).
+
+**Fix:** authenticate acknowledgements — honour the `Ct1Ack` bit only when it arrives on an
+`EkCt1Ack` chunk whose contribution to the `ek` decoder is later validated by
+`ek_matches_header`; or carry a short `mac_hdr`-style tag over `(epoch, type)` under the current
+`mac_key`. At minimum, do not drop `sending_ct1` until the peer proves possession of `ct1`.
+
+### D19. Unauthenticated chunk poisoning is *persistent*: one forged low-index chunk stalls the epoch (MEDIUM; message, protocol-level DoS)
+
+**Specs that expose it.**
+
+- `Spqr/Specs/Encoding/Polynomial/PolyDecoder/AddChunk.lean` / `Decoder/AddChunk.lean`: the
+  insertion guard is `poly_idx < necessary_points(i) ∨ pts[poly].len() < necessary_points(i)`.
+  For any `chunk.index < necessary_points` the first disjunct is unconditionally true, so the
+  point is always inserted, and the `IsSortedPushResult` `.eq` branch is **replacement**
+  (`SrcTranslated/FunsExternal.lean:2146`; `sorted_vec 0.8.6 SortedSet::push`).
+- `PolyDecoder/IntoPb.lean` / `FromPb.lean`: every stored point (including a replaced one)
+  round-trips through the persisted protobuf unchanged.
+- `Message.deserialize_spec`: `Chunk.index`/`Chunk.data` are attacker-controlled.
+
+**Rust defect** (`src/encoding/polynomial.rs` L888–899; `src/v1/chunked/*.rs`).
+
+1. An on-path attacker sends `{epoch, Hdr/Ek/Ct1/Ct2, index: k, data: garbage}` with `k` below
+   `necessary_points` (e.g. `k = 0`) for the epoch currently being received.
+2. `add_chunk` replaces the honest `x = k` point (or pre-seeds it). `decoded_message()` is still
+   `None` → `recv` returns `Ok` and the poisoned decoder is **persisted**.
+3. When the honest chunks complete the message, interpolation uses the garbage point →
+   `verify_hdr`/`verify_ct` fails → `recv` returns `Err(MacVerifyFailed)`. The caller keeps the
+   *old, poisoned* state. Every later honest chunk yields the same `Err`, because only another
+   chunk with index exactly `k` can overwrite the point, and the honest sender re-emits index `k`
+   only after wrapping through 65 536 chunks (D5).
+
+**Reproduced:** `poisoned_low_index_point_persists_and_wins` in
+[`docs/decoder_poison_persistence_counterexample.rs.txt`](./decoder_poison_persistence_counterexample.rs.txt).
+An independent review of the argument — including where "permanent" is stronger than the
+evidence — is in [`docs/spqr_chunk_replacement_poisoning_review.md`](./spqr_chunk_replacement_poisoning_review.md).
+Formal model: `Spqr/Specs/Bugs/ProtocolDoS.lean`.
+
+**Fix** (any one suffices): (a) `find_or_push` — first write wins, matching the source comment
+(see D4); (b) on MAC failure, reset the decoder for that epoch so honest retransmits can recover;
+(c) keep both candidate `y` values per `x` and try alternatives on MAC failure. Option (a) is the
+smallest change; it would make the Lean model in `AddChunk.lean` (replacement) *wrong*, so the
+model must be updated with it.
+
+#### D4 / D18. The `add_chunk` source comment contradicts the verified last-write-wins semantics (LOW; documentation)
+
+The Rust comment at `polynomial.rs` L896–898 claims *"This will discard new points whose X value
+matches a previous old point"*. `sorted-vec 0.8.6` `SortedSet::push` on `Equal` does `pop()` then
+`push(element)`, so the **new** `y` wins; the Lean model (`AddChunk.lean`;
+`FunsExternal.lean:2146` `.eq => ok (i, some a, x :: rest)`) is right and the comment is wrong
+(D4). Because `Pt::eq`/`Ord` ignore `y` (`Pt/Eq.lean`: *"returns true iff self.x.value =
+other.x.value (y ignored)"*), a re-sent index with a different payload overwrites earlier points
+(D18). Harmless for an honest peer; D19 is what it costs against a malicious one.
+
+**Reproduced:** `decoder_duplicate_index_last_wins` in
+[`docs/decoder_logic_probe.rs.txt`](./decoder_logic_probe.rs.txt): two index-0 chunks from
+different messages → output follows the **second**.
+
+**Fix:** correct the comment, or adopt `find_or_push` (which also fixes D19).
+
+### D25. Empty (0-byte) unauthenticated message finalises a V0 downgrade while `min_version == V0` (LOW–MEDIUM; message, downgrade / DoS)
+
+**Specs that expose it.**
 
 - `Spqr/Specs/Lib/DecodeState/CallOnce.lean`: an empty state decodes to
-  `{ inner := none, version_negotiation := none, chain := none }` — i.e. "V0, negotiation
-  closed".
+  `{ inner := none, version_negotiation := none, chain := none }` — "V0, negotiation closed".
 - `Spqr/Specs/Proto/PqRatchet/Version/TryFrom.lean` and `msg_version` (`lib.rs` L464–470):
   `msg.is_empty() ⇒ Some(V0)`. There is no authentication anywhere in the negotiation path.
 
-**Rust defect** (`src/lib.rs` L377–412, L417–421)
+**Rust defect** (`src/lib.rs` L377–412, L417–421).
 
-When `msg_version(msg) = V0 < state_version = V1` and `version_negotiation` is `Some(vn)` with
+When `msg_version(msg) = V0 < state_version = V1` and `version_negotiation = Some(vn)` with
 `vn.min_version ≤ V0`, `recv` rebuilds the state with `init_inner(V0, …) = None` and
-`version_negotiation: None`, then falls into the `state_pb.inner == None` arm and returns
-`Recv { state: vec![], key: None }`. The **empty byte string** is thus a valid downgrade message
-that (a) requires no MAC or peer secret, (b) permanently disables the PQ ratchet for that session
-(`current_version` reports `NegotiationComplete(V0)`), and (c) makes every later honest V1 message
-a silent no-op (`Ordering::Greater` on an `inner: None` state returns `Ok` with `state: vec![]`).
+`version_negotiation: None`, then returns `Recv { state: vec![], key: None }`. The **empty byte
+string** is thus a valid downgrade message that (a) requires no MAC or peer secret,
+(b) permanently disables the PQ ratchet for that session, and (c) makes every later honest V1
+message a silent no-op (`Ordering::Greater` on an `inner: None` state returns `Ok`).
 
-Reproduced by `d25_unauthenticated_v0_downgrade_with_empty_message` in
+**Consequence.** The downgrade is *by design* while negotiation is open, but the trigger being
+the empty message means an intermediary that merely strips the `pq_ratchet` protobuf field from
+the first message completes it. libsignal `a47ba487` initialises with `min_version: Version::V0`
+(`ratchet.rs` L109, L200, with a comment that it will be raised once all clients speak PQR), so
+the window is open in production; only the host's commit-after-MAC prevents persistence for a
+network-only attacker.
+
+**Reproduced:** `d25_unauthenticated_v0_downgrade_with_empty_message` in
 [`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
 
-**Impact**: the downgrade is *by design* while negotiation is open, but the trigger being the
-empty message means an intermediary that simply strips the `pq_ratchet` field from the first
-message (rather than forging anything) completes it. libsignal currently initialises with
-`min_version = V0` (see `docs/CorruptedBlobs.md` §15.4), so the window is real. Only the
-commit-after-MAC pattern of the host prevents persistence for a network-only attacker.
+**Fix:** default to `min_version ≥ V1`; or accept a downgrade only from a message carrying
+authenticated V0 content (not the empty string); and surface it to the host via a distinct
+`Error`/`SecretOutput` so it can decide whether to accept it.
 
-**Fix**: require `min_version ≥ V1` by default, or only accept a downgrade from a message that
-also carries authenticated V0 content (not the empty string), and surface it to the host via a
-distinct `Error`/`SecretOutput` so it can decide whether to accept it.
+### D39. `index == 0` on an epoch-1 message is an unauthenticated per-message "skip the PQ key" sentinel (LOW–MEDIUM; message, downgrade-adjacent)
 
----
+D25 is a *session-wide* opt-out of PQ key mixing; D39 is the *per-message* counterpart.
 
-## 26. `epoch == 0` accepted by every `*::from_pb`, then `msg.epoch - 1` underflows in `lib::send` (LOW)
+**Specs that expose it.**
 
-**Specs that expose it**
+- `Message.deserialize_spec`: `index` is any `u32` from the varint; `0` is accepted.
+- `Spqr/Specs/Chain/ChainEpochDirection/Key.lean` (`key_spec_*`) and `KeyHistory/Get.lean`:
+  every path through `key(at)` for `at = 0 < ctr` ends in `Err(KeyTrimmed)` or
+  `Err(KeyAlreadyRequested)` — index 0 is *never* a valid chain key. Yet `lib.rs` never asks.
 
-- All eleven `Spqr/Specs/V1/Unchunked/{SendEk,SendCt}/Serialize/*/FromPb.lean` theorems prove
-  `Ok` with `epoch := pb.epoch` **for any `u64`** — no positivity is checked.
-- `Spqr/Specs/V1/Chunked/States/Serialize/Message/Deserialize.lean` proves `0 < msg.epoch` on
-  the *wire* path, so the protocol relies on `epoch ≥ 1` (both `new()` constructors start at 1,
-  and `lib.rs` computes `msg.epoch - 1` at L300 and L427).
-- `Spqr/Specs/V1/Unchunked/SendCt/Serialize/Ct2Sent/FromPb.lean` docstring: "The call always
-  succeeds (no panic)".
-
-**Rust defect** (`src/lib.rs` L300; `src/v1/unchunked/*/serialize.rs`)
+**Rust defect** (`src/lib.rs` L432–436).
 
 ```rust
-let (index, msg_key) = chain.send_key(msg.epoch - 1)?;     // lib.rs L300
+let msg_key = if msg_key_epoch == 0 && index == 0 {
+    vec![]                                     // → Recv { key: None }
+} else {
+    chain.recv_key(msg_key_epoch, index)?
+};
 ```
 
-A persisted blob whose inner `uc.epoch` is `0` (the prost default for a missing field) is accepted
-by `from_pb`; `States::send` then emits a `Message { epoch: 0, … }` and `lib::send` evaluates
-`0u64 - 1`:
+The sentinel exists for the legitimate `(chain: None, min_version == V0)` sender in `send`
+(L294). But the *receiver* honours it unconditionally: even when its own `min_version == V1` and
+it already holds a chain, any epoch-1 message with `index = 0` yields `key: None`.
 
-| Build | Behaviour (reproduced) |
-|---|---|
-| debug | **panic** `attempt to subtract with overflow` at `lib.rs:302` |
-| release | wraps to `u64::MAX` → `Err(EpochOutOfRange(18446744073709551615))` — every `send` fails, session stuck |
+**Consequence.** Under libsignal's outer MAC this is caught (the DR message keys differ when the
+PQ salt is missing). Architecturally, any embedder that mixes `spqr::MessageKey` into a KDF as an
+`Option` — as libsignal does, `Hkdf::new(optional_salt, …)` (`ratchet/keys.rs` L96) — inherits a
+per-message downgrade oracle whose only defence is the host MAC. A spec of `recv` (currently
+absent; `send` is `verification_status(lax)`) would have to state "`key = None` iff the sender
+declared V0 or `index = 0`", making the gap explicit.
 
-`recv` has the same expression at L427 but is shielded by `deserialize`'s `epoch == 0` check.
-Reproduced by `d26_epoch_zero_state_underflows_in_send` in
-[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
-(Listed as a one-liner in `docs/reportI.md` §11; recorded here with the executable evidence.)
+**Reproduced:** `d39_index_zero_yields_no_pq_key_despite_min_version_v1` in
+[`docs/forged_control_message_counterexamples.rs.txt`](./forged_control_message_counterexamples.rs.txt)
+flips the index byte of an honest first message and observes `key: None` with the receiver's
+chain untouched (the untampered original is still accepted afterwards).
 
-**Fix**: reject `pb.epoch == 0` in the unchunked `from_pb` functions (same trust boundary as items
-1, 13, 14, 21, 22), and use `checked_sub` in `lib.rs`.
+**Fix:** when `version_negotiation.min_version ≥ V1` (or a chain exists), treat `index == 0` on
+epoch 1 as `Err(Error::MsgDecode)`; and assert in `send` that `index = 0` is never emitted once a
+chain exists.
+
+### D40. Pre-authentication computational amplification: up to `max_jump` HKDFs per unauthenticated message (LOW–MEDIUM; message, CPU DoS)
+
+**Specs that expose it.**
+
+- `Key.lean` (`key_spec_greater_jump` / `key_spec_greater`): for `ctr < at ≤ ctr + max_jump`,
+  `key` performs `at − ctr` calls to `next_key_internal`, each an HKDF-SHA256
+  (`NextKeyInternal.lean`), plus up to `min(max_ooo, at − ctr)` `KeyHistory::add`s.
+- `Spqr/Specs/Chain/ChainParams/MaxJumpOrDefault.lean`: default `max_jump = 25 000`; a local
+  parameter, never compared to anything the peer has authenticated.
+
+**Rust defect** (`lib.rs` L435). `recv` calls `chain.recv_key(epoch, index)` with the
+attacker-chosen `index` **before any MAC in the system has been checked**: SPQR's own
+`verify_hdr`/`verify_ct` run only on chunk-completion edges, and libsignal calls
+`pq_ratchet_recv` before `verify_mac`.
+
+**Consequence.** An on-path attacker who rewrites the `index` varint of every message to
+`ctr + 25 000` forces 25 000 HKDFs per message; the outer MAC then fails, the clone is dropped,
+`ctr` is *not* advanced, and the same cost can be re-imposed on the next message indefinitely.
+libsignal repeats this for every archived session (`previous_session_states()`, up to
+`ARCHIVED_STATES_MAX_LENGTH = 40`) that reaches the call. With libsignal's self-session
+configuration (`max_jump = u32::MAX`, D32) the bound is effectively unlimited: one message can
+demand ~4·10⁹ HKDFs.
+
+*Comparison with the Double Ratchet.* DR has the same `MAX_FORWARD_JUMPS = 25 000` skip budget,
+but derives one HMAC per step and aborts at `MAX_MESSAGE_KEYS = 2 000` stored keys; SPQR derives
+25 000 and stores 2 000 — roughly 2× the pre-MAC CPU cost, unbounded in self-sessions.
+`docs/CorruptedBlobs.md` C4 mentions the figure in passing; it is a defect here because the
+*ordering* (SPQR key derivation before host MAC) is a property of the SPQR ↔ libsignal contract.
+
+**Fix:** (a) cap `max_jump` for self-sessions (D32); (b) a two-phase API — `recv` returns the
+key plus a deferred commit so the host can verify its MAC before SPQR performs the ratchet walk —
+or accept the message MAC as an input; (c) at minimum bound work per call by `max_ooo_keys`
+rather than `max_jump` (derive lazily; store seed + skip count).
 
 ---
 
-## 27. `lib::send` panics on `assert!(key.is_none())` when the state emits an `EpochSecret` but no chain is available (LOW–MEDIUM, panic from persisted state)
+## Part II — Arithmetic and parameter bounds the specs could not discharge
 
-**Specs that expose it**
+**Common root cause.** `src/chain.rs` guards its `u32`/`usize` arithmetic with
+`hax_lib::assume!` and `#[hax_lib::requires]`, which are erased at runtime and, in the Aeneas
+translation, become *hypotheses* of every spec theorem (`h_ooo_no_overflow`, `h_ctr_bound`,
+`h_maxooo_bound : maxOoo < 390451572`, …). Nothing in the crate — no constructor, no
+deserialiser, no `initial_state` check — establishes them, so the theorems describe the code
+only on the sub-domain where the hypotheses hold. `docs/invariantsSPQR.md` §3 discusses which of
+these hypotheses can be turned into invariants. Two arithmetic findings whose trigger is a
+*deserialised* value rather than a parameter (D26, D34) are filed under Part III.
 
-- `Spqr/Specs/Lib/ChainFromVersionNegotiation/CallOnce.lean` and the `send` driver: the chain is
-  materialised only when `chain.is_some()` **or** `vn.min_version > V0`. There is no spec for
-  `send` itself (`#[hax_lib::fstar::verification_status(lax)]`, `lib.rs` L264), so the
-  `hax_lib::assume!(key.is_none())` at L292 is *unverified* and erased at runtime, leaving the
-  `assert!` at L293.
-- `HeaderReceived::send_ct1_chunk` (`src/v1/chunked/send_ct.rs` L120–139) unconditionally
-  returns `Some(EpochSecret)`; `Spqr/Specs/V1/Unchunked/SendCt/Serialize/HeaderReceived/FromPb.lean`
-  accepts any such state from disk.
+### D2. `u32` overflow in `KeyHistory::get` trimmed-check (MEDIUM; message + local-config)
 
-**Rust defect** (`src/lib.rs` L290–295)
+`Spqr/Specs/Chain/KeyHistory/Get.lean` and `Key32.lean` require
+`h_ooo_no_overflow : at1 + maxOoo ≤ U32.max`.
 
 ```rust
-let (index, msg_key, chain_pb) = match chain {
-    None => {
-        hax_lib::assume!(key.is_none());
-        assert!(key.is_none());          // ← panics
-        (0, vec![], None)
-    }
+if at + (params.max_ooo_keys_or_default()) < current_ctr {   // chain.rs L192
 ```
 
-The `None` arm is reached when `state_pb.chain == None` and `vn.min_version == V0`. In the honest
-flow `recv` always persists `chain: Some(_)`, so the only V1 inner states that co-exist with
-`chain: None` are the two initial ones. But `from_pb` accepts **any** inner state alongside
-`chain: None` + an open V0-min negotiation; with inner `HeaderReceived` (or any other state whose
-`send` yields `Some(EpochSecret)`) the assertion fires — in **both** debug and release, because it
-is an `assert!`, not a `debug_assert!`.
+`at` is the attacker-supplied message `index`. When `ctr` approaches `u32::MAX`, `at + max_ooo`
+overflows: debug builds panic, release builds wrap so the branch is taken and a *valid* key is
+reported as `KeyTrimmed`. `key()` guards the analogous `self.ctr + max_ooo` (L265, L279) only via
+`hax_lib::assume!` — hence `h_ctr_bound : i + 1 ≤ U32.max − 390451572` in `Key.lean`. With
+default parameters the overflow needs `ctr` near `u32::MAX`; with libsignal's self-session
+parameters it is reachable today (D32).
 
-Reproduced by `d27_send_asserts_when_epoch_secret_but_no_chain` in
-[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
-(blob = honest `HeaderReceived` state with `chain` dropped and the original
-`version_negotiation` restored).
+**Fix:** `checked_add` / `saturating_add` at L192, L265, L279.
 
-**Fix**: return `Err(Error::ChainNotAvailable)` instead of asserting, or always materialise the
-chain from `version_negotiation` when a key is produced (mirroring `recv`'s `chain_from`).
+### D28. `ChainParams` are never range-checked (`Error::InvalidParams` is dead) (MEDIUM; local-config)
 
----
+**Specs that expose it.** `MaxOooKeysOrDefault.lean` returns `self.max_ooo_keys` for any positive
+value; `TrimSize.lean` needs `max_ooo_keys < 390451572`; `Key.lean`/`Get.lean`/`Key32.lean` need
+`h_maxooo_bound`, `h_at_bound : at ≤ U32.max − 390451572` and `h_ooo_no_overflow`. None is
+established anywhere; the Rust carries them only as `assume!` (`chain.rs` L86, L262–264, L275–277).
 
-## 28. `ChainParams` are never range-checked (`Error::InvalidParams` is dead) → `u32` overflow in `ChainEpochDirection::key`/`KeyHistory::get` with large `max_ooo_keys` (MEDIUM)
+**Rust defect** (`src/chain.rs`; `src/lib.rs` L128, L212–240). `ChainParams` is public;
+`initial_state` copies it unchanged into the blob; `Chain::new`/`from_pb` accept any
+`ChainParamsPB`. `Error::InvalidParams(&'static str)` exists but is **never constructed**.
 
-**Specs that expose it**
-
-- `Spqr/Specs/Chain/ChainParams/MaxOooKeysOrDefault.lean`: result is `self.max_ooo_keys` for any
-  positive value — "always succeeds".
-- `Spqr/Specs/Chain/ChainParams/TrimSize.lean` needs `h_ooo : max_ooo_keys < 390451572`.
-- `Spqr/Specs/Chain/ChainEpochDirection/Key.lean` (`key_spec_*`) needs
-  `h_maxooo_bound : maxOoo < 390451572`, `h_at_bound : at ≤ U32.max − 390451572` and
-  `h_ooo_no_overflow : at + maxOoo ≤ U32.max`; `Get.lean`/`Key32.lean` need the same.
-  None of these is established by any constructor or deserialiser; the Rust carries them only as
-  `hax_lib::assume!` (`chain.rs` L86, L262–264, L275–277), erased at runtime.
-
-**Rust defect** (`src/chain.rs` L86, L192, L265, L279; `src/lib.rs` L128, L212–240)
-
-`ChainParams` is a public struct; `initial_state` copies it into the state blob unchanged and
-`Chain::new`/`Chain::from_pb` accept any `ChainParamsPB`. The variant
-`Error::InvalidParams(&'static str)` exists (`lib.rs` L128) but **is never constructed anywhere
-in `src/`**. With `max_ooo_keys = u32::MAX` (a natural way to spell "never trim"):
+**Consequence.** With `max_ooo_keys = u32::MAX` (a natural way to spell "never trim"):
 
 | Build | `recv_key(0, 3)` on a fresh chain | then `recv_key(0, 1)` |
 |---|---|---|
-| debug | **panic** `attempt to add with overflow` at `chain.rs:279` (`self.ctr + max_ooo`) | — |
-| release | `Ok(32 bytes)`, but the wrapped test `ctr + max_ooo >= at` is *false*, so skipped keys 1, 2 are **never stored** | `Err(KeyTrimmed(1))` — `get`'s `at + max_ooo < current_ctr` wraps to `0 < 3` |
+| debug | **panic** `attempt to add with overflow` at `chain.rs:279` | — |
+| release | `Ok`, but the wrapped test `ctr + max_ooo >= at` is *false*, so skipped keys 1, 2 are **never stored** | `Err(KeyTrimmed(1))` — `get`'s check wraps to `0 < 3` |
 
-I.e. in release the parameter's meaning inverts: "keep every out-of-order key" becomes "store none
-and report every out-of-order key as trimmed", silently losing message keys. `trim_size()` also
-overflows `usize` on 32-bit for `max_ooo ≥ 390 451 572` (item 8). Reproduced by
-`d28_unvalidated_chain_params_overflow_in_key` in
+The parameter's meaning inverts in release: "keep every out-of-order key" becomes "store none".
+Local configuration only (params never come from the wire), but silent in release.
+
+**Reproduced:** `d28_unvalidated_chain_params_overflow_in_key` in
 [`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
 
-**Impact**: local configuration only (params are never taken from the wire), but the crate's
-public API accepts them without complaint and the failure is silent in release. This is the
-runtime counterpart of the arithmetic hypotheses the chain specs cannot discharge (see
-`docs/invariantsSPQR.md` §3).
-
-**Fix**: validate in `initial_state` (and `Chain::from_pb`) and finally use the dead variant:
+**Fix:** validate in `initial_state` and `Chain::from_pb`, finally using the dead variant:
 
 ```rust
-if params.max_ooo_keys >= 390_451_572 {
-    return Err(Error::InvalidParams("max_ooo_keys too large"));
-}
+if params.max_ooo_keys >= 390_451_572 { return Err(Error::InvalidParams("max_ooo_keys too large")); }
 if params.max_jump as u64 + params.max_ooo_keys as u64 > u32::MAX as u64 {
     return Err(Error::InvalidParams("max_jump + max_ooo_keys overflows u32"));
 }
 ```
 
-and replace the `+` at `chain.rs` L192/L265/L279 with `saturating_add`.
+### D32. libsignal self-session `max_jump = u32::MAX` triggers the D2/D28 overflow in production (MEDIUM; message, via libsignal config — sibling of D28)
+
+libsignal `ratchet.rs` L41–52 (`spqr_chain_params`) sets `max_jump = u32::MAX` when the local
+and remote identity keys coincide (Note-to-Self), otherwise `MAX_FORWARD_JUMPS = 25 000`. With
+this value `key()`'s `at − ctr > max_jump` check is vacuous, so `at` may be anything up to
+`u32::MAX`, and `at > self.ctr + max_ooo` (L265) / `at + max_ooo` (L192) overflow exactly as in
+D2 — panic in debug, wrapping in release. `key_spec_greater_jump`'s
+`h_ctr_bound ≤ U32.max − 390451572` correctly predicts that the upper range is unsafe. The same
+setting removes any bound on the pre-MAC HKDF walk (D40). Self-sessions are real and
+long-lived.
+
+**Fix:** cap at `u32::MAX.saturating_sub(MAX_MESSAGE_KEYS as u32 + 1)` in libsignal, and/or
+reject the combination in SPQR via D28's validation.
+
+### D8. `usize` overflow in `ChainParams::trim_size` on 32-bit (LOW; local-config, 32-bit)
+
+`TrimSize.lean` needs `h_ooo : max_ooo_keys < 390451572` because the `assume!` at `chain.rs` L86
+is erased; `Gc.lean`/`Key32.lean` tighten it to `< 108458770` so `trim_size * 36` fits in 32
+bits. `max_ooo * 11` overflows for large `max_ooo_keys`.
+
+**Fix:** subsumed by D28's validation.
+
+### D10. The claimed bound `data.len() <= KEY_SIZE * trim_size()` on `KeyHistory` is false (MEDIUM; spec — LOW at runtime)
+
+**Specs that expose it.** `chain.rs` asserts — as `hax_lib::requires` on
+`KeyHistory::add`/`remove` (L138, L174), as `assume!` inside `ChainEpochDirection::key`
+(L281–282), and as the struct comment on `KeyHistory::data` (L94) — that the history never
+exceeds the GC threshold. The Lean specs do **not** adopt this claim: `Add.lean` assumes only
+`len + 36 ≤ Usize.max`, `Remove.lean` only `idx + 36 ≤ len`, and `Key.lean` carries the weaker
+`h_prev_ctr : prev.data.length ≤ 36 * ctr` and `h_kh_cap`. This finding *explains* why those
+weaker hypotheses were the strongest dischargeable ones.
+
+**Rust defect.** The bound is **false**: the history can grow to almost twice the threshold
+before `gc` runs. The bounds the code actually maintains are
+
+* **at rest** (between calls to `key`): `data.len() < KEY_SIZE * trim_size()` (strict); and
+* **inside `key`, immediately before `gc`**:
+  `data.len() ≤ KEY_SIZE * ((trim_size() − 1) + (max_ooo − 1))`.
+
+With the defaults (`max_ooo_keys = 2000`, `trim_size() = 2201`) the claimed maximum is 2201
+records (79 236 B); the true pre-GC maximum is 4199 records (151 164 B). The cause: `key(at)`
+clears `prev` only when `at > ctr + max_ooo`. In the boundary case `at = ctr + max_ooo` nothing
+is cleared and the advancing loop stores all `max_ooo − 1` intermediate keys **on top of** what
+is already there; `gc` runs only *after* the loop (L289).
+
+**Consequence.** With `max_ooo_keys = 10`, `max_jump = 100`, `trim_size() = 12`, threshold
+432 B:
+
+| call | `prev` cleared? | records added | before `gc` | after `gc` |
+|---|---|---|---|---|
+| `key(11)` | yes (`11 > 0 + 10`) | 1…10 | 10 (360 B) | 10 |
+| `key(14)` | no | 12, 13 | 12 (432 B) | 10 |
+| `key(24)` | **no** (`24 = 14 + 10`) | 15…23 | **19 (684 B)** | 10 |
+
+During `key(24)` six `add` calls execute with `data.len() > 432 B`, violating the `requires` on
+`add` from the crate's own caller. Over 2000 random walks the maximum observed pre-GC size was
+exactly `(trim_size − 1) + (max_ooo − 1) = 20` records; the at-rest bound never failed.
+
+*Impact.* Specification: any proof relying on the `requires` of `add`/`remove` or the `assume!`
+in `key` as a real invariant is unsound. Behavioural: `prev` uses up to ~2× the promised memory
+(bounded; not a DoS vector). The 32-bit guard `trim_size() < 119304647` is also stated against
+the wrong quantity.
+
+*Related off-by-one.* After `key(24)` the record tagged 13 survives `gc` (horizon `23 − 10 =
+13`; `gc` drops only tags *strictly below*, L152), yet `prev.get(13, 24, ..)` returns
+`Err(KeyTrimmed(13))` because `get` tests `at + max_ooo < current_ctr` with the *post-increment*
+counter (L192). `gc` and `get` disagree at the window boundary by one: a key still stored is
+reported as trimmed. `Get.lean` and `Key.lean` faithfully describe this asymmetry.
+
+**Reproduced:** model in
+[`docs/key_history_bound_counterexample.py`](./key_history_bound_counterexample.py); tests
+against the real crate in
+[`docs/key_history_bound_counterexample.rs.txt`](./key_history_bound_counterexample.rs.txt)
+(full file [`docs/chain.rs`](./chain.rs)).
+
+**Fix:** (1) correct the comment and the `requires`/`assume!` to the true bound, or drop the
+length clause (only `len + 36 ≤ usize::MAX` / `idx + 36 ≤ len` are needed); (2) call `gc` inside
+the loop, or size `Vec::with_capacity` for the larger bound; (3) make `get` and `gc` agree:
+`at + max_ooo < current_ctr − 1` in `get`, or `>=` in `gc`.
+
+### D3. `u64 → usize` truncation in `Chain::epoch_idx` on 32-bit targets (MEDIUM; 32-bit)
+
+`EpochIdx.lean` needs `h_diff_fits : current_epoch − epoch ≤ Usize.max`, proved by
+`cases System.Platform.numBits_eq`.
+
+```rust
+let back = (self.current_epoch - epoch) as usize;   // chain.rs L376
+if back >= links { return Err(EpochOutOfRange) }
+Ok(links - 1 - back)
+```
+
+On 32-bit a difference ≥ 2³² truncates, so the bounds check can pass and the function returns
+an index for the **wrong epoch**. Impractical (needs 2³² epochs) but the spec correctly refuses
+to prove correctness without the hypothesis.
+
+**Fix:** `usize::try_from(..).map_err(..)`.
+
+### D5. `PolyEncoder` index truncation `u32 → u16` (LOW; blob or long-running session)
+
+`PolyEncoder/NextChunk.lean` needs `h_idx_fits : self.idx ≤ U16.max` to prove
+`chunk.index = self.idx`; `PolyEncoder/FromPb.lean` yields `encoder.idx = pb.idx` for any `u32`.
+
+```rust
+let out = self.chunk_at(self.idx as u16);      // polynomial.rs L735
+self.idx = self.idx.wrapping_add(1);
+```
+
+After 65 535 chunks (or from a persisted `pb.idx > 65535`) the emitted `chunk.index` silently
+wraps. This wrap is also what makes D19's poisoning effectively permanent (the honest sender
+only re-emits a given index after 65 536 chunks).
+
+**Fix:** store `idx: u16`, or reject out-of-range values in `from_pb`.
 
 ---
 
-## Notes / limitations
+## Part III — Deserialisation without validation
 
-- Items 24–28 (added 2026-09-27) come from auditing the *driver* layer (`src/lib.rs`,
-  `src/v1/chunked/states.rs`), which has no Lean spec of its own (`send` is
-  `verification_status(lax)`), against the hypotheses the chain/state specs require of it
-  (`h_epoch`, `epoch ≥ 1`, the `390451572` arithmetic bounds) and against the *absence* of any
-  authentication postcondition in `Message.deserialize_spec`. All five are reproduced through the
-  public `send`/`recv`/`initial_state` API in
-  [`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt)
-  (debug and release, scratch copy with `--features test-utils`, `--test-threads=1`). Item 24 is
-  the new top priority: it is the only finding where a single unauthenticated message deadlocks
-  *both* parties, and — unlike item 19 — needs no chunk data at all.
-- All findings are grounded in hypotheses the existing (proved) spec theorems require, or in
-  postconditions they establish. Items 1, 19, 10, 20 and 21 are the recommended priorities
-  (item 1 for robustness, item 19 for a concrete protocol-level DoS, item 10 for correcting
-  erroneous source annotations, item 20 for the soundness of the Lean trusted base, item 21
-  for silent state divergence). Items 21–23 extend the deserialisation-validation theme of
-  item 1 to `Chain::from_pb`, `Authenticator::from_pb`, and the test-only round-robin codec.
-- Findings 10, 13, 16, 17, 18, 19 and 20 are backed by executable counterexamples in `docs/`;
-  the Rust tests were run on a scratch copy because `src/` is a pinned upstream tree.
-- A full `lake build Spqr SrcTranslated` (2553 jobs) was re-run for the 2026-09-24 additions
-  (items 19–20) and completes with only the two known `sorry` warnings (`DecodeState.lean`,
-  `MapCollectBridge.lean`).
-- Axiom audit (`#print axioms`) on representative theorems: `send_key_spec` and `key_spec_*`
-  depend only on `hkdf_to_slice_spec` and the `get_unchecked{,_mut}` externals;
-  `point_at_spec` additionally depends on `sorryAx` via the `MapCollectBridge` (item 15).
-  `mul2_u16_spec` is axiom-free because `aeneas-config.yml` excludes the accelerated
-  (`PCLMULQDQ`/`PMULL`) path, so the SIMD GF(2¹⁶) multiplication is *not* covered by any proof —
-  only the portable `unaccelerated::mul` is.
+**Common root cause.** Every `from_pb` in the crate accepts a prost-valid protobuf as
+semantically valid. Constructors (`Chain::new`, `Authenticator::new`, `PolyEncoder::encode_bytes`,
+`PolyDecoder::new`, the state `new()`s) establish invariants — key lengths, `epoch ≥ 1`,
+alignment, admissible point counts, admissible state variants — that consumers then rely on via
+erased `hax_lib` annotations or plain `assert!`. The Lean specs make this visible: the
+`FromPb.lean` theorems have *no* hypotheses and prove `Ok` for any input, while the consumers'
+theorems *require* the invariant. `Spqr/Specs/Lib/DecodeState.lean:54` is a `sorry` (D15), so
+nothing about which blobs are accepted is formally established.
+
+**Threat model.** Requires the ability to influence the persisted `pq_ratchet_state` — a
+corrupted database, a backup-restore bug, or a host that accepts state from an untrusted source.
+libsignal persists the blob opaquely (`state/session.rs` L147) and maps `Error::StateDecode` to
+`InvalidState` (`session_cipher.rs` L636) but validates nothing itself; the same non-validation
+applies to archived sessions (`previous_session_states()`). Panics here are therefore process
+crashes on session load, not remote attacks. A formal model of the D1/D21/D22 family is in
+`Spqr/Specs/Bugs/CorruptedBlobs.lean`; narrative in [`docs/CorruptedBlobs.md`](./CorruptedBlobs.md).
+
+**What is already validated.** The unchunked V1 `from_pb`s (`send_ek/serialize.rs`,
+`send_ct/serialize.rs`) **do** check the cryptographic field lengths (`dk = 2400`, `ek = 1152`,
+`ct1 = 960`, `es = 2080`, `hdr = 64`). They do not check the *contents* of those fields (D30),
+the `epoch` field (D26, D34), or which inner state variant is present (D27); and `chain.rs`,
+`authenticator/serialize.rs` and `encoding/polynomial.rs` check nothing (D1, D21, D22, D13, D14,
+D16, D17).
+
+### D1. `ChainEpochDirection::from_pb` never validates → panics reachable from a corrupted state blob (HIGH; blob)
+
+**Specs that expose it.**
+
+- `Spqr/Specs/Chain/ChainEpochDirection/FromPb.lean`: postcondition is
+  `ced.ctr = pb.ctr ∧ ced.next = pb.next ∧ ced.prev = { data := pb.prev }`; docstring: *"Always
+  succeeds (no validation)"*.
+- `NextKeyInternal.lean` requires `h_next_len : next.length = 32`.
+- `KeyHistory/Get.lean` requires `h_data_aligned : self.data.length % 36 = 0` (*"models the Rust
+  `assert_eq!` panic"*).
+- `KeyHistory/Gc.lean` requires `h_key_ge : trim_threshold ≤ data.length → max_ooo ≤ current_key`
+  (models `assert!(current_key >= max_ooo)`); `Key.lean` needs `h_prev_ctr : prev.data.length ≤
+  36 * ctr` to discharge it.
+
+**Rust defect** (`src/chain.rs` L306–312).
+
+```rust
+fn from_pb(pb) -> Result<Self, Error> {
+    Ok(Self { ctr: pb.ctr, next: pb.next, prev: KeyHistory { data: pb.prev } })
+}
+```
+
+**Consequence.**
+
+| Field | Consumer | Failure |
+|---|---|---|
+| `next.len() ≠ 32` (non-empty) | `next_key_internal`: `next.copy_from_slice(&genr8r[..32])` (L243) | panic (length mismatch) |
+| `prev.len() % 36 ≠ 0` | `KeyHistory::get`: `assert_eq!(self.data.len() % KEY_SIZE, 0)` (L191) | panic |
+| `prev` large, `ctr` small | `KeyHistory::gc`: `assert!(current_key >= max_ooo)` (L149) | panic |
+
+**Reproduced:** `q3_probe_bad_next_reaches_next_key_internal_via_recv_key`,
+`q3_probe_misaligned_prev_reaches_get_via_recv_key`,
+`q3_probe_large_prev_small_ctr_reaches_gc_via_recv_key` in
+[`docs/corrupted_blob_counterexample.rs.txt`](./corrupted_blob_counterexample.rs.txt) (one per
+table row). Formal model: `Spqr/Specs/Bugs/CorruptedBlobs.lean`.
+
+**Fix:** validate in `from_pb` (return `Error::StateDecode`); the `h_*` hypotheses then become
+provable invariants.
+
+### D21. `Chain::from_pb` does not validate `next_root` length, `links` non-emptiness, or epoch ordering (MEDIUM; blob)
+
+The same gap one level up, in `Chain::from_pb` (`chain.rs` L434–452). Three invariants
+established by `Chain::new` are not re-checked:
+
+| Invariant | Consumers that assume it | Failure mode |
+|---|---|---|
+| `next_root.len() == 32` | `add_epoch` → `hkdf_to_slice(&self.next_root, …)` (L358) | No panic (HKDF accepts any salt length) but the KDF output differs from a correctly built chain — **silent key divergence between peers** after the next `add_epoch` |
+| `links.len() ≥ 1` | `epoch_idx` computes `links.len() − 1 − back` (L381); `send_key` indexes `links[i]` | underflow panic in debug; OOB panic in release |
+| `send_epoch ≤ current_epoch` | `send_key` rejects `epoch < send_epoch`; `epoch_idx` rejects `epoch > current_epoch` | if violated, *every* `send_key` fails — chain permanently stuck |
+
+**Reproduced:** `q4_probe_graceful_err_epoch_inversion` (third row) in
+[`docs/corrupted_blob_counterexample.rs.txt`](./corrupted_blob_counterexample.rs.txt). Formal
+model: `Spqr/Specs/Bugs/CorruptedBlobs.lean`.
+
+**Fix:** in `Chain::from_pb`, `if pb.next_root.len() != 32 || links.is_empty() ||
+pb.send_epoch > pb.current_epoch { return Err(Error::StateDecode) }`.
+
+### D22 / D31 / D35 / D36. `Authenticator::from_pb` does not validate key lengths, and the surrounding error plumbing is unfinished (LOW; blob)
+
+**D22 — the gap** (`src/authenticator/serialize.rs` L16–21). `Authenticator::new` always produces
+32-byte `root_key`/`mac_key` (`hkdf_to_vec(…, 64)` split); `from_pb` clones any length. HMAC and
+HKDF are length-agnostic, so there is no panic, but a blob with `mac_key: []` makes every
+authenticator produce the same tags — ciphertext MACs become forgeable — and a short `root_key`
+weakens the authenticator chain.
+
+**D31 — a consequence.** `update` builds `ikm = [root_key, k].concat()` (L45). With
+unvalidated lengths, shortening `root_key` by N and lengthening `k` by N gives identical IKM
+and hence identical HKDF output. D22's length check subsumes this.
+
+**D35 — evidence the check was planned.** `authenticator::Error` defines
+`AuthenticatorRootKeyPresent/Missing` and `AuthenticatorMacKeyPresent/Missing` (`authenticator.rs`
+L16–23); none is ever constructed.
+
+**D36 — what would go wrong when it is added.** `impl From<authenticator::Error> for Error`
+(`lib.rs` L145–148) blanket-maps every variant to `MacVerifyFailed`, which libsignal treats as a
+*bad message* (`InvalidMessage`) rather than *bad state* (`InvalidState`). Key-validation
+failures would trigger message-retry instead of session-reset.
+
+**Fix:** `from_pb` returns `Result`, rejects `len != 32` using the D35 variants; the `From` impl
+maps those variants to `StateDecode`; update the two call sites in
+`src/v1/unchunked/{send_ek,send_ct}/serialize.rs`.
+
+### D26. `epoch == 0` accepted by every `*::from_pb`, then `msg.epoch − 1` underflows in `lib::send` (LOW; blob)
+
+**Specs that expose it.** All eleven `Spqr/Specs/V1/Unchunked/*/Serialize/*/FromPb.lean`
+theorems prove `Ok` with `epoch := pb.epoch` **for any `u64`**, while `Message.deserialize_spec`
+proves `0 < msg.epoch` on the *wire* path — the protocol relies on `epoch ≥ 1` (`lib.rs` L300,
+L427 compute `msg.epoch − 1`).
+
+**Rust defect.** A persisted blob whose inner `uc.epoch` is `0` (the prost default) is accepted;
+`States::send` emits `Message { epoch: 0 }` and `lib::send` evaluates `0u64 − 1`:
+
+| Build | Behaviour |
+|---|---|
+| debug | **panic** `attempt to subtract with overflow` at `lib.rs:302` |
+| release | wraps to `u64::MAX` → `Err(EpochOutOfRange(…))` on every `send`; session stuck |
+
+`recv` is shielded by `deserialize`'s `epoch == 0` check.
+
+**Reproduced:** `d26_epoch_zero_state_underflows_in_send` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
+
+**Fix:** reject `pb.epoch == 0` in the unchunked `from_pb`s and use `checked_sub` in `lib.rs`.
+
+### D34. Chunked `Ct2Sampled::recv` does not guard `epoch < u64::MAX` before `recv_next_epoch` (LOW–MEDIUM; blob)
+
+The mirror image of D26 at the top of the range. `unchunked/send_ct.rs` L200 carries
+`#[hax_lib::requires(self.epoch < u64::MAX)]` (erased), and `recv_ct2` L161 has the same as
+`assume!`. In `states.rs` L515, `state.epoch() + 1` wraps to `0` when `epoch == u64::MAX` (from
+a corrupted blob); `recv_next_epoch`'s `assert_eq!(epoch + 1, next_epoch)` panics in debug,
+wraps in release.
+
+**Fix:** validate `epoch < u64::MAX` in `Ct2Sent::from_pb`, or guard at L515.
+
+### D13. `PolyEncoder::from_pb` does not validate per-polynomial point counts → `debug_assert` panic / silently wrong chunks (MEDIUM; blob)
+
+**Specs that expose it.** `PolyEncoder/{PointAt,ChunkAt,NextChunk}.lean` all require
+`h_admissible : ∀ j < 16, len ∈ {0, 1, 3, 5, 30, 34, 36}`; `Poly/FromCompletePoints.lean`
+requires the same and has *no* spec for the `_ =>` fallback arm; `PolyEncoder/FromPb.lean` has no
+such hypothesis and proves `Ok` for any 16 even-length slots.
+
+**Rust defect** (`polynomial.rs`). `from_pb` (L573–603) checks only `pts.len() % 2 == 0`. The
+admissible-length fact reaches `point_at` solely via an erased `assume!` (L646–654). On the first
+cache miss `from_complete_points`'s fallback is `debug_assert!(false, "missing precomputed poly
+of size {}")` (L310).
+
+**Consequence.**
+
+| Build | Persisted encoder whose slots hold 2 points each |
+|---|---|
+| debug | **panic** on the 3rd `next_chunk()` |
+| release | fallback Lagrange path emits chunks (all-zero for the probe) for a state the protocol never defines |
+
+**Reproduced:** `encoder_from_pb_inadmissible_len` in
+[`docs/polynomial_from_pb_counterexample.rs.txt`](./polynomial_from_pb_counterexample.rs.txt).
+
+**Fix:** reject slots with `pts.len()/2 ∉ {0,1,3,5,30,34,36}` (and oversize `polys[i]`) with
+`SerializationInvalid`, making `h_admissible` an invariant.
+
+### D14. `PolyDecoder::from_pb` does not bound stored point-set sizes (LOW–MEDIUM; blob)
+
+**Specs that expose it.** `Poly/LagrangeInterpolate.lean` and friends are stated for arbitrary
+`pts.length`, but the Rust carries
+`#[hax_lib::requires(pts.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1)]` (L105, L143, L230)
+and `into_pb`/`decoded_message` rely on erased `assume!`s. `PolyDecoder/FromPb.lean` proves `Ok`
+for any `pts_needed : u32` and any number of points per slot.
+
+**Consequence.** A blob with `pts_needed = 1600` and 100 points per slot makes
+`decoded_message()` return `Some(3200 bytes)` — ~3× the stated maximum, with O(N²)
+interpolation cost controlled by the blob. No memory-safety issue.
+
+**Reproduced:** `decoder_from_pb_interpolate_oversized` in
+[`docs/decoder_logic_probe.rs.txt`](./decoder_logic_probe.rs.txt).
+
+**Fix:** require `pts_needed ≤ 576` and each slot
+`len/4 ≤ 2·MAX_STORED_POLYNOMIAL_DEGREE_V1 + 1 = 71`.
+
+#### D37. `PolyDecoder::into_pb` truncates `pts_needed: usize` to `u32` (LOW; API)
+
+`polynomial.rs` L795: `pts_needed: self.pts_needed as u32`. Unreachable in V1 (`≤ 1040`) but the
+`Decoder` trait is `pub` and accepts any `len_bytes: usize`.
+
+**Fix:** `u32::try_from(..)` or cap in the constructor — naturally paired with D14's bound.
+
+### D16. `Poly::serialize`/`deserialize` are not inverses on the zero polynomial → `PolyEncoder` round-trip fails (MEDIUM; API)
+
+**Specs that expose it.** `Poly/Zero.lean`: `coefficients.length = 0`. `Poly/Serialize.lean`:
+`result.length = 2 * degree` — the zero polynomial serialises to `[]`. `Poly/Deserialize.lean`
+requires `h_nonempty : serialized.length ≠ 0`. `PolyEncoder/FromPb.lean` (`FromPbWellFormed`)
+requires every `polys[j]` non-empty. Together: **`from_pb ∘ into_pb` is not the identity whenever
+any stored polynomial is zero.**
+
+**Rust defect** (`polynomial.rs` L329, L343). A slot is empty whenever the encoded message has
+fewer than 32 bytes (round-robin of 2-byte words over 16 slots). The V1 protocol only encodes
+96/1152/960/160-byte messages so it never hits this, but the encoder is a `pub` generic component
+and its own test `encode_and_decode_small` (L972) uses such a message.
+
+**Reproduced:** `encoder_polys_roundtrip_with_empty_poly` in
+[`docs/poly_roundtrip_counterexample.rs.txt`](./poly_roundtrip_counterexample.rs.txt):
+`from_pb(into_pb(e)) = Err(SerializationInvalid)`.
+
+**Fix:** accept `[]` as the zero polynomial in `deserialize` (matches `zero_spec`), or emit
+`[0, 0]` in `serialize`.
+
+### D17. `PolyDecoder::is_complete` is write-never → dead field, redundant O(N²) work, blob-controlled stall (LOW; blob)
+
+**Specs that expose it.** `Decoder/New.lean`: `is_complete = false`; `AddChunk.lean`,
+`IntoPb.lean`, `FromPb.lean`: preserved by every operation. No spec ever establishes `true`
+because no Rust does.
+
+**Rust defect.** Five sites (`polynomial.rs` L760, L789, L797, L851, L912); the only *read* is
+`if self.is_complete { return None; }` at the top of `decoded_message`.
+
+**Consequence.** (1) A completed decoder re-runs full Lagrange interpolation on every late chunk;
+(2) the persisted protobuf field carries no information yet `from_pb` honours it — a blob with
+`is_complete = true` makes `decoded_message()` return `None` forever, silently stalling the
+epoch.
+
+**Reproduced:** `decoder_is_complete_never_set` in
+[`docs/decoder_logic_probe.rs.txt`](./decoder_logic_probe.rs.txt).
+
+**Fix:** set it to `true` (and drop `pts`) on success, or delete the field; if kept, reject
+`true` with non-empty `pts`.
+
+### D27. `lib::send` panics on `assert!(key.is_none())` when the state emits an `EpochSecret` but no chain is available (LOW–MEDIUM; blob)
+
+`send` is `verification_status(lax)` (`lib.rs` L264), so `hax_lib::assume!(key.is_none())` at
+L292 is unverified; the `assert!` at L293 remains in release. The `None` arm is reached when
+`chain == None` and `vn.min_version == V0`. Honest flow only pairs `chain: None` with the two
+initial states, but `from_pb` accepts **any** inner state (e.g. `HeaderReceived`, whose `send`
+always yields `Some(EpochSecret)`).
+
+**Reproduced:** `d27_send_asserts_when_epoch_secret_but_no_chain` in
+[`docs/protocol_driver_counterexamples.rs.txt`](./protocol_driver_counterexamples.rs.txt).
+
+**Fix:** return `Err(Error::ChainNotAvailable)`, or always materialise the chain from
+`version_negotiation` when a key is produced (as `recv`'s `chain_from` does).
+
+### D30. `encaps2` endianness heuristic can silently produce a wrong shared secret from a corrupted `es` (MEDIUM; blob)
+
+`incremental_mlkem768.rs` L92–138 is `#[hax_lib::opaque]` (Lean sees only the length
+postcondition). The libcrux #1275 workaround inspects `error2` in `es[1536..2048]`: (1) all-zero
+`error2` → no decision (p ≈ 2⁻⁵⁹⁷, negligible); (2) a corrupted `es` from `from_pb` can present a
+"good LE" `error2` while `r_as_ntt` is big-endian → wrong `ct2` → wrong shared secret →
+`MacVerifyFailed` on the peer, no retry; (3) the `_` wildcard proceeds silently, with the
+`log::warn!` behind `#[cfg(not(hax))]`. Honest execution is safe; the exposure is `es` persisted
+across the `Ct1Sent → send_ct2` gap.
+
+**Fix:** store an explicit endianness marker with the serialised `EncapsulationState`.
+
+---
+
+## Part IV — Cryptographic hygiene and constant-time primitives
+
+**Scope.** This part audits the primitives the specs either treat as opaque (`libcrux` ML-KEM
+internals, `black_box`) or specify only functionally (`compare`, `inz`, HKDF outputs). Functional
+theorems cannot express constant-time behaviour or secret erasure, so these findings come from
+code reading, exhaustive testing and assembly inspection rather than from a spec hypothesis.
+Three items result: one latent length-handling bug (D11), one clean audit (D12), and one
+cross-cutting hygiene gap (D29/D33).
+
+### D11. `compare` silently truncates when slice lengths differ (MEDIUM; latent)
+
+`src/util.rs` L25–33 iterates `0..lhs.len()` only; the equal-length precondition is a
+`#[cfg_attr(hax, hax_lib::requires(...))]`, erased at runtime.
+
+| Condition | Behaviour |
+|---|---|
+| `rhs.len() > lhs.len()` | trailing bytes of `rhs` never examined → returns `0` (equal) — **silent truncation** |
+| `rhs.len() < lhs.len()` | `rhs[i]` panics → DoS plus a timing signal |
+
+**Current callers are safe by construction**: `verify_ct`/`verify_hdr` pass a 32-byte
+`expected_mac` (the chunked path's `decoded_message()` yields exactly `pts_needed*2` bytes, so
+`split_off` always leaves 32) and the 32-byte output of `mac_*`. The original libcrux code works on
+fixed-size arrays; the port to slices lost the type-level guarantee and replaced it with an
+annotation that has no runtime effect.
+
+**Fix:** `if lhs.len() != rhs.len() { return 1; }` (or `assert_eq!`).
+
+### D12. Audit of the constant-time comparison / FO-transform path (NO DEFECT FOUND)
+
+Motivated by ML-KEM implementations that shipped incomplete FO re-encryption checks or no-op
+constant-time selects. The FO transform is *not* in `src/`: `decaps` delegates to
+`libcrux_ml_kem::ind_cca::incremental::decapsulate_compressed_key` →
+`compare_ciphertexts_select_shared_secret_in_constant_time` (`libcrux-ml-kem-0.0.7/src/constant_time_ops.rs`).
+
+| Property (libcrux 0.0.7, pinned) | Result |
+|---|---|
+| `compare` iterates the **full** `CIPHERTEXT_SIZE` array | ✔ |
+| `inz(v) = ((!v as u16).wrapping_add(1) >> 8) & 1` | ✔ exhaustively `= (v≠0)` over all 256 bytes |
+| `select_ct`: `mask = is_non_zero(sel).wrapping_sub(1)`; `out = (lhs & mask) \| (rhs & !mask)` | ✔ `sel=0 → lhs`, all `sel∈1..=255 → rhs` |
+| Both candidate secrets computed before the select | ✔ no data-dependent early return |
+| `#[inline(never)]` + `black_box` barriers | ✔ |
+
+SPQR's own port: `inz` proved in `Spqr/Specs/Util/Inz.lean` and exhaustively tested; `compare`
+proved in `Compare.lean` (`0 ↔ ∀ j, lhs[j] = rhs[j]`); `verify_ct_spec`/`verify_hdr_spec` give
+`Ok () ↔ expected_mac = mac_*(…)`. Release AArch64 assembly: NEON `eor/orr` accumulation, no
+early exit; the only branch is the final public accept/reject. Protocol level (`recv_ct2`):
+`decaps` (implicit rejection, never fails) → HKDF → `auth.update` → `verify_ct(…)?`; on MAC
+failure `?` discards the updated state and no secret-derived data escapes.
+
+**Hardening notes.** (1) D11 stands. (2) SPQR's `compare` lacks `#[inline(never)]` — branchless
+today thanks to LLVM, not a barrier. (3) The Lean model of `black_box` is the identity, so the
+theorems establish functional correctness only. (4) On any `libcrux-ml-kem` bump re-run the two
+exhaustive checks (`inz` over all bytes; `select_ct` over all selectors).
+
+### D29 / D33. No zeroisation of cryptographic secrets (MEDIUM; hygiene, needs local memory access)
+
+**Specs that expose it.** `NextKeyInternal.lean` and `HkdfToVec.lean` constrain derived values
+and lengths but say nothing about clearing old ones.
+
+**Rust defect.** No type implements `Zeroize`/`ZeroizeOnDrop` and the crate is not in
+`Cargo.toml`. Heap-resident material never cleared (D29): `genr8r[0..96]` (chain seeds,
+`chain.rs` L330/L356), `kdf_out[0..64]` (auth keys, `authenticator.rs` L51), ML-KEM shared
+secret `ss` (`send_ct.rs` L129), DK 2400 B (`send_ek.rs` L51, persisted a whole epoch), ES
+2080 B (`send_ct.rs` L66); `clear_next()` is `Vec::clear()` (len = 0, no overwrite). Stack
+(D33): the 64-byte keygen seed and 32-byte encapsulation entropy in `incremental_mlkem768.rs`
+L35–36, L52–53; `libcrux-secrets` is available but unused. libsignal's `pq_ratchet_state` field
+likewise lacks zeroize. Exploitation requires local memory access (core dump, swap, cold boot).
+
+*Related design note.* `next_root` (`chain.rs` L119) and the authenticator `root_key` are
+persisted in the clear in every blob and are identical on both peers; together with the *next*
+epoch's `EpochSecret` they yield all of that epoch's keys. This is the design, but it means
+state-blob confidentiality is a prerequisite for PCS of the upcoming epoch, not only the current
+one.
+
+**Fix:** add `zeroize`; derive `ZeroizeOnDrop` for key-holding types; replace `Vec::clear()`
+with `.zeroize()`; `randomness.zeroize()` after use.
+
+---
+
+## Part V — Soundness of the Lean trusted base and limits of the verified surface
+
+**Scope.** Parts I–IV report defects the theorems *revealed*. This part reports defects in, and
+limits of, the apparatus itself: the hand-written external models that every theorem trusts
+(D20), the remaining `sorry`s and axioms (D15), wire-contract facts the theorems record without
+the Rust asserting them (D6/D7), design observations the biconditional specs made visible (D9),
+and test-only code outside the protocol (D23). Nothing here changes a proved theorem's
+statement; D20 would change what a *future* theorem could soundly claim.
+
+### D20. `VecDeque::into_iter` model yields the wrong elements whenever `head ≠ 0` (HIGH; spec — soundness of any future `Chain::into_pb` theorem)
+
+**Location**: `SrcTranslated/FunsExternal.lean` L3733–3759
+(`alloc.collections.vec_deque.into_iter.IntoIter.…Iterator.next`).
+
+The project deliberately uses a **growing-list model** for `VecDeque` (`push_back` appends;
+`pop_front` increments `head` and decrements `length`; `index` reads `buf[head + idx]`;
+L1241–1381). The `into_iter.next` model instead
+
+```lean
+if deq.length == 0 then ok (none, intoIter)
+else
+  let newhead ← (Usize.wrapping_add deq.head 1) % len   -- ring-buffer arithmetic
+  ok (deq.buf.get? deq.head, { inner := { buf, head := newhead, length := len } })
+```
+
+— never decrements `length` (never terminates) and wraps `head` modulo `length` (the *ring-buffer*
+invariant of real `std`, inconsistent with the project's own `pop_front`/`push_back`/`index`).
+
+**Consequence.** `Chain.into_pb` uses this instance, but every `.map(...).collect()` is routed
+through the `sorryAx` bridge (D15) and no spec theorem yet states a postcondition for
+`Chain::into_pb`/`from_pb`, so nothing proved today is falsified. Upstream PR #570
+(`Spqr/Specs/Chain/Chain/ChainEpoch/CallMut.lean`) verifies the `into_pb` *closure* — a
+prerequisite, but composing it with this iterator still gives wrong results when `head ≠ 0`,
+which `SendKey.lean`/`RecvKey.lean` both cause.
+
+**Reproduced:**
+[`docs/vecdeque_into_iter_model_counterexample.lean.txt`](./vecdeque_into_iter_model_counterexample.lean.txt):
+after one `pop_front` on `[10,20,30]` (Rust iterates `20, 30, None`) four calls yield
+`[some 20, some 10, some 20, some 10]` with `length` still `2`.
+
+**Fix:** growing-list semantics mirroring `pop_front_spec_nonempty`:
+
+```lean
+if deq.length.val = 0 then ok (none, intoIter)
+else match deq.buf.val[deq.head.val]? with
+  | none => fail .panic
+  | some elem => do
+    let head' ← deq.head + 1#usize
+    let len'  ← deq.length - 1#usize
+    ok (some elem, ⟨{ deq with head := head', length := len' }⟩)
+```
+
+### D15. Remaining `sorry`s and axioms bounding what the specs can claim (INFO)
+
+- `Spqr/Specs/Lib/DecodeState.lean:54` — round-trip left as `sorry` because the prost-generated
+  `Message` impl is replaced by `sorry` in translation (issue #102). Nothing about *which* blobs
+  `decode_state` accepts is formally established; all of Part III sits behind this boundary.
+- `Spqr/Specs/Aeneas/MapCollectBridge.lean` — single assumed bridge for `.map().collect()`
+  (aeneas#1043); `ConstPolysToPolys.lean` and `point_at_spec` depend on it.
+- `SrcTranslated/Funs.lean` still has four `sorry`-using declarations, all in generated protobuf code.
+- Axiom audit (`#print axioms`): `send_key_spec` and `key_spec_*` depend only on
+  `hkdf_to_slice_spec` and the `get_unchecked{,_mut}` externals; `mul2_u16_spec` is axiom-free
+  because `aeneas-config.yml` excludes the accelerated (`PCLMULQDQ`/`PMULL`) path — so the SIMD
+  GF(2¹⁶) multiplication is *not* covered by any proof, only the portable `unaccelerated::mul`.
+- Rust marked `#[hax_lib::opaque]` or `verification_status(lax)` (`encaps2`'s endianness
+  heuristic, `KeyHistory::gc`/`get` internals, `Chain::into_pb`/`from_pb`, `lib::send`) has no
+  theorem; findings on it (D10 internals, D27, D30) rest on code reading plus executable evidence.
+
+### D6 / D7. Wire-decoding contract inconsistencies (LOW; spec)
+
+- **D6** — `DecodeChunk.lean`: on the two error paths of `decode_chunk` the cursor has already
+  advanced by `n + 32`, so the postcondition proves only `at ≤ *future(at)`, unlike
+  `decode_varint`, which restores it. `Message::deserialize` discards the cursor on error, so no
+  exploit. The `assume!(*at < usize::MAX − 32)` is erased, so the spec needs
+  `from.len() + 32 ≤ usize::MAX`.
+- **D7** — `DecodeVarint.lean` (`varintBlockAt`) admits non-canonical encodings (`1` as
+  `0x81 0x00`) and silently truncates the 10th byte's high bits. Serialisation is not injective;
+  benign here, relevant to any future round-trip theorem.
+
+### D9. Design smells surfaced by biconditional specs (INFO)
+
+- `MaxJumpOrDefault.lean` / `MaxOooKeysOrDefault.lean` / `ChainParams/IntoPb.lean`: "zero means
+  unset" makes `max_jump = 0` / `max_ooo_keys = 0` unrepresentable and `into_pb ∘ from_pb` not
+  the identity.
+- `Pt/Eq.lean` `pt_eq_iff`: `PartialEq` is strictly coarser than structural equality (the root of
+  D4/D18/D19).
+
+### D23. Test-only `RoundRobinEncoder`/`RoundRobinDecoder` defects (LOW; test code)
+
+`src/encoding/round_robin.rs` is `#[cfg(test)]`. `chunk_at` does `idx % num_chunks()` — division
+by zero on empty input — and slices `data[lb..lb+32]` past the end for non-multiple-of-32 input;
+`RoundRobinDecoder::add_chunk` has the same zero-length modulo; `is_complete` is never set
+(mirrors D17). No protocol path is affected.
+
+---
+
+## Priorities
+
+Ranked by **reachability** first (message-only before blob-only before local-config), then by
+**fix leverage** (how many findings one change closes). This is why D1 — the only HIGH runtime
+finding — ranks below the MEDIUM Part I items: it needs a corrupted blob, whereas D24/D38 need
+one forged message.
+
+| Rank | Item | Why |
+|---|---|---|
+| 1 | D24, D38 | Only findings where a single unauthenticated message stalls *both* parties; D38 is silent. Fix is one design change (authenticate control edges). |
+| 2 | D19 (+D4/D18) | Persistent one-sided epoch stall from one forged chunk; one-line fix (`find_or_push`) plus a model update. |
+| 3 | D1, D21, D22, D13, D14, D26, D27, D34 | One validation pass over every `from_pb` closes the whole Part III family and lets ~a dozen spec hypotheses become invariants. |
+| 4 | D28 (+D2, D8, D32) | One range check in `initial_state` closes the arithmetic family and the production self-session overflow. |
+| 5 | D20 | Latent unsoundness in the trusted base; must be fixed before any `Chain::into_pb` spec. |
+| 6 | D25, D39, D40 | Downgrade/amplification surfaces that the host MAC currently absorbs; API-level fixes. |
+| 7 | D10, D16, D17, D11, D29 | Correctness of annotations, round-trip, dead field, hardening. |
+
+## Evidence and coverage
+
+**How each part was found.**
+
+| Part | Technique |
+|---|---|
+| I | Enumerate every `States::recv` edge and every `lib::recv` branch; classify each by the evidence that gates it — a MAC-verified chunk completion, an ML-KEM consistency check (`ek_matches_header`), or nothing — and compare against the order in which libsignal (`session_cipher.rs`) authenticates relative to its SPQR call. Edges gated by nothing: D24, D38, D39; work performed before any MAC: D40; content mutable before its MAC: D19. |
+| II | Collect every `hax_lib::assume!`/`requires` in `src/` (30 sites) and the hypotheses they become in the Lean theorems (`h_ooo_no_overflow`, `h_ctr_bound`, `h_maxooo_bound`, `h_diff_fits`, …); check whether any constructor or deserialiser establishes them. None does. D10 came from an attempt to *prove* one such annotation as an invariant, which produced the counterexample instead. |
+| III | For every `from_pb`, compare the invariants its `FromPb.lean` theorem establishes (none) against the hypotheses the consumers' theorems require; probe each gap with a prost-valid blob. |
+| IV | Targeted review of `util.rs` and the libcrux FO-transform path against known ML-KEM implementation-bug classes; assembly inspection of the release build; grep for zeroisation. |
+| V | `#print axioms` on representative theorems; consistency check of the hand-written `VecDeque` models in `FunsExternal.lean` against each other. |
+
+**Executable evidence.** All files are under `docs/`. Rust harnesses use only the crate's public
+API or the `test-utils` feature and were run on a scratch copy of the crate (on case-insensitive
+filesystems `tests/` aliases the Lean `Tests/` directory). This table is the authoritative
+identifier → evidence mapping; individual findings cite only the test name.
+
+| File | Items | Profile |
+|---|---|---|
+| `protocol_driver_counterexamples.rs.txt` | D24, D25, D26, D27, D28 | debug + release |
+| `forged_control_message_counterexamples.rs.txt` | D38, D39 | debug + release |
+| `decoder_poison_persistence_counterexample.rs.txt` | D19 | release |
+| `decoder_logic_probe.rs.txt` | D17, D18, D14 | release |
+| `corrupted_blob_counterexample.rs.txt` | D1, D21 | debug + release |
+| `polynomial_from_pb_counterexample.rs.txt` | D13 | debug + release |
+| `poly_roundtrip_counterexample.rs.txt` | D16 | release |
+| `key_history_bound_counterexample.{py,rs.txt}`, `chain.rs` | D10 | model + real crate |
+| `vecdeque_into_iter_model_counterexample.lean.txt` | D20 | `lake env lean` |
+| `Spqr/Specs/Bugs/ProtocolDoS.lean`, `Bugs/CorruptedBlobs.lean` | D19/D24; D1/D21/D22 | Lean |
+
+Findings without a **Reproduced:** line (D2, D3, D5, D6/D7, D8, D9, D11, D12, D15, D22 family,
+D23, D29/D33, D30, D32, D34, D37, D40) rest on the cited theorem hypotheses and code reading;
+D12 additionally on exhaustive tests of `inz`/`select_ct` and assembly inspection.
+
+## Limitations
+
+- Every finding is grounded either in a hypothesis a proved spec theorem requires or in a
+  postcondition it establishes, except where the Rust is `#[hax_lib::opaque]` or
+  `verification_status(lax)` (listed in D15), in which case it rests on code reading plus the
+  executable evidence above. The SIMD GF(2¹⁶) multiplication is excluded from translation and is
+  unverified.
+- The libsignal host mitigation described in *How to read this report* is the single measure
+  that absorbs the whole of Part I for a network-only attacker. Any embedder that commits SPQR
+  state before verifying its own authentication is fully exposed to D19/D24/D25/D38/D39; an
+  authenticated-but-malicious peer is not stopped by it in any embedder.
+- The libsignal `min_version: Version::V0` initialisation (D25) is the one Part I window that is
+  open in production without a malicious peer; it closes when libsignal raises the floor to `V1`.
+- Line numbers may drift; see *How to read this report*.
+

