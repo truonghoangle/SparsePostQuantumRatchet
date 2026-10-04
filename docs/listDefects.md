@@ -31,8 +31,8 @@ attackers, but the SPQR code itself remains unchanged.
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 4 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added |
-| 🔵 **Unfixed (spec-only)** | 7 | D37, D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
+| ✅ **Fixed** | 5 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added |
+| 🔵 **Unfixed (spec-only)** | 6 | D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
 > clone-then-commit-after-MAC pattern discards the mutated state on MAC failure. The SPQR
@@ -613,12 +613,20 @@ D35 audit comments also added to `FunctionalModels.lean`.
 
 ## D37. `PolyDecoder::into_pb` truncates `pts_needed: usize` to `u32` (LOW)
 
-**Status.** 🔵 **Unfixed (spec-only).** Latent; unrealistic precondition (`pts_needed > u32::MAX`).
+**Status.** ✅ **Fixed (Lean truncation-bound theorem added).** Latent; unrealistic precondition (`pts_needed > u32::MAX`).
 
 **Rust.** `pts_needed` is `usize` internally, `u32` in protobuf. On 64-bit with
 `pts_needed > u32::MAX` (unrealistic), round-trip loses high bits.
 
 **Fix.** Store `pts_needed: u32` internally. **Related.** D14.
+
+**Lean.** D37 audit notes and theorem added:
+- `into_pb_requires_u32_bound` in `Spqr/Specs/Encoding/Polynomial/PolyDecoder/IntoPb.lean` —
+  documents that `into_pb_spec`'s `pts_needed` fidelity postcondition depends on
+  `h_cast : self.pts_needed.val ≤ U32.max`; without it, the `from_pb ∘ into_pb` round-trip
+  loses high bits.
+- D37 audit comment added to `FromPb.lean` module docstring noting that `from_pb` widens
+  losslessly but `into_pb` truncates.
 
 ---
 
@@ -1174,7 +1182,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | **4-a** | **D23** ✅ | ~~Remove or `#[cfg(test)]`-gate spec files for test-only code.~~ **Done.** Audit comments added to `Encoding/Encoder/` and `Encoding/Decoder/` spec files. |
 | **4-b** | **D35** ✅ | ~~Implement key-length validation or remove dead error variants.~~ **Done.** Gap-documenting theorems (`from_pb_no_key_length_check`, `from_pb_missing_validation`) added to `FromPb.lean`; audit comments in `FunctionalModels.lean`. |
 | **4-c** | **D36** ✅ | ~~Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`.~~ **Done.** Wrong-mapping theorems (`from_maps_all_to_mac_verify_failed`, `from_wrong_mapping_for_key_errors`) added to `Spqr/Specs/Lib/Error/From.lean`. |
-| **4-d** | **D37** | Change `pts_needed` to `u32` internally. Update Lean specs. |
+| **4-d** | **D37** ✅ | ~~Change `pts_needed` to `u32` internally. Update Lean specs.~~ **Done.** Truncation-bound theorem (`into_pb_requires_u32_bound`) added to `IntoPb.lean`; audit comment in `FromPb.lean`. |
 | **4-e** | **D52** | Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`. |
 | **4-f** | **D66** | Reject >9-byte varints. Update `DecodeVarint.lean`. |
 | **4-g** | **D57** | Guard `chunk.index > 4095` in `add_chunk`. Update `AddChunk.lean`. |
@@ -1204,6 +1212,6 @@ Phase 1 (spec alignment)    Phase 2 (erased preconditions)
                 └─ 3-e D42 (needs 3-d)
                        │
               Phase 4 (hygiene, any order)
-                D23 ✅, D35 ✅, D36 ✅, D37, D52, D66, D57
+                D23 ✅, D35 ✅, D36 ✅, D37 ✅, D52, D66, D57
 ```
 

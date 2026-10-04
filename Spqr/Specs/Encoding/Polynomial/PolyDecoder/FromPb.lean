@@ -18,7 +18,12 @@ cursor `j`, the body either terminates (fewer than 4 bytes left) or reads a 4-by
 chunk, deserializes it into a `Pt` over GF(2¹⁶), pushes the point onto `v`, and advances `j`
 by 4.
 
-**Source**: spqr/src/encoding/polynomial.rs -/
+**Source**: spqr/src/encoding/polynomial.rs
+
+**D37 audit note.** `from_pb` reads `pts_needed` as `u32` from protobuf and widens to `Usize`
+(lossless). The truncation risk is on the `into_pb` side: `pts_needed as u32` drops high bits
+when `pts_needed > U32.max`. See `IntoPb.lean` for the `into_pb_requires_u32_bound` theorem
+and `docs/listDefects.md` §D37. -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 

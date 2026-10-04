@@ -274,7 +274,21 @@ Serializes a `PolyDecoder` (with `pts_needed`, `pts : [SortedSet<Pt>; 16]`, `is_
 into its protobuf representation. Casts `pts_needed` to `U32`, then serializes all 16 sorted
 sets into `Vec<Vec<u8>>` where each point occupies 4 big-endian bytes.
 
-**Source**: spqr/src/encoding/polynomial.rs -/
+**Source**: spqr/src/encoding/polynomial.rs
+
+## D37 audit note (LOW; spec-only — `pts_needed` truncation)
+
+`PolyDecoder.pts_needed` is `Usize` (= `usize`, 64-bit) internally but `u32` in protobuf.
+`into_pb` casts via `UScalar.cast .U32` (`polynomial.rs` L795: `self.pts_needed as u32`).
+When `pts_needed > U32.max` (unrealistic for V1 which uses ≤ 1040), the cast truncates and
+the `from_pb ∘ into_pb` round-trip loses the high bits.
+
+The existing `into_pb_spec` requires `h_cast : self.pts_needed.val ≤ U32.max`, making the
+truncation invisible in the postcondition. The theorem `into_pb_requires_u32_bound` below
+documents this precondition dependency: without it, the round-trip `from_pb(into_pb(self))`
+may yield a different `pts_needed`.
+
+**Fix.** Store `pts_needed: u32` internally in Rust. See `docs/listDefects.md` §D37, D14. -/
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
@@ -316,5 +330,29 @@ theorem into_pb_spec
       Nat.reduceAdd]
       scalar_tac
     · grind
+
+/-- **D37: `into_pb_spec` depends on the `U32.max` bound for `pts_needed` fidelity.**
+
+The `into_pb_spec` postcondition `result.pts_needed.val = self.pts_needed.val` holds only
+because `h_cast : self.pts_needed.val ≤ U32.max` ensures `UScalar.cast .U32` is lossless.
+This theorem restates the dependency: the round-trip preservation of `pts_needed` through
+protobuf is conditional on the value fitting in `u32`.
+
+For V1 protocol values (≤ 1040) this is always satisfied. The defect is latent: the `Decoder`
+trait is `pub` and accepts any `len_bytes: usize`, so a hypothetical future protocol version
+with `pts_needed > u32::MAX` would silently truncate. -/
+theorem into_pb_requires_u32_bound
+    (self : encoding.polynomial.PolyDecoder)
+    (h_cast : self.pts_needed.val ≤ U32.max)
+    (h_inner_overflow : ∀ (j : Nat), j < 16 →
+        4 * (self.pts.val[j]!).length + 4 ≤ Usize.max) :
+    into_pb self ⦃ (result : proto.pq_ratchet.PolynomialDecoder) =>
+      -- D37: pts_needed fidelity requires the U32 bound
+      result.pts_needed.val = self.pts_needed.val ∧
+      self.pts_needed.val ≤ U32.max ⦄ := by
+  have h := into_pb_spec self h_cast h_inner_overflow
+  apply WP.spec_mono h
+  intro result ⟨h_eq, _⟩
+  exact ⟨h_eq, h_cast⟩
 
 end spqr.encoding.polynomial.PolyDecoder
