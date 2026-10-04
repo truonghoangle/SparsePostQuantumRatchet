@@ -30,7 +30,6 @@ Lagrange-interpolation (`Points`) invariants on the chunk data. -/
 theorem next_chunk_spec
     (self : encoding.polynomial.PolyEncoder)
     (h_idx_fits : self.idx.val ≤ U16.max)
-    (h_idx_no_overflow : self.idx.val < U32.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
           let len := (pts[j]!).value.length
@@ -62,7 +61,12 @@ theorem next_chunk_spec
   step with chunk_at_spec
   step*
   obtain ⟨h_idx_eq, h_data_len, h_self_idx, h_match⟩ := out_post
-  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_data_len, by simp_all, ?_⟩
+  refine ⟨by simp_all [UScalar.cast_val_eq]; grind, h_data_len, by
+  simp_all only [alloc.vec.Vec.length,
+    Array.getElem!_Nat_eq, List.Vector.length_val, UScalar.ofNatCore_val_eq, getElem!_pos,
+    List.length_eq_zero_iff, Order.add_one_le_iff, List.getElem!_eq_getElem?_getD,
+    UScalar.cast_val_eq, UScalarTy.U16_numBits_eq, Nat.reducePow, alloc.vec.Vec.getElem!_Nat_eq,
+    alloc.vec.Vec.len, core.num.U32.wrapping_add_val_eq, UScalar.size_UScalarTyU32]; scalar_tac, ?_⟩
   cases h_s : self.s with
   | Polys polys =>
     simp only [h_s] at h_match ⊢

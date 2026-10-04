@@ -27,11 +27,11 @@ attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 36 | D1, D2, D3, D4, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
+| 🔴 **Unfixed** | 35 | D1, D2, D3, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 11 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D53 — Lean spec tightened (`checked_add`); D55 — IKM collision theorem added; D56 — usize-bound theorem added |
+| ✅ **Fixed** | 12 | D4 — Rust comment corrected, Lean `IsSortedPushResult` audit note and strengthening theorem added; D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D53 — Lean spec tightened (`checked_add`); D55 — IKM collision theorem added; D56 — usize-bound theorem added |
 | 🔵 **Unfixed (spec-only)** | 2 | D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
@@ -100,16 +100,24 @@ Corrupted state round-trips through `into_pb` (crash loop).
 
 ## D4. `SortedSet::push` comment contradicts replacement semantics (MEDIUM; spec)
 
-**Status.** 🔴 **Unfixed.** Comment at `polynomial.rs` L898–900 still incorrect.
+**Status.** ✅ **Fixed (Rust comment corrected; Lean `IsSortedPushResult` audit note and strengthening theorem added).**
 
 **Specs.** `AddChunk.lean` postcondition `IsSortedPushResult`. `Pt/Eq.lean`: equality on `x` only.
 
-**Rust.** `polynomial.rs` L898–900 comment says "discard new points." Actual `sorted-vec 0.8.6`
+**Rust.** `polynomial.rs` L898–900 comment said "discard new points." Actual `sorted-vec 0.8.6`
 `SortedSet::push` replaces (last-write-wins).
 
 **Consequence.** Attacker's point overwrites honest point. Enables D19.
 
-**Fix.** Correct comment; consider `find_or_insert`. **Related:** sub-finding of D19.
+**Fix.** Rust comment corrected to document last-write-wins replacement semantics.
+
+**Lean.** `AddChunk.lean` updated:
+- `IsSortedPushResult` docstring now explicitly documents which disjunct corresponds to
+  fresh insertion vs. key-equal replacement (last-write-wins).
+- Added `IsSortedPushResult.replacement_preserves_length` theorem proving that the
+  replacement branch preserves list length.
+
+**Related:** sub-finding of D19.
 
 
 ---
@@ -1186,7 +1194,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
-| **1-a** | **D4** | Fix `AddChunk.lean` postcondition `IsSortedPushResult` to specify last-write-wins (or change Rust to first-write-wins). | Needed for D65. |
+| **1-a** | **D4** ✅ | ~~Fix `AddChunk.lean` postcondition `IsSortedPushResult` to specify last-write-wins (or change Rust to first-write-wins).~~ **Done.** Rust comment corrected; `IsSortedPushResult` docstring documents last-write-wins; `replacement_preserves_length` theorem added. | Needed for D65. |
 | **1-b** | **D65** | Add `add_chunk` postcondition specifying retained `y` on x-collision. | Depends on 1-a. |
 | **1-c** | **D6** | Strengthen `DecodeChunk.lean`: on error, `at = *old(at)`. | Independent. |
 | **1-d** | **D7** | Remove erased `assume!(val <= u16::MAX)` from `DecodeVarint.lean`; prove or check. | Independent. |

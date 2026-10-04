@@ -895,9 +895,10 @@ impl Decoder for PolyDecoder {
             if poly_idx < self.necessary_points(i)
                 || self.pts[poly].len() < self.necessary_points(i)
             {
-                // This will discard new points whose X value matches a previous
-                // old point, since we've implemented equality for the Pt object
-                // to only care about the X value.
+                // D4 fix: SortedSet::push *replaces* an existing point whose X
+                // value matches (last-write-wins), since Pt equality compares
+                // only the X coordinate.  An attacker-controlled chunk can
+                // therefore overwrite an earlier honest point (see D19).
                 self.pts[poly].push(Pt { x, y });
             }
         }

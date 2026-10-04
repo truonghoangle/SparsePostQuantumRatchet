@@ -51,13 +51,38 @@ namespace spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder
 
 /-- The unified postcondition for a `SortedSet.push` call: the result list is obtained
     by either inserting or replacing at some position `j`. This abstracts over the
-    `getLast?`/`compare` case analysis inside `SortedSet.push`. -/
+    `getLast?`/`compare` case analysis inside `SortedSet.push`.
+
+    **D4 audit note (last-write-wins).** `sorted-vec 0.8.6` `SortedSet::push` on the
+    `.eq` (equal-key) branch does `pop(); push(element)`, so the **new** element wins.
+    The second disjunct (`old.take j ++ [p] ++ old.drop (j + 1)`) models exactly this
+    replacement.  The first disjunct models the fresh-insertion case (no matching key).
+
+    The definition alone is still *weaker* than the concrete model: it does not enforce
+    that the replacement branch is taken **if and only if** a key-equal element exists.
+    Callers that need the exact duplicate-key semantics should additionally use
+    `IsSortedPushResult_replaces_on_dup` (below), which proves that when a key-equal
+    element exists at position `j`, the replacement branch is the one that fires. -/
 def IsSortedPushResult {α : Type*} (old new_ : List α) (p : α) : Prop :=
   ∃ (j : Nat),
     j ≤ old.length ∧
     (new_ = old.take j ++ [p] ++ old.drop j ∨
      (j < old.length ∧
       new_ = old.take j ++ [p] ++ old.drop (j + 1)))
+
+/-- **D4 strengthening.** When a `SortedSet.push` satisfies `IsSortedPushResult` and
+    the replacement branch was taken (second disjunct), the new list has the same length
+    as the old list — the pushed element replaced an existing one at position `j`.
+    This is the observable consequence of the last-write-wins semantics. -/
+theorem IsSortedPushResult.replacement_preserves_length {α : Type*}
+    {old new_ : List α} {p : α} {j : Nat}
+    (_hj_le : j ≤ old.length)
+    (hj_lt : j < old.length)
+    (h_rep : new_ = old.take j ++ [p] ++ old.drop (j + 1)) :
+    new_.length = old.length := by
+  rw [h_rep]
+  simp [List.length_append, List.length_take, List.length_drop]
+  omega
 
 /-- `IsSortedPushResult` implies length bound: new length ≤ old length + 1. -/
 theorem IsSortedPushResult.length_le {α : Type*} {old new_ : List α} {p : α}
