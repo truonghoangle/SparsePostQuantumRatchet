@@ -72,7 +72,7 @@ theorem next_chunk_spec_poly_encoder
       | some pe =>
         chunk.index.val = pe0.idx.val ∧
         chunk.data.val.length = 32 ∧
-        pe.idx.val = (pe0.idx.val + 1) % U32.size ∧
+        pe.idx.val = pe0.idx.val + 1 ∧
         match pe0.s with
         | .Polys polys =>
             pe.s = pe0.s ∧
