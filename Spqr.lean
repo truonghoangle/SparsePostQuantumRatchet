@@ -218,7 +218,6 @@ import Spqr.Specs.Invariants.ChainEpochDirection.Key
 import Spqr.Specs.Invariants.Defs
 import Spqr.Specs.Kdf.HkdfToSlice
 import Spqr.Specs.Kdf.HkdfToVec
-import Spqr.Specs.Lib.ChainFrom
 import Spqr.Specs.Lib.ChainFromVersionNegotiation
 import Spqr.Specs.Lib.ChainFromVersionNegotiation.CallOnce
 import Spqr.Specs.Lib.CurrentVersion

@@ -619,7 +619,11 @@ theorem authenticator_from_pb_no_validation
     authenticator.serialize.Authenticator.from_pb pb
       ⦃ (result : authenticator.Authenticator) =>
         result.root_key = pb.root_key ∧ result.mac_key = pb.mac_key ⦄ := by
-  exact authenticator.serialize.Authenticator.from_pb_spec pb
+  have h := authenticator.serialize.Authenticator.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_eq
+  rw [h_eq]
+  exact ⟨rfl, rfl⟩
 
 /-- **Security violation**: empty `mac_key` → trivial MAC forgery. -/
 theorem authenticator_from_pb_admits_empty_mac_key
@@ -630,8 +634,8 @@ theorem authenticator_from_pb_admits_empty_mac_key
         result.mac_key.length = 0 ⦄ := by
   have h := authenticator.serialize.Authenticator.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
-  intro result ⟨_, h_mac⟩
-  rw [h_mac]; exact h_empty
+  intro result h_eq
+  rw [h_eq]; exact h_empty
 
 /-- **Security violation**: empty `root_key` → broken forward secrecy. -/
 theorem authenticator_from_pb_admits_empty_root_key
@@ -642,8 +646,8 @@ theorem authenticator_from_pb_admits_empty_root_key
         result.root_key.length = 0 ⦄ := by
   have h := authenticator.serialize.Authenticator.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
-  intro result ⟨h_root, _⟩
-  rw [h_root]; exact h_empty
+  intro result h_eq
+  rw [h_eq]; exact h_empty
 
 /-- **Generalised**: `from_pb` accepts keys of any length ≠ 32. -/
 theorem authenticator_from_pb_admits_wrong_key_lengths
@@ -655,9 +659,9 @@ theorem authenticator_from_pb_admits_wrong_key_lengths
         result.root_key.length ≠ 32 ∧ result.mac_key.length ≠ 32 ⦄ := by
   have h := authenticator.serialize.Authenticator.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
-  intro result ⟨h_root, h_mac⟩
-  exact ⟨by rw [h_root]; exact h_root_bad,
-         by rw [h_mac]; exact h_mac_bad⟩
+  intro result h_eq
+  rw [h_eq]
+  exact ⟨h_root_bad, h_mac_bad⟩
 
 /-! ## Phase 7: `Chain.from_pb` copies `next_root` verbatim — no validation (§7)
 
