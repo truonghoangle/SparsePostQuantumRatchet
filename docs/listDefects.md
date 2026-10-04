@@ -31,7 +31,8 @@ attackers, but the SPQR code itself remains unchanged.
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| 🔵 **Unfixed (spec-only)** | 9 | D20, D23, D35, D36, D37, D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
+| ✅ **Fixed** | 1 | D20 — Lean model corrected |
+| 🔵 **Unfixed (spec-only)** | 10 | D23, D35, D36, D37, D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
 > clone-then-commit-after-MAC pattern discards the mutated state on MAC failure. The SPQR
@@ -341,22 +342,20 @@ decoder saved. Full message assembly later fails MAC → `Err` → caller keeps 
 
 ## D20. `VecDeque::into_iter` model wrong when `head ≠ 0` (HIGH; spec)
 
-**Status.** 🔵 **Unfixed (spec-only).** Lean model at `FunsExternal.lean` L3733–3759 unchanged. No proved theorem currently falsified, but blocks future `Chain::into_pb` proofs.
+**Status.** ✅ **Fixed.** Lean model at `FunsExternal.lean` L3733–3759 corrected: uses linear `head + 1`, decrements `length`, and the `@[step]` theorem (`next_spec`) proves both the empty and non-empty cases. Counterexample now produces `[some 20, some 30, none, none]` with final length `0`, matching Rust semantics.
 
 **Location.** `SrcTranslated/FunsExternal.lean` L3733–3759.
 
-**Defect.** The model uses ring-buffer `wrapping_add` modulo `length` (inconsistent with the
-project's growing-list model for `pop_front`/`push_back`/`index`) and never decrements
-`length` (never terminates).
+**Defect (original).** The model used ring-buffer `wrapping_add` modulo `length` (inconsistent with the
+project's growing-list model for `pop_front`/`push_back`/`index`) and never decremented
+`length` (never terminated).
 
-**Consequence.** After one `pop_front` on `[10,20,30]`, four `next` calls yield
+**Consequence (original).** After one `pop_front` on `[10,20,30]`, four `next` calls yielded
 `[some 20, some 10, some 20, some 10]` with `length` still 2 (Rust yields `20, 30, None`).
-No proved theorem is falsified today (`Chain.into_pb` routes through `sorryAx` D15), but any
-future round-trip theorem would be unsound.
 
-**Reproduced.** [`vecdeque_into_iter_model_counterexample.lean.txt`](./vecdeque_into_iter_model_counterexample.lean.txt).
+**Reproduced.** [`vecdeque_into_iter_model_counterexample.lean.txt`](./vecdeque_into_iter_model_counterexample.lean.txt) — now outputs correct `ok ([some 20, some 30, none, none], 0)`.
 
-**Fix.** Mirror `pop_front_spec_nonempty`: `head' ← head + 1; length' ← length − 1`.
+**Fix applied.** `head' ← head + 1; length' ← length − 1` (mirrors `pop_front_spec_nonempty`).
 
 ---
 
@@ -1110,7 +1109,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 | Order | Defect | Fix | Rationale |
 |---|---|---|---|
-| **0-a** | **D20** | Rewrite `VecDeque::into_iter` model in `FunsExternal.lean`: `head' ← head + 1; length' ← length − 1`. | Blocks `Chain::into_pb` round-trip proofs; makes D62 vacuous. |
+| **0-a** | **D20** ✅ | ~~Rewrite `VecDeque::into_iter` model in `FunsExternal.lean`: `head' ← head + 1; length' ← length − 1`.~~ **Done.** | Unblocks `Chain::into_pb` round-trip proofs; D62 can now be re-proved. |
 | **0-b** | **D15** | Close `sorry`s in `SrcTranslated/Funs.lean`; prove `MapCollectBridge.lean`; resolve `DecodeState.lean:54`. | Removes proof gaps blocking `from_pb`/`into_pb` round-trips. |
 | **0-c** | **D10** | Correct false `data.len() ≤ KEY_SIZE * trim_size()` bound in `Add.lean`/`Remove.lean` and `chain.rs` annotations. | Eliminates false axiom; needed before `key_spec` proofs. |
 
@@ -1160,7 +1159,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 ```
 Phase 0 (parallel)
-  ├─ 0-a D20 VecDeque model
+  ├─ 0-a D20 VecDeque model ✅
   ├─ 0-b D15 sorry/axiom gaps
   └─ 0-c D10 false history bound
         │
