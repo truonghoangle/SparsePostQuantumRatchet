@@ -12,7 +12,9 @@ are in the Rust source, its annotations, or the trusted Lean models — not in t
 (`CorruptedBlobs.md`, `network.md`, `bugSecurityRemote.md`). Findings are arranged **by theme**
 rather than by identifier so that interconnected issues read together. Not every identifier is a
 defect: D9, D12 and D15 are *audit notes* (rated INFO or NO DEFECT) kept under the same numbering
-because the companion files cite them.
+because the companion files cite them. In addition, `EXT-1`–`EXT-3` document external Double
+Ratchet defects from Cheval–Jacomme–Richards 2026 (`docs/2026-727.pdf`) that affect the host
+protocol SPQR is composed with; see the *External* section near the end of this report.
 
 **Grouping.** Related identifiers appear in one of three forms:
 
@@ -1035,6 +1037,96 @@ identifier → evidence mapping; individual findings cite only the test name.
 Findings without a **Reproduced:** line (D2, D3, D5, D6/D7, D8, D9, D11, D12, D15, D22 family,
 D23, D29/D33, D30, D32, D34, D37, D40) rest on the cited theorem hypotheses and code reading;
 D12 additionally on exhaustive tests of `inz`/`select_ct` and assembly inspection.
+
+## External: Double Ratchet defects from Cheval–Jacomme–Richards 2026 (docs/2026-727.pdf)
+
+The paper *"Automated formal analysis of Signal's Double Ratchet: attacks, fixes and security
+proofs"* (Cheval, Jacomme, Richards — April 2026, v1) provides the first complete ProVerif
+analysis of the Double Ratchet (DR) specification, including out-of-order message delivery. It
+uncovered **three attacks that weaken or break Forward Secrecy** in the DR layer. All three were
+reported to Signal and subsequently fixed. None of these defects reside in the SPQR crate itself,
+but they are documented here because they affect the host protocol that SPQR is composed with and
+have implications for the overall security of the Triple Ratchet.
+
+**SPQR relevance.** The paper explicitly models SPQR as *completely insecure* (the attacker
+freely chooses every SPQR message key) and shows that the DR's Forward Secrecy and
+Post-Compromise Security still hold in that setting. This confirms that the DR provides a
+security floor independent of SPQR, but it also means the paper's proofs say nothing about SPQR's
+own guarantees. The paper notes (Section 6) that strong compositional results for DR+SPQR remain
+an open problem. Additionally, the "Null Decryption Key" fix in the DR specification was delayed
+by the major SPQR update that was in progress at the time, eventually landing in November 2025.
+
+### EXT-1. Null Decryption Key — DR specification attack (MEDIUM; spec-only, fixed)
+
+**Source:** Section 3.1 of 2026-727.pdf.
+
+**Description.** The DR specification's `RatchetDecrypt` function (Python pseudocode) does not
+ratchet when the received header's DH element equals the current `state.DHr`. Since the
+responder's initial state has `DHr = None`, an attacker can craft a header with `dh = None` to
+skip ratcheting entirely, causing `KDF_CK(None)` to produce a publicly computable message key.
+This breaks authentication and secrecy of the first decrypted message.
+
+**Severity.** Specification-only; no known real-world implementation was affected because
+composition with PQXDH produces a different initial DR state. However, any implementation
+strictly following the specification with an HMAC that accepts `None` would be insecure.
+
+**Fix.** The DR specification was updated in revision 4 (November 2025) to require that
+`KDF_CK(ck)` must fail when `ck` is `None`.
+
+**SPQR impact.** None directly. SPQR operates at a separate layer and does not interact with
+`KDF_CK`. The Triple Ratchet model in the paper shows DR security holds even with a broken SPQR.
+
+### EXT-2. Weak State Forced Storage — libsignal implementation attack (HIGH; implementation, fixed)
+
+**Source:** Section 3.2.1 of 2026-727.pdf.
+
+**Description.** During PQXDH session initialisation, the responder creates an intermediate "weak
+state" `st0` containing `SPKsk_R` (the medium-term signed pre-key's private key, shared across
+all sessions in an epoch). According to the protocol, `st0` should never be persisted — only the
+fully ratcheted `st2` should be stored, and only after successful decryption of the first
+ciphertext. However, in the libsignal implementation (which integrates PQXDH, DR, and Sesame),
+when the first ciphertext fails to decrypt against the new session but succeeds against an
+existing session, `st0` was committed to memory alongside the successful session.
+
+**Attack.** An on-path attacker intercepts a legitimate PQXDH initialisation `(m, ct)` and
+replays it followed by a legitimate ciphertext `ct'` for an existing session. The responder
+stores `st0` (containing `SPKsk_R`) in long-term memory. After `SPK_R` is rotated and deleted,
+a later device compromise leaks the stored `st0`, recovering `SPKsk_R` and breaking Forward
+Secrecy for all sessions established under that key.
+
+**Fix.** The fix ensures that on a new session initialisation, if decryption of `ct` fails, the
+weak state is never stored and no fallback to other sessions occurs. Pushed to libsignal's main
+branch within a week of reporting (end of March 2025). A fix for WhatsApp was deployed in early
+September 2025.
+
+**SPQR impact.** The weak state `st0` does not contain SPQR state (SPQR initialisation happens
+later), so SPQR keys are not directly exposed. However, the forced storage of `SPKsk_R`
+undermines the forward secrecy guarantee that the Triple Ratchet's DR layer is supposed to
+provide, regardless of SPQR's security.
+
+### EXT-3. X25519 Replay Attack via Small Subgroup / Torsion Points — libsignal implementation attack (HIGH; implementation, fixed)
+
+**Source:** Section 3.2.2 of 2026-727.pdf.
+
+**Description.** PQXDH sessions built without a one-time pre-key (`OPK_R`) lack fresh randomness
+from the responder. An attacker can exploit this by "mangling" the initiator's ephemeral key
+`EKpk_I` using X25519 small-subgroup (torsion) points, producing a different-looking key that
+yields the same shared secret. This allows the attacker to create a duplicate session sharing the
+same `SK` as a target session, enabling a replay attack that breaks Forward Secrecy.
+
+**Combined attack.** When combined with EXT-2 (weak state storage), the attacker can force the
+long-term storage of the `SK` for an arbitrary target session, breaking Forward Secrecy for all
+messages in the first exchange from initiator to responder for sessions without an `OPK_R`.
+
+**Fix.** A torsion-free check was added to libsignal to detect mangled keys. Pushed to libsignal
+within a week of reporting (September 2025). The Signal developers also discovered and fixed an
+additional key-mangling vector in the same commit.
+
+**SPQR impact.** The replay creates duplicate DR sessions with identical `SK` values. Since SPQR
+state is separate from DR state and keyed independently, the SPQR layer is not directly affected
+by the `SK` duplication. However, the DR-layer Forward Secrecy breach means the overall Triple
+Ratchet security degrades to whatever SPQR alone can provide for the affected messages — which
+the paper models as zero.
 
 ## Limitations
 
