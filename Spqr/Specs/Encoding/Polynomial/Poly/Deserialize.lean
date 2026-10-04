@@ -134,7 +134,7 @@ Three stages:
 
 This is intended to be the inverse of `Poly::serialize`, but it is **not** on the zero
 polynomial: `Poly::zero` has no coefficients, so `serialize` yields `[]`, which `deserialize`
-rejects with `SerializationInvalid` (see `docs/defects.md`, item 16). -/
+rejects with `SerializationInvalid`. -/
 
 
 namespace spqr.encoding.polynomial.Poly
@@ -148,7 +148,7 @@ on the shape of the input so that the error behaviour is pinned down rather than
     `serialized.length = 0 ∨ serialized.length % 2 = 1`. In particular the empty slice — which is
     exactly `Poly::serialize` of the zero polynomial (`serialize_spec`, `zero_spec`) — is rejected,
     so `deserialize ∘ serialize` is not the identity on `Poly::zero`. This is the Rust defect
-    recorded as item 16 in `docs/defects.md`; the `is_empty()` check is the culprit, the loop
+    recorded; the `is_empty()` check is the culprit, the loop
     itself handles length 0 correctly.
   * **Ok branch** — for non-empty, even-length input:
       - `poly.degree = serialized.length / 2`
@@ -174,10 +174,8 @@ theorem deserialize_spec
           (serialized.length = 0 ∨ serialized.length % 2 = 1) ⦄ := by
   unfold Poly.deserialize degree
   step*
-  · -- side condition of the loop: the freshly allocated vector is empty
-    simp [alloc.vec.Vec.with_capacity]
-  · -- non-empty, even length: the loop produces the coefficients
-    simp_all
+  · simp [alloc.vec.Vec.with_capacity]
+  · simp_all
 
 /-- **Corollary (defect 16 witness)**: the byte string `Poly::serialize` produces for the zero
 polynomial — the empty slice — is rejected by `Poly::deserialize`. Hence `deserialize` is not a
