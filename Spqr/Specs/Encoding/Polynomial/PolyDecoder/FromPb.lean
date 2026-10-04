@@ -568,7 +568,20 @@ Reconstructs a `PolyDecoder` from its protobuf representation. Validates `pb.pts
 and `len() % 4 == 0` for each slot, then deserializes all 16 slots of big-endian 4-byte chunks
 into `[SortedSet<Pt>; 16]`, and casts `pb.pts_needed : u32` to `usize`.
 
-**Source**: spqr/src/encoding/polynomial.rs -/
+**Source**: spqr/src/encoding/polynomial.rs
+
+## D52 audit note (LOW; blob — `is_complete` not validated)
+
+`from_pb` copies `pb.is_complete` verbatim into the decoder (`polynomial.rs` L851:
+`is_complete: pb.is_complete`). No code path in SPQR sets `is_complete` from the wire, but a
+corrupted blob can set it to `true`. When `is_complete = true`, `decoded_message` (L912–913)
+returns `None` forever — the decoder thinks it has already completed, creating a silent DoS.
+
+The `from_pb_spec` postcondition `decoder.is_complete = pb.is_complete` (line 607) confirms
+the verbatim copy. The theorem `from_pb_accepts_bad_is_complete` below documents this gap.
+
+**Fix.** Validate `is_complete` consistency with `pts` contents, or always reset to `false`
+on `from_pb`. See `docs/listDefects.md` §D52. -/
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
@@ -679,5 +692,38 @@ theorem from_pb_spec
     grind
   · simp_all
     grind
+
+/-- **D52: `from_pb` accepts `is_complete = true` without validation.**
+
+A corrupted blob with `is_complete = true` and valid 16-slot `pts` will be accepted by
+`from_pb`. The resulting decoder's `decoded_message` returns `None` forever (it checks
+`if self.is_complete { return None; }` at L912), creating a silent permanent stall.
+
+This theorem proves that `from_pb` succeeds and copies `is_complete = true` verbatim,
+even though no honest code path ever sets `is_complete` to `true` during deserialization. -/
+theorem from_pb_accepts_bad_is_complete
+    (pb : proto.pq_ratchet.PolynomialDecoder)
+    (h_complete : pb.is_complete = true)
+    (h_16 : pb.pts.val.length = 16)
+    (h_aligned : ∀ (j : Nat), j < 16 → (pb.pts.val[j]!).val.length % 4 = 0)
+    (h_pts_overflow : ∀ (j : Nat), j < pb.pts.length →
+        (pb.pts[j]!).length + 4 ≤ Usize.max) :
+    from_pb pb ⦃ (result : core.result.Result
+        encoding.polynomial.PolyDecoder
+        encoding.polynomial.PolynomialError) =>
+      match result with
+      | core.result.Result.Ok decoder =>
+        -- D52: is_complete copied verbatim — decoder permanently stalled
+        decoder.is_complete = true
+      | core.result.Result.Err _ => False ⦄ := by
+  have h := from_pb_spec pb h_pts_overflow
+  apply WP.spec_mono h
+  intro result ⟨_, _, h_valid⟩
+  have h_ok := h_valid h_16 h_aligned
+  cases result with
+  | Ok decoder =>
+    obtain ⟨_, h_ic, _⟩ := h_ok
+    simp_all
+  | Err _ => exact h_ok
 
 end spqr.encoding.polynomial.PolyDecoder

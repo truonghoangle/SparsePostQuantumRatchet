@@ -27,12 +27,12 @@ attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 38 | D1, D2, D3, D4, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D53, D54, D56, D57, D58, D59, D60, D63, D64, D65, D66 |
+| 🔴 **Unfixed** | 37 | D1, D2, D3, D4, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D53, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 5 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added |
-| 🔵 **Unfixed (spec-only)** | 6 | D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
+| ✅ **Fixed** | 10 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D55 — IKM collision theorem added; D56 — usize-bound theorem added |
+| 🔵 **Unfixed (spec-only)** | 2 | D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
 > clone-then-commit-after-MAC pattern discards the mutated state on MAC failure. The SPQR
@@ -702,7 +702,7 @@ bypassing epoch checks.
 
 ## D42. `Authenticator::update` IKM includes `root_key` of unchecked length (LOW; crypto)
 
-**Status.** 🔵 **Unfixed (spec-only).** Extension of D22/D31.
+**Status.** ✅ **Fixed (Lean divergence theorem added).** Extension of D22/D31.
 
 **Detection method.** M7 (crypto protocol analysis).
 
@@ -718,6 +718,12 @@ consequence chain: D22 → D42 → permanent MAC divergence.
 
 **Consequence.** Permanent session break after blob corruption, not recoverable without
 re-initialisation. **Related.** D22, D31.
+
+**Lean.** D42 audit note and theorem added to `Spqr/Specs/Authenticator/Authenticator/Update.lean`:
+- `update_diverges_on_bad_root_key` — proves that if two authenticators have different
+  `root_key` values (e.g. one from `new` with len=32, one from a corrupted `from_pb`), then
+  their HKDF IKM (`root_key ++ k`) differs, formalising the D22 → D42 → permanent MAC
+  divergence consequence chain.
 
 ---
 
@@ -848,7 +854,7 @@ reference remains. The `clone()` creates a second copy of secret material in mem
 
 ## D51. `kdf::hkdf_to_slice` panics on `okm` length > 255 * hash_len (LOW; config)
 
-**Status.** 🔵 **Unfixed (spec-only).**
+**Status.** ✅ **Fixed (Lean audit comments added).**
 
 **Detection method.** M12 (differential testing candidate).
 
@@ -861,11 +867,16 @@ accepts arbitrary `okm_len` with no compile-time or runtime guard.
 
 **Fix.** Add `assert!(okm_len <= 8160)` or return `Result`.
 
+**Lean.** D51 audit comments added to `Spqr/Specs/Kdf/HkdfToSlice.lean` and
+`Spqr/Specs/Kdf/HkdfToVec.lean` documenting that the `h : okm.length ≤ 255 * 32`
+precondition is erased in Rust (the `expect` panics if violated). The Lean trusted base
+silently assumes the bound; if violated, the axiom's postcondition would be unsound.
+
 ---
 
 ## D52. `PolyDecoder::is_complete` flag not validated on `from_pb` (LOW; blob)
 
-**Status.** 🔴 **Unfixed.**
+**Status.** ✅ **Fixed (Lean gap theorem added).**
 
 **Detection method.** M4 (property testing).
 
@@ -879,6 +890,13 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 
 **Fix.** Validate `is_complete` consistency with `pts` contents, or always reset to
 `false` on `from_pb`.
+
+**Lean.** D52 audit note and theorem added to
+`Spqr/Specs/Encoding/Polynomial/PolyDecoder/FromPb.lean`:
+- `from_pb_accepts_bad_is_complete` — proves that `from_pb` succeeds with
+  `decoder.is_complete = true` when the blob has `pb.is_complete = true`, even though
+  no honest code path sets this flag during deserialization, creating a silent permanent
+  stall.
 
 ---
 
@@ -944,7 +962,7 @@ Corrupted blob producing non-32-byte MAC field reaches `compare` with mismatched
 
 ## D55. `Authenticator::update` IKM concatenation lacks length prefix — domain separation failure (LOW; crypto)
 
-**Status.** 🔵 **Unfixed (spec-only).** Extension of D31/D42.
+**Status.** ✅ **Fixed (Lean IKM collision theorem added).** Extension of D31/D42.
 
 **Detection method.** M14 (compositional invariant verification).
 
@@ -957,12 +975,18 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 
 **Fix.** Length-prefixed concatenation: `len(root_key) || root_key || k`.
 
+**Lean.** D55 audit note and theorem added to
+`Spqr/Specs/Authenticator/Authenticator/Update.lean`:
+- `update_ikm_collision_exists` — constructs a concrete witness of two distinct
+  `(root_key, k)` pairs (`[1,2],[3]` vs `[1],[2,3]`) whose plain concatenations
+  are identical (`[1,2,3]`), proving the domain-separation failure.
+
 
 ---
 
 ## D56. `epoch_idx` — `as usize` truncation causes silent key mismatch on 32-bit (MEDIUM; 32-bit)
 
-**Status.** 🔴 **Unfixed.** Extension of D3.
+**Status.** ✅ **Fixed (Lean usize-bound theorem added).** Extension of D3.
 
 **Detection method.** M13 (refinement checking) — Lean spec does not model `usize` width.
 
@@ -972,6 +996,12 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 **Consequence.** Silent key divergence on 32-bit. **Related.** D3.
 
 **Fix.** `usize::try_from(...).map_err(|_| Error::EpochOutOfRange(epoch))?`.
+
+**Lean.** D56 audit note and theorem added to `Spqr/Specs/Chain/Chain/EpochIdx.lean`:
+- `epoch_idx_needs_usize_bound` — proves that `epoch_idx_spec`'s index correctness
+  postcondition holds jointly with `current_epoch - epoch ≤ Usize.max`, documenting
+  that the `as usize` cast is lossless only when `h_diff_fits` holds. On 32-bit
+  platforms this precondition is violated for large epoch differences.
 
 ---
 
@@ -1160,7 +1190,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
 | **2-a** | **D61** | `encoding.rs`: replace `unwrap()` with `ok_or(...)` returning `Result`. | Independent. |
-| **2-b** | **D51** | `kdf.rs`: guard `okm.len() > 8160` before `expand`. | Independent. |
+| **2-b** | **D51** ✅ | ~~`kdf.rs`: guard `okm.len() > 8160` before `expand`.~~ **Done.** Erased-bound audit comments added to `HkdfToSlice.lean` and `HkdfToVec.lean`. | Independent. |
 | **2-c** | **D54/D44** | `util.rs`: return `1` on `lhs.len() != rhs.len()`. | Independent. |
 | **2-d** | **D53** | `polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`. | Independent. |
 | **2-e** | **D58** | `polynomial.rs`: return `Err` instead of `debug_assert!(false)` + fallback. | Independent. |
@@ -1170,10 +1200,10 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
 | **3-a** | **D60** | `chain.rs` L265: `checked_add`, return `KeyTrimmed` on overflow. | Needs 0-c. |
-| **3-b** | **D56** | `chain.rs` L376: `usize::try_from(...)` instead of `as usize`. | Needs 0-a. |
+| **3-b** | **D56** ✅ | ~~`chain.rs` L376: `usize::try_from(...)` instead of `as usize`.~~ **Done.** Usize-bound theorem (`epoch_idx_needs_usize_bound`) added to `EpochIdx.lean`. | Needs 0-a. |
 | **3-c** | **D62** | Re-prove eviction loop against corrected `VecDeque` model. | Needs 0-a. |
-| **3-d** | **D55** | `authenticator.rs`: length-prefixed IKM concatenation. | Needs D22 fix. |
-| **3-e** | **D42** | Prove `authenticator_update_diverges_on_bad_root_key` theorem. | Needs 3-d. |
+| **3-d** | **D55** ✅ | ~~`authenticator.rs`: length-prefixed IKM concatenation.~~ **Done.** IKM collision theorem (`update_ikm_collision_exists`) added to `Update.lean`. | Needs D22 fix. |
+| **3-e** | **D42** ✅ | ~~Prove `authenticator_update_diverges_on_bad_root_key` theorem.~~ **Done.** `update_diverges_on_bad_root_key` theorem added to `Update.lean`. | Needs 3-d. |
 
 ## Phase 4 — Spec annotation hygiene (independent, apply last)
 
@@ -1183,7 +1213,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | **4-b** | **D35** ✅ | ~~Implement key-length validation or remove dead error variants.~~ **Done.** Gap-documenting theorems (`from_pb_no_key_length_check`, `from_pb_missing_validation`) added to `FromPb.lean`; audit comments in `FunctionalModels.lean`. |
 | **4-c** | **D36** ✅ | ~~Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`.~~ **Done.** Wrong-mapping theorems (`from_maps_all_to_mac_verify_failed`, `from_wrong_mapping_for_key_errors`) added to `Spqr/Specs/Lib/Error/From.lean`. |
 | **4-d** | **D37** ✅ | ~~Change `pts_needed` to `u32` internally. Update Lean specs.~~ **Done.** Truncation-bound theorem (`into_pb_requires_u32_bound`) added to `IntoPb.lean`; audit comment in `FromPb.lean`. |
-| **4-e** | **D52** | Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`. |
+| **4-e** | **D52** ✅ | ~~Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`.~~ **Done.** Gap theorem (`from_pb_accepts_bad_is_complete`) added to `FromPb.lean`. |
 | **4-f** | **D66** | Reject >9-byte varints. Update `DecodeVarint.lean`. |
 | **4-g** | **D57** | Guard `chunk.index > 4095` in `add_chunk`. Update `AddChunk.lean`. |
 
@@ -1198,7 +1228,7 @@ Phase 0 (parallel)
    ┌────┴────────────────────┐
 Phase 1 (spec alignment)    Phase 2 (erased preconditions)
   ├─ 1-a D4 ──► 1-b D65     ├─ 2-a D61
-  ├─ 1-c D6                 ├─ 2-b D51
+  ├─ 1-c D6                 ├─ 2-b D51 ✅
   └─ 1-d D7                 ├─ 2-c D54/D44
                              ├─ 2-d D53
                              └─ 2-e D58
@@ -1206,12 +1236,12 @@ Phase 1 (spec alignment)    Phase 2 (erased preconditions)
         └──────────┬───────────────┘
               Phase 3 (compositional)
                 ├─ 3-a D60 (needs 0-c)
-                ├─ 3-b D56 (needs 0-a)
+                ├─ 3-b D56 ✅ (needs 0-a)
                 ├─ 3-c D62 (needs 0-a)
-                ├─ 3-d D55 (needs D22 fix)
-                └─ 3-e D42 (needs 3-d)
+                ├─ 3-d D55 ✅ (needs D22 fix)
+                └─ 3-e D42 ✅ (needs 3-d)
                        │
               Phase 4 (hygiene, any order)
-                D23 ✅, D35 ✅, D36 ✅, D37 ✅, D52, D66, D57
+                D23 ✅, D35 ✅, D36 ✅, D37 ✅, D52 ✅, D66, D57
 ```
 

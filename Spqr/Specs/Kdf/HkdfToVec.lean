@@ -15,7 +15,10 @@ import Spqr.Specs.Kdf.HkdfToSlice
 `hkdf_to_slice`, and returns it as a `Vec`.
 
 Source: "spqr/src/kdf.rs"
--/
+
+**D51 audit note.** The `h : okm_len.val ≤ 255 * 32` precondition is propagated from
+`hkdf_to_slice_spec`. In Rust, the bound is not enforced — `expand` panics via `expect`.
+See `HkdfToSlice.lean` for the full D51 note and `docs/listDefects.md` §D51. -/
 
 open Aeneas Aeneas.Std Result Aeneas.Std.WP
 namespace spqr.kdf
