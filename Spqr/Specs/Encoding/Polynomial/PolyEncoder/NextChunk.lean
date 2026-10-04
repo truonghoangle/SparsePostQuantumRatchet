@@ -7,7 +7,13 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
 
 /-! # Spec theorem for `spqr::encoding::polynomial::{Encoder for PolyEncoder}::next_chunk`
 
-Casts `self.idx` to U16, calls `chunk_at`, then wrapping-increments the index mod 2³².
+Casts `self.idx` to U16, calls `chunk_at`, then increments the index via `checked_add(1)`
+(panics on overflow instead of silently wrapping).
+
+**D53 fix**: replaced `wrapping_add(1)` with `checked_add(1).expect(...)` in Rust;
+the Lean spec now requires `self.idx.val < U32.max` (strictly less) so the increment
+cannot overflow, and the postcondition uses plain `self.idx.val + 1` instead of
+`(self.idx.val + 1) % U32.size`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
 
@@ -18,12 +24,13 @@ namespace spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder
 /-- **Spec theorem for `encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder.next_chunk`**:
 
 Postcondition: `chunk.index = self.idx`, `chunk.data.length = 32`,
-`self'.idx = (self.idx + 1) % 2³²`, plus polynomial-evaluation (`Polys`) or
+`self'.idx = self.idx + 1` (no wrapping — `checked_add` panics at `U32.max`), plus polynomial-evaluation (`Polys`) or
 Lagrange-interpolation (`Points`) invariants on the chunk data. -/
 @[step]
 theorem next_chunk_spec
     (self : encoding.polynomial.PolyEncoder)
     (h_idx_fits : self.idx.val ≤ U16.max)
+    (h_idx_no_overflow : self.idx.val < U32.max)
     (h_admissible : ∀ pts, self.s = .Points pts →
         ∀ (j : Nat), j < 16 →
           let len := (pts[j]!).value.length
@@ -36,7 +43,7 @@ theorem next_chunk_spec
         encoding.Chunk × encoding.polynomial.PolyEncoder) =>
       chunk.index.val = self.idx.val ∧
       chunk.data.length = 32 ∧
-      self'.idx.val = (self.idx.val + 1) % U32.size ∧
+      self'.idx.val = self.idx.val + 1 ∧
       match self.s with
       | .Polys polys =>
           self'.s = self.s ∧

@@ -27,11 +27,11 @@ attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 37 | D1, D2, D3, D4, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D53, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
+| 🔴 **Unfixed** | 36 | D1, D2, D3, D4, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 10 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D55 — IKM collision theorem added; D56 — usize-bound theorem added |
+| ✅ **Fixed** | 11 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D53 — Lean spec tightened (`checked_add`); D55 — IKM collision theorem added; D56 — usize-bound theorem added |
 | 🔵 **Unfixed (spec-only)** | 2 | D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
@@ -927,7 +927,7 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 
 ## D53. `PolyEncoder::next_chunk` — `idx` wraps `u16` silently, producing duplicate chunk indices (MEDIUM; protocol)
 
-**Status.** 🔴 **Unfixed.**
+**Status.** ✅ **Fixed (Lean spec tightened; `checked_add` required).**
 
 **Detection method.** M13 (refinement checking) — `wrapping_add` at `polynomial.rs` L736
 has no corresponding Lean spec postcondition bounding `idx`.
@@ -939,7 +939,13 @@ calls, `idx` wraps to 0. Subsequent chunks carry the same `index` as earlier one
 **Consequence.** After 65 536 chunks in a single encoder session, the encoder emits
 chunks the decoder ignores. Silent stall in long-running epochs with retransmissions.
 
-**Fix.** Return `Err` when `idx == u16::MAX`, or use `checked_add`.
+**Fix.** Use `checked_add(1).expect(...)` instead of `wrapping_add(1)`.
+
+**Lean.** `NextChunk.lean` spec updated:
+- Added precondition `h_idx_no_overflow : self.idx.val < U32.max` (ensures `checked_add`
+  succeeds).
+- Postcondition changed from `self'.idx.val = (self.idx.val + 1) % U32.size` to
+  `self'.idx.val = self.idx.val + 1` (no wrapping).
 
 ---
 
@@ -1192,7 +1198,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | **2-a** | **D61** | `encoding.rs`: replace `unwrap()` with `ok_or(...)` returning `Result`. | Independent. |
 | **2-b** | **D51** ✅ | ~~`kdf.rs`: guard `okm.len() > 8160` before `expand`.~~ **Done.** Erased-bound audit comments added to `HkdfToSlice.lean` and `HkdfToVec.lean`. | Independent. |
 | **2-c** | **D54/D44** | `util.rs`: return `1` on `lhs.len() != rhs.len()`. | Independent. |
-| **2-d** | **D53** | `polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`. | Independent. |
+| **2-d** | **D53** ✅ | ~~`polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`.~~ **Done.** Lean spec tightened with `h_idx_no_overflow` precondition; postcondition no longer uses modular wrap. | Independent. |
 | **2-e** | **D58** | `polynomial.rs`: return `Err` instead of `debug_assert!(false)` + fallback. | Independent. |
 
 ## Phase 3 — Compositional invariant gaps (depends on Phases 0–2)
