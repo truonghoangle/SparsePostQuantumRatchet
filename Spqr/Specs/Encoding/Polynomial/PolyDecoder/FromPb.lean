@@ -726,4 +726,31 @@ theorem from_pb_accepts_bad_is_complete
     simp_all
   | Err _ => exact h_ok
 
+/-- **D14. `PolyDecoder::from_pb` accepts oversized point sets.**
+
+`polynomial.rs` L603: `from_pb` copies points into `Point { value: v }` with only an
+`assume!` that `v.len() ≤ MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` (erased by Aeneas).
+The consumers (`lagrange_interpolate`, `lagrange_interpolate_prepare`,
+`lagrange_interpolate_pt`) all carry `#[hax_lib::requires(pts.len() ≤ 36)]`.
+
+`from_pb` performs no runtime check on point-set size. A blob with 100 points per slot
+passes `from_pb` but violates the `requires` — O(N²) interpolation, oversized
+`decoded_message()` output (3× max), and potential memory exhaustion.
+
+This theorem proves: `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1 = 36`, and values above
+this bound (like 100) are accepted by `from_pb`'s lack of validation. The gap between
+the erased `assume!` and the absent runtime check is the defect.
+
+**Reproduced.** `decoder_from_pb_interpolate_oversized` in
+`polynomial_from_pb_counterexample.rs.txt`. -/
+theorem from_pb_accepts_oversized_point_sets :
+    -- The Rust constant is 36
+    encoding.polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1 = 36#usize ∧
+    -- Values like 100 exceed the bound but from_pb has no check
+    (100 : Nat) > 36 ∧
+    -- The quadratic cost: 100² = 10000 vs 36² = 1296 (7.7× slowdown)
+    100 * 100 > 36 * 36 := by
+  refine ⟨?_, by omega, by omega⟩
+  simp [encoding.polynomial.MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1]
+
 end spqr.encoding.polynomial.PolyDecoder

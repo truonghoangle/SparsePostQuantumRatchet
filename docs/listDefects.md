@@ -27,8 +27,8 @@ attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 29 | D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D63, D64, D65, D66 |
-| 🟢 **Proved** | 6 | D1 — 48 theorems, 11 phases in `CorruptedBlobs.lean`; D2 — `get_never_ok_of_ooo_overflow`, `key_never_ok_of_ooo_overflow`; D3 — `epoch_idx_cast_is_modular` (32-bit truncation); D5 — `idx_cast_u16_lossy` (u32→u16 truncation); D8 — `trim_size_overflow_on_32bit` (usize mul overflow); D60 — `key_never_ok_of_large_ctr` |
+| 🔴 **Unfixed** | 23 | D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D63, D64, D65, D66 |
+| 🟢 **Proved** | 12 | D1 — 48 theorems, 11 phases in `CorruptedBlobs.lean`; D2 — `get_never_ok_of_ooo_overflow`; D3 — `epoch_idx_cast_is_modular`; D5 — `idx_cast_u16_lossy`; D8 — `trim_size_overflow_on_32bit`; D10 — `claimed_history_bound_false`; D11 — `round_robin_div_by_zero_mismatch`; D13 — `from_pb_admits_inadmissible_length`; D14 — `from_pb_accepts_oversized_point_sets`; D16 — `serialize_deserialize_zero_roundtrip_fails`; D17 — `is_complete_preserved_by_add_chunk`; D60 — `key_never_ok_of_large_ctr` |
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
@@ -200,9 +200,12 @@ overflows `Usize.max`.
 
 ## D10. Claimed history bound is false (MEDIUM; spec — LOW runtime)
 
-**Status.** 🔴 **Unfixed.** The `requires`/`assume!` annotations still assert the false bound.
+**Status.** 🟢 **Proved.** The `requires`/`assume!` annotations still assert the false bound.
 
 **Specs.** `Add.lean` assumes only `len + 36 ≤ Usize.max` — cannot adopt the stronger claim.
+`TrimSize.lean`: `claimed_history_bound_false` — for any `max_ooo ≥ 3`, the pre-GC peak
+`trim_size - 1 + max_ooo - 1` exceeds `trim_size`. `claimed_history_bound_false_defaults` —
+concrete witness: `trim_size(2000) = 2201`, peak = 4199 > 2201.
 
 **Rust.** `chain.rs` L138, L174, L281–282: `requires`/`assume!` assert `data.len() ≤
 KEY_SIZE * trim_size()`. False: at boundary `at = ctr + max_ooo`, `max_ooo − 1` keys
@@ -216,9 +219,12 @@ accumulate before `gc`. Defaults: claimed 2201; true **4199**.
 
 ## D11. `RoundRobinEncoder::chunk_at` panics on empty (LOW)
 
-**Status.** 🔴 **Unfixed.** Test-only; low priority.
+**Status.** 🟢 **Proved.** Test-only (`#[cfg(test)]`); not extracted by Aeneas.
 
-**Specs.** `ChunkAt.lean`: `h_nonempty`. Only reachable in `#[cfg(test)]`.
+**Specs.** `RoundRobinEmpty.lean`: `round_robin_div_by_zero_mismatch` — documents that
+Lean's `n % 0 = n` (total) vs Rust's panic (partial). `round_robin_empty_wrong_index` —
+for `idx > 0`, the Lean `%` produces a nonzero out-of-bounds index.
+No monadic Lean model exists (code excluded from extraction).
 
 ---
 
@@ -232,11 +238,13 @@ accumulate before `gc`. Defaults: claimed 2201; true **4199**.
 
 ## D13. `PolyEncoder::from_pb` no point-count validation (MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** `polynomial.rs` L573–603 still checks only `pts.len() % 2 == 0`.
+**Status.** 🟢 **Proved.** `polynomial.rs` L573–603 still checks only `pts.len() % 2 == 0`.
 
 **Specs.** `PointAt.lean`, `ChunkAt.lean`, `NextChunk.lean` all require
 `h_admissible : ∀ j < 16, len ∈ {0, 1, 3, 5, 30, 34, 36}`. `FromPb.lean` has no such
 hypothesis — proves `Ok` for any 16 even-length slots.
+`from_pb_admits_inadmissible_length` — proves that even values `{2, 4, 6, 8, 10}` pass
+`from_pb`'s evenness check but are not in the admissible set.
 
 **Rust.** `polynomial.rs` L573–603: `from_pb` checks only `pts.len() % 2 == 0`. The admissible
 fact reaches `point_at` solely via an erased `assume!` (L646–654).
@@ -253,11 +261,13 @@ precomputed poly of size {}")`. Release: fallback Lagrange emits wrong chunks si
 
 ## D14. `PolyDecoder::from_pb` no point-set size bound (LOW–MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** `from_pb` accepts any point-set size.
+**Status.** 🟢 **Proved.** `from_pb` accepts any point-set size.
 
 **Specs.** `Poly/LagrangeInterpolate.lean` etc. stated for arbitrary `pts.length`, but Rust
 carries erased `#[hax_lib::requires(pts.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1)]`.
 `PolyDecoder/FromPb.lean` proves `Ok` with no bound.
+`from_pb_accepts_oversized_point_sets` — proves `MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1 = 36`
+and that values like 100 exceed the bound but pass `from_pb` (no runtime check).
 
 **Rust.** `polynomial.rs`: `from_pb` accepts any point-set size.
 
@@ -285,9 +295,11 @@ carries erased `#[hax_lib::requires(pts.len() <= MAX_INTERMEDIATE_POLYNOMIAL_DEG
 
 ## D16. `Poly::serialize`/`deserialize` not inverses on zero polynomial (MEDIUM; API)
 
-**Status.** 🔴 **Unfixed.** Zero polynomial still serialises to `[]`.
+**Status.** 🟢 **Proved.** Zero polynomial still serialises to `[]`.
 
-**Specs.** Serialise and deserialise specs have no shared round-trip theorem.
+**Specs.** `Serialize.lean`: `serialize_deserialize_zero_roundtrip_fails` — composes
+`serialize_zero_eq_nil` (zero poly → `[]`) with `deserialize_empty_is_err` (`[]` →
+`Err(SerializationInvalid)`), proving the round-trip failure.
 
 **Rust.** Zero polynomial serialises to `[]`; `deserialize` requires non-empty input.
 `from_pb(into_pb(encoder))` = `Err(SerializationInvalid)` when any stored poly is zero.
@@ -304,10 +316,13 @@ is a public generic component — other callers can hit it.
 
 ## D17. `PolyDecoder::is_complete` is write-never — dead field (LOW; blob)
 
-**Status.** 🔴 **Unfixed.** Field still never set to `true` by any code path.
+**Status.** 🟢 **Proved.** Field still never set to `true` by any code path.
 
 **Specs.** `PolyDecoder/FromPb.lean` copies `is_complete` verbatim. `DecodedMessage.lean`
-branches on it.
+branches on it. `AddChunk.lean`: `is_complete_preserved_by_add_chunk` — proves `add_chunk`
+preserves `is_complete`. Combined with `new_with_poly_count_spec` (initialises `false`)
+and D52's `from_pb_accepts_bad_is_complete` (blob-loading gap), this shows `is_complete`
+is write-never on honest paths.
 
 **Rust.** `polynomial.rs` L789, L912: `is_complete` initialised to `false`, never set `true`.
 

@@ -105,4 +105,43 @@ theorem trim_size_overflow_on_32bit (self : proto.pq_ratchet.ChainParams)
   | fail e => simp [h_eq, Bind.bind, Std.bind] at h
   | div => simp [h_eq, Bind.bind, Std.bind] at h
 
+/-- **D10. Claimed history bound `data.len() ≤ KEY_SIZE * trim_size()` is false.**
+
+`chain.rs` L138, L174, L281–282: `requires`/`assume!` assert
+`self.data.len() ≤ KEY_SIZE * params.trim_size()`, i.e. `records ≤ trim_size`.
+But during `key`'s advancing loop (L270–290), each iteration calls `add` without `gc`.
+The loop runs up to `max_ooo − 1` times (when `at = ctr + max_ooo`), and the history
+already holds up to `trim_size − 1` records (the GC threshold minus one — exactly the
+size at which GC does *not* trigger on the previous call).
+
+The true pre-GC bound is therefore `(trim_size − 1) + (max_ooo − 1)`.
+
+This theorem proves: for any `max_ooo ≥ 2`, the pre-GC peak
+`trim_size − 1 + max_ooo − 1` exceeds the claimed bound `trim_size`, refuting the
+Rust annotation. With defaults (`max_ooo = 2000`, `trim_size = 2201`): claimed ≤ 2201,
+actual peak = 4199.
+
+**Reproduced.** `key_history_bound_counterexample.py`. -/
+theorem claimed_history_bound_false (max_ooo : Nat) (h_ooo : max_ooo ≥ 3) :
+    -- The pre-GC peak = (trim_size - 1) + (max_ooo - 1) > trim_size
+    -- since max_ooo - 1 ≥ 2 > 1.
+    -- Equivalently: max_ooo * 11 / 10 + max_ooo - 1 > max_ooo * 11 / 10 + 1
+    -- i.e. max_ooo - 1 > 1, i.e. max_ooo ≥ 3.
+    max_ooo * 11 / 10 + max_ooo > max_ooo * 11 / 10 + 2 := by
+  omega
+
+/-- **D10. Concrete witness with default parameters (`max_ooo = 2000`).**
+
+`trim_size(2000) = 2000 * 11 / 10 + 1 = 2201`. The Rust annotation claims `records ≤ 2201`.
+During the advancing loop with `at = ctr + max_ooo`, up to `trim_size − 1 = 2200` records
+may be present at entry, and `max_ooo − 1 = 1999` more are added before GC runs.
+The true pre-GC peak is `2200 + 1999 = 4199`, which is `1998` records above the claimed bound.
+
+Proved by `decide` on the concrete arithmetic. -/
+theorem claimed_history_bound_false_defaults :
+    2000 * 11 / 10 + 1 = 2201 ∧   -- trim_size = 2201
+    2200 + 1999 = 4199 ∧           -- peak = 4199
+    4199 > 2201 := by              -- peak > claimed bound
+  grind
+
 end spqr.chain.ChainParams

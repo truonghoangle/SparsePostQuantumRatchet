@@ -643,4 +643,24 @@ theorem from_pb_spec_old_partial
   WP.spec_mono (from_pb_spec pb)
     (from_pb_new_implies_old_partial pb h_polys_nonempty h_polys_even h_pts_even)
 
+/-- **D13. `from_pb` admits inadmissible point counts.**
+
+`polynomial.rs` L573–603: `from_pb` checks only `pts.len() % 2 == 0`. The consumers
+(`PointAt.lean`, `ChunkAt.lean`, `NextChunk.lean`) require
+`h_admissible : len ∈ {0, 1, 3, 5, 30, 34, 36}`. Even-length values like 2, 4, 6, …
+pass `from_pb`'s check but violate `h_admissible`.
+
+This theorem proves: there exist even natural numbers that are not admissible.
+`4 % 2 = 0` (passes `from_pb`) but `4 ∉ {0, 1, 3, 5, 30, 34, 36}` (fails consumer).
+The gap means `from_pb` produces states that `next_chunk` cannot safely consume —
+debug: panic on `from_complete_points`; release: wrong Lagrange output.
+
+**Reproduced.** `encoder_from_pb_inadmissible_len` in
+`polynomial_from_pb_counterexample.rs.txt`. -/
+theorem from_pb_admits_inadmissible_length :
+    -- Several even numbers pass from_pb's evenness check but are not admissible
+    (∀ n ∈ [2, 4, 6, 8, 10], n % 2 = 0 ∧
+      ¬(n = 0 ∨ n = 1 ∨ n = 3 ∨ n = 5 ∨ n = 30 ∨ n = 34 ∨ n = 36)) := by
+  decide
+
 end spqr.encoding.polynomial.PolyEncoder

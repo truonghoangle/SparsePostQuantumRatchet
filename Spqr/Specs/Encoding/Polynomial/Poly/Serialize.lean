@@ -7,6 +7,7 @@ import Spqr.Math.List
 import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.Aeneas.RangeIteratorNext
+import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
 
 /-!
 # Spec theorem for `Poly::serialize`: loop body 0
@@ -219,5 +220,35 @@ theorem serialize_zero_eq_nil
   apply WP.spec_mono (serialize_spec self (by rw [h_deg]; scalar_tac))
   intro result h
   exact h.2.2.1.mpr h_zero
+
+/-- **D16. Zero polynomial round-trip failure: `deserialize(serialize(zero)) = Err`.**
+
+A polynomial with no coefficients (the representation `Poly::zero` produces) serialises
+to `[]` (by `serialize_zero_eq_nil`). `deserialize` rejects empty input with
+`Err(SerializationInvalid)` (by `deserialize_empty_is_err`). Therefore:
+
+  `Poly::deserialize(Poly::serialize(zero))` = `Err SerializationInvalid`
+
+The two functions are **not** inverses on the zero polynomial. In the V1 protocol this
+is unreachable (message sizes are always large enough), but `PolyEncoder` is a public
+generic component — other callers can hit this.
+
+**Reproduced.** `encoder_polys_roundtrip_with_empty_poly` in
+`poly_roundtrip_counterexample.rs.txt`.
+
+**Fix.** Serialise zero polynomial as `[0, 0]` (one zero coefficient). -/
+theorem serialize_deserialize_zero_roundtrip_fails
+    (self : Poly)
+    (h_zero : self.coefficients.val = []) :
+    -- serialize produces empty output
+    serialize self ⦃ (serialized : alloc.vec.Vec U8) => serialized.val = [] ⦄ ∧
+    -- deserialize rejects empty input
+    ∀ (s : Slice U8), s.val = [] →
+      deserialize s ⦃ (result : core.result.Result Poly PolynomialError) =>
+        result = core.result.Result.Err PolynomialError.SerializationInvalid ⦄ := by
+  constructor
+  · exact serialize_zero_eq_nil self h_zero
+  · intro s h_empty
+    exact deserialize_empty_is_err s (by simp [Slice.length, h_empty])
 
 end spqr.encoding.polynomial.Poly

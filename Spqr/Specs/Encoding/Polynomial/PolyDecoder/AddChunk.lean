@@ -692,4 +692,26 @@ theorem add_chunk_spec
   simp only [show (0#usize : Usize).val = 0 from rfl, Nat.zero_add] at h
   exact h
 
+/-- **D17. `is_complete` is write-never — `add_chunk` preserves it.**
+
+`new_with_poly_count` initialises `is_complete = false` (`NewWithPolyCount.lean:50`).
+`add_chunk` preserves `is_complete = self.is_complete` (this theorem).
+No other honest code path modifies `is_complete`.
+
+The only way to obtain `is_complete = true` is via `from_pb` from a corrupted blob
+(D52: `from_pb_accepts_bad_is_complete`). When `is_complete = true`,
+`decoded_message` returns `None` forever (L912), creating a permanent silent stall.
+
+**Reproduced.** `decoder_is_complete_never_set` in `decoder_logic_probe.rs.txt`. -/
+theorem is_complete_preserved_by_add_chunk
+    (self : PolyDecoder) (chunk : encoding.Chunk)
+    (h_overflow : chunk.index * 16 + 16 ≤ Usize.max)
+    (h_push_cap : ∀ (k : Nat), k < 16 → (self.pts[k]!).length + 17 ≤ Usize.max) :
+    add_chunk self chunk ⦃ (result : PolyDecoder) =>
+      result.is_complete = self.is_complete ⦄ := by
+  have h := add_chunk_spec self chunk h_overflow h_push_cap
+  apply WP.spec_mono h
+  intro result h_post
+  exact h_post.2.1
+
 end spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder
