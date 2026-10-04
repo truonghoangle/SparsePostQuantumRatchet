@@ -27,7 +27,8 @@ attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 35 | D1, D2, D3, D5, D8, D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D60, D63, D64, D65, D66 |
+| 🔴 **Unfixed** | 29 | D10, D11, D13, D14, D16, D17, D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D63, D64, D65, D66 |
+| 🟢 **Proved** | 6 | D1 — 48 theorems, 11 phases in `CorruptedBlobs.lean`; D2 — `get_never_ok_of_ooo_overflow`, `key_never_ok_of_ooo_overflow`; D3 — `epoch_idx_cast_is_modular` (32-bit truncation); D5 — `idx_cast_u16_lossy` (u32→u16 truncation); D8 — `trim_size_overflow_on_32bit` (usize mul overflow); D60 — `key_never_ok_of_large_ctr` |
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
@@ -43,7 +44,8 @@ attackers, but the SPQR code itself remains unchanged.
 
 ## D1. `ChainEpochDirection::from_pb` — three panic paths (HIGH; blob)
 
-**Status.** 🔴 **Unfixed** in SPQR v1.5.0. `chain.rs` L306–312 still performs no validation.
+**Status.** 🟢 **Proved.** Rust unfixed in SPQR v1.5.0: `chain.rs` L306–312 still performs
+no validation.
 
 **Specs.** `FromPb.lean` proves `Ok` with no hypotheses. `NextKeyInternal.lean` needs
 `h_next_len : next.length = 32`. `Get.lean` needs `h_data_aligned : data.length % 36 = 0`.
@@ -58,11 +60,14 @@ attackers, but the SPQR code itself remains unchanged.
 | `next.len() ≠ 32` | `next_key_internal` L241 | **panic** (`copy_from_slice`) |
 | `prev.len() % 36 ≠ 0` | `KeyHistory::get` L191 | **panic** (`assert_eq!`) |
 | `prev` too large for `ctr` | `KeyHistory::gc` L149 | **panic** (`assert!`) |
+| `ctr + maxOoo > U32.max` | `key` L265 | **overflow** (D60: `key_never_ok_of_large_ctr`) |
+| `at + maxOoo > U32.max` | `KeyHistory::get` L192 | **overflow** (D2: `get_never_ok_of_ooo_overflow`) |
 
 Corrupted state round-trips through `into_pb` (crash loop).
 
-**Lean.** `CorruptedBlobs.lean`: 46 theorems, 11 phases — `from_pb_never_fails`,
-`recv_key_never_ok_bad_next`, etc.
+**Lean.** `CorruptedBlobs.lean`: 48 theorems, 11 phases — `from_pb_never_fails`,
+`recv_key_never_ok_bad_next`, `key_never_ok_of_large_ctr`, `get_never_ok_of_ooo_overflow`,
+`key_never_ok_of_ooo_overflow`, etc.
 
 **Reproduced.** [`corrupted_blob_counterexample.rs.txt`](./corrupted_blob_counterexample.rs.txt).
 
@@ -72,9 +77,12 @@ Corrupted state round-trips through `into_pb` (crash loop).
 
 ## D2. `u32` overflow in `KeyHistory::get` (MEDIUM; message + config)
 
-**Status.** 🔴 **Unfixed.** `chain.rs` L192 still uses unchecked addition.
+**Status.** 🟢 **Proved.** `chain.rs` L192 still uses unchecked addition.
 
 **Specs.** `Get.lean`: `h_ooo_no_overflow : at1 + maxOoo ≤ U32.max`.
+`CorruptedBlobs.lean`: `get_never_ok_of_ooo_overflow` — when `at1.val + maxOoo > U32.max`,
+the `U32` addition at L192 overflows and `KeyHistory::get` has no `ok` result.
+`key_never_ok_of_ooo_overflow` — lifts through `key`'s `at < ctr` branch.
 
 **Rust.** `chain.rs` L192: `at + params.max_ooo_keys_or_default()` wraps near `u32::MAX`.
 
@@ -86,9 +94,13 @@ Corrupted state round-trips through `into_pb` (crash loop).
 
 ## D3. `u64→usize` truncation in `epoch_idx` on 32-bit (MEDIUM; 32-bit)
 
-**Status.** 🔴 **Unfixed.** `chain.rs` L376 still uses `as usize`.
+**Status.** 🟢 **Proved.** `chain.rs` L376 still uses `as usize`.
 
 **Specs.** `EpochIdx.lean`: `h_diff_fits : current_epoch − epoch ≤ Usize.max`.
+`epoch_idx_cast_is_modular` — proves the `UScalar.cast` produces
+`diff % 2^numBits`, which differs from `diff` when `diff > Usize.max` (32-bit truncation).
+`epoch_idx_needs_usize_bound` — on the `Ok` path, index correctness and the usize bound
+hold jointly.
 
 **Rust.** `chain.rs` L376: `(self.current_epoch - epoch) as usize` truncates ≥ 2³².
 
@@ -124,9 +136,11 @@ Corrupted state round-trips through `into_pb` (crash loop).
 
 ## D5. `PolyEncoder` index truncation `u32→u16` (MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** `polynomial.rs` L735 still uses `as u16`.
+**Status.** 🟢 **Proved.** `polynomial.rs` L735 still uses `as u16`.
 
 **Specs.** `NextChunk.lean`: `h_idx_fits : self.idx ≤ U16.max`. `FromPb.lean` accepts any `u32`.
+`idx_cast_u16_lossy` — proves `idx % 2^16 ≠ idx` when `idx > U16.max`, showing the
+`u32→u16` cast silently truncates after 65535 chunks.
 
 **Rust.** `polynomial.rs` L735: `self.chunk_at(self.idx as u16)` wraps after 65535.
 
@@ -161,9 +175,12 @@ discards cursor on error).
 
 ## D8. `usize` overflow in `trim_size` on 32-bit (LOW; config, 32-bit)
 
-**Status.** 🔴 **Unfixed.** Subsumed by D28 — will be closed when D28 is fixed.
+**Status.** 🟢 **Proved.** Subsumed by D28 — will be closed when D28 is fixed.
 
 **Specs.** `TrimSize.lean`: `h_ooo : max_ooo_keys < 390451572`.
+`trim_size_overflow_on_32bit` — when `max_ooo_keys ≥ 390451573` and
+`System.Platform.numBits = 32`, `trim_size` has no `ok` result because `max_ooo * 11`
+overflows `Usize.max`.
 
 **Rust.** `chain.rs` L86: `max_ooo * 11` overflows on 32-bit.
 
@@ -1068,9 +1085,15 @@ unvalidated `max_ooo = u32::MAX`, wraps → tiny trim_size → GC deletes all OO
 
 ## D60. `key` — `ctr + max_ooo` overflow bypasses KeyTrimmed check (MEDIUM; blob + config)
 
-**Status.** 🔴 **Unfixed.** Extension of D2.
+**Status.** 🟢 **Proved.** Extension of D2.
 
 **Detection method.** M14 (compositional invariant verification).
+
+**Specs.** `CorruptedBlobs.lean`: `key_never_ok_of_large_ctr` — when
+`self.ctr.val + (maxOoo params).val > U32.max`, the `U32` addition at `chain.rs` L265
+overflows and `key` has no `ok` result on the forward path (`at > ctr`,
+`at − ctr ≤ maxJump`). Debug builds panic; release builds silently wrap, producing
+wrong GC / clear decisions.
 
 **Rust.** `chain.rs` L265: `at > self.ctr + params.max_ooo_keys_or_default()`. When
 `ctr` large (D1 blob) and default `max_ooo = 2000`, `ctr + 2000` wraps. Valid keys

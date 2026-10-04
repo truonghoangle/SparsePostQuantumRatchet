@@ -80,4 +80,20 @@ theorem next_chunk_spec
     intro polys' h_polys' j hj
     exact h_match polys' h_polys' j hj
 
+/-- **D5. `PolyEncoder` index `u32→u16` truncation: the cast is lossy.**
+
+`polynomial.rs` L735: `self.idx as u16`. The `UScalar.cast .U16` produces
+`idx.val % 2^16`, which differs from `idx.val` when `idx.val > U16.max = 65535`.
+After 65535 chunks the emitted `chunk.index` wraps to 0, making D19 poisoning
+permanent.
+
+This theorem proves: `idx % 2^16 ≠ idx` whenever `idx > U16.max`. The spec
+`next_chunk_spec` requires `h_idx_fits : self.idx.val ≤ U16.max` precisely to
+exclude this truncation; `FromPb.lean` does **not** enforce this bound. -/
+theorem idx_cast_u16_lossy (idx : U32) (h_big : idx.val > U16.max) :
+    idx.val % (2 ^ U16.numBits) ≠ idx.val := by
+  have : idx.val % 2 ^ U16.numBits < 2 ^ U16.numBits := Nat.mod_lt _ (by positivity)
+  simp [U16.max, UScalar.max, U16.numBits, UScalarTy.numBits] at *
+  omega
+
 end spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder

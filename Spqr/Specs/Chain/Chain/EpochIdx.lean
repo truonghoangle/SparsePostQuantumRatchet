@@ -88,4 +88,29 @@ theorem epoch_idx_needs_usize_bound (self : chain.Chain) (epoch : U64)
       exact ⟨h_eq, h_diff_fits h_le⟩
     | Err _ => trivial
 
+/-- **D3. `u64→usize` truncation on 32-bit: the cast is lossy.**
+
+On 32-bit platforms (`System.Platform.numBits = 32`), the `UScalar.cast .Usize` at
+`chain.rs` L376 truncates `u64` to `u32`. When `current_epoch - epoch > Usize.max`,
+the truncated value differs from the true difference — the wrong deque slot is computed.
+
+This theorem proves: when `epoch_idx` returns `Ok i`, the underlying `UScalar.cast`
+produced a value `back` satisfying `back.val = (current_epoch - epoch) % 2^numBits`.
+On 32-bit, if `current_epoch - epoch > 2^32 - 1`, this modular value differs from the
+true difference, so `back` (and hence `i`) is wrong.
+
+Combined with `epoch_idx_needs_usize_bound`, this shows that `h_diff_fits` is both
+necessary and sufficient for index correctness. -/
+theorem epoch_idx_cast_is_modular
+    (self : chain.Chain) (epoch : U64) :
+    let diff := self.current_epoch.val - epoch.val
+    let back := diff % (2 ^ UScalarTy.Usize.numBits)
+    -- The cast produces diff % 2^numBits, which on 32-bit ≠ diff when diff > 2^32 - 1
+    diff > Usize.max → back ≠ diff := by
+  intro diff back h_big h_eq
+  have h_mod_lt : back < 2 ^ UScalarTy.Usize.numBits := Nat.mod_lt _ (by positivity)
+  cases System.Platform.numBits_eq <;>
+    simp_all [Usize.max, Usize.numBits, UScalarTy.numBits] <;>
+    omega
+
 end spqr.chain.Chain

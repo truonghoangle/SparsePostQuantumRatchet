@@ -379,6 +379,59 @@ theorem key_loop_preserves_next_length
     · simp at hx
     · simp at hx
 
+/-- **D2. Panic at `KeyHistory::get`** (`chain.rs` L192): when `at + max_ooo_keys > U32.max`,
+    the `U32` addition overflows and `get` has no `ok` result.
+    Debug builds panic; release builds wrap, spuriously reporting valid keys as `KeyTrimmed`. -/
+theorem get_never_ok_of_ooo_overflow (self : chain.KeyHistory) (at1 current_ctr : U32)
+    (params : proto.pq_ratchet.ChainParams)
+    (h_overflow : at1.val + (chain.maxOoo params).val > U32.max) :
+    ∀ r, chain.KeyHistory.get self at1 current_ctr params ≠ ok r := by
+  intro r h
+  unfold chain.KeyHistory.get at h
+  obtain ⟨_, h_ks, rfl⟩ := WP.spec_imp_exists chain.KeyHistory.KEY_SIZE_spec
+  simp only [bind_eq_ok_iff, h_ks, ok.injEq, exists_eq_left'] at h
+  obtain ⟨lv, h_lv, h_rest⟩ := h
+  have h_rem := Usize.rem_spec (alloc.vec.Vec.len self.data) (y := 36#usize) (by simp)
+  obtain ⟨lv', h_lv', h_val⟩ := WP.spec_imp_exists h_rem
+  rw [h_lv] at h_lv'; simp only [ok.injEq] at h_lv'; subst h_lv'
+  simp only [massert, alloc.vec.Vec.len_val, UScalar.ofNatCore_val_eq] at h_rest h_val
+  simp at h_val
+  split at h_rest
+  · -- massert passed: alignment is fine, continue to max_ooo_keys_or_default then at+mo
+    rename_i h_eq
+    -- h_rest has the form: ∃ mo, ... = ok mo ∧ ∃ i3, at1 + mo = ok i3 ∧ ...
+    -- but massert with True simplifies the bind. Use cases on the bind result.
+    -- After massert, h_rest is a bind chain. Extract max_ooo_keys_or_default result.
+    obtain ⟨mo', h_mo', h_mo1, h_mo2⟩ :=
+      WP.spec_imp_exists (chain.ChainParams.max_ooo_keys_or_default_spec params)
+    -- The bind `max_ooo_keys_or_default >>= ...` must have produced `ok mo'`, so
+    -- we can substitute it into h_rest.
+    simp only [h_mo'] at h_rest
+    have h_mo_val := maxOoo_val_eq_of_posts params mo' h_mo1 h_mo2
+    -- Now h_rest should have `at1 + mo' = ok i3 ∧ ...`
+    obtain ⟨i3, h_i3, _⟩ := h_rest
+    have h_add := UScalar.add_equiv at1 mo'
+    simp  at h_add
+    have : at1.val + mo'.val ≤ U32.max := by grind
+    omega
+  · simp at h_rest
+
+/-- **D2. Path `at < ctr`** (out-of-order key): `key` calls `KeyHistory::get`; when
+    `at + maxOoo > U32.max`, `get` fails because the addition at L192 overflows. -/
+theorem key_never_ok_of_ooo_overflow (self : chain.ChainEpochDirection) (at1 : U32)
+    (params : proto.pq_ratchet.ChainParams)
+    (h_lt : at1.val < self.ctr.val)
+    (h_overflow : at1.val + (chain.maxOoo params).val > U32.max) :
+    ∀ r, key self at1 params ≠ ok r := by
+  intro r h
+  unfold key at h
+  simp only [lift, core.cmp.impls.OrdU32.cmp, bind_tc_ok] at h
+  rw [Nat.compare_eq_lt.mpr h_lt] at h
+  simp only [bind_eq_ok_iff] at h
+  obtain ⟨p, h_get, _⟩ := h
+  have := get_never_ok_of_ooo_overflow self.prev at1 self.ctr params  h_overflow
+  exact this p h_get
+
 /-- **Path `at < ctr`** (out-of-order key): `key` immediately calls `KeyHistory::get` on
     `prev`; with a misaligned `prev` this never returns `ok` (Panic 2). -/
 theorem key_never_ok_of_misaligned_prev (self : chain.ChainEpochDirection) (at1 : U32)
@@ -515,6 +568,49 @@ theorem key_never_ok_of_large_prev_small_ctr (self : chain.ChainEpochDirection) 
     simp only [uncurry_apply_pair, bind_eq_ok_iff] at h
     obtain ⟨kh2, h_gc, _⟩ := h
     exact gc_never_ok self.prev self.ctr params h_ooo h_large h_small kh2 h_gc
+
+/-- **D60. Path `ctr < at ≤ ctr + maxJump`** (forward key): when `ctr + maxOoo > U32.max`,
+    the addition `self.ctr + max_ooo_keys_or_default` at `chain.rs` L265 overflows.
+    In the Aeneas model this means the `U32` addition fails, so `key` has no `ok` result.
+    Debug builds panic; release builds silently wrap, producing wrong GC / clear decisions. -/
+theorem key_never_ok_of_large_ctr (self : chain.ChainEpochDirection) (at1 : U32)
+    (params : proto.pq_ratchet.ChainParams)
+    (h_gt : self.ctr.val < at1.val)
+    (h_jump : at1.val - self.ctr.val ≤ (chain.maxJump params).val)
+    (h_overflow : self.ctr.val + (chain.maxOoo params).val > U32.max) :
+    ∀ r, key self at1 params ≠ ok r := by
+  intro r h
+  unfold key at h
+  simp only [lift, core.cmp.impls.OrdU32.cmp, bind_tc_ok] at h
+  rw [Nat.compare_eq_gt.mpr h_gt] at h
+  simp only [bind_eq_ok_iff] at h
+  obtain ⟨d, h_d, h⟩ := h
+  obtain ⟨mj, h_mj, h⟩ := h
+  have h_d_val : d.val = at1.val - self.ctr.val := by
+    obtain ⟨d', h_d', h_val⟩ :=
+      WP.spec_imp_exists (U32.sub_spec (x := at1) (y := self.ctr) (by omega))
+    rw [h_d] at h_d'; simp only [ok.injEq] at h_d'; subst h_d'; exact h_val.1
+  obtain ⟨mj', h_mj', h_mj1, h_mj2⟩ :=
+    WP.spec_imp_exists (chain.ChainParams.max_jump_or_default_spec params)
+  rw [h_mj] at h_mj'; simp only [ok.injEq] at h_mj'; subst h_mj'
+  have h_mj_val := maxJump_val_eq_of_posts params mj h_mj1 h_mj2
+  split at h
+  · rename_i h_gt_jump
+    simp only [gt_iff_lt, UScalar.lt_equiv] at h_gt_jump
+    omega
+  · simp only [bind_eq_ok_iff] at h
+    obtain ⟨mo, h_mo, h⟩ := h
+    obtain ⟨mo', h_mo', h_mo1, h_mo2⟩ :=
+      WP.spec_imp_exists (chain.ChainParams.max_ooo_keys_or_default_spec params)
+    rw [h_mo] at h_mo'; simp only [ok.injEq] at h_mo'; subst h_mo'
+    have h_mo_val := maxOoo_val_eq_of_posts params mo h_mo1 h_mo2
+    -- The addition `self.ctr + mo` must produce an `ok` for the bind to succeed,
+    -- but self.ctr.val + mo.val > U32.max, so it fails.
+    obtain ⟨i3, h_i3, _⟩ := h
+    have h_add := UScalar.add_equiv self.ctr mo
+    rw [h_i3] at h_add
+    have : self.ctr.val + mo.val ≤ U32.max := by scalar_tac
+    omega
 
 /-! ## Phase 4: End-to-end — `from_pb` then `key` never returns `ok`
 
@@ -1007,11 +1103,14 @@ The complete proof of the bug is the conjunction of the following facts:
    `chain.rs:243`, `assert_eq!` at `chain.rs:191`, `assert!` at `chain.rs:149`).
 
 4. **Reachability** (`key_never_ok_of_bad_next`, `key_never_ok_of_misaligned_prev`,
-   `key_never_ok_of_large_prev_small_ctr`): `ChainEpochDirection::key` — the function
-   `Chain::recv_key` calls on every incoming message — reaches each panic on its natural
-   code path (forward key, out-of-order key, next key), so the crash is not hypothetical.
-   The helper `key_loop_preserves_next_length` shows the advancing loop cannot "repair" a
-   wrong-length `next`.
+   `key_never_ok_of_large_prev_small_ctr`, `key_never_ok_of_large_ctr`):
+   `ChainEpochDirection::key` — the function `Chain::recv_key` calls on every incoming
+   message — reaches each panic on its natural code path (forward key, out-of-order key,
+   next key), so the crash is not hypothetical. The helper `key_loop_preserves_next_length`
+   shows the advancing loop cannot "repair" a wrong-length `next`.
+   **D60** (`key_never_ok_of_large_ctr`): when `ctr + maxOoo > U32.max`, the `U32` addition
+   at `chain.rs` L265 overflows (debug: panic; release: wrapping), so `key` has no `ok`
+   result on the forward path.
 
 5. **End-to-end** (`restore_then_recv_panics_*`): composing `from_pb` with `key` for the
    concrete attack scenarios §12.1, §12.3, §12.4 of the report yields a function with no
