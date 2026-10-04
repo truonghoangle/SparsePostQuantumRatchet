@@ -17,7 +17,11 @@ Two theorems:
   • `add_chunk_spec_lift` — lifts an arbitrary inner postcondition through the `Option` wrapper.
   • `add_chunk_spec_poly_decoder` — instantiates the lift for `T = PolyDecoder`.
 
-**Source**: spqr/src/encoding.rs -/
+**Source**: spqr/src/encoding.rs
+
+**Note.** Only `PolyDecoder` is instantiated here. The test-only
+`RoundRobinDecoder` (`src/encoding/round_robin.rs`, `#[cfg(test)]`) is excluded from
+extraction and has no Lean specs. See `docs/listDefects.md`. -/
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial
 

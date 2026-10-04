@@ -15,7 +15,20 @@ Two theorems:
   • `encode_bytes_spec_lift` — lifts any postcondition of the inner encoder through the wrapper.
   • `encode_bytes_spec_poly_encoder` — instantiates the lift for `T = PolyEncoder`.
 
-**Source**: spqr/src/encoding.rs -/
+**Source**: spqr/src/encoding.rs
+
+## Note (LOW; test code — no Lean change required)
+
+The Rust crate also contains `src/encoding/round_robin.rs`, a test-only `#[cfg(test)]` module
+implementing `RoundRobinEncoder` / `RoundRobinDecoder`. That code has three latent bugs
+(division-by-zero on empty data, out-of-bounds slice for non-32-aligned input, `is_complete`
+never set. No Lean specs exist for this test-only code because:
+
+  1. The hax extraction correctly excludes `#[cfg(test)]` modules.
+  2. The production protocol uses only `PolyEncoder` / `PolyDecoder`.
+
+All theorems in this file and in `NextChunk.lean` are instantiated exclusively for `PolyEncoder`.
+The `RoundRobinEncoder` bugs have no impact on verified properties. -/
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial
 

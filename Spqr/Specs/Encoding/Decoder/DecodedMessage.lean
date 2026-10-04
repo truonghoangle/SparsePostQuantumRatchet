@@ -18,7 +18,10 @@ The `PolyDecoder` instantiation takes the inner postcondition as a hypothesis si
 `PolyDecoder.decoded_message` is an external axiom.
 
 **Source**: spqr/src/encoding.rs (lines 94:4-100:5)
--/
+
+**Note.** Only `PolyDecoder` is instantiated here. The test-only
+`RoundRobinDecoder` (`src/encoding/round_robin.rs`, `#[cfg(test)]`) is excluded from
+extraction and has no Lean specs. See `docs/listDefects.md`. -/
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial
 

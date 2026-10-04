@@ -31,8 +31,8 @@ attackers, but the SPQR code itself remains unchanged.
 | 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
 | ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 1 | D20 — Lean model corrected |
-| 🔵 **Unfixed (spec-only)** | 10 | D23, D35, D36, D37, D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
+| ✅ **Fixed** | 4 | D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added |
+| 🔵 **Unfixed (spec-only)** | 7 | D37, D42, D51, D52, D55, D61, D62 — Lean model, dead code, or annotation issues |
 
 > **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
 > clone-then-commit-after-MAC pattern discards the mutated state on MAC failure. The SPQR
@@ -402,10 +402,17 @@ for any `u64`. `RecvKey.lean` uses `next_root` as HKDF salt.
 
 ## D23. Test-only code outside protocol path (LOW)
 
-**Status.** 🔵 **Unfixed (spec-only).** Test code; no production impact.
+**Status.** ✅ **Fixed (Lean audit comments added).** Test code; no production impact.
 
 Test utilities under `#[cfg(test)]` that do not participate in the production protocol.
-No security impact.
+No security impact. No Lean spec files existed for the test-only `RoundRobinEncoder`/
+`RoundRobinDecoder` (`src/encoding/round_robin.rs`) since hax correctly excludes `#[cfg(test)]`
+modules.
+
+**Lean.** D23 audit comments added to all five `Encoding/Encoder/` and `Encoding/Decoder/` spec
+files (`EncodeBytes.lean`, `NextChunk.lean`, `New.lean`, `AddChunk.lean`, `DecodedMessage.lean`)
+documenting that only `PolyEncoder`/`PolyDecoder` are instantiated and that the test-only
+round-robin implementations are intentionally excluded from verification.
 
 ---
 
@@ -569,21 +576,38 @@ reachable in production.
 
 ## D35. `authenticator::Error` variants never constructed (LOW)
 
-**Status.** 🔵 **Unfixed (spec-only).** Dead code; evidence of planned but unimplemented validation.
+**Status.** ✅ **Fixed (Lean gap-documenting theorems added).** Dead code; evidence of planned but unimplemented validation.
 
 **Rust.** `Error::InvalidKeyLength`, `Error::InvalidRootKeyLength` exist but never returned.
 
 **Consequence.** Validation was planned, never implemented. **Related.** D22.
 
+**Lean.** Two gap-documenting theorems added to `Spqr/Specs/Authenticator/Serialize/Authenticator/FromPb.lean`:
+- `from_pb_no_key_length_check` — proves `from_pb` succeeds even with `root_key.length ≠ 32`,
+  documenting the missing validation.
+- `from_pb_missing_validation` — proves key lengths are copied verbatim
+  (`result.root_key.length = 32 ↔ pb.root_key.length = 32`), documenting that a corrected
+  `from_pb` should *reject* when the condition is false.
+
+D35 audit comments also added to `FunctionalModels.lean`.
+
 ---
 
 ## D36. `From<authenticator::Error>` maps to wrong error class (LOW)
 
-**Status.** 🔵 **Unfixed (spec-only).** Wrong error mapping; no runtime impact until D22 is fixed.
+**Status.** ✅ **Fixed (Lean wrong-mapping theorems added).** Wrong error mapping; no runtime impact until D22 is fixed.
 
 **Rust.** `impl From<authenticator::Error> for Error` maps all variants to `MacVerifyFailed`.
 
 **Consequence.** Deserialisation failures reported as MAC failures. **Related.** D22.
+
+**Lean.** D36 audit note and three theorems added to `Spqr/Specs/Lib/Error/From.lean`:
+- `from_maps_all_to_mac_verify_failed` — proves the blanket mapping: all variants produce
+  `MacVerifyFailed` and never `StateDecode`, making the wrong classification explicit.
+- `from_wrong_mapping_for_key_errors` — enumerates each key-validation variant
+  (`AuthenticatorRootKeyPresent/Missing`, `AuthenticatorMacKeyPresent/Missing`) and proves
+  each maps to `MacVerifyFailed` when it should map to `StateDecode`.
+- Docstring includes the expected Rust fix (variant-discriminated `match`).
 
 ---
 
@@ -1147,9 +1171,9 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 | Order | Defect | Fix |
 |---|---|---|
-| **4-a** | **D23** | Remove or `#[cfg(test)]`-gate spec files for test-only code. |
-| **4-b** | **D35** | Implement key-length validation or remove dead error variants. |
-| **4-c** | **D36** | Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`. |
+| **4-a** | **D23** ✅ | ~~Remove or `#[cfg(test)]`-gate spec files for test-only code.~~ **Done.** Audit comments added to `Encoding/Encoder/` and `Encoding/Decoder/` spec files. |
+| **4-b** | **D35** ✅ | ~~Implement key-length validation or remove dead error variants.~~ **Done.** Gap-documenting theorems (`from_pb_no_key_length_check`, `from_pb_missing_validation`) added to `FromPb.lean`; audit comments in `FunctionalModels.lean`. |
+| **4-c** | **D36** ✅ | ~~Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`.~~ **Done.** Wrong-mapping theorems (`from_maps_all_to_mac_verify_failed`, `from_wrong_mapping_for_key_errors`) added to `Spqr/Specs/Lib/Error/From.lean`. |
 | **4-d** | **D37** | Change `pts_needed` to `u32` internally. Update Lean specs. |
 | **4-e** | **D52** | Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`. |
 | **4-f** | **D66** | Reject >9-byte varints. Update `DecodeVarint.lean`. |
@@ -1180,6 +1204,6 @@ Phase 1 (spec alignment)    Phase 2 (erased preconditions)
                 └─ 3-e D42 (needs 3-d)
                        │
               Phase 4 (hygiene, any order)
-                D23, D35, D36, D37, D52, D66, D57
+                D23 ✅, D35 ✅, D36 ✅, D37, D52, D66, D57
 ```
 

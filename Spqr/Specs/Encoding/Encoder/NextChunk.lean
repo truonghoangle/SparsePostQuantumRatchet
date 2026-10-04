@@ -16,7 +16,11 @@ This file proves:
   • `next_chunk_spec_lift` — lifts any postcondition of the inner `next_chunk` through `Option<T>`.
   • `next_chunk_spec_poly_encoder` — the `T = PolyEncoder` specialisation.
 
-**Source**: spqr/src/encoding.rs -/
+**Source**: spqr/src/encoding.rs
+
+**Note.** Only `PolyEncoder` is instantiated here. The test-only
+`RoundRobinEncoder` (`src/encoding/round_robin.rs`, `#[cfg(test)]`) is excluded from
+extraction and has no Lean specs. -/
 
 open Aeneas Aeneas.Std Result spqr encoding.polynomial encoding.gf Polynomial
 
