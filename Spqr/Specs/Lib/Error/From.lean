@@ -99,7 +99,7 @@ impl From<authenticator::Error> for Error {
         match v {
             authenticator::Error::InvalidCtMac
             | authenticator::Error::InvalidHdrMac => Error::MacVerifyFailed,
-            _ => Error::StateDecode,  // D36 fix
+            _ => Error::StateDecode,  // D33 fix
         }
     }
 }

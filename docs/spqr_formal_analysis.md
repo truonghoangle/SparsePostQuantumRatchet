@@ -16,10 +16,10 @@ integration with the libsignal host.
 
 Our analysis is grounded in 239 machine-checked specification files under `Spqr/Specs/` and
 the Aeneas-generated Lean translation of the Rust source. We identified **40 findings**
-(D1–D40), including unauthenticated control-plane attacks that deadlock or downgrade the
+(D1–D37), including unauthenticated control-plane attacks that deadlock or downgrade the
 ratchet from a single forged message, deserialisation defects that cause panics from corrupted
 blobs, arithmetic overflow vulnerabilities in the key chain, and unsoundness in the Lean
-trusted base. Two of these attacks (D24, D19) were confirmed to be triggerable through the
+trusted base. Two of these attacks (D21, D16) were confirmed to be triggerable through the
 deployed protocol, though the libsignal host mitigates persistence for a network-only
 (non-forging) attacker via its clone-then-commit-after-MAC pattern. An authenticated-but-
 malicious peer is not stopped by this mitigation.
@@ -29,7 +29,7 @@ established by construction and preserved by all key-chain operations — confir
 core chain logic is correct when its preconditions hold — while simultaneously proving that
 the persistence boundary (`from_pb`) does not re-establish any of these preconditions.
 
-All Lean proofs compile with only two expected `sorry` warnings (documented in D15), and
+All Lean proofs compile with only two expected `sorry` warnings, and
 every attack finding with executable evidence has a corresponding Rust harness under `docs/`.
 
 ## 1. Introduction
@@ -184,9 +184,9 @@ This mitigation (a) is external to SPQR, (b) does not protect other embedders, a
 ## 3. Breaking SPQR: Attacks Found
 
 We identified attacks across five thematic areas. Below we present the most significant
-findings; the full catalogue is in [`docs/defects.md`](./defects.md) (D1–D40).
+findings; the full catalogue is in [`docs/defects.md`](./defects.md) (D1–D37).
 
-### 3.1. Attack on the Control Plane — Unauthenticated Epoch Advance (D24)
+### 3.1. Attack on the Control Plane — Unauthenticated Epoch Advance (D21)
 
 **Discovery.** Systematic enumeration of every `States::recv` edge, classifying each by the
 authentication gate that protects it. The `Ct2Sampled → KeysUnsampled` transition at
@@ -210,7 +210,7 @@ is sufficient to reach it.
 **Fix.** Authenticate control edges: require that `recv_next_epoch` is gated by the
 completion of a successful `verify_ct` for the current epoch's ciphertext.
 
-### 3.2. Attack on the Encoding Layer — Poisoned Decoder (D19)
+### 3.2. Attack on the Encoding Layer — Poisoned Decoder (D16)
 
 **Discovery.** Cross-referencing `AddChunk.lean` (guard condition unconditionally true for
 low-index chunks), `Pt/Eq.lean` (equality ignores `y`), `FunsExternal.lean:2146`
@@ -231,7 +231,7 @@ proves the corrupted state is returned for persistence.
 
 **Fix.** Use `find_or_push` (insert only if no matching `x` exists) instead of `push`.
 
-### 3.3. Attack on Version Negotiation — V0 Downgrade (D25)
+### 3.3. Attack on Version Negotiation — V0 Downgrade (D22)
 
 An empty byte string `[]` is parsed as `Version::V0` by `msg_version` (`lib.rs:464–469`).
 When `min_version ≤ V0` (libsignal's current setting), `recv` rebuilds the state with
@@ -241,7 +241,7 @@ required.
 **Reproduced.** `d25_unauthenticated_v0_downgrade_with_empty_message` in
 `docs/protocol_driver_counterexamples.rs.txt`.
 
-### 3.4. Attack on the Persistence Layer — Corrupted Blobs (D1, D21, D22)
+### 3.4. Attack on the Persistence Layer — Corrupted Blobs (D1, D18, D19)
 
 Every `from_pb` function on SPQR's persistence path accepts any protobuf-decodable input
 without checking the semantic invariants that its consumers rely on. A corrupted blob whose
@@ -260,7 +260,7 @@ The DR specification attack (Section 3.1 of [1]) found that `KDF_CK(None)` produ
 publicly computable message key because the specification allows `None` as a chain key input.
 This was discovered automatically by ProVerif.
 
-Our D19 finding is the direct SPQR analogue: `AddChunk.lean` carries no authentication
+Our D16 finding is the direct SPQR analogue: `AddChunk.lean` carries no authentication
 predicate — it proves a valid post-state for *any* chunk satisfying only type constraints.
 This was discovered by reading the spec's hypotheses and noting the absence of an
 authentication requirement. Both findings share the same logical structure: the specification
@@ -273,7 +273,7 @@ The Rust source (39 files, ~8,000 lines) is translated to Lean 4 via Aeneas, pro
 `SrcTranslated/Types.lean` and `SrcTranslated/Funs.lean`. Hand-written models for external
 functions (HKDF, HMAC, ML-KEM, `VecDeque`, `SortedSet`) are in
 `SrcTranslated/FunsExternal.lean` and `SrcTranslated/TypesExternal.lean`. These constitute
-the **trusted base**: any error in the hand-written models is a soundness risk (see D20).
+the **trusted base**: any error in the hand-written models is a soundness risk (see D17).
 
 ### 4.2. Specification Structure
 
@@ -337,7 +337,7 @@ Seven theorems are proved (all 0 `sorry`):
 **Result.** The chain is correct under an inductive argument: once `ChainInv` is established
 by the constructor, every operation preserves it. The **arithmetic** preconditions
 (`ctr ≤ u32::MAX − 390451572`, `index + max_ooo ≤ u32::MAX`) are not state invariants — they
-are fuel bounds that a peer can push the state out of (D10, D28).
+are fuel bounds that a peer can push the state out of (D9, D25).
 
 ### 4.5. Persistence Boundary Gap
 
@@ -368,9 +368,9 @@ boundary, disabling gc and violating forward secrecy of stored keys.
 
 ### 5.3. Post-Compromise Security
 
-SPQR's PCS depends on: (1) authenticated epoch transitions — violated by D24; (2) correct
+SPQR's PCS depends on: (1) authenticated epoch transitions — violated by D21; (2) correct
 chain gc across persistence — broken by Part III; (3) ML-KEM exchange integrity — protected
-by `verify_ct`, but only after full reassembly during which D19 applies.
+by `verify_ct`, but only after full reassembly during which D16 applies.
 
 ### 5.4. Sanity Checks
 
@@ -397,18 +397,18 @@ only after full reassembly, while the DR authenticates each message before state
 
 | Priority | Fix | Closes |
 |---|---|---|
-| 1 | Authenticate control edges | D24, D38 |
-| 2 | Use `find_or_push` in `add_chunk` | D19, D4, D18 |
-| 3 | Validate `from_pb` against `ChainInv` | D1, D21, D22, D13, D14, D26, D27, D34 |
-| 4 | Range-check `ChainParams` | D28, D2, D8, D32 |
-| 5 | Fix `VecDeque::into_iter` model | D20 |
-| 6 | Authenticate version negotiation | D25, D39, D40 |
-| 7 | Annotation/hygiene fixes | D10, D16, D17, D11, D29 |
+| 1 | Authenticate control edges | D21, D35 |
+| 2 | Use `find_or_push` in `add_chunk` | D16, D4, D15 |
+| 3 | Validate `from_pb` against `ChainInv` | D1, D18, D19, D11, D12, D23, D24, D31 |
+| 4 | Range-check `ChainParams` | D25, D2, D8, D29 |
+| 5 | Fix `VecDeque::into_iter` model | D17 |
+| 6 | Authenticate version negotiation | D22, D36, D37 |
+| 7 | Annotation/hygiene fixes | D9, D13, D14, D10, D26 |
 
 ## 8. Limitations and Future Work
 
 - **Trusted base.** Hand-written Lean models for `VecDeque`, `SortedSet`, HKDF, HMAC, ML-KEM
-  are trusted. D20 documents a known unsoundness. SIMD GF(2^16) is unverified.
+  are trusted. D17 documents a known unsoundness. SIMD GF(2^16) is unverified.
 - **No compositional proof with DR.** SPQR is analysed in isolation; composition via
   `kdf_hybrid` is not modelled. [1] notes this as open from the DR side too.
 - **Fixes not re-verified.** Proposed but not implemented in the analysed codebase.
@@ -424,13 +424,13 @@ a network-only attacker. Authenticated-peer attacks require protocol-level chang
 
 | Evidence File | Findings | Type |
 |---|---|---|
-| `Spqr/Specs/Bugs/ProtocolDoS.lean` | D19, D24 | Lean proof |
-| `Spqr/Specs/Bugs/CorruptedBlobs.lean` | D1, D21, D22 | Lean proof |
+| `Spqr/Specs/Bugs/ProtocolDoS.lean` | D16, D21 | Lean proof |
+| `Spqr/Specs/Bugs/CorruptedBlobs.lean` | D1, D18, D19 | Lean proof |
 | `docs/invariants_composition_check.lean.txt` | ChainInv | Lean proof |
-| `docs/protocol_driver_counterexamples.rs.txt` | D24–D28 | Rust harness |
-| `docs/forged_control_message_counterexamples.rs.txt` | D38, D39 | Rust harness |
-| `docs/decoder_poison_persistence_counterexample.rs.txt` | D19 | Rust harness |
-| `docs/corrupted_blob_counterexample.rs.txt` | D1, D21 | Rust harness |
+| `docs/protocol_driver_counterexamples.rs.txt` | D21–D25 | Rust harness |
+| `docs/forged_control_message_counterexamples.rs.txt` | D35, D36 | Rust harness |
+| `docs/decoder_poison_persistence_counterexample.rs.txt` | D16 | Rust harness |
+| `docs/corrupted_blob_counterexample.rs.txt` | D1, D18 | Rust harness |
 | `docs/dolev_yao_harness.rs.txt` | Delay/replay | Rust harness |
 | `docs/remote_attacker_harness.rs.txt` | Forging (200×200) | Rust harness |
 

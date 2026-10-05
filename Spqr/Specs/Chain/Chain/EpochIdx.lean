@@ -12,7 +12,7 @@ Returns `EpochOutOfRange` if the epoch is in the future or already garbage-colle
 
 **Source**: spqr/src/chain.rs
 
-## D56 audit note (MEDIUM; 32-bit — `as usize` truncation)
+## D53 audit note (MEDIUM; 32-bit — `as usize` truncation)
 
 `chain.rs` L376: `(self.current_epoch - epoch) as usize`. On 32-bit platforms, if
 `current_epoch - epoch > u32::MAX`, the `as usize` cast silently truncates, producing a
@@ -27,7 +27,7 @@ silently truncates.
 The theorem `epoch_idx_needs_usize_bound` documents this precondition dependency.
 
 **Fix.** `usize::try_from(...).map_err(|_| Error::EpochOutOfRange(epoch))?`.
-See `docs/listDefects.md` §D56, D3. -/
+See `docs/listDefects.md` §D53, D3. -/
 
 open Aeneas Aeneas.Std Result spqr
 
@@ -38,8 +38,8 @@ namespace spqr.chain.Chain
 On success returns `Ok (links.length - 1 - (current_epoch - epoch))` with `self` unchanged.
 Errors with `EpochOutOfRange` when `epoch > current_epoch` or the epoch was garbage-collected.
 
-**D56 note.** The `h_diff_fits` precondition is erased in Rust (`as usize` truncates
-silently on 32-bit). See D56 audit note above. -/
+**D53 note.** The `h_diff_fits` precondition is erased in Rust (`as usize` truncates
+silently on 32-bit). See D53 audit note above. -/
 @[step]
 theorem epoch_idx_spec (self : chain.Chain) (epoch : U64)
     (h_diff_fits : epoch ≤ self.current_epoch →
@@ -58,7 +58,7 @@ theorem epoch_idx_spec (self : chain.Chain) (epoch : U64)
   unfold epoch_idx
   step* <;> cases System.Platform.numBits_eq <;> scalar_tac
 
-/-- **D56: `epoch_idx_spec` correctness depends on `h_diff_fits`.**
+/-- **D53: `epoch_idx_spec` correctness depends on `h_diff_fits`.**
 
 The postcondition `i = links.length - 1 - (current_epoch - epoch)` holds only when
 `h_diff_fits` guarantees the `u64 → usize` cast is lossless. On 64-bit this is trivially
@@ -73,7 +73,7 @@ theorem epoch_idx_needs_usize_bound (self : chain.Chain) (epoch : U64)
     epoch_idx self epoch ⦃ (result : (core.result.Result Usize Error) × chain.Chain) =>
       match result.1 with
       | core.result.Result.Ok i =>
-          -- D56: correctness requires the usize bound
+          -- D53: correctness requires the usize bound
           i = self.links.length - 1 - (self.current_epoch.val - epoch) ∧
           self.current_epoch.val - epoch ≤ Usize.max
       | core.result.Result.Err _ => True ⦄ := by

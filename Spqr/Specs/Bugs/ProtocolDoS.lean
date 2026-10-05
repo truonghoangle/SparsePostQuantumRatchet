@@ -202,4 +202,74 @@ corrupt the decoder state that the protocol persists, because authentication
 on every `Ok` return — including the `StillReceiving` path where the message is
 incomplete and no authentication has occurred.** -/
 
+/-! ## D16 fix characterisation: first-write-wins prevents poisoning
+
+The root cause of the poisoning is `SortedSet::push`'s last-write-wins semantics
+combined with `Pt` equality comparing only `x` (ignoring `y`).  The fix is
+**first-write-wins**: when a point with the same `x` coordinate already exists
+in the sorted set, the insertion is skipped entirely.
+
+We formalise this as a predicate `IsFirstWriteWinsResult` and prove that under
+first-write-wins semantics, a duplicate-`x` insertion leaves the list unchanged —
+the honest point is preserved.
+
+**Rust fix (not yet applied):**
+```
+let candidate = Pt { x, y };
+if self.pts[poly].binary_search(&candidate).is_err() {
+    self.pts[poly].push(candidate);
+}
+```
+
+See `docs/listDefects.md` §D16. -/
+
+/-- **First-write-wins postcondition**: the result list is either:
+    (a) the old list with a fresh element inserted (no key collision), or
+    (b) the old list unchanged (key-equal element already present).
+
+    This is the corrected semantics that should replace `IsSortedPushResult`
+    in the `add_chunk` guard's insertion path.  Unlike `IsSortedPushResult`,
+    the duplicate-key branch preserves the old list exactly. -/
+def IsFirstWriteWinsResult {α : Type*} (old new_ : List α) (p : α) : Prop :=
+  -- Fresh insertion (no duplicate key): same as IsSortedPushResult insertion branch
+  (∃ (j : Nat), j ≤ old.length ∧ new_ = old.take j ++ [p] ++ old.drop j) ∨
+  -- Duplicate key: list unchanged (first-write-wins = no-op)
+  new_ = old
+
+/-- **D16 fix theorem.** Under first-write-wins semantics, pushing a duplicate-`x`
+    point onto a singleton `[honest_pt]` leaves the list unchanged — the honest
+    point is preserved, not replaced.
+
+    Compare with `sorted_push_replaces_singleton` which proves the *current*
+    (broken) last-write-wins semantics: `[honest_pt]` becomes `[poison_pt]`.
+    This theorem proves the *fixed* semantics: `[honest_pt]` stays `[honest_pt]`. -/
+theorem first_write_wins_preserves_honest_singleton {honest_pt poison_pt : Pt}
+    (_hx : honest_pt.x.value = poison_pt.x.value) :
+    IsFirstWriteWinsResult [honest_pt] [honest_pt] poison_pt :=
+  Or.inr rfl
+
+/-- **D16 fix theorem.** First-write-wins on a duplicate key always preserves the
+    original list, regardless of list length.  This is the general statement that
+    subsumes `first_write_wins_preserves_honest_singleton`. -/
+theorem first_write_wins_noop_on_duplicate {α : Type*} (old : List α) (p : α) :
+    IsFirstWriteWinsResult old old p :=
+  Or.inr rfl
+
+/-- **D16 root cause.** `IsSortedPushResult` *admits* replacement (second disjunct),
+    so it does not guarantee preservation of existing points on duplicate `x`.
+    Specifically: for a singleton `[old_pt]`, `IsSortedPushResult [old_pt] [new_pt] new_pt`
+    holds — the honest point is gone. This is the formal proof that last-write-wins
+    is the root cause of the chunk poisoning attack.
+
+    Under `IsFirstWriteWinsResult`, the only possibility for a duplicate key is
+    `new_ = old` (the list is unchanged), so the honest point is always preserved. -/
+theorem last_write_wins_is_root_cause {old_pt new_pt : Pt}
+    (hx : old_pt.x.value = new_pt.x.value)
+    (_hy : old_pt.y.value ≠ new_pt.y.value) :
+    -- The current semantics admits replacement (honest point lost):
+    IsSortedPushResult [old_pt] [new_pt] new_pt ∧
+    -- But first-write-wins would preserve the honest point:
+    IsFirstWriteWinsResult [old_pt] [old_pt] new_pt := by
+  exact ⟨sorted_push_replaces_singleton hx, first_write_wins_preserves_honest_singleton hx⟩
+
 end spqr.Bugs.ProtocolDoS

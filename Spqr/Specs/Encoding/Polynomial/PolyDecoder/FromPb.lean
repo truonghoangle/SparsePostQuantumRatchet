@@ -20,10 +20,10 @@ by 4.
 
 **Source**: spqr/src/encoding/polynomial.rs
 
-**D37 audit note.** `from_pb` reads `pts_needed` as `u32` from protobuf and widens to `Usize`
+**D34 audit note.** `from_pb` reads `pts_needed` as `u32` from protobuf and widens to `Usize`
 (lossless). The truncation risk is on the `into_pb` side: `pts_needed as u32` drops high bits
 when `pts_needed > U32.max`. See `IntoPb.lean` for the `into_pb_requires_u32_bound` theorem
-and `docs/listDefects.md` §D37. -/
+and `docs/listDefects.md` §D34. -/
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 
@@ -570,7 +570,7 @@ into `[SortedSet<Pt>; 16]`, and casts `pb.pts_needed : u32` to `usize`.
 
 **Source**: spqr/src/encoding/polynomial.rs
 
-## D52 audit note (LOW; blob — `is_complete` not validated)
+## D49 audit note (LOW; blob — `is_complete` not validated)
 
 `from_pb` copies `pb.is_complete` verbatim into the decoder (`polynomial.rs` L851:
 `is_complete: pb.is_complete`). No code path in SPQR sets `is_complete` from the wire, but a
@@ -581,7 +581,7 @@ The `from_pb_spec` postcondition `decoder.is_complete = pb.is_complete` (line 60
 the verbatim copy. The theorem `from_pb_accepts_bad_is_complete` below documents this gap.
 
 **Fix.** Validate `is_complete` consistency with `pts` contents, or always reset to `false`
-on `from_pb`. See `docs/listDefects.md` §D52. -/
+on `from_pb`. See `docs/listDefects.md` §D49. -/
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
@@ -693,7 +693,7 @@ theorem from_pb_spec
   · simp_all
     grind
 
-/-- **D52: `from_pb` accepts `is_complete = true` without validation.**
+/-- **D49: `from_pb` accepts `is_complete = true` without validation.**
 
 A corrupted blob with `is_complete = true` and valid 16-slot `pts` will be accepted by
 `from_pb`. The resulting decoder's `decoded_message` returns `None` forever (it checks
@@ -713,7 +713,7 @@ theorem from_pb_accepts_bad_is_complete
         encoding.polynomial.PolynomialError) =>
       match result with
       | core.result.Result.Ok decoder =>
-        -- D52: is_complete copied verbatim — decoder permanently stalled
+        -- D49: is_complete copied verbatim — decoder permanently stalled
         decoder.is_complete = true
       | core.result.Result.Err _ => False ⦄ := by
   have h := from_pb_spec pb h_pts_overflow
@@ -726,7 +726,7 @@ theorem from_pb_accepts_bad_is_complete
     simp_all
   | Err _ => exact h_ok
 
-/-- **D14. `PolyDecoder::from_pb` accepts oversized point sets.**
+/-- **D12. `PolyDecoder::from_pb` accepts oversized point sets.**
 
 `polynomial.rs` L603: `from_pb` copies points into `Point { value: v }` with only an
 `assume!` that `v.len() ≤ MAX_INTERMEDIATE_POLYNOMIAL_DEGREE_V1` (erased by Aeneas).

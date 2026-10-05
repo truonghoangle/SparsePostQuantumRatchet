@@ -221,7 +221,7 @@ theorem serialize_zero_eq_nil
   intro result h
   exact h.2.2.1.mpr h_zero
 
-/-- **D16. Zero polynomial round-trip failure: `deserialize(serialize(zero)) = Err`.**
+/-- **D13. Zero polynomial round-trip failure: `deserialize(serialize(zero)) = Err`.**
 
 A polynomial with no coefficients (the representation `Poly::zero` produces) serialises
 to `[]` (by `serialize_zero_eq_nil`). `deserialize` rejects empty input with

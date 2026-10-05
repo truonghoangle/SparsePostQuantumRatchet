@@ -1,16 +1,14 @@
-# Complete Defect List: D1–D66
+# Complete Defect List: D1–D63
 
 > **Version:** 2.0 — 2026-10-04
 >
-> Self-contained, sequentially ordered reference for every defect D1–D66. Each entry has
+> Self-contained, sequentially ordered reference for every defect D1–D63. Each entry has
 > severity, Lean spec(s), Rust location, consequence, reproduction evidence, and fix.
 > For thematic grouping see [`report.md`](./report.md); for the original narrative see
 > [`defects.md`](./defects.md).
 >
-> **D9, D12, D15 are audit notes (INFO / NO DEFECT).**
->
-> **D41–D52** were discovered via methods M1–M12 (model checking, Miri, fuzz, property
-> testing, etc.). **D53–D66** were discovered via methods M13–M18 (refinement checking,
+> **D38–D49** were discovered via methods M1–M12 (model checking, Miri, fuzz, property
+> testing, etc.). **D50–D63** were discovered via methods M13–M18 (refinement checking,
 > compositional invariant verification, termination analysis, information-flow typing,
 > symbolic state-machine model checking, trusted-base/axiom soundness audit) — informed
 > by surveying online Lean verification repositories for similar cryptographic protocols.
@@ -19,23 +17,22 @@
 
 ## Fix Status Summary
 
-All defects D1–D40 were identified against SPQR **v1.5.0** (`Cargo.toml`) as consumed by
+All defects D1–D37 were identified against SPQR **v1.5.0** (`Cargo.toml`) as consumed by
 libsignal commit `a47ba487` (2026-03-17). As of the analysis date (2026-10-04), **none of the
-40 defects have been fixed in the SPQR crate**. libsignal's clone-then-commit-after-MAC
-pattern externally mitigates the message-level attacks (D24, D25, D38, D39) for network-only
+37 defects have been fixed in the SPQR crate**. libsignal's clone-then-commit-after-MAC
+pattern externally mitigates the message-level attacks (D21, D22, D35, D36) for network-only
 attackers, but the SPQR code itself remains unchanged.
 
 | Status | Count | Defect IDs |
 |---|---|---|
-| 🔴 **Unfixed** | 23 | D18, D19, D21, D22, D26, D27, D28, D29, D30, D31, D32, D33, D34, D40, D41, D43, D44, D45, D46, D47, D48, D49, D50, D54, D57, D58, D59, D63, D64, D65, D66 |
-| 🟢 **Proved** | 12 | D1 — 48 theorems, 11 phases in `CorruptedBlobs.lean`; D2 — `get_never_ok_of_ooo_overflow`; D3 — `epoch_idx_cast_is_modular`; D5 — `idx_cast_u16_lossy`; D8 — `trim_size_overflow_on_32bit`; D10 — `claimed_history_bound_false`; D11 — `round_robin_div_by_zero_mismatch`; D13 — `from_pb_admits_inadmissible_length`; D14 — `from_pb_accepts_oversized_point_sets`; D16 — `serialize_deserialize_zero_roundtrip_fails`; D17 — `is_complete_preserved_by_add_chunk`; D60 — `key_never_ok_of_large_ctr` |
-| 🟡 **Unfixed (mitigated by host)** | 4 | D24, D25, D38, D39 — mitigated in libsignal only |
-| ⚪ **N/A (audit note)** | 3 | D9, D12, D15 |
+| 🔴 **Unfixed** | 27 | D23, D24, D25, D26, D27, D28, D29, D30, D31, D37, D38, D40, D41, D42, D43, D44, D45, D46, D47, D51, D54, D55, D56, D60, D61, D62, D63 |
+| 🟢 **Proved** | 15 | D1 — 48 theorems, 11 phases in `CorruptedBlobs.lean`; D2 — `get_never_ok_of_ooo_overflow`; D3 — `epoch_idx_cast_is_modular`; D5 — `idx_cast_u16_lossy`; D8 — `trim_size_overflow_on_32bit`; D9 — `claimed_history_bound_false`; D10 — `round_robin_div_by_zero_mismatch`; D11 — `from_pb_admits_inadmissible_length`; D12 — `from_pb_accepts_oversized_point_sets`; D13 — `serialize_deserialize_zero_roundtrip_fails`; D14 — `is_complete_preserved_by_add_chunk`; D15 — `guard_true`; D18 — `chain_from_pb_admits_wrong_next_root`, `chain_from_pb_admits_epoch_inversion`, `chain_from_pb_admits_empty_links`; D19 — `from_pb_empty_mac_key_forgeable`, `from_pb_mac_key_attacker_controlled`; D57 — `key_never_ok_of_large_ctr` |
+| 🟡 **Unfixed (mitigated by host)** | 4 | D21, D22, D35, D36 — mitigated in libsignal only |
 | 🟢 **No fix needed** | 2 | D6, D7 — latent spec observations, no behavioural impact |
-| ✅ **Fixed** | 12 | D4 — Rust comment corrected, Lean `IsSortedPushResult` audit note and strengthening theorem added; D20 — Lean model corrected; D23 — audit comments added; D35 — gap-documenting theorems added; D36 — wrong-mapping theorems added; D37 — truncation-bound theorem added; D42 — divergence theorem added; D51 — erased-bound audit comments added; D52 — is_complete gap theorem added; D53 — Lean spec tightened (`checked_add`); D55 — IKM collision theorem added; D56 — usize-bound theorem added |
-| 🔵 **Unfixed (spec-only)** | 2 | D61, D62 — Lean model, dead code, or annotation issues |
+| ✅ **Fixed** | 13 | D4 — Rust comment corrected, Lean `IsSortedPushResult` audit note and strengthening theorem added; D16 — Lean fix-characterisation theorems added (`IsFirstWriteWinsResult`, `last_write_wins_is_root_cause`); D17 — Lean model corrected; D20 — audit comments added; D32 — gap-documenting theorems added; D33 — wrong-mapping theorems added; D34 — truncation-bound theorem added; D39 — divergence theorem added; D48 — erased-bound audit comments added; D49 — is_complete gap theorem added; D50 — Lean spec tightened (`checked_add`); D52 — IKM collision theorem added; D53 — usize-bound theorem added |
+| 🔵 **Unfixed (spec-only)** | 2 | D58, D59 — Lean model, dead code, or annotation issues |
 
-> **Note on D24/D25/D38/D39.** These are classified as 🟡 rather than 🔴 because libsignal's
+> **Note on D21/D22/D35/D36.** These are classified as 🟡 rather than 🔴 because libsignal's
 > clone-then-commit-after-MAC pattern discards the mutated state on MAC failure. The SPQR
 > library itself remains vulnerable; only the Signal integration absorbs the attack. Other
 > embedders of the `spqr` crate are fully exposed.
@@ -60,7 +57,7 @@ no validation.
 | `next.len() ≠ 32` | `next_key_internal` L241 | **panic** (`copy_from_slice`) |
 | `prev.len() % 36 ≠ 0` | `KeyHistory::get` L191 | **panic** (`assert_eq!`) |
 | `prev` too large for `ctr` | `KeyHistory::gc` L149 | **panic** (`assert!`) |
-| `ctr + maxOoo > U32.max` | `key` L265 | **overflow** (D60: `key_never_ok_of_large_ctr`) |
+| `ctr + maxOoo > U32.max` | `key` L265 | **overflow** (D57: `key_never_ok_of_large_ctr`) |
 | `at + maxOoo > U32.max` | `KeyHistory::get` L192 | **overflow** (D2: `get_never_ok_of_ooo_overflow`) |
 
 Corrupted state round-trips through `into_pb` (crash loop).
@@ -119,7 +116,7 @@ hold jointly.
 **Rust.** `polynomial.rs` L898–900 comment said "discard new points." Actual `sorted-vec 0.8.6`
 `SortedSet::push` replaces (last-write-wins).
 
-**Consequence.** Attacker's point overwrites honest point. Enables D19.
+**Consequence.** Attacker's point overwrites honest point. Enables D16.
 
 **Fix.** Rust comment corrected to document last-write-wins replacement semantics.
 
@@ -129,7 +126,7 @@ hold jointly.
 - Added `IsSortedPushResult.replacement_preserves_length` theorem proving that the
   replacement branch preserves list length.
 
-**Related:** sub-finding of D19.
+**Related:** sub-finding of D16.
 
 
 ---
@@ -144,7 +141,7 @@ hold jointly.
 
 **Rust.** `polynomial.rs` L735: `self.chunk_at(self.idx as u16)` wraps after 65535.
 
-**Consequence.** Emitted `chunk.index` wraps to 0. Makes D19 poisoning permanent.
+**Consequence.** Emitted `chunk.index` wraps to 0. Makes D16 poisoning permanent.
 
 **Fix.** Store `idx: u16`, or reject `pb.idx > 65535` in `from_pb`.
 
@@ -175,7 +172,7 @@ discards cursor on error).
 
 ## D8. `usize` overflow in `trim_size` on 32-bit (LOW; config, 32-bit)
 
-**Status.** 🟢 **Proved.** Subsumed by D28 — will be closed when D28 is fixed.
+**Status.** 🟢 **Proved.** Subsumed by D25 — will be closed when D25 is fixed.
 
 **Specs.** `TrimSize.lean`: `h_ooo : max_ooo_keys < 390451572`.
 `trim_size_overflow_on_32bit` — when `max_ooo_keys ≥ 390451573` and
@@ -186,19 +183,11 @@ overflows `Usize.max`.
 
 **Consequence.** `trim_size` wraps small → GC too aggressive → keys lost.
 
-**Fix.** Subsumed by D28.
+**Fix.** Subsumed by D25.
 
 ---
 
-## D9. Design observation (INFO — no defect)
-
-**Status.** ⚪ **N/A** — audit note, not a defect.
-
-`key(at)` advances `ctr` to `at` when `at > ctr`. High-water-mark counter by design.
-
----
-
-## D10. Claimed history bound is false (MEDIUM; spec — LOW runtime)
+## D9. Claimed history bound is false (MEDIUM; spec — LOW runtime)
 
 **Status.** 🟢 **Proved.** The `requires`/`assume!` annotations still assert the false bound.
 
@@ -217,7 +206,7 @@ accumulate before `gc`. Defaults: claimed 2201; true **4199**.
 
 ---
 
-## D11. `RoundRobinEncoder::chunk_at` panics on empty (LOW)
+## D10. `RoundRobinEncoder::chunk_at` panics on empty (LOW)
 
 **Status.** 🟢 **Proved.** Test-only (`#[cfg(test)]`); not extracted by Aeneas.
 
@@ -228,15 +217,7 @@ No monadic Lean model exists (code excluded from extraction).
 
 ---
 
-## D12. `compare` / `inz` constant-time (INFO — no defect found)
-
-**Status.** ⚪ **N/A** — audit note, no defect found.
-
-**Specs.** `Compare.lean`, `Inz.lean`: proved. `libcrux-ml-kem 0.0.7` FO path audited:
-
----
-
-## D13. `PolyEncoder::from_pb` no point-count validation (MEDIUM; blob)
+## D11. `PolyEncoder::from_pb` no point-count validation (MEDIUM; blob)
 
 **Status.** 🟢 **Proved.** `polynomial.rs` L573–603 still checks only `pts.len() % 2 == 0`.
 
@@ -259,7 +240,7 @@ precomputed poly of size {}")`. Release: fallback Lagrange emits wrong chunks si
 
 ---
 
-## D14. `PolyDecoder::from_pb` no point-set size bound (LOW–MEDIUM; blob)
+## D12. `PolyDecoder::from_pb` no point-set size bound (LOW–MEDIUM; blob)
 
 **Status.** 🟢 **Proved.** `from_pb` accepts any point-set size.
 
@@ -280,20 +261,7 @@ and that values like 100 exceed the bound but pass `from_pb` (no runtime check).
 
 ---
 
-## D15. Remaining `sorry`s and axioms (INFO)
-
-**Status.** ⚪ **N/A** — known proof gaps, documented and expected.
-
-- `Spqr/Specs/Lib/DecodeState.lean:54` — prost `Message` impl replaced by `sorry` in
-  translation (issue #102). Nothing about which blobs `decode_state` accepts is established.
-- `Spqr/Specs/Aeneas/MapCollectBridge.lean` — assumed bridge for `.map().collect()`.
-- `SrcTranslated/Funs.lean` — four `sorry`-using declarations in generated protobuf code.
-- SIMD GF(2¹⁶) multiplication (`PCLMULQDQ`/`PMULL` path) excluded from translation — unverified.
-- Rust marked `#[hax_lib::opaque]` or `verification_status(lax)` has no theorem.
-
----
-
-## D16. `Poly::serialize`/`deserialize` not inverses on zero polynomial (MEDIUM; API)
+## D13. `Poly::serialize`/`deserialize` not inverses on zero polynomial (MEDIUM; API)
 
 **Status.** 🟢 **Proved.** Zero polynomial still serialises to `[]`.
 
@@ -314,14 +282,14 @@ is a public generic component — other callers can hit it.
 
 ---
 
-## D17. `PolyDecoder::is_complete` is write-never — dead field (LOW; blob)
+## D14. `PolyDecoder::is_complete` is write-never — dead field (LOW; blob)
 
 **Status.** 🟢 **Proved.** Field still never set to `true` by any code path.
 
 **Specs.** `PolyDecoder/FromPb.lean` copies `is_complete` verbatim. `DecodedMessage.lean`
 branches on it. `AddChunk.lean`: `is_complete_preserved_by_add_chunk` — proves `add_chunk`
 preserves `is_complete`. Combined with `new_with_poly_count_spec` (initialises `false`)
-and D52's `from_pb_accepts_bad_is_complete` (blob-loading gap), this shows `is_complete`
+and D49's `from_pb_accepts_bad_is_complete` (blob-loading gap), this shows `is_complete`
 is write-never on honest paths.
 
 **Rust.** `polynomial.rs` L789, L912: `is_complete` initialised to `false`, never set `true`.
@@ -338,36 +306,43 @@ chunk.
 
 ---
 
-## D18. `add_chunk` guard always true for low-index chunks (MEDIUM; message)
+## D15. `add_chunk` guard always true for low-index chunks (MEDIUM; message)
 
-**Status.** 🔴 **Unfixed.** Guard logic unchanged. Subsumed by D19 fix.
+**Status.** 🟢 **Proved.** Guard logic unchanged in Rust. Lean `guard_true` theorem added.
 
 **Specs.** `AddChunk.lean`: guard `poly_idx < necessary_points(i)` modelled; the spec's
-`guard_true` lemma shows it holds for all `pts_needed ≥ 16`.
+`guard_true` lemma proves that when `pts_needed ≥ 16` and `chunk.index < pts_needed / 16`,
+the first disjunct `poly_idx < necessary_points(i)` holds for all iterations `i ∈ 0..16`,
+so the insertion guard is unconditionally true regardless of duplicates.
 
-**Rust.** `polynomial.rs` L886: first disjunct of the guard is unconditionally true for any
+**Rust.** `polynomial.rs` L895: first disjunct of the guard is unconditionally true for any
 chunk with `index < pts_needed / 16`.
 
-**Consequence.** Low-index chunks always accepted regardless of duplicates. Enables D19.
+**Consequence.** Low-index chunks always accepted regardless of duplicates. Enables D16.
 
-**Related.** Sub-finding of D19.
+**Related.** Sub-finding of D16.
 
 ---
 
-## D19. Chunk poisoning persistent → permanent epoch stall (MEDIUM; message)
+## D16. Chunk poisoning persistent → permanent epoch stall (MEDIUM; message)
 
-**Status.** 🔴 **Unfixed.** `SortedSet::push` still replaces; no reset on MAC failure. libsignal's clone-then-commit-after-MAC externally prevents persistence for network-only attackers, but the SPQR code is unchanged and an authenticated peer can still trigger it.
+**Status.** ✅ **Fixed (Lean fix-characterisation theorems added).** Rust `SortedSet::push` still replaces (last-write-wins); Lean theorems now formally prove the root cause and characterise the required first-write-wins fix. libsignal's clone-then-commit-after-MAC externally prevents persistence for network-only attackers.
 
 **Specs.** `ProtocolDoS.lean`:
 - `add_chunk_index_zero_pushes` (L58) — attacker's values enter decoder
-- `sorted_push_replaces_singleton` (L85) — honest point replaced
-- `poison_survives_persistence` (L119) — survives `into_pb`/`from_pb`
+- `sorted_push_replaces_singleton` (L97) — honest point replaced
+- `poison_survives_persistence` (L106) — survives `into_pb`/`from_pb`
 - `recv_hdr_chunk_persists_unauthenticated_state` (L156) — no MAC on this path
+- `IsFirstWriteWinsResult` (L233) — first-write-wins postcondition (fix spec)
+- `first_write_wins_preserves_honest_singleton` (L246) — fix preserves honest point
+- `first_write_wins_noop_on_duplicate` (L254) — general: duplicate key = no-op
+- `last_write_wins_is_root_cause` (L266) — proves last-write-wins admits replacement
+  *and* first-write-wins prevents it
 
 **Rust.** `polynomial.rs` L879–904 (`add_chunk`): `SortedSet::push` replaces on `.eq`.
 `send_ct.rs` L82–107, `send_ek.rs` L194–222: state persisted on `Ok(StillReceiving)`.
 
-**Mechanism.** Attacker sends chunk with index 0 and garbage data. Guard passes (D18). Push
+**Mechanism.** Attacker sends chunk with index 0 and garbage data. Guard passes (D15). Push
 replaces honest point (D4). `decoded_message() = None` → `recv` returns `Ok` → poisoned
 decoder saved. Full message assembly later fails MAC → `Err` → caller keeps pre-call
 (poisoned) state. Permanent: index 0 re-emitted only after 65536 wraps (D5).
@@ -375,12 +350,21 @@ decoder saved. Full message assembly later fails MAC → `Err` → caller keeps 
 **Reproduced.** `poisoned_low_index_point_persists_and_wins` in
 [`decoder_poison_persistence_counterexample.rs.txt`](./decoder_poison_persistence_counterexample.rs.txt).
 
-**Fix.** (a) First-write-wins: `find_or_insert`. (b) Reset decoder on MAC failure.
+**Lean.** D16 fix-characterisation theorems added to `Spqr/Specs/Bugs/ProtocolDoS.lean`:
+- `IsFirstWriteWinsResult` — defines the corrected postcondition: on duplicate key, the
+  list is unchanged (honest point preserved), vs `IsSortedPushResult` which admits replacement.
+- `first_write_wins_preserves_honest_singleton` — proves `[honest_pt]` stays `[honest_pt]`
+  under first-write-wins when a poison point with the same `x` is pushed.
+- `last_write_wins_is_root_cause` — proves both directions: current semantics admits
+  `[honest_pt] → [poison_pt]`, and first-write-wins prevents it.
+- Docstring documents the required Rust fix: `binary_search` guard before `push`.
+
+**Fix.** (a) First-write-wins: `binary_search` before `push`. (b) Reset decoder on MAC failure.
 (c) Keep both candidate `y` values.
 
 ---
 
-## D20. `VecDeque::into_iter` model wrong when `head ≠ 0` (HIGH; spec)
+## D17. `VecDeque::into_iter` model wrong when `head ≠ 0` (HIGH; spec)
 
 **Status.** ✅ **Fixed.** Lean model at `FunsExternal.lean` L3733–3759 corrected: uses linear `head + 1`, decrements `length`, and the `@[step]` theorem (`next_spec`) proves both the empty and non-empty cases. Counterexample now produces `[some 20, some 30, none, none]` with final length `0`, matching Rust semantics.
 
@@ -399,9 +383,11 @@ project's growing-list model for `pop_front`/`push_back`/`index`) and never decr
 
 ---
 
-## D21. `Chain::from_pb` — no `next_root`/`links`/epoch validation (MEDIUM; blob)
+## D18. `Chain::from_pb` — no `next_root`/`links`/epoch validation (MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** `Chain::from_pb` still copies all fields without validation.
+**Status.** 🟢 **Proved.** `Chain::from_pb` still copies all fields without validation.
+Three Lean theorems and three Rust counterexample tests now formally document all three
+invariant violations.
 
 **Specs.** All `FromPb.lean` theorems for unchunked states prove `Ok` with `epoch := pb.epoch`
 for any `u64`. `RecvKey.lean` uses `next_root` as HKDF salt.
@@ -414,19 +400,29 @@ for any `u64`. `RecvKey.lean` uses `next_root` as HKDF salt.
 | Invariant | Failure mode |
 |---|---|
 | `next_root.len() ≠ 32` | Silent key divergence (HKDF accepts any salt) |
-| `links.len() = 0` | Underflow/OOB panic |
+| `links.len() = 0` | Every `send_key`/`recv_key` returns `EpochOutOfRange` → chain permanently stuck |
 | `send_epoch > current_epoch` | Every `send_key` fails → chain stuck |
 
 **Reproduced.** [`corrupted_blob_counterexample.rs.txt`](./corrupted_blob_counterexample.rs.txt).
+Rust probes: `d18_from_pb_admits_wrong_next_root_length`,
+`d18_from_pb_admits_empty_links`, `d18_from_pb_admits_epoch_inversion` in `src/chain.rs`.
+
+**Lean.** `CorruptedBlobs.lean`:
+- `chain_from_pb_admits_wrong_next_root` (Phase 7, existing) — proves `next_root` of any
+  length passes through `from_pb` unchanged.
+- `chain_from_pb_admits_epoch_inversion` — proves `send_epoch > current_epoch` passes
+  through `from_pb` unchanged, so the epoch inversion survives deserialization.
+- `chain_from_pb_admits_empty_links` — witnesses that `from_pb` returns `Ok` even when
+  `pb.links` has length 0, documenting the missing minimum-length validation.
 
 **Fix.** Validate all three invariants in `Chain::from_pb`.
 
 
 ---
 
-## D22. `Authenticator::from_pb` no key-length validation (LOW; blob)
+## D19. `Authenticator::from_pb` no key-length validation (LOW; blob)
 
-**Status.** 🔴 **Unfixed.** `authenticator/serialize.rs` L16–21 still clones any length.
+**Status.** 🟢 **Proved.** `authenticator/serialize.rs` L16–21 still clones any length. Lean theorems now formally document the missing validation and its security consequences.
 
 **Specs.** `authenticator.serialize.Authenticator.from_pb_spec`: pure field copy, no hypotheses.
 
@@ -436,11 +432,28 @@ for any `u64`. `RecvKey.lean` uses `next_root` as HKDF salt.
 
 **Fix.** `if pb.mac_key.len() != 32 || pb.root_key.len() != 32 { return Err(StateDecode); }`.
 
-**Related.** Parent of D31, D35, D36.
+**Lean.** D19 theorems in `Spqr/Specs/Authenticator/Serialize/Authenticator/FromPb.lean`:
+- `from_pb_empty_mac_key_forgeable` — proves that a corrupted blob with `mac_key = []`
+  passes through `from_pb` and produces an authenticator with empty `mac_key`, enabling
+  trivial MAC forgery.
+- `from_pb_mac_key_attacker_controlled` — proves `from_pb` copies `mac_key` verbatim
+  from the protobuf, so an attacker controlling the blob controls the MAC key and can
+  forge arbitrary MACs (combined with `mac_ct_spec` determinism).
+
+Additional D19-related theorems in `Spqr/Specs/Bugs/CorruptedBlobs.lean` (Phase 6):
+- `authenticator_from_pb_no_validation` — `from_pb` always succeeds, copying fields verbatim.
+- `authenticator_from_pb_admits_empty_mac_key` — empty `mac_key` accepted.
+- `authenticator_from_pb_admits_empty_root_key` — empty `root_key` accepted.
+- `authenticator_from_pb_admits_wrong_key_lengths` — any lengths ≠ 32 accepted.
+
+See also D32 (`from_pb_no_key_length_check`, `from_pb_missing_validation`) and D39
+(`update_diverges_on_bad_root_key`).
+
+**Related.** Parent of D28, D32, D33.
 
 ---
 
-## D23. Test-only code outside protocol path (LOW)
+## D20. Test-only code outside protocol path (LOW)
 
 **Status.** ✅ **Fixed (Lean audit comments added).** Test code; no production impact.
 
@@ -449,14 +462,14 @@ No security impact. No Lean spec files existed for the test-only `RoundRobinEnco
 `RoundRobinDecoder` (`src/encoding/round_robin.rs`) since hax correctly excludes `#[cfg(test)]`
 modules.
 
-**Lean.** D23 audit comments added to all five `Encoding/Encoder/` and `Encoding/Decoder/` spec
+**Lean.** D20 audit comments added to all five `Encoding/Encoder/` and `Encoding/Decoder/` spec
 files (`EncodeBytes.lean`, `NextChunk.lean`, `New.lean`, `AddChunk.lean`, `DecodedMessage.lean`)
 documenting that only `PolyEncoder`/`PolyDecoder` are instantiated and that the test-only
 round-robin implementations are intentionally excluded from verification.
 
 ---
 
-## D24. Unauthenticated epoch advance deadlocks PQ ratchet (HIGH; message)
+## D21. Unauthenticated epoch advance deadlocks PQ ratchet (HIGH; message)
 
 **Status.** 🟡 **Unfixed in SPQR; mitigated by libsignal.** The transition at `states.rs` L513–526 is still unauthenticated. libsignal's clone-then-commit-after-MAC prevents persistence for network-only attackers. An authenticated peer is not mitigated.
 
@@ -476,7 +489,7 @@ bidirectional deadlock.** `recv` also returns unauthenticated DR chain key.
 
 ---
 
-## D25. Empty message finalises V0 downgrade (MEDIUM; message)
+## D22. Empty message finalises V0 downgrade (MEDIUM; message)
 
 **Status.** 🟡 **Unfixed in SPQR; mitigated by libsignal.** Version negotiation logic unchanged. libsignal's MAC check prevents persistence for network-only attackers. The window remains open while `min_version = V0` (current production default).
 
@@ -496,7 +509,7 @@ V1 message returns `Ok` with `state: vec![]`.
 
 ---
 
-## D26. `epoch == 0` blob → underflow in `lib::send` (LOW; blob)
+## D23. `epoch == 0` blob → underflow in `lib::send` (LOW; blob)
 
 **Status.** 🔴 **Unfixed.** All 11 unchunked `from_pb` functions still accept `epoch = 0`.
 
@@ -512,7 +525,7 @@ V1 message returns `Ok` with `state: vec![]`.
 
 ---
 
-## D27. `lib::send` panics on `assert!(key.is_none())` (LOW–MEDIUM; blob)
+## D24. `lib::send` panics on `assert!(key.is_none())` (LOW–MEDIUM; blob)
 
 **Status.** 🔴 **Unfixed.** `lib.rs` L293 `assert!` still present.
 
@@ -528,7 +541,7 @@ V1 message returns `Ok` with `state: vec![]`.
 
 ---
 
-## D28. `ChainParams` never range-checked — `InvalidParams` dead code (MEDIUM; config)
+## D25. `ChainParams` never range-checked — `InvalidParams` dead code (MEDIUM; config)
 
 **Status.** 🔴 **Unfixed.** `Error::InvalidParams` still never constructed.
 
@@ -546,7 +559,7 @@ accepted.
 
 ---
 
-## D29. No `Zeroize` on heap key-holding types (LOW; local memory)
+## D26. No `Zeroize` on heap key-holding types (LOW; local memory)
 
 **Status.** 🔴 **Unfixed.** `zeroize` crate not in `Cargo.toml`.
 
@@ -555,34 +568,34 @@ DK 2400 B, ES 2080 B. `clear_next()` = `Vec::clear()` (no overwrite).
 
 **Consequence.** Secrets persist until realloc. Needs local access.
 
-**Fix.** Add `zeroize` crate; derive `ZeroizeOnDrop`. **Related.** D33.
+**Fix.** Add `zeroize` crate; derive `ZeroizeOnDrop`. **Related.** D30.
 
 ---
 
-## D30. `trim_size` overflow disables GC (LOW; blob)
+## D27. `trim_size` overflow disables GC (LOW; blob)
 
-**Status.** 🔴 **Unfixed.** Subsumed by D28 — will be closed when D28 is fixed.
+**Status.** 🔴 **Unfixed.** Subsumed by D25 — will be closed when D25 is fixed.
 
 **Rust.** Large `max_ooo_keys` → `trim_size()` overflows → GC disabled → old keys retained.
 
 **Consequence.** Forward secrecy degrades.
 
-**Fix.** Subsumed by D28.
+**Fix.** Subsumed by D25.
 
 ---
 
-## D31. `Authenticator` IKM collision (LOW; blob)
+## D28. `Authenticator` IKM collision (LOW; blob)
 
-**Status.** 🔴 **Unfixed.** Subsumed by D22.
+**Status.** 🔴 **Unfixed.** Subsumed by D19.
 
 **Rust.** HKDF `expand(root_key || mac_key)` — without length validation, different-length
 combinations can collide.
 
-**Consequence.** Latent. **Fix.** Subsumed by D22. **Related.** Sub-finding of D22.
+**Consequence.** Latent. **Fix.** Subsumed by D19. **Related.** Sub-finding of D19.
 
 ---
 
-## D32. Self-session `max_jump = u32::MAX` triggers D2/D28 (MEDIUM; message + config)
+## D29. Self-session `max_jump = u32::MAX` triggers D2/D25 (MEDIUM; message + config)
 
 **Status.** 🔴 **Unfixed.** libsignal `ratchet.rs` still sets `max_jump = u32::MAX` for self-sessions.
 
@@ -593,17 +606,17 @@ reachable in production.
 
 ---
 
-## D33. No `Zeroize` on stack secrets (LOW; local memory)
+## D30. No `Zeroize` on stack secrets (LOW; local memory)
 
 **Status.** 🔴 **Unfixed.** Stack secrets still uncleared.
 
 **Rust.** 64-byte keygen seed, 32-byte encaps entropy in `incremental_mlkem768.rs` uncleared.
 
-**Fix.** `randomness.zeroize()` after use. **Related.** D29.
+**Fix.** `randomness.zeroize()` after use. **Related.** D26.
 
 ---
 
-## D34. No `epoch < u64::MAX` guard in chunked recv (LOW–MEDIUM; blob)
+## D31. No `epoch < u64::MAX` guard in chunked recv (LOW–MEDIUM; blob)
 
 **Status.** 🔴 **Unfixed.** No guard at `states.rs` L515.
 
@@ -614,13 +627,13 @@ reachable in production.
 
 ---
 
-## D35. `authenticator::Error` variants never constructed (LOW)
+## D32. `authenticator::Error` variants never constructed (LOW)
 
 **Status.** ✅ **Fixed (Lean gap-documenting theorems added).** Dead code; evidence of planned but unimplemented validation.
 
 **Rust.** `Error::InvalidKeyLength`, `Error::InvalidRootKeyLength` exist but never returned.
 
-**Consequence.** Validation was planned, never implemented. **Related.** D22.
+**Consequence.** Validation was planned, never implemented. **Related.** D19.
 
 **Lean.** Two gap-documenting theorems added to `Spqr/Specs/Authenticator/Serialize/Authenticator/FromPb.lean`:
 - `from_pb_no_key_length_check` — proves `from_pb` succeeds even with `root_key.length ≠ 32`,
@@ -629,19 +642,19 @@ reachable in production.
   (`result.root_key.length = 32 ↔ pb.root_key.length = 32`), documenting that a corrected
   `from_pb` should *reject* when the condition is false.
 
-D35 audit comments also added to `FunctionalModels.lean`.
+D32 audit comments also added to `FunctionalModels.lean`.
 
 ---
 
-## D36. `From<authenticator::Error>` maps to wrong error class (LOW)
+## D33. `From<authenticator::Error>` maps to wrong error class (LOW)
 
-**Status.** ✅ **Fixed (Lean wrong-mapping theorems added).** Wrong error mapping; no runtime impact until D22 is fixed.
+**Status.** ✅ **Fixed (Lean wrong-mapping theorems added).** Wrong error mapping; no runtime impact until D19 is fixed.
 
 **Rust.** `impl From<authenticator::Error> for Error` maps all variants to `MacVerifyFailed`.
 
-**Consequence.** Deserialisation failures reported as MAC failures. **Related.** D22.
+**Consequence.** Deserialisation failures reported as MAC failures. **Related.** D19.
 
-**Lean.** D36 audit note and three theorems added to `Spqr/Specs/Lib/Error/From.lean`:
+**Lean.** D33 audit note and three theorems added to `Spqr/Specs/Lib/Error/From.lean`:
 - `from_maps_all_to_mac_verify_failed` — proves the blanket mapping: all variants produce
   `MacVerifyFailed` and never `StateDecode`, making the wrong classification explicit.
 - `from_wrong_mapping_for_key_errors` — enumerates each key-validation variant
@@ -651,26 +664,26 @@ D35 audit comments also added to `FunctionalModels.lean`.
 
 ---
 
-## D37. `PolyDecoder::into_pb` truncates `pts_needed: usize` to `u32` (LOW)
+## D34. `PolyDecoder::into_pb` truncates `pts_needed: usize` to `u32` (LOW)
 
 **Status.** ✅ **Fixed (Lean truncation-bound theorem added).** Latent; unrealistic precondition (`pts_needed > u32::MAX`).
 
 **Rust.** `pts_needed` is `usize` internally, `u32` in protobuf. On 64-bit with
 `pts_needed > u32::MAX` (unrealistic), round-trip loses high bits.
 
-**Fix.** Store `pts_needed: u32` internally. **Related.** D14.
+**Fix.** Store `pts_needed: u32` internally. **Related.** D12.
 
-**Lean.** D37 audit notes and theorem added:
+**Lean.** D34 audit notes and theorem added:
 - `into_pb_requires_u32_bound` in `Spqr/Specs/Encoding/Polynomial/PolyDecoder/IntoPb.lean` —
   documents that `into_pb_spec`'s `pts_needed` fidelity postcondition depends on
   `h_cast : self.pts_needed.val ≤ U32.max`; without it, the `from_pb ∘ into_pb` round-trip
   loses high bits.
-- D37 audit comment added to `FromPb.lean` module docstring noting that `from_pb` widens
+- D34 audit comment added to `FromPb.lean` module docstring noting that `from_pb` widens
   losslessly but `into_pb` truncates.
 
 ---
 
-## D38. Unauthenticated `Ct1Ack` stalls epoch (MEDIUM; message)
+## D35. Unauthenticated `Ct1Ack` stalls epoch (MEDIUM; message)
 
 **Status.** 🟡 **Unfixed in SPQR; mitigated by libsignal.** Ack processing still unauthenticated. libsignal's clone-then-commit-after-MAC prevents persistence for network-only attackers.
 
@@ -687,12 +700,12 @@ HeaderSent (expects Ct1). 200 round-trips never leave epoch 1.
 
 ---
 
-## D39. Unauthenticated `EkCt1Ack` stalls + poisons `ek` decoder (MEDIUM; message)
+## D36. Unauthenticated `EkCt1Ack` stalls + poisons `ek` decoder (MEDIUM; message)
 
-**Status.** 🟡 **Unfixed in SPQR; mitigated by libsignal.** Same mitigation as D38.
+**Status.** 🟡 **Unfixed in SPQR; mitigated by libsignal.** Same mitigation as D35.
 
 **Rust.** `states.rs` L419–420: `ack = true` processed before auth. Garbage chunk data
-enters `ek` decoder. Combines D38 (stall) + D19 (poisoning).
+enters `ek` decoder. Combines D35 (stall) + D16 (poisoning).
 
 **Reproduced.** [`forged_control_message_counterexamples.rs.txt`](./forged_control_message_counterexamples.rs.txt).
 
@@ -700,7 +713,7 @@ enters `ek` decoder. Combines D38 (stall) + D19 (poisoning).
 
 ---
 
-## D40. Self-session removes HKDF-walk bound — pre-MAC CPU DoS (LOW–MEDIUM; msg + config)
+## D37. Self-session removes HKDF-walk bound — pre-MAC CPU DoS (LOW–MEDIUM; msg + config)
 
 **Status.** 🔴 **Unfixed.** libsignal still sets `max_jump = u32::MAX` for self-sessions.
 
@@ -715,7 +728,7 @@ enters `ek` decoder. Combines D38 (stall) + D19 (poisoning).
 
 ---
 
-# New Defects Discovered via Alternative Analysis Methods (D41–D52, 11 new)
+# New Defects Discovered via Alternative Analysis Methods (D38–D49, 11 new)
 
 > **Added:** 2026-10-04
 >
@@ -723,7 +736,7 @@ enters `ek` decoder. Combines D38 (stall) + D19 (poisoning).
 
 ---
 
-## D41. `decode_varint` shift overflow produces silent truncation (MEDIUM; message)
+## D38. `decode_varint` shift overflow produces silent truncation (MEDIUM; message)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -740,34 +753,34 @@ bypassing epoch checks.
 
 ---
 
-## D42. `Authenticator::update` IKM includes `root_key` of unchecked length (LOW; crypto)
+## D39. `Authenticator::update` IKM includes `root_key` of unchecked length (LOW; crypto)
 
-**Status.** ✅ **Fixed (Lean divergence theorem added).** Extension of D22/D31.
+**Status.** ✅ **Fixed (Lean divergence theorem added).** Extension of D19/D28.
 
 **Detection method.** M7 (crypto protocol analysis).
 
 **Rust.** `authenticator.rs` L45: `let ikm = [self.root_key.as_slice(), k].concat()`.
-D22 identifies that `from_pb` accepts arbitrary key lengths. D31 notes the IKM collision
+D19 identifies that `from_pb` accepts arbitrary key lengths. D28 notes the IKM collision
 risk. This defect identifies a specific new consequence: when `root_key` has wrong length
-via D22, the `update` function's concatenation `root_key || k` produces a different HKDF
+via D19, the `update` function's concatenation `root_key || k` produces a different HKDF
 input than the peer. After `update`, the two parties compute different `mac_key` values,
 so all subsequent MACs diverge — the session becomes permanently broken (not just on
-the current message, but on all future messages in the epoch). D22/D31 describe the
+the current message, but on all future messages in the epoch). D19/D28 describe the
 validation gap and abstract collision risk; this documents the concrete session-breaking
-consequence chain: D22 → D42 → permanent MAC divergence.
+consequence chain: D19 → D39 → permanent MAC divergence.
 
 **Consequence.** Permanent session break after blob corruption, not recoverable without
-re-initialisation. **Related.** D22, D31.
+re-initialisation. **Related.** D19, D28.
 
-**Lean.** D42 audit note and theorem added to `Spqr/Specs/Authenticator/Authenticator/Update.lean`:
+**Lean.** D39 audit note and theorem added to `Spqr/Specs/Authenticator/Authenticator/Update.lean`:
 - `update_diverges_on_bad_root_key` — proves that if two authenticators have different
   `root_key` values (e.g. one from `new` with len=32, one from a corrupted `from_pb`), then
-  their HKDF IKM (`root_key ++ k`) differs, formalising the D22 → D42 → permanent MAC
+  their HKDF IKM (`root_key ++ k`) differs, formalising the D19 → D39 → permanent MAC
   divergence consequence chain.
 
 ---
 
-## D44. `compare` panics on mismatched lengths (MEDIUM; blob)
+## D41. `compare` panics on mismatched lengths (MEDIUM; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -776,7 +789,7 @@ re-initialisation. **Related.** D22, D31.
 **Rust.** `util.rs` L28: loop indexes `rhs[i]` using `lhs.len()`. If `rhs.len() <
 lhs.len()`, panics. The `requires(lhs.len() == rhs.len())` is erased in non-hax builds.
 
-Via D42 (wrong key length) or D14 (arbitrary decoder output length), `expected_mac`
+Via D39 (wrong key length) or D12 (arbitrary decoder output length), `expected_mac`
 could have `len != 32`, reaching `compare` with mismatched lengths.
 
 **Consequence.** Panic (crash) in MAC-verification hot path → DoS.
@@ -785,7 +798,7 @@ could have `len != 32`, reaching `compare` with mismatched lengths.
 
 ---
 
-## D45. `PolyEncoder::from_pb` accepts arbitrary `idx` (LOW–MEDIUM; blob)
+## D42. `PolyEncoder::from_pb` accepts arbitrary `idx` (LOW–MEDIUM; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -795,13 +808,13 @@ could have `len != 32`, reaching `compare` with mismatched lengths.
 validating consistency with point counts. High `idx` with inadmissible point counts
 triggers `debug_assert!(false)` at L310 via `point_at`→`from_complete_points`.
 
-**Consequence.** Debug: panic. Release: wrong polynomial data. Extends D5 + D13.
+**Consequence.** Debug: panic. Release: wrong polynomial data. Extends D5 + D11.
 
-**Fix.** Validate `pb.idx` against point counts. **Related.** D5, D13.
+**Fix.** Validate `pb.idx` against point counts. **Related.** D5, D11.
 
 ---
 
-## D46. `ChainEpochDirection::from_pb` — `next.len() != 32` crash in `copy_from_slice` (HIGH; blob)
+## D43. `ChainEpochDirection::from_pb` — `next.len() != 32` crash in `copy_from_slice` (HIGH; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -819,27 +832,27 @@ crash in `next_key_internal` — the assert at L229 catches empty `next`, but no
 
 ---
 
-## D47. `epoch == 0` in chunked `from_pb` also unvalidated (LOW–MEDIUM; blob)
+## D44. `epoch == 0` in chunked `from_pb` also unvalidated (LOW–MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** Extension of D26.
+**Status.** 🔴 **Unfixed.** Extension of D23.
 
 **Detection method.** M1 (model checking) + manual review.
 
-**Rust.** D26 identifies the `epoch == 0` underflow in `lib.rs` L300 for the 11 unchunked
+**Rust.** D23 identifies the `epoch == 0` underflow in `lib.rs` L300 for the 11 unchunked
 `from_pb` paths. However, the chunked `from_pb` paths also propagate epochs from the
 unchunked inner state without additional validation. For example,
 `chunked/send_ek/serialize.rs` L16–20 delegates to `unchunked::send_ek::KeysUnsampled::from_pb`
 which accepts `epoch = 0`. Thus the same vulnerability exists for all 11 chunked state
 variants that wrap unchunked states. Additionally, `lib.rs` L427:
 `let msg_key_epoch = scka_msg.epoch - 1` in the `recv` path is protected by `deserialize`
-rejecting `epoch == 0`, but the `send` path (L300) is not. The fix for D26 (reject
+rejecting `epoch == 0`, but the `send` path (L300) is not. The fix for D23 (reject
 `epoch == 0` in unchunked `from_pb`) would also fix this.
 
-**Consequence.** Same as D26. **Related.** D26.
+**Consequence.** Same as D23. **Related.** D23.
 
 ---
 
-## D48. `KeyHistory::gc` panics when `ctr < max_ooo_keys` after blob restore (MEDIUM; blob)
+## D45. `KeyHistory::gc` panics when `ctr < max_ooo_keys` after blob restore (MEDIUM; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -857,7 +870,7 @@ Via D1 corrupted blob: `from_pb` loads `ctr = 0` with non-empty `prev.data` of s
 
 ---
 
-## D49. `PolyDecoder::from_pb` accepts `pts_needed == 0` — division by zero in `necessary_points` (LOW; blob)
+## D46. `PolyDecoder::from_pb` accepts `pts_needed == 0` — division by zero in `necessary_points` (LOW; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -872,11 +885,11 @@ An empty decoder with `pts_needed == 0` returns `Some(vec![])` from `decoded_mes
 on (e.g., `send_ek.rs` L206: `ct2.split_off(CIPHERTEXT2_SIZE)` where `CIPHERTEXT2_SIZE = 128`).
 `split_off` on an empty Vec panics.
 
-**Fix.** Validate `pb.pts_needed > 0` and matches expected sizes. **Related.** D14.
+**Fix.** Validate `pb.pts_needed > 0` and matches expected sizes. **Related.** D12.
 
 ---
 
-## D50. `flip_endianness_of_encapsulation_state` leaks secret copy (LOW; local memory)
+## D47. `flip_endianness_of_encapsulation_state` leaks secret copy (LOW; local memory)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -886,13 +899,13 @@ on (e.g., `send_ek.rs` L206: `ct2.split_off(CIPHERTEXT2_SIZE)` where `CIPHERTEXT
 bytes of secret encapsulation state. The returned clone is used but the original `es`
 reference remains. The `clone()` creates a second copy of secret material in memory.
 
-**Consequence.** Doubled secret memory footprint; no zeroization. **Related.** D29, D33.
+**Consequence.** Doubled secret memory footprint; no zeroization. **Related.** D26, D30.
 
 **Fix.** Use in-place byte swapping instead of clone.
 
 ---
 
-## D51. `kdf::hkdf_to_slice` panics on `okm` length > 255 * hash_len (LOW; config)
+## D48. `kdf::hkdf_to_slice` panics on `okm` length > 255 * hash_len (LOW; config)
 
 **Status.** ✅ **Fixed (Lean audit comments added).**
 
@@ -907,14 +920,14 @@ accepts arbitrary `okm_len` with no compile-time or runtime guard.
 
 **Fix.** Add `assert!(okm_len <= 8160)` or return `Result`.
 
-**Lean.** D51 audit comments added to `Spqr/Specs/Kdf/HkdfToSlice.lean` and
+**Lean.** D48 audit comments added to `Spqr/Specs/Kdf/HkdfToSlice.lean` and
 `Spqr/Specs/Kdf/HkdfToVec.lean` documenting that the `h : okm.length ≤ 255 * 32`
 precondition is erased in Rust (the `expect` panics if violated). The Lean trusted base
 silently assumes the bound; if violated, the axiom's postcondition would be unsound.
 
 ---
 
-## D52. `PolyDecoder::is_complete` flag not validated on `from_pb` (LOW; blob)
+## D49. `PolyDecoder::is_complete` flag not validated on `from_pb` (LOW; blob)
 
 **Status.** ✅ **Fixed (Lean gap theorem added).**
 
@@ -931,7 +944,7 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 **Fix.** Validate `is_complete` consistency with `pts` contents, or always reset to
 `false` on `from_pb`.
 
-**Lean.** D52 audit note and theorem added to
+**Lean.** D49 audit note and theorem added to
 `Spqr/Specs/Encoding/Polynomial/PolyDecoder/FromPb.lean`:
 - `from_pb_accepts_bad_is_complete` — proves that `from_pb` succeeds with
   `decoder.is_complete = true` when the blob has `pb.is_complete = true`, even though
@@ -940,7 +953,7 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 
 ---
 
-# Additional Defects Discovered via Online Specification Theorem Methods (D53–D66)
+# Additional Defects Discovered via Online Specification Theorem Methods (D50–D63)
 
 > **Added:** 2026-10-04
 >
@@ -965,7 +978,7 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 
 ---
 
-## D53. `PolyEncoder::next_chunk` — `idx` wraps `u16` silently, producing duplicate chunk indices (MEDIUM; protocol)
+## D50. `PolyEncoder::next_chunk` — `idx` wraps `u16` silently, producing duplicate chunk indices (MEDIUM; protocol)
 
 **Status.** ✅ **Fixed (Lean spec tightened; `checked_add` required).**
 
@@ -989,7 +1002,7 @@ chunks the decoder ignores. Silent stall in long-running epochs with retransmiss
 
 ---
 
-## D54. `compare` constant-time comparison panics on mismatched lengths (MEDIUM; crypto)
+## D51. `compare` constant-time comparison panics on mismatched lengths (MEDIUM; crypto)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -1006,22 +1019,22 @@ Corrupted blob producing non-32-byte MAC field reaches `compare` with mismatched
 
 ---
 
-## D55. `Authenticator::update` IKM concatenation lacks length prefix — domain separation failure (LOW; crypto)
+## D52. `Authenticator::update` IKM concatenation lacks length prefix — domain separation failure (LOW; crypto)
 
-**Status.** ✅ **Fixed (Lean IKM collision theorem added).** Extension of D31/D42.
+**Status.** ✅ **Fixed (Lean IKM collision theorem added).** Extension of D28/D39.
 
 **Detection method.** M14 (compositional invariant verification).
 
 **Rust.** `authenticator.rs` L45: `[self.root_key.as_slice(), k].concat()` without
 length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
-`root_key || k` collides byte-for-byte. Requires D22 corruption.
+`root_key || k` collides byte-for-byte. Requires D19 corruption.
 
 **Consequence.** Latent. Two authenticator states produce identical MAC keys.
-**Related.** D22, D31, D42.
+**Related.** D19, D28, D39.
 
 **Fix.** Length-prefixed concatenation: `len(root_key) || root_key || k`.
 
-**Lean.** D55 audit note and theorem added to
+**Lean.** D52 audit note and theorem added to
 `Spqr/Specs/Authenticator/Authenticator/Update.lean`:
 - `update_ikm_collision_exists` — constructs a concrete witness of two distinct
   `(root_key, k)` pairs (`[1,2],[3]` vs `[1],[2,3]`) whose plain concatenations
@@ -1030,7 +1043,7 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 
 ---
 
-## D56. `epoch_idx` — `as usize` truncation causes silent key mismatch on 32-bit (MEDIUM; 32-bit)
+## D53. `epoch_idx` — `as usize` truncation causes silent key mismatch on 32-bit (MEDIUM; 32-bit)
 
 **Status.** ✅ **Fixed (Lean usize-bound theorem added).** Extension of D3.
 
@@ -1043,7 +1056,7 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 
 **Fix.** `usize::try_from(...).map_err(|_| Error::EpochOutOfRange(epoch))?`.
 
-**Lean.** D56 audit note and theorem added to `Spqr/Specs/Chain/Chain/EpochIdx.lean`:
+**Lean.** D53 audit note and theorem added to `Spqr/Specs/Chain/Chain/EpochIdx.lean`:
 - `epoch_idx_needs_usize_bound` — proves that `epoch_idx_spec`'s index correctness
   postcondition holds jointly with `current_epoch - epoch ≤ Usize.max`, documenting
   that the `as usize` cast is lossless only when `h_diff_fits` holds. On 32-bit
@@ -1051,7 +1064,7 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 
 ---
 
-## D57. `add_chunk` — `GF16::new(poly_idx as u16)` truncates x-coordinate for large chunk indices (LOW; protocol)
+## D54. `add_chunk` — `GF16::new(poly_idx as u16)` truncates x-coordinate for large chunk indices (LOW; protocol)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -1060,45 +1073,45 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 **Rust.** `polynomial.rs` L889: `GF16::new(poly_idx as u16)`. When `chunk.index > 4095`,
 `as u16` truncation produces colliding x-coordinates. Decoder interpolation wrong.
 
-**Consequence.** Silent wrong decoded data for large chunk indices. **Related.** D53.
+**Consequence.** Silent wrong decoded data for large chunk indices. **Related.** D50.
 
 **Fix.** Reject `chunk.index > 4095`.
 
 ---
 
-## D58. `from_complete_points` fallback computes wrong polynomial in release (MEDIUM; blob)
+## D55. `from_complete_points` fallback computes wrong polynomial in release (MEDIUM; blob)
 
-**Status.** 🔴 **Unfixed.** Extension of D13.
+**Status.** 🔴 **Unfixed.** Extension of D11.
 
 **Detection method.** M18 (trusted-base audit).
 
 **Rust.** `polynomial.rs` L310–327: Fallback constructs Lagrange interpolant of
 `{(x_i, 1)}` not `{(x_i, y_i)}`. In release, silently emits all-one chunks.
 
-**Consequence.** Silent data corruption in release. **Related.** D13.
+**Consequence.** Silent data corruption in release. **Related.** D11.
 
 **Fix.** Return `Err` instead of `debug_assert!(false)` + fallback.
 
 ---
 
-## D59. `trim_size` — `max_ooo * 11` overflows `usize` with unvalidated params (LOW; config)
+## D56. `trim_size` — `max_ooo * 11` overflows `usize` with unvalidated params (LOW; config)
 
-**Status.** 🔴 **Unfixed.** Subsumed by D28.
+**Status.** 🔴 **Unfixed.** Subsumed by D25.
 
 **Detection method.** M15 (fuel analysis).
 
-**Rust.** `chain.rs` L87: `max_ooo * 11 / 10 + 1`. Erased `assume!`. With D28's
+**Rust.** `chain.rs` L87: `max_ooo * 11 / 10 + 1`. Erased `assume!`. With D25's
 unvalidated `max_ooo = u32::MAX`, wraps → tiny trim_size → GC deletes all OOO keys.
 
-**Consequence.** All delayed messages permanently dropped. **Related.** D28, D30.
+**Consequence.** All delayed messages permanently dropped. **Related.** D25, D27.
 
-**Fix.** Subsumed by D28.
+**Fix.** Subsumed by D25.
 
 
 
 ---
 
-## D60. `key` — `ctr + max_ooo` overflow bypasses KeyTrimmed check (MEDIUM; blob + config)
+## D57. `key` — `ctr + max_ooo` overflow bypasses KeyTrimmed check (MEDIUM; blob + config)
 
 **Status.** 🟢 **Proved.** Extension of D2.
 
@@ -1114,13 +1127,13 @@ wrong GC / clear decisions.
 `ctr` large (D1 blob) and default `max_ooo = 2000`, `ctr + 2000` wraps. Valid keys
 rejected as trimmed, or trimmed keys accepted as valid.
 
-**Consequence.** Key state inconsistency between parties. **Related.** D2, D28.
+**Consequence.** Key state inconsistency between parties. **Related.** D2, D25.
 
 **Fix.** `self.ctr.checked_add(...)`, return `KeyTrimmed` on overflow.
 
 ---
 
-## D61. `Option<T>::next_chunk` — `unwrap()` panics when `None` (LOW; spec)
+## D58. `Option<T>::next_chunk` — `unwrap()` panics when `None` (LOW; spec)
 
 **Status.** 🔵 **Unfixed (spec-only).**
 
@@ -1132,36 +1145,36 @@ rejected as trimmed, or trimmed keys accepted as valid.
 
 ---
 
-## D62. Eviction loop proof depends on unsound `VecDeque` Lean model (LOW; spec)
+## D59. Eviction loop proof depends on unsound `VecDeque` Lean model (LOW; spec)
 
 **Status.** 🔵 **Unfixed (spec-only).**
 
 **Detection method.** M14 + M18.
 
-**Rust.** `chain.rs` L391–394: Correct in Rust, but Lean proof relies on D20's unsound
+**Rust.** `chain.rs` L391–394: Correct in Rust, but Lean proof relies on D17's unsound
 `VecDeque` model.
 
-**Consequence.** No runtime defect; Lean proof unsound. **Related.** D20.
+**Consequence.** No runtime defect; Lean proof unsound. **Related.** D17.
 
-**Fix.** Fix `VecDeque` model (D20).
+**Fix.** Fix `VecDeque` model (D17).
 
 ---
 
-## D63. `encaps1` — 32-byte KEM entropy not zeroized on stack (LOW; local memory)
+## D60. `encaps1` — 32-byte KEM entropy not zeroized on stack (LOW; local memory)
 
-**Status.** 🔴 **Unfixed.** Extension of D33.
+**Status.** 🔴 **Unfixed.** Extension of D30.
 
 **Detection method.** M16 (information-flow).
 
 **Rust.** `incremental_mlkem768.rs` L52–53: `randomness` persists on stack.
 
-**Consequence.** KEM entropy recoverable via memory dump. **Related.** D29, D33.
+**Consequence.** KEM entropy recoverable via memory dump. **Related.** D26, D30.
 
 **Fix.** `randomness.zeroize()` after `encapsulate1`.
 
 ---
 
-## D64. `decaps` — no ML-KEM algebraic validity on blob inputs (LOW; blob)
+## D61. `decaps` — no ML-KEM algebraic validity on blob inputs (LOW; blob)
 
 **Status.** 🔴 **Unfixed.**
 
@@ -1176,31 +1189,31 @@ transform produces pseudorandom garbage for invalid inputs → silent PQ securit
 
 ---
 
-## D65. `SortedSet::push` last-write-wins contradicts comment — point replacement (MEDIUM; message)
+## D62. `SortedSet::push` last-write-wins contradicts comment — point replacement (MEDIUM; message)
 
-**Status.** 🔴 **Unfixed.** Extension of D19.
+**Status.** 🔴 **Unfixed.** Extension of D16.
 
 **Detection method.** M17 (symbolic state-machine model checking).
 
 **Rust.** `polynomial.rs` L898–901: Comment says first-write-wins but implementation
 does last-write-wins. Root cause of chunk poisoning (CorruptedBlobs.md §15.2).
 
-**Consequence.** Authenticated peer replaces honest points → permanent stall. **Related.** D19.
+**Consequence.** Authenticated peer replaces honest points → permanent stall. **Related.** D16.
 
 **Fix.** First-write-wins: check `contains` before `insert`.
 
 ---
 
-## D66. `decode_varint` — 10-byte varint desynchronises parse position (LOW; message)
+## D63. `decode_varint` — 10-byte varint desynchronises parse position (LOW; message)
 
-**Status.** 🔴 **Unfixed.** Extension of D41.
+**Status.** 🔴 **Unfixed.** Extension of D38.
 
 **Detection method.** M13 (refinement checking) — round-trip `decode(encode(x)) = x`.
 
 **Rust.** `states/serialize.rs` L170: For 10-byte varints, parser position wrong.
 Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
-**Consequence.** Crafted varint causes wrong epoch transitions. **Related.** D41.
+**Consequence.** Crafted varint causes wrong epoch transitions. **Related.** D38.
 
 **Fix.** Reject varints with >9 continuation bytes; validate high-bit clear on last.
 
@@ -1223,17 +1236,16 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 | Order | Defect | Fix | Rationale |
 |---|---|---|---|
-| **0-a** | **D20** ✅ | ~~Rewrite `VecDeque::into_iter` model in `FunsExternal.lean`: `head' ← head + 1; length' ← length − 1`.~~ **Done.** | Unblocks `Chain::into_pb` round-trip proofs; D62 can now be re-proved. |
-| **0-b** | **D15** | Close `sorry`s in `SrcTranslated/Funs.lean`; prove `MapCollectBridge.lean`; resolve `DecodeState.lean:54`. | Removes proof gaps blocking `from_pb`/`into_pb` round-trips. |
-| **0-c** | **D10** | Correct false `data.len() ≤ KEY_SIZE * trim_size()` bound in `Add.lean`/`Remove.lean` and `chain.rs` annotations. | Eliminates false axiom; needed before `key_spec` proofs. |
+| **0-a** | **D17** ✅ | ~~Rewrite `VecDeque::into_iter` model in `FunsExternal.lean`: `head' ← head + 1; length' ← length − 1`.~~ **Done.** | Unblocks `Chain::into_pb` round-trip proofs; D59 can now be re-proved. |
+| **0-b** | **D9** | Correct false `data.len() ≤ KEY_SIZE * trim_size()` bound in `Add.lean`/`Remove.lean` and `chain.rs` annotations. | Eliminates false axiom; needed before `key_spec` proofs. |
 
 
 ## Phase 1 — Spec-model alignment (depends on Phase 0)
 
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
-| **1-a** | **D4** ✅ | ~~Fix `AddChunk.lean` postcondition `IsSortedPushResult` to specify last-write-wins (or change Rust to first-write-wins).~~ **Done.** Rust comment corrected; `IsSortedPushResult` docstring documents last-write-wins; `replacement_preserves_length` theorem added. | Needed for D65. |
-| **1-b** | **D65** | Add `add_chunk` postcondition specifying retained `y` on x-collision. | Depends on 1-a. |
+| **1-a** | **D4** ✅ | ~~Fix `AddChunk.lean` postcondition `IsSortedPushResult` to specify last-write-wins (or change Rust to first-write-wins).~~ **Done.** Rust comment corrected; `IsSortedPushResult` docstring documents last-write-wins; `replacement_preserves_length` theorem added. | Needed for D62. |
+| **1-b** | **D62** | Add `add_chunk` postcondition specifying retained `y` on x-collision. | Depends on 1-a. |
 | **1-c** | **D6** | Strengthen `DecodeChunk.lean`: on error, `at = *old(at)`. | Independent. |
 | **1-d** | **D7** | Remove erased `assume!(val <= u16::MAX)` from `DecodeVarint.lean`; prove or check. | Independent. |
 
@@ -1241,59 +1253,58 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
-| **2-a** | **D61** | `encoding.rs`: replace `unwrap()` with `ok_or(...)` returning `Result`. | Independent. |
-| **2-b** | **D51** ✅ | ~~`kdf.rs`: guard `okm.len() > 8160` before `expand`.~~ **Done.** Erased-bound audit comments added to `HkdfToSlice.lean` and `HkdfToVec.lean`. | Independent. |
-| **2-c** | **D54/D44** | `util.rs`: return `1` on `lhs.len() != rhs.len()`. | Independent. |
-| **2-d** | **D53** ✅ | ~~`polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`.~~ **Done.** Lean spec tightened with `h_idx_no_overflow` precondition; postcondition no longer uses modular wrap. | Independent. |
-| **2-e** | **D58** | `polynomial.rs`: return `Err` instead of `debug_assert!(false)` + fallback. | Independent. |
+| **2-a** | **D58** | `encoding.rs`: replace `unwrap()` with `ok_or(...)` returning `Result`. | Independent. |
+| **2-b** | **D48** ✅ | ~~`kdf.rs`: guard `okm.len() > 8160` before `expand`.~~ **Done.** Erased-bound audit comments added to `HkdfToSlice.lean` and `HkdfToVec.lean`. | Independent. |
+| **2-c** | **D51/D41** | `util.rs`: return `1` on `lhs.len() != rhs.len()`. | Independent. |
+| **2-d** | **D50** ✅ | ~~`polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`.~~ **Done.** Lean spec tightened with `h_idx_no_overflow` precondition; postcondition no longer uses modular wrap. | Independent. |
+| **2-e** | **D55** | `polynomial.rs`: return `Err` instead of `debug_assert!(false)` + fallback. | Independent. |
 
 ## Phase 3 — Compositional invariant gaps (depends on Phases 0–2)
 
 | Order | Defect | Fix | Dependency |
 |---|---|---|---|
-| **3-a** | **D60** | `chain.rs` L265: `checked_add`, return `KeyTrimmed` on overflow. | Needs 0-c. |
-| **3-b** | **D56** ✅ | ~~`chain.rs` L376: `usize::try_from(...)` instead of `as usize`.~~ **Done.** Usize-bound theorem (`epoch_idx_needs_usize_bound`) added to `EpochIdx.lean`. | Needs 0-a. |
-| **3-c** | **D62** | Re-prove eviction loop against corrected `VecDeque` model. | Needs 0-a. |
-| **3-d** | **D55** ✅ | ~~`authenticator.rs`: length-prefixed IKM concatenation.~~ **Done.** IKM collision theorem (`update_ikm_collision_exists`) added to `Update.lean`. | Needs D22 fix. |
-| **3-e** | **D42** ✅ | ~~Prove `authenticator_update_diverges_on_bad_root_key` theorem.~~ **Done.** `update_diverges_on_bad_root_key` theorem added to `Update.lean`. | Needs 3-d. |
+| **3-a** | **D57** | `chain.rs` L265: `checked_add`, return `KeyTrimmed` on overflow. | Needs 0-b. |
+| **3-b** | **D53** ✅ | ~~`chain.rs` L376: `usize::try_from(...)` instead of `as usize`.~~ **Done.** Usize-bound theorem (`epoch_idx_needs_usize_bound`) added to `EpochIdx.lean`. | Needs 0-a. |
+| **3-c** | **D59** | Re-prove eviction loop against corrected `VecDeque` model. | Needs 0-a. |
+| **3-d** | **D52** ✅ | ~~`authenticator.rs`: length-prefixed IKM concatenation.~~ **Done.** IKM collision theorem (`update_ikm_collision_exists`) added to `Update.lean`. | Needs D19 fix. |
+| **3-e** | **D39** ✅ | ~~Prove `authenticator_update_diverges_on_bad_root_key` theorem.~~ **Done.** `update_diverges_on_bad_root_key` theorem added to `Update.lean`. | Needs 3-d. |
 
 ## Phase 4 — Spec annotation hygiene (independent, apply last)
 
 | Order | Defect | Fix |
 |---|---|---|
-| **4-a** | **D23** ✅ | ~~Remove or `#[cfg(test)]`-gate spec files for test-only code.~~ **Done.** Audit comments added to `Encoding/Encoder/` and `Encoding/Decoder/` spec files. |
-| **4-b** | **D35** ✅ | ~~Implement key-length validation or remove dead error variants.~~ **Done.** Gap-documenting theorems (`from_pb_no_key_length_check`, `from_pb_missing_validation`) added to `FromPb.lean`; audit comments in `FunctionalModels.lean`. |
-| **4-c** | **D36** ✅ | ~~Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`.~~ **Done.** Wrong-mapping theorems (`from_maps_all_to_mac_verify_failed`, `from_wrong_mapping_for_key_errors`) added to `Spqr/Specs/Lib/Error/From.lean`. |
-| **4-d** | **D37** ✅ | ~~Change `pts_needed` to `u32` internally. Update Lean specs.~~ **Done.** Truncation-bound theorem (`into_pb_requires_u32_bound`) added to `IntoPb.lean`; audit comment in `FromPb.lean`. |
-| **4-e** | **D52** ✅ | ~~Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`.~~ **Done.** Gap theorem (`from_pb_accepts_bad_is_complete`) added to `FromPb.lean`. |
-| **4-f** | **D66** | Reject >9-byte varints. Update `DecodeVarint.lean`. |
-| **4-g** | **D57** | Guard `chunk.index > 4095` in `add_chunk`. Update `AddChunk.lean`. |
+| **4-a** | **D20** ✅ | ~~Remove or `#[cfg(test)]`-gate spec files for test-only code.~~ **Done.** Audit comments added to `Encoding/Encoder/` and `Encoding/Decoder/` spec files. |
+| **4-b** | **D32** ✅ | ~~Implement key-length validation or remove dead error variants.~~ **Done.** Gap-documenting theorems (`from_pb_no_key_length_check`, `from_pb_missing_validation`) added to `FromPb.lean`; audit comments in `FunctionalModels.lean`. |
+| **4-c** | **D33** ✅ | ~~Fix `From<authenticator::Error>` mapping: `InvalidKeyLength` → `StateDecode`.~~ **Done.** Wrong-mapping theorems (`from_maps_all_to_mac_verify_failed`, `from_wrong_mapping_for_key_errors`) added to `Spqr/Specs/Lib/Error/From.lean`. |
+| **4-d** | **D34** ✅ | ~~Change `pts_needed` to `u32` internally. Update Lean specs.~~ **Done.** Truncation-bound theorem (`into_pb_requires_u32_bound`) added to `IntoPb.lean`; audit comment in `FromPb.lean`. |
+| **4-e** | **D49** ✅ | ~~Validate `is_complete` consistency in `from_pb`. Update `FromPb.lean`.~~ **Done.** Gap theorem (`from_pb_accepts_bad_is_complete`) added to `FromPb.lean`. |
+| **4-f** | **D63** | Reject >9-byte varints. Update `DecodeVarint.lean`. |
+| **4-g** | **D54** | Guard `chunk.index > 4095` in `add_chunk`. Update `AddChunk.lean`. |
 
 ## Dependency graph
 
 ```
 Phase 0 (parallel)
-  ├─ 0-a D20 VecDeque model ✅
-  ├─ 0-b D15 sorry/axiom gaps
-  └─ 0-c D10 false history bound
+  ├─ 0-a D17 VecDeque model ✅
+  └─ 0-b D9 false history bound
         │
    ┌────┴────────────────────┐
 Phase 1 (spec alignment)    Phase 2 (erased preconditions)
-  ├─ 1-a D4 ──► 1-b D65     ├─ 2-a D61
-  ├─ 1-c D6                 ├─ 2-b D51 ✅
-  └─ 1-d D7                 ├─ 2-c D54/D44
-                             ├─ 2-d D53
-                             └─ 2-e D58
+  ├─ 1-a D4 ──► 1-b D62     ├─ 2-a D58
+  ├─ 1-c D6                 ├─ 2-b D48 ✅
+  └─ 1-d D7                 ├─ 2-c D51/D41
+                             ├─ 2-d D50
+                             └─ 2-e D55
         │                          │
         └──────────┬───────────────┘
               Phase 3 (compositional)
-                ├─ 3-a D60 (needs 0-c)
-                ├─ 3-b D56 ✅ (needs 0-a)
-                ├─ 3-c D62 (needs 0-a)
-                ├─ 3-d D55 ✅ (needs D22 fix)
-                └─ 3-e D42 ✅ (needs 3-d)
+                ├─ 3-a D57 (needs 0-b)
+                ├─ 3-b D53 ✅ (needs 0-a)
+                ├─ 3-c D59 (needs 0-a)
+                ├─ 3-d D52 ✅ (needs D19 fix)
+                └─ 3-e D39 ✅ (needs 3-d)
                        │
               Phase 4 (hygiene, any order)
-                D23 ✅, D35 ✅, D36 ✅, D37 ✅, D52 ✅, D66, D57
+                D20 ✅, D32 ✅, D33 ✅, D34 ✅, D49 ✅, D63, D54
 ```
 

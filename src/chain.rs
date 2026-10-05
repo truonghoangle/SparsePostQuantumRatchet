@@ -717,6 +717,64 @@ mod test {
         eprintln!("S8: after 2000 steered calls ctr={} prev={} B — I1–I3 hold", d.ctr, d.prev.len());
     }
 
+    // --- D18 probes: Chain::from_pb admits corrupted next_root/links/epoch ---
+
+    /// D18-1: `from_pb` accepts `next_root` with length ≠ 32 (e.g. 16 bytes).
+    /// The corrupted next_root survives round-trip and will cause silent key divergence
+    /// when used as HKDF salt in `add_epoch`.
+    #[test]
+    fn d18_from_pb_admits_wrong_next_root_length() {
+        let mut pb = Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap().into_pb();
+        pb.next_root = vec![0u8; 16]; // should be 32
+        let c = Chain::from_pb(pb.clone())
+            .expect("from_pb should reject but accepts bad next_root");
+        assert_eq!(c.next_root.len(), 16, "corrupted next_root survives from_pb");
+        let pb2 = c.into_pb();
+        assert_eq!(pb, pb2, "corruption round-trips through into_pb");
+        eprintln!("D18-1: from_pb accepts next_root.len()=16 (should require 32)");
+    }
+
+    /// D18-2: `from_pb` accepts empty `links` (no epochs).
+    /// Empty links means every `send_key` and `recv_key` returns `EpochOutOfRange` —
+    /// the chain is permanently unusable for any epoch.
+    #[test]
+    fn d18_from_pb_admits_empty_links() {
+        let mut pb = Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap().into_pb();
+        pb.links.clear(); // empty
+        let mut c = Chain::from_pb(pb).expect("from_pb should reject but accepts empty links");
+        assert_eq!(c.links.len(), 0, "empty links survives from_pb");
+        // Every send_key and recv_key fails — the chain is permanently stuck.
+        assert!(matches!(c.send_key(0), Err(Error::EpochOutOfRange(0))),
+            "send_key(0) fails on empty links");
+        assert!(matches!(c.recv_key(0, 1), Err(Error::EpochOutOfRange(0))),
+            "recv_key(0,1) fails on empty links");
+        // Round-trip preserves the corruption.
+        let pb2 = c.into_pb();
+        assert!(pb2.links.is_empty(), "empty links round-trips");
+        eprintln!("D18-2: from_pb accepts links=[] → chain permanently stuck (all ops fail)");
+    }
+
+    /// D18-3: `from_pb` accepts `send_epoch > current_epoch`.
+    /// This makes every `send_key` fail because epoch_idx underflows, permanently
+    /// stalling the chain.
+    #[test]
+    fn d18_from_pb_admits_epoch_inversion() {
+        let mut pb = Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap().into_pb();
+        pb.send_epoch = 7; // current_epoch is 0
+        let mut c = Chain::from_pb(pb)
+            .expect("from_pb should reject but accepts send_epoch > current_epoch");
+        assert!(c.send_epoch > c.current_epoch, "epoch inversion survives from_pb");
+        // send_key fails for the inverted epoch (7 > current 0).
+        let r = c.send_key(7);
+        assert!(r.is_err(), "send_key fails with inverted epoch: {:?}", r);
+        // send_key also fails for epoch 0 because send_epoch has been set to 7.
+        let r2 = c.send_key(0);
+        assert!(r2.is_err(), "send_key(0) also fails: {:?}", r2);
+        eprintln!("D18-3: from_pb accepts send_epoch(7) > current_epoch(0) → chain stuck");
+    }
+
+    // --- END D18 probes ---
+
     #[test]
     fn directions_match() {
         let mut a2b = Chain::new(b"1", Direction::A2B, ChainParams::default().into_pb()).unwrap();

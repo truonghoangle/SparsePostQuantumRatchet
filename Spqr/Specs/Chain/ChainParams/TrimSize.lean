@@ -105,7 +105,7 @@ theorem trim_size_overflow_on_32bit (self : proto.pq_ratchet.ChainParams)
   | fail e => simp [h_eq, Bind.bind, Std.bind] at h
   | div => simp [h_eq, Bind.bind, Std.bind] at h
 
-/-- **D10. Claimed history bound `data.len() ≤ KEY_SIZE * trim_size()` is false.**
+/-- **D9. Claimed history bound `data.len() ≤ KEY_SIZE * trim_size()` is false.**
 
 `chain.rs` L138, L174, L281–282: `requires`/`assume!` assert
 `self.data.len() ≤ KEY_SIZE * params.trim_size()`, i.e. `records ≤ trim_size`.
@@ -130,7 +130,7 @@ theorem claimed_history_bound_false (max_ooo : Nat) (h_ooo : max_ooo ≥ 3) :
     max_ooo * 11 / 10 + max_ooo > max_ooo * 11 / 10 + 2 := by
   omega
 
-/-- **D10. Concrete witness with default parameters (`max_ooo = 2000`).**
+/-- **D9. Concrete witness with default parameters (`max_ooo = 2000`).**
 
 `trim_size(2000) = 2000 * 11 / 10 + 1 = 2201`. The Rust annotation claims `records ≤ 2201`.
 During the advancing loop with `at = ctr + max_ooo`, up to `trim_size − 1 = 2200` records

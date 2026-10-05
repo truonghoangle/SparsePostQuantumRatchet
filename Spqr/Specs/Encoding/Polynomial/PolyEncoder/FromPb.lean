@@ -643,7 +643,7 @@ theorem from_pb_spec_old_partial
   WP.spec_mono (from_pb_spec pb)
     (from_pb_new_implies_old_partial pb h_polys_nonempty h_polys_even h_pts_even)
 
-/-- **D13. `from_pb` admits inadmissible point counts.**
+/-- **D11. `from_pb` admits inadmissible point counts.**
 
 `polynomial.rs` L573–603: `from_pb` checks only `pts.len() % 2 == 0`. The consumers
 (`PointAt.lean`, `ChunkAt.lean`, `NextChunk.lean`) require

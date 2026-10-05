@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
 
-/-! # D11. `RoundRobinEncoder::chunk_at` panics on empty input
+/-! # D10. `RoundRobinEncoder::chunk_at` panics on empty input
 
 **Status.** `#[cfg(test)]`-only code; excluded from Aeneas extraction.
 No Lean definitions exist for `RoundRobinEncoder`.
@@ -18,7 +18,7 @@ When `data` is empty, `num_chunks() = 0` and `idx % 0` is a division-by-zero pan
 Since no Lean model exists (test-only code is not extracted), we record the defect
 as a pure arithmetic fact: `n % 0` is undefined / panics in Rust. -/
 
-/-- **D11. Division by zero when `num_chunks = 0`.**
+/-- **D10. Division by zero when `num_chunks = 0`.**
 
 `idx % num_chunks` panics (Rust) when `num_chunks = 0`. In Lean, `Nat.mod` is total:
 `n % 0 = n` (identity, not a panic).
@@ -35,7 +35,7 @@ theorem round_robin_div_by_zero_mismatch (idx : Nat) :
     -- In Rust, n % 0 panics (division by zero)
     idx % 0 = idx := Nat.mod_zero idx
 
-/-- **D11. Any nonzero `idx` produces wrong result under Lean `%` semantics.**
+/-- **D10. Any nonzero `idx` produces wrong result under Lean `%` semantics.**
 
 If a hypothetical Lean model of `chunk_at` used `idx % 0` (with `num_chunks = 0`),
 it would produce `idx` (not 0, not a panic). For `idx > 0`, this is a nonzero

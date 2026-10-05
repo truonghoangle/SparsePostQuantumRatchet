@@ -692,14 +692,14 @@ theorem add_chunk_spec
   simp only [show (0#usize : Usize).val = 0 from rfl, Nat.zero_add] at h
   exact h
 
-/-- **D17. `is_complete` is write-never — `add_chunk` preserves it.**
+/-- **D14. `is_complete` is write-never — `add_chunk` preserves it.**
 
 `new_with_poly_count` initialises `is_complete = false` (`NewWithPolyCount.lean:50`).
 `add_chunk` preserves `is_complete = self.is_complete` (this theorem).
 No other honest code path modifies `is_complete`.
 
 The only way to obtain `is_complete = true` is via `from_pb` from a corrupted blob
-(D52: `from_pb_accepts_bad_is_complete`). When `is_complete = true`,
+(D49: `from_pb_accepts_bad_is_complete`). When `is_complete = true`,
 `decoded_message` returns `None` forever (L912), creating a permanent silent stall.
 
 **Reproduced.** `decoder_is_complete_never_set` in `decoder_logic_probe.rs.txt`. -/
@@ -713,5 +713,33 @@ theorem is_complete_preserved_by_add_chunk
   apply WP.spec_mono h
   intro result h_post
   exact h_post.2.1
+
+/-- **D15. `add_chunk` guard always true for low-index chunks.**
+
+When `pts_needed ≥ 16` and `chunk.index < pts_needed / 16`, the first disjunct of the
+insertion guard (`poly_idx < necessary_points(i)`) is unconditionally true for every
+iteration `i ∈ 0..16`. This means low-index chunks are always accepted regardless of
+whether the decoder already holds a point with the same x-coordinate — enabling the
+chunk-poisoning attack described in D16.
+
+Concretely: `poly_idx = chunk.index` (since `(chunk.index * 16 + i) / 16 = chunk.index`)
+and `necessary_points(i) ≥ pts_needed / 16` (by definition). So when
+`chunk.index < pts_needed / 16`, the guard's first disjunct holds for all `i`.
+
+**Consequence.** Low-index chunks always accepted regardless of duplicates. Enables D16.
+
+**Rust.** `polynomial.rs` L895: first disjunct of the guard is unconditionally true for any
+chunk with `index < pts_needed / 16`.
+
+**Related.** Sub-finding of D16. -/
+theorem guard_true
+    (pts_needed : Nat)
+    (chunk_index : Nat)
+    (h_idx : chunk_index < pts_needed / 16)
+    (i : Nat) :
+    chunk_index < pts_needed / 16 + (if i < pts_needed % 16 then 1 else 0) := by
+  split
+  · omega
+  · omega
 
 end spqr.encoding.polynomial.PolyDecoder.Insts.SpqrEncodingDecoder

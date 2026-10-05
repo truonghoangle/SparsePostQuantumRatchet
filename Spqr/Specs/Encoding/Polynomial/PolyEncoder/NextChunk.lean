@@ -10,7 +10,7 @@ import Spqr.Specs.Encoding.Polynomial.PolyEncoder.ChunkAt
 Casts `self.idx` to U16, calls `chunk_at`, then increments the index via `checked_add(1)`
 (panics on overflow instead of silently wrapping).
 
-**D53 fix**: replaced `wrapping_add(1)` with `checked_add(1).expect(...)` in Rust;
+**D50 fix**: replaced `wrapping_add(1)` with `checked_add(1).expect(...)` in Rust;
 the Lean spec now requires `self.idx.val < U32.max` (strictly less) so the increment
 cannot overflow, and the postcondition uses plain `self.idx.val + 1` instead of
 `(self.idx.val + 1) % U32.size`.
@@ -84,7 +84,7 @@ theorem next_chunk_spec
 
 `polynomial.rs` L735: `self.idx as u16`. The `UScalar.cast .U16` produces
 `idx.val % 2^16`, which differs from `idx.val` when `idx.val > U16.max = 65535`.
-After 65535 chunks the emitted `chunk.index` wraps to 0, making D19 poisoning
+After 65535 chunks the emitted `chunk.index` wraps to 0, making D16 poisoning
 permanent.
 
 This theorem proves: `idx % 2^16 ≠ idx` whenever `idx > U16.max`. The spec
@@ -93,7 +93,7 @@ exclude this truncation; `FromPb.lean` does **not** enforce this bound. -/
 theorem idx_cast_u16_lossy (idx : U32) (h_big : idx.val > U16.max) :
     idx.val % (2 ^ U16.numBits) ≠ idx.val := by
   have : idx.val % 2 ^ U16.numBits < 2 ^ U16.numBits := Nat.mod_lt _ (by positivity)
-  simp [U16.max, UScalar.max, U16.numBits, UScalarTy.numBits] at *
+  simp [U16.max, U16.numBits, UScalarTy.numBits] at *
   omega
 
 end spqr.encoding.polynomial.PolyEncoder.Insts.SpqrEncodingEncoder

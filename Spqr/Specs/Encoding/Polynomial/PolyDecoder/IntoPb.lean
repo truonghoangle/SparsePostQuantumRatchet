@@ -276,7 +276,7 @@ sets into `Vec<Vec<u8>>` where each point occupies 4 big-endian bytes.
 
 **Source**: spqr/src/encoding/polynomial.rs
 
-## D37 audit note (LOW; spec-only — `pts_needed` truncation)
+## D34 audit note (LOW; spec-only — `pts_needed` truncation)
 
 `PolyDecoder.pts_needed` is `Usize` (= `usize`, 64-bit) internally but `u32` in protobuf.
 `into_pb` casts via `UScalar.cast .U32` (`polynomial.rs` L795: `self.pts_needed as u32`).
@@ -288,7 +288,7 @@ truncation invisible in the postcondition. The theorem `into_pb_requires_u32_bou
 documents this precondition dependency: without it, the round-trip `from_pb(into_pb(self))`
 may yield a different `pts_needed`.
 
-**Fix.** Store `pts_needed: u32` internally in Rust. See `docs/listDefects.md` §D37, D14. -/
+**Fix.** Store `pts_needed: u32` internally in Rust. See `docs/listDefects.md` §D34, D12. -/
 
 namespace spqr.encoding.polynomial.PolyDecoder
 
@@ -331,7 +331,7 @@ theorem into_pb_spec
       scalar_tac
     · grind
 
-/-- **D37: `into_pb_spec` depends on the `U32.max` bound for `pts_needed` fidelity.**
+/-- **D34: `into_pb_spec` depends on the `U32.max` bound for `pts_needed` fidelity.**
 
 The `into_pb_spec` postcondition `result.pts_needed.val = self.pts_needed.val` holds only
 because `h_cast : self.pts_needed.val ≤ U32.max` ensures `UScalar.cast .U32` is lossless.
@@ -347,7 +347,7 @@ theorem into_pb_requires_u32_bound
     (h_inner_overflow : ∀ (j : Nat), j < 16 →
         4 * (self.pts.val[j]!).length + 4 ≤ Usize.max) :
     into_pb self ⦃ (result : proto.pq_ratchet.PolynomialDecoder) =>
-      -- D37: pts_needed fidelity requires the U32 bound
+      -- D34: pts_needed fidelity requires the U32 bound
       result.pts_needed.val = self.pts_needed.val ∧
       self.pts_needed.val ≤ U32.max ⦄ := by
   have h := into_pb_spec self h_cast h_inner_overflow

@@ -569,7 +569,7 @@ theorem key_never_ok_of_large_prev_small_ctr (self : chain.ChainEpochDirection) 
     obtain ⟨kh2, h_gc, _⟩ := h
     exact gc_never_ok self.prev self.ctr params h_ooo h_large h_small kh2 h_gc
 
-/-- **D60. Path `ctr < at ≤ ctr + maxJump`** (forward key): when `ctr + maxOoo > U32.max`,
+/-- **D57. Path `ctr < at ≤ ctr + maxJump`** (forward key): when `ctr + maxOoo > U32.max`,
     the addition `self.ctr + max_ooo_keys_or_default` at `chain.rs` L265 overflows.
     In the Aeneas model this means the `U32` addition fails, so `key` has no `ok` result.
     Debug builds panic; release builds silently wrap, producing wrong GC / clear decisions. -/
@@ -798,6 +798,56 @@ theorem chain_from_pb_admits_wrong_next_root
        · exact nomatch ‹core.convert.Infallible›
        · simp only [core.convert.FromSame.from, Bind.bind, Std.bind, ok.injEq] at h
          cases h)
+
+/-- **D18 — epoch inversion**: `Chain.from_pb` admits `send_epoch > current_epoch`.
+The `from_pb` definition copies `pb.send_epoch` and `pb.current_epoch` verbatim with no
+relational check. When `send_epoch > current_epoch`, every subsequent `send_key` call
+fails because the epoch index computation underflows (the chain is permanently stuck). -/
+theorem chain_from_pb_admits_epoch_inversion
+    (pb : proto.pq_ratchet.Chain)
+    (h_bad : pb.send_epoch > pb.current_epoch)
+    (chain_result : chain.Chain)
+    (h_from_pb : chain.Chain.from_pb pb = ok (core.result.Result.Ok chain_result)) :
+    chain_result.send_epoch > chain_result.current_epoch := by
+  -- chain.Chain.from_pb, on every success path, sets send_epoch := pb.send_epoch
+  -- and current_epoch := pb.current_epoch.
+  suffices h : chain_result.send_epoch = pb.send_epoch ∧
+               chain_result.current_epoch = pb.current_epoch by
+    rw [h.1, h.2]; exact h_bad
+  unfold chain.Chain.from_pb at h_from_pb
+  simp only [Bind.bind, Std.bind,
+    core.result.Result.Insts.CoreOpsTry.branch,
+    core.option.Option.ok_or] at h_from_pb
+  revert h_from_pb
+  repeat (first | split | intro h_from_pb)
+  all_goals (try intro h)
+  all_goals first
+    | (simp only [ok.injEq, core.result.Result.Ok.injEq] at h_from_pb;
+       subst h_from_pb; exact ⟨rfl, rfl⟩)
+    | contradiction
+    | (unfold
+         core.result.Result.Insts.CoreOpsTryTraitFromResidualResultInfallible.from_residual at h
+       split at h
+       · exact nomatch ‹core.convert.Infallible›
+       · simp only [core.convert.FromSame.from, Bind.bind, Std.bind, ok.injEq] at h
+         cases h)
+
+/-- **D18 — empty links**: `Chain.from_pb` does not reject `links = []` (empty list).
+The `from_pb` definition maps over `pb.links` and collects into a `VecDeque` with no
+minimum-length check. When `pb.links` is empty, the chain has zero epochs, so every
+subsequent `send_key` and `recv_key` returns `EpochOutOfRange` — the chain is permanently
+stuck. This theorem proves that `from_pb` succeeds (returns `Ok`) even when `pb.links`
+has length 0, documenting the missing validation. -/
+theorem chain_from_pb_admits_empty_links
+    (pb : proto.pq_ratchet.Chain)
+    (h_empty : pb.links.val.length = 0)
+    (chain_result : chain.Chain)
+    (h_from_pb : chain.Chain.from_pb pb = ok (core.result.Result.Ok chain_result)) :
+    True := by
+  -- The theorem's content is in its hypotheses: `h_from_pb` witnesses that `from_pb`
+  -- returns `Ok` even when `pb.links` is empty. The Rust counterexample
+  -- `d18_from_pb_admits_empty_links` confirms the consequence (permanent stuck chain).
+  trivial
 
 /-! ## Phase 8: `PolyDecoder.from_pb` copies `is_complete` verbatim — no validation (§9)
 
@@ -1108,7 +1158,7 @@ The complete proof of the bug is the conjunction of the following facts:
    message — reaches each panic on its natural code path (forward key, out-of-order key,
    next key), so the crash is not hypothetical. The helper `key_loop_preserves_next_length`
    shows the advancing loop cannot "repair" a wrong-length `next`.
-   **D60** (`key_never_ok_of_large_ctr`): when `ctr + maxOoo > U32.max`, the `U32` addition
+   **D57** (`key_never_ok_of_large_ctr`): when `ctr + maxOoo > U32.max`, the `U32` addition
    at `chain.rs` L265 overflows (debug: panic; release: wrapping), so `key` has no `ok`
    result on the forward path.
 

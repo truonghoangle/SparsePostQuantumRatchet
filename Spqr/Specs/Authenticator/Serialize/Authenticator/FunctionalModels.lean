@@ -18,7 +18,7 @@ theorems in `IntoPb.lean` and `FromPb.lean` pin the extracted, monadic functions
 the current Rust `from_pb` which performs no validation. The Rust `authenticator::Error` enum
 has four dead variants intended for key-length checks that were never implemented. A corrected
 `fromPb` should return `Result` and reject `root_key.length ≠ 32 ∨ mac_key.length ≠ 32`.
-See `FromPb.lean` for D35 gap-documenting theorems and `docs/listDefects.md` §D35. -/
+See `FromPb.lean` for D32 gap-documenting theorems and `docs/listDefects.md` §D32. -/
 
 namespace spqr.authenticator.serialize.Authenticator.FunctionalModels
 

@@ -21,27 +21,27 @@ import Spqr.Specs.Aeneas.SliceConcat
 
 Source: "spqr/src/authenticator.rs"
 
-## D42 audit note (LOW; crypto — permanent MAC divergence on bad `root_key`)
-## D55 audit note (LOW; crypto — IKM concatenation lacks length prefix)
+## D39 audit note (LOW; crypto — permanent MAC divergence on bad `root_key`)
+## D52 audit note (LOW; crypto — IKM concatenation lacks length prefix)
 
 `update` computes `ikm = self.root_key ++ k` without a length prefix. Two distinct
 `(root_key, k)` pairs can produce the **same** `ikm` byte sequence: e.g.
 `root_key = [a, b]`, `k = [c]` vs `root_key = [a]`, `k = [b, c]` both yield `[a, b, c]`.
 This is a domain-separation failure: the HKDF output — and therefore `mac_key` — would be
-identical for both, allowing a corrupted blob (D22) to manufacture a state whose MACs
+identical for both, allowing a corrupted blob (D19) to manufacture a state whose MACs
 coincide with the honest peer's despite having different key fields.
 
 The theorem `update_ikm_collision_exists` proves such colliding pairs exist, documenting the
 missing length prefix. The fix is length-prefixed concatenation:
-`len(root_key) || root_key || k`. See D22, D31, D42. See `docs/listDefects.md` §D55.
+`len(root_key) || root_key || k`. See D19, D28, D39. See `docs/listDefects.md` §D52.
 
-## D42 audit note (LOW; crypto — permanent MAC divergence on bad `root_key`)
+## D39 audit note (LOW; crypto — permanent MAC divergence on bad `root_key`)
 
-`update` concatenates `self.root_key ++ k` as HKDF IKM. When `from_pb` (D22) loads a
+`update` concatenates `self.root_key ++ k` as HKDF IKM. When `from_pb` (D19) loads a
 `root_key` with wrong length, this IKM differs from the peer's, causing `root_key` and
 `mac_key` to diverge permanently. The theorem `update_diverges_on_bad_root_key` formalises
-the consequence chain: D22 (no key-length validation) → D42 (IKM divergence) → permanent
-session break. See also D31, D55. See `docs/listDefects.md` §D42. -/
+the consequence chain: D19 (no key-length validation) → D39 (IKM divergence) → permanent
+session break. See also D28, D52. See `docs/listDefects.md` §D39. -/
 
 open Aeneas Aeneas.Std Result Aeneas.Std.WP
 namespace spqr.authenticator.Authenticator
@@ -80,14 +80,14 @@ theorem update_spec (self : Authenticator) (ep : U64) (k : Slice U8)
   · simp [*]; grind
   · simp_all [updateLabel]
 
-/-- **D42: `update` with wrong-length `root_key` produces different HKDF output.**
+/-- **D39: `update` with wrong-length `root_key` produces different HKDF output.**
 
-When `from_pb` (D22) loads a `root_key` of length ≠ 32 (the value `new` always produces),
+When `from_pb` (D19) loads a `root_key` of length ≠ 32 (the value `new` always produces),
 the HKDF input keying material `self.root_key ++ k` differs from the peer's, even for the
 same `k` and `ep`. This causes both `root_key` and `mac_key` to diverge permanently —
 every subsequent MAC in the epoch will be wrong, breaking the session irrecoverably.
 
-This theorem formalises the consequence chain D22 → D42: if two authenticators have different
+This theorem formalises the consequence chain D19 → D39: if two authenticators have different
 `root_key` values (e.g. one correct, one corrupted by a bad blob), their `update` results
 produce different HKDF outputs — specifically, the HKDF IKM (`root_key ++ k`) differs. -/
 theorem update_diverges_on_bad_root_key
@@ -114,7 +114,7 @@ theorem update_diverges_on_bad_root_key
     intro h_eq
     exact h_diff (List.append_cancel_right h_eq)
 
-/-- **D55: Plain concatenation `root_key ++ k` admits IKM collisions.**
+/-- **D52: Plain concatenation `root_key ++ k` admits IKM collisions.**
 
 Without a length prefix, two distinct `(root_key, k)` pairs can produce the same IKM:
 `[1, 2] ++ [3] = [1] ++ [2, 3] = [1, 2, 3]`. This is a domain-separation failure —
