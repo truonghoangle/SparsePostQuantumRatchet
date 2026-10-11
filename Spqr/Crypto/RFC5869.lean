@@ -83,7 +83,7 @@ theorem Expand_length (PRK info : List UInt8) (L : Nat) : (Expand H PRK info L).
   have := Nat.div_add_mod (L + H.HashLen - 1) H.HashLen
   have := Nat.mod_lt (L + H.HashLen - 1) hpos
   simp only [Expand, List.length_take, blocks_length, N]
-  grind
+  omega
 
 /-! ## §2 The composite construction -/
 
