@@ -3,8 +3,10 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Liao Zhang
 -/
-import SrcTranslated.Funs
-import Spqr.Specs.Authenticator.Serialize.Authenticator.FromPb
+module
+
+public import SrcTranslated.Funs
+public import Spqr.Specs.Authenticator.Serialize.Authenticator.FromPb
 
 /-! # Spec theorem for `spqr::v1::unchunked::send_ek::serialize::EkSent::from_pb`
 
@@ -18,6 +20,8 @@ vectors). The reverse direction is `into_pb`.
 
 **Source**: src/v1/unchunked/send_ek/serialize.rs (lines 58:4-68:5)
 -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result
 
