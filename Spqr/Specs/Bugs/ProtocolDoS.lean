@@ -172,7 +172,7 @@ theorem recv_hdr_chunk_persists_unauthenticated_state
         (spqr.v1.chunked.send_ct.NoHeaderReceivedRecvChunk.StillReceiving
           { self with receiving_hdr := decoder' })) := by
   unfold spqr.v1.chunked.send_ct.NoHeaderReceived.recv_hdr_chunk
-  simp only [h_epoch, massert, ite_true, bind_tc_ok, h_add, h_none]
+  simp only [h_epoch, massert, ite_true, h_add, h_none, bind_tc_ok, bind_ok]
 
 /-! ## Full attack narrative
 

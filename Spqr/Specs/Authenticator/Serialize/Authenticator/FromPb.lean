@@ -83,9 +83,9 @@ the same MAC tag — making all MACs forgeable on the corrupted blob.
 Combined with `mac_ct_spec` (which shows MAC output is determined by `self.mac_key`),
 this means the attacker can predict every MAC the corrupted authenticator will ever produce. -/
 theorem from_pb_empty_mac_key_forgeable (pb : proto.pq_ratchet.Authenticator)
-    (h_empty : pb.mac_key = ⟨[], by simp⟩) :
+    (h_empty : pb.mac_key = alloc.vec.Vec.«from» [] (by simp)) :
     from_pb pb ⦃ (result : authenticator.Authenticator) =>
-      result.mac_key = ⟨[], by simp⟩ ⦄ := by
+      result.mac_key = alloc.vec.Vec.«from» [] (by simp) ⦄ := by
   have h := from_pb_spec pb
   apply WP.spec_mono h
   intro result h_eq

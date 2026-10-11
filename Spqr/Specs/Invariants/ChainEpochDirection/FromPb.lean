@@ -39,13 +39,14 @@ theorem cedInv_from_pb_iff (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
   apply WP.spec_mono (from_pb_spec pb)
   intro result
   match result with
-  | core.result.Result.Err _ => intro h; exact h
+  | core.result.Result.Err _ =>
+    intro h; simp [FunctionalModels.fromPb] at h
   | core.result.Result.Ok ced =>
-    intro ⟨h_ctr, h_next, h_prev⟩
-    have hpd : ced.prev.data = pb.prev := by
-      have := congrArg chain.KeyHistory.data h_prev; exact this
-    change CedInv ced ↔ PbCedInv pb
-    simp only [CedInv, PbCedInv, h_ctr, h_next, hpd]
+    intro h
+    have heq : ced = { ctr := pb.ctr, next := pb.next, prev := { data := pb.prev } } := by
+      simp [FunctionalModels.fromPb] at h; exact h
+    subst heq
+    simp only [CedInv, PbCedInv]
 
 /-- **Non-preservation**: a blob violating `PbCedInv` loads (with `Ok`) into a direction violating
 `CedInv`.  No hypothesis of any `key`/`next_key` spec is then satisfiable. -/
@@ -67,10 +68,10 @@ theorem from_pb_not_cedInv (pb : proto.pq_ratchet.chain.epoch.EpochDirection)
 theorem into_pb_preserves_pbCedInv (self : chain.ChainEpochDirection) (h_inv : CedInv self) :
     into_pb self ⦃ (pb : proto.pq_ratchet.chain.epoch.EpochDirection) => PbCedInv pb ⦄ := by
   apply WP.spec_mono (into_pb_spec self)
-  intro pb ⟨h_ctr, h_next, h_prev⟩
-  obtain ⟨h1, h2, h3⟩ := h_inv
-  simp only [PbCedInv, h_ctr, h_next, h_prev]
-  exact ⟨h1, h2, h3⟩
+  intro pb h
+  subst h
+  simp only [FunctionalModels.intoPb, PbCedInv]
+  exact h_inv
 
 /-- **Persistence of the violation**: `into_pb` maps `¬ CedInv` to `¬ PbCedInv`, so a corrupted
 direction is re-emitted corrupted (cf. `corrupted_state_roundtrips` in
@@ -78,8 +79,9 @@ direction is re-emitted corrupted (cf. `corrupted_state_roundtrips` in
 theorem into_pb_not_pbCedInv (self : chain.ChainEpochDirection) (h_bad : ¬ CedInv self) :
     into_pb self ⦃ (pb : proto.pq_ratchet.chain.epoch.EpochDirection) => ¬ PbCedInv pb ⦄ := by
   apply WP.spec_mono (into_pb_spec self)
-  intro pb ⟨h_ctr, h_next, h_prev⟩
-  simp only [PbCedInv, h_ctr, h_next, h_prev]
+  intro pb h
+  subst h
+  simp only [FunctionalModels.intoPb, PbCedInv]
   exact h_bad
 
 end spqr.chain.ChainEpochDirection

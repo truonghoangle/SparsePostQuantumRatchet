@@ -86,13 +86,12 @@ theorem recvKeyPre_of_cedInv (params : proto.pq_ratchet.ChainParams) (index : U3
   obtain ⟨h_next, h_al, h_le⟩ := h_inv
   obtain ⟨h_idx, h_ooo, h_sum⟩ := h_params
   have h_usize := usize_max_eq_of_64 h_64
-  refine ⟨h_next, h_idx, h_ooo, h_ctr, ?_, ?_, h_al, h_le, h_sum, h_64⟩
-  · have h_idx_lt : index.val < 2 ^ 32 := by scalar_tac
+  refine ⟨h_next, h_idx, h_ooo, ?_, h_al, h_le, h_sum, h_64⟩
+  · simp only [CedCtrBound] at h_ctr
+    have h_idx_lt : index.val < 2 ^ 32 := by scalar_tac
     have h_ctr_lt : ce.recv.ctr.val < 2 ^ 32 := by scalar_tac
     have h_usize' : (2 : Nat) ^ 64 - 1 = 18446744073709551615 := by norm_num
     rw [h_usize, h_usize']
     omega
-  · simp only [CedCtrBound] at h_ctr
-    scalar_tac
 
 end spqr.chain

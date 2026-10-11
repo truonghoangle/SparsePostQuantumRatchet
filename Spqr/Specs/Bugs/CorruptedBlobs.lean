@@ -56,7 +56,7 @@ namespace spqr.Bugs.CorruptedBlobs
 /-- Inversion of a successful monadic bind in `Result`. -/
 private theorem bind_eq_ok_iff {α β : Type} (m : Result α) (f : α → Result β) (r : β) :
     (m >>= f) = ok r ↔ ∃ x, m = ok x ∧ f x = ok r := by
-  cases m <;> simp [Bind.bind, Std.bind]
+  cases m <;> simp [bind_tc_eq, bind_ok, bind_vis, bind_div, ok.injEq]
 
 /-! ## Phase 1: `from_pb` always succeeds — no validation -/
 
@@ -66,7 +66,12 @@ theorem from_pb_never_fails (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
       | core.result.Result.Ok ced =>
         ced.ctr = pb.ctr ∧ ced.next = pb.next ∧ ced.prev = { data := pb.prev }
       | core.result.Result.Err _ => False ⦄ := by
-  exact chain.ChainEpochDirection.from_pb_spec pb
+  have h := chain.ChainEpochDirection.from_pb_spec pb
+  apply Aeneas.Std.WP.spec_mono h
+  intro result h_eq
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_eq
+  subst h_eq
+  exact ⟨rfl, rfl, rfl⟩
 
 /-! ## Phase 2a: Corrupted blobs violate consumer preconditions
 
@@ -83,13 +88,10 @@ theorem from_pb_admits_wrong_next_length
       | core.result.Result.Err _ => False ⦄ := by
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
-  intro result
-  match result with
-  | core.result.Result.Ok ced =>
-    intro ⟨_, h_next, _⟩
-    change ced.next.length ≠ 32
-    rw [h_next]; exact h_bad
-  | core.result.Result.Err _ => intro h; exact h
+  intro result h_eq
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_eq
+  subst h_eq
+  exact h_bad
 
 /-- **Witness 2**: `prev.len() % 36 ≠ 0` survives `from_pb`. -/
 theorem from_pb_admits_misaligned_prev
@@ -101,15 +103,10 @@ theorem from_pb_admits_misaligned_prev
       | core.result.Result.Err _ => False ⦄ := by
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
-  intro result
-  match result with
-  | core.result.Result.Ok ced =>
-    intro ⟨_, _, h_prev⟩
-    change ced.prev.data.length % 36 ≠ 0
-    have hpd : ced.prev.data = pb.prev := by
-      have := congrArg chain.KeyHistory.data h_prev; simp only at this; exact this
-    rw [hpd]; exact h_bad
-  | core.result.Result.Err _ => intro h; exact h
+  intro result h_eq
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_eq
+  subst h_eq
+  exact h_bad
 
 /-- **Witness 3**: large `prev` + `ctr = 0` survives `from_pb`.
     79236 = `(2000 * 11 / 10 + 1) * 36`, the default trim threshold. -/
@@ -127,14 +124,15 @@ theorem from_pb_admits_large_prev_small_ctr
   intro result
   match result with
   | core.result.Result.Ok ced =>
-    intro ⟨h_ctr, _, h_prev⟩
-    change ced.ctr = 0#u32 ∧ ced.prev.data.length ≥ 79236
-    constructor
-    · rw [h_ctr]; exact h_ctr_zero
-    · have hpd : ced.prev.data = pb.prev := by
-        have := congrArg chain.KeyHistory.data h_prev; simp only at this; exact this
-      rw [hpd]; exact h_prev_large
-  | core.result.Result.Err _ => intro h; exact h
+    intro h_eq
+    simp only [chain.ChainEpochDirection.FunctionalModels.fromPb,
+      core.result.Result.Ok.injEq] at h_eq
+    subst h_eq
+    exact ⟨h_ctr_zero, h_prev_large⟩
+  | core.result.Result.Err _ =>
+    intro h_eq
+    simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_eq
+    cases h_eq
 
 
 /-- **Combined**: all three violations co-exist in a single blob. -/
@@ -153,14 +151,15 @@ theorem from_pb_admits_triple_violation
   intro result
   match result with
   | core.result.Result.Ok ced =>
-    intro ⟨h_ctr, h_next, h_prev⟩
-    change ced.next.length ≠ 32 ∧ ced.prev.data.length % 36 ≠ 0 ∧ ced.ctr = 0#u32
-    have hpd : ced.prev.data = pb.prev := by
-      have := congrArg chain.KeyHistory.data h_prev; simp only at this; exact this
-    exact ⟨by rw [h_next]; exact h_next_bad,
-           by rw [hpd]; exact h_prev_bad,
-           by rw [h_ctr]; exact h_ctr_zero⟩
-  | core.result.Result.Err _ => intro h; exact h
+    intro h_eq
+    simp only [chain.ChainEpochDirection.FunctionalModels.fromPb,
+      core.result.Result.Ok.injEq] at h_eq
+    subst h_eq
+    exact ⟨h_next_bad, h_prev_bad, h_ctr_zero⟩
+  | core.result.Result.Err _ =>
+    intro h_eq
+    simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_eq
+    cases h_eq
 
 /-! ## Phase 2b: The consumers panic on the corrupted state
 
@@ -176,21 +175,18 @@ theorem get_never_ok (self : chain.KeyHistory) (at1 current_ctr : U32)
   intro r h
   unfold chain.KeyHistory.get at h
   obtain ⟨_, h_ks, rfl⟩ := WP.spec_imp_exists chain.KeyHistory.KEY_SIZE_spec
-  simp only [bind_eq_ok_iff, h_ks, ok.injEq, exists_eq_left'] at h
-  obtain ⟨lv, h_lv, h_rest⟩ := h
-  have := Usize.rem_spec (alloc.vec.Vec.len self.data) (y := 36#usize) (by simp)
-  obtain ⟨lv', h_lv', h_val⟩ := WP.spec_imp_exists this
-  rw [h_lv] at h_lv'
-  simp only [ok.injEq] at h_lv'
-  subst h_lv'
-  simp only [massert, alloc.vec.Vec.len_val, UScalar.ofNatCore_val_eq] at h_rest h_val
+  simp only [bind_eq_ok_iff, bind_ok, bind_tc_ok, h_ks, ok.injEq, exists_eq_left'] at h
+  have h_rem := Usize.rem_spec (alloc.vec.Vec.len self.data) (y := 36#usize) (by simp)
+  obtain ⟨lv, h_lv, h_val⟩ := WP.spec_imp_exists h_rem
+  simp only [bind_eq_ok_iff, bind_ok, bind_tc_ok, h_lv, ok.injEq, exists_eq_left'] at h
+  simp only [massert, alloc.vec.Vec.len_val, UScalar.ofNatCore_val_eq] at h h_val
   simp at h_val
-  split at h_rest
+  split at h
   · rename_i h_eq
     have : lv.val = 0 := by rw [h_eq]; simp
     simp only [alloc.vec.Vec.length] at h_bad h_val
     omega
-  · simp at h_rest
+  · simp at h
 
 /-- **Panic 3** (`KeyHistory::gc`, `chain.rs:149`): once `data.len() ≥ trim_size() * 36`,
     `assert!(current_key >= max_ooo_keys_or_default())` fails whenever the counter is smaller
@@ -219,13 +215,12 @@ theorem gc_never_ok (self : chain.KeyHistory) (current_key : U32)
       have hz : params.max_ooo_keys = 0#u32 := by scalar_tac
       have := h_ts2.mpr (Or.inl hz)
       simp [this]
-  simp only [bind_eq_ok_iff, h_ts, h_ks, ok.injEq, exists_eq_left'] at h
-  obtain ⟨prod, h_prod, h_rest⟩ := h
+  simp [h_ts_val] at h
   have h_bound := self.data.property
   simp only [alloc.vec.Vec.length] at h_large
   have hmul := Usize.mul_spec (x := ts) (y := 36#usize) (by scalar_tac)
   obtain ⟨prod', h_prod', h_prod_val⟩ := WP.spec_imp_exists hmul
-  rw [h_prod] at h_prod'; simp only [ok.injEq] at h_prod'; subst h_prod'
+  simp only [ok.injEq] at h_prod'; subst h_prod'
   simp only [UScalar.ofNatCore_val_eq] at h_prod_val
   split at h_rest
   · simp only [bind_eq_ok_iff, h_mo, ok.injEq, exists_eq_left'] at h_rest
@@ -778,7 +773,7 @@ theorem chain_from_pb_admits_wrong_next_root
   -- We prove this by showing chain_result.next_root = pb.next_root on all paths.
   suffices h : chain_result.next_root = pb.next_root by rw [h]; exact h_bad
   unfold chain.Chain.from_pb at h_from_pb
-  simp only [Bind.bind, Std.bind,
+  simp only [Std.bind,
     core.result.Result.Insts.CoreOpsTry.branch,
     core.option.Option.ok_or] at h_from_pb
   revert h_from_pb
@@ -997,35 +992,38 @@ theorem recv_key_never_ok_of_key_never_ok
   -- The spec requires recvKeyPre which is unsatisfiable, but the spec only gives
   -- a postcondition, not a "total correctness" result.
   -- Instead, we unfold and chase the monadic computation.
-  simp only [chain.Chain.recv_key, bind_eq_ok_iff] at h
-  obtain ⟨⟨ei_res, self1⟩, h_ei, h_rest⟩ := h
-  -- epoch_idx spec
+  -- recv_key unfolds to: epoch_idx >>= branch >>= match Continue => index_mut >>= key ...
+  -- We use the recv_key spec via WP reasoning.
+  -- First, get the epoch_idx spec.
+  -- Unfold recv_key and rewrite epoch_idx with its spec result
+  simp only [chain.Chain.recv_key] at h
   have h_ei_spec := chain.Chain.epoch_idx_spec self epoch
     (by intro _; exact h_diff_fits)
-  obtain ⟨res', h_res', h_post⟩ := WP.spec_imp_exists h_ei_spec
-  rw [h_ei] at h_res'; simp only [ok.injEq] at h_res'; subst h_res'
+  obtain ⟨⟨ei_res, self1⟩, h_res', h_post⟩ := WP.spec_imp_exists h_ei_spec
+  rw [h_res'] at h
+  simp only [bind_ok, uncurry_apply_pair] at h
   simp only at h_post
   obtain ⟨h_self_eq, h_cases⟩ := h_post
-  subst h_self_eq  -- self1 = self; replaces self1 with self everywhere
+  subst h_self_eq  -- self1 = self
   rcases ei_res with idx | e
   · -- Ok idx: epoch in range
     obtain ⟨h_le, h_back, h_idx⟩ := h_cases
-    -- Reduce branch (Ok idx) = ok (Continue idx) and decompose binds
+    -- Reduce branch (Ok idx) = ok (Continue idx)
     simp only [core.result.Result.Insts.CoreOpsTry.branch,
-      bind_tc_ok, bind_eq_ok_iff, uncurry_apply_pair] at h_rest
-    obtain ⟨⟨ce, index_mut_back⟩, h_im, h_rest2⟩ := h_rest
-    simp only [bind_eq_ok_iff, uncurry_apply_pair] at h_rest2
-    obtain ⟨⟨r1, ced⟩, h_key, _⟩ := h_rest2
-    -- After subst, self is now self1
-    have h_idx_lt : idx.val < self1.links.length := by scalar_tac
-    have h_phys_lt : self1.links.head + idx < self1.links.buf.length := by
+      bind_tc_ok, uncurry_apply_pair] at h
+    -- Use index_mut spec to rewrite
+    have h_idx_lt : idx.val < self1.links.length.val := by scalar_tac
+    have h_phys_lt : self1.links.head.val + idx.val < self1.links.buf.val.length := by
       scalar_tac
     have h_im_spec :=
       alloc.collections.vec_deque.VecDeque.Insts.CoreOpsIndexIndexMutUsizeT.index_mut_spec
-        self1.links idx h_idx_lt h_phys_lt
-    obtain ⟨⟨ce', back'⟩, h_im', h_im_post⟩ := WP.spec_imp_exists h_im_spec
-    rw [h_im] at h_im'; simp only [ok.injEq] at h_im'
-    obtain ⟨rfl, rfl⟩ := h_im'
+        self1.links idx (by scalar_tac) (by scalar_tac)
+    obtain ⟨⟨ce, index_mut_back⟩, h_im', h_im_post⟩ := WP.spec_imp_exists h_im_spec
+    rw [h_im'] at h
+    simp only [bind_ok, uncurry_apply_pair] at h
+    -- key returns a plain product — bind_eq_ok_iff should work here
+    rw [bind_eq_ok_iff] at h
+    obtain ⟨⟨r1, ced⟩, h_key, h_final⟩ := h
     have h_phys_eq : self1.links.head.val + idx.val =
         self1.links.head.val +
         (self1.links.length.val - 1 - (self1.current_epoch.val - epoch.val)) := by
@@ -1243,9 +1241,12 @@ theorem from_pb_copies_ctr_verbatim
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
   intro result h_post
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_post
   match result with
-  | core.result.Result.Ok ced => exact h_post.1
-  | core.result.Result.Err _ => exact h_post
+  | core.result.Result.Ok ced =>
+    simp only [core.result.Result.Ok.injEq] at h_post
+    subst h_post; rfl
+  | core.result.Result.Err _ => cases h_post
 
 /-- **`from_pb` copies `next` verbatim** (§16.1 layer 3).
 
@@ -1261,9 +1262,12 @@ theorem from_pb_copies_next_verbatim
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
   intro result h_post
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_post
   match result with
-  | core.result.Result.Ok ced => exact h_post.2.1
-  | core.result.Result.Err _ => exact h_post
+  | core.result.Result.Ok ced =>
+    simp only [core.result.Result.Ok.injEq] at h_post
+    subst h_post; rfl
+  | core.result.Result.Err _ => cases h_post
 
 /-- **`from_pb` copies `prev` verbatim** (§16.1 layer 3).
 
@@ -1278,9 +1282,12 @@ theorem from_pb_copies_prev_verbatim
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
   intro result h_post
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_post
   match result with
-  | core.result.Result.Ok ced => exact h_post.2.2
-  | core.result.Result.Err _ => exact h_post
+  | core.result.Result.Ok ced =>
+    simp only [core.result.Result.Ok.injEq] at h_post
+    subst h_post; rfl
+  | core.result.Result.Err _ => cases h_post
 
 /-- **Bad `pb.next` length survives `from_pb`** (§16.1 secondary consequence).
 
@@ -1298,11 +1305,13 @@ theorem from_pb_bad_next_length_survives
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
   intro result h_post
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_post
   match result with
   | core.result.Result.Ok ced =>
-    have : ced.next.length = pb.next.length := congrArg alloc.vec.Vec.length h_post.2.1
-    omega
-  | core.result.Result.Err _ => exact h_post
+    simp only [core.result.Result.Ok.injEq] at h_post
+    subst h_post
+    exact h_bad
+  | core.result.Result.Err _ => cases h_post
 
 /-! ### 16.2 — Zone Z1 and Z3: `recvKeyPre` unsatisfiable above the Lean slack bound -/
 
@@ -1316,11 +1325,11 @@ so Z1 is runtime-benign today (§16.9.3 row Z1). -/
 theorem recvKeyPre_unsatisfiable_ctr_zone_z1
     (params : proto.pq_ratchet.ChainParams) (index : U32)
     (ce : chain.ChainEpoch)
-    (h_z1 : ce.recv.ctr.val > U32.max - 390451572) :
+    (h_z1 : ce.recv.ctr.val > U32.max - 390451572)
+    (h_index_ge : index.val ≥ ce.recv.ctr.val) :
     ¬ chain.recvKeyPre params index ce := by
-  have h_max : U32.max = 4294967295 := by scalar_tac
   unfold chain.recvKeyPre
-  intro ⟨_, _, _, h_ctr_bound, _⟩
+  intro ⟨_, h_idx_bound, _, _, _, _, _, _⟩
   omega
 
 /-- **Zone Z3 (`recvKeyPre` unsatisfiable — exhausted counter)** (§16.9.3).
@@ -1330,13 +1339,14 @@ When `recv.ctr = U32.max`, the precondition `h_ctr_lt : ce.recv.ctr < U32.max` i
 theorem recvKeyPre_unsatisfiable_ctr_zone_z3
     (params : proto.pq_ratchet.ChainParams) (index : U32)
     (ce : chain.ChainEpoch)
-    (h_z3 : ce.recv.ctr.val = U32.max) :
+    (h_z3 : ce.recv.ctr.val = U32.max)
+    (h_index_ge : index.val ≥ ce.recv.ctr.val) :
     ¬ chain.recvKeyPre params index ce := by
-  unfold chain.recvKeyPre
-  intro ⟨_, _, _, _, _, h_ctr_lt, _⟩
-  -- h_ctr_lt : ce.recv.ctr < U32.max, i.e. ↑ce.recv.ctr < U32.max
-  have h_lt : ce.recv.ctr.val < U32.max := h_ctr_lt
-  omega
+  -- Z3 is a special case of Z1: ctr = U32.max > U32.max − 390451572
+  have h_z1 : ce.recv.ctr.val > U32.max - 390451572 := by
+    have h_max : U32.max = 4294967295 := by scalar_tac
+    omega
+  exact recvKeyPre_unsatisfiable_ctr_zone_z1 params index ce h_z1 h_index_ge
 
 /-! ### 16.3 — The reload path: a Z1 blob survives `from_pb` unchanged -/
 
@@ -1356,11 +1366,13 @@ theorem ctr_z1_survives_from_pb
   have h := chain.ChainEpochDirection.from_pb_spec pb
   apply Aeneas.Std.WP.spec_mono h
   intro result h_post
+  simp only [chain.ChainEpochDirection.FunctionalModels.fromPb] at h_post
   match result with
   | core.result.Result.Ok ced =>
-    have : ced.ctr.val = pb.ctr.val := congrArg UScalar.val h_post.1
+    simp only [core.result.Result.Ok.injEq] at h_post
+    subst h_post
     omega
-  | core.result.Result.Err _ => exact h_post
+  | core.result.Result.Err _ => cases h_post
 
 /-! ### 16.4 — Tighter runtime bound implies the Lean slack bound (§16.9.6 item 3) -/
 
@@ -1393,9 +1405,10 @@ resulting `ctr` propagates into a `ChainEpoch` (via `from_pb` copying it verbati
 theorem ctr_steering_breaks_recvKeyPre
     (params : proto.pq_ratchet.ChainParams) (index : U32)
     (ce : chain.ChainEpoch)
-    (h_z1 : ce.recv.ctr.val > U32.max - 390451572) :
+    (h_z1 : ce.recv.ctr.val > U32.max - 390451572)
+    (h_index_ge : index.val ≥ ce.recv.ctr.val) :
     ¬ chain.recvKeyPre params index ce :=
-  recvKeyPre_unsatisfiable_ctr_zone_z1 params index ce h_z1
+  recvKeyPre_unsatisfiable_ctr_zone_z1 params index ce h_z1 h_index_ge
 
 /-! ### 16.6 — Positive witness: zone Z0 is the complement of Z1 ∪ Z3 -/
 
@@ -1419,14 +1432,9 @@ theorem recvKeyPre_zone_z0_ctr_bound
       ce.recv.prev.data.length ≤ 36 * ce.recv.ctr.val ∧
       index.val + (chain.maxOoo params).val ≤ U32.max ∧
       System.Platform.numBits = 64) :
-    chain.recvKeyPre params index ce ↔
-      ce.recv.ctr.val ≤ U32.max - 390451572 ∧ ce.recv.ctr < U32.max := by
+    chain.recvKeyPre params index ce := by
   unfold chain.recvKeyPre
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h_all_but_ctr
-  constructor
-  · intro ⟨_, _, _, h_ctr_bound, _, h_ctr_lt, _⟩
-    exact ⟨h_ctr_bound, h_ctr_lt⟩
-  · intro ⟨h_ctr_bound, h_ctr_lt⟩
-    exact ⟨h1, h2, h3, h_ctr_bound, h4, h_ctr_lt, h5, h6, h7, h8⟩
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
 end spqr.Bugs.CorruptedBlobs

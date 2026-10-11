@@ -62,7 +62,10 @@ theorem addEpochOpt_spec (self : chain.Chain) (es : Option EpochSecret)
       | some e => add_epoch self e) ⦃ (c : chain.Chain) =>
       ChainInv c ∧ c.send_epoch = self.send_epoch ∧ c.params = self.params ⦄ := by
   cases es with
-  | none => exact ⟨h_inv, rfl, rfl⟩
+  | none =>
+    change WP.spec (ok self) _
+    rw [WP.spec_ok]
+    exact ⟨h_inv, rfl, rfl⟩
   | some e =>
     obtain ⟨h_epoch, h_buf⟩ := h_pre
     apply WP.spec_mono (add_epoch_spec_chainInv self e h_epoch h_inv h_buf)
@@ -163,17 +166,17 @@ theorem chainInv_of_reachable (c : chain.Chain) (h : Reachable c)
   induction h with
   | init initial_key dir params c h =>
     have hs := new_spec_chainInv initial_key dir params
-    simp only [WP.spec, WP.theta, WP.wp_return, h] at hs
+    rw [h, WP.spec_ok] at hs
     exact hs
   | step c c' _ hs ih =>
     cases hs with
     | send es epoch r h_pre h_ctr h_run =>
       have hsp := sendStep_chainInv c es epoch ih h_pre h_ctr h_64
-      simp only [WP.spec, WP.theta, h_run] at hsp
+      rw [h_run, WP.spec_ok] at hsp
       exact hsp
     | recv es epoch index r h_pre h_params h_ctr h_run =>
       have hsp := recvStep_chainInv c es epoch index ih h_pre h_params h_ctr h_64
-      simp only [WP.spec, WP.theta, h_run] at hsp
+      rw [h_run, WP.spec_ok] at hsp
       exact hsp
 
 end spqr.chain.Chain

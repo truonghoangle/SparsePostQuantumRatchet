@@ -68,8 +68,10 @@ theorem key_spec_cedInv (self : chain.ChainEpochDirection) (ats : U32)
       CedInv result.2 ⦄ := by
   have h_pre : recvKeyPre params ats { send := self, recv := self } :=
     recvKeyPre_of_cedInv params ats _ h_inv h_ctr h_params h_platform
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, _⟩ := h_pre
-  have h_spec := key_spec self ats params h1 h2 h3 h4 h5 h6 h7 (by scalar_tac) h8 h9 h_platform
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h_pre
+  have h_usize := usize_max_eq_of_64 h8
+  have h_spec := key_spec self ats params h1 h2 h3 h4 h5
+    (by simp only [] at h4; rw [h_usize] at h4 ⊢; omega) h6 h7 h8
   apply WP.spec_mono h_spec
   intro result h_post
   exact ⟨h_post, cedKeyPost_preserves_cedInv self result.2 ats params result.1 h_inv h_post⟩
