@@ -12,32 +12,28 @@ Pure, total Lean functions stating what the two Rust serializers compute, writte
 translated data types only, together with the two round-trip laws relating them. The spec
 theorems in `IntoPb.lean` and `FromPb.lean` pin the extracted, monadic functions to these models.
 
-**Source:** "spqr/src/authenticator/serialize.rs"
-
-**Note.** The `fromPb` model below is total and accepts any key lengths, mirroring
-the current Rust `from_pb` which performs no validation. The Rust `authenticator::Error` enum
-has four dead variants intended for key-length checks that were never implemented. A corrected
-`fromPb` should return `Result` and reject `root_key.length ≠ 32 ∨ mac_key.length ≠ 32`.
-See `FromPb.lean` for D32 gap-documenting theorems and `docs/listDefects.md` §D32. -/
+**Source**: spqr/src/authenticator/serialize.rs
+-/
 
 namespace spqr.authenticator.serialize.Authenticator.FunctionalModels
 
 /-- **Functional model of `spqr::authenticator::serialize::Authenticator::into_pb`**
 • A pure, total, human-readable function on the translated data types.
+• Copies the two key fields `root_key` and `mac_key` across unchanged.
 -/
-def intoPb (x : authenticator.Authenticator) : proto.pq_ratchet.Authenticator :=
+def intoPb (x : Authenticator) : proto.pq_ratchet.Authenticator :=
   { root_key := x.root_key, mac_key := x.mac_key }
 
 /-- **Functional model of `spqr::authenticator::serialize::Authenticator::from_pb`**
 • A pure, total, human-readable function on the translated data types.
+• Copies the two key fields `root_key` and `mac_key` back unchanged.
 -/
-def fromPb (pb : proto.pq_ratchet.Authenticator) : authenticator.Authenticator :=
+def fromPb (pb : proto.pq_ratchet.Authenticator) : Authenticator :=
   { root_key := pb.root_key, mac_key := pb.mac_key }
 
 /-- **Round trip `fromPb ∘ intoPb` for `spqr::authenticator::serialize::Authenticator`** -/
 @[simp]
-theorem roundtrip_fromPb_intoPb (x : authenticator.Authenticator) :
-    fromPb (intoPb x) = x := rfl
+theorem roundtrip_fromPb_intoPb (x : Authenticator) : fromPb (intoPb x) = x := rfl
 
 /-- **Round trip `intoPb ∘ fromPb` for `spqr::authenticator::serialize::Authenticator`** -/
 @[simp]
