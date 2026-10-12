@@ -58,6 +58,12 @@ private theorem bind_eq_ok_iff {α β : Type} (m : Result α) (f : α → Result
     (m >>= f) = ok r ↔ ∃ x, m = ok x ∧ f x = ok r := by
   cases m <;> simp [bind_tc_eq, bind_ok, bind_vis, bind_div, ok.injEq]
 
+/-- `Std.bind`-level variant of `bind_eq_ok_iff` (the Aeneas translation sometimes
+    produces `Std.bind` applications that are only reducibly equal to `>>=`). -/
+private theorem std_bind_eq_ok_iff {α β : Type} (m : Result α) (f : α → Result β) (r : β) :
+    Std.bind m f = ok r ↔ ∃ x, m = ok x ∧ f x = ok r :=
+  bind_eq_ok_iff m f r
+
 /-! ## Phase 1: `from_pb` always succeeds — no validation -/
 
 theorem from_pb_never_fails (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
@@ -175,10 +181,10 @@ theorem get_never_ok (self : chain.KeyHistory) (at1 current_ctr : U32)
   intro r h
   unfold chain.KeyHistory.get at h
   obtain ⟨_, h_ks, rfl⟩ := WP.spec_imp_exists chain.KeyHistory.KEY_SIZE_spec
-  simp only [bind_eq_ok_iff, bind_ok, bind_tc_ok, h_ks, ok.injEq, exists_eq_left'] at h
+  simp only [bind_ok, h_ks] at h
   have h_rem := Usize.rem_spec (alloc.vec.Vec.len self.data) (y := 36#usize) (by simp)
   obtain ⟨lv, h_lv, h_val⟩ := WP.spec_imp_exists h_rem
-  simp only [bind_eq_ok_iff, bind_ok, bind_tc_ok, h_lv, ok.injEq, exists_eq_left'] at h
+  simp only [bind_ok, h_lv] at h
   simp only [massert, alloc.vec.Vec.len_val, UScalar.ofNatCore_val_eq] at h h_val
   simp at h_val
   split at h
@@ -215,24 +221,23 @@ theorem gc_never_ok (self : chain.KeyHistory) (current_key : U32)
       have hz : params.max_ooo_keys = 0#u32 := by scalar_tac
       have := h_ts2.mpr (Or.inl hz)
       simp [this]
-  simp [h_ts_val] at h
+  simp only [alloc.vec.Vec.len, ge_iff_le, UScalar.le_equiv, Usize.ofNatCore_val_eq,
+    Array.index_RangeFull, bind_ok] at h
   have h_bound := self.data.property
   simp only [alloc.vec.Vec.length] at h_large
   have hmul := Usize.mul_spec (x := ts) (y := 36#usize) (by scalar_tac)
   obtain ⟨prod', h_prod', h_prod_val⟩ := WP.spec_imp_exists hmul
-  simp only [ok.injEq] at h_prod'; subst h_prod'
-  simp only [UScalar.ofNatCore_val_eq] at h_prod_val
-  split at h_rest
-  · simp only [bind_eq_ok_iff, h_mo, ok.injEq, exists_eq_left'] at h_rest
-    obtain ⟨u, h_u, _⟩ := h_rest
-    simp only [massert] at h_u
-    split at h_u
-    · rename_i hge; simp only [ge_iff_le, UScalar.le_equiv] at hge; omega
-    · simp at h_u
-  · rename_i hlt
-    simp only [ge_iff_le, not_le, UScalar.lt_equiv, alloc.vec.Vec.len_val,
-      alloc.vec.Vec.length] at hlt
+  simp only [h_ts, h_ks, h_prod', bind_ok] at h
+  have h_cond : prod'.val ≤ self.data.val.length := by
+    have h36 : (36#usize).val = 36 := by simp
+    rw [h36] at h_prod_val
     omega
+  rw [if_pos h_cond] at h
+  simp only [h_mo, bind_ok, massert] at h
+  split at h
+  · rename_i hge
+    omega
+  · simp at h
 
 /-- If `next_key_internal` returns `ok`, then the input `next` had exactly 32 bytes, and so
     does the written-back slice. (`copy_from_slice` fails on any length mismatch.) -/
@@ -241,17 +246,20 @@ theorem next_key_internal_ok_lengths (next : Slice U8) (ctr : U32)
     (h : next_key_internal next ctr = ok r) :
     next.length = 32 ∧ r.2.1.length = 32 := by
   unfold next_key_internal at h
-  simp only [core.slice.Slice.is_empty, massert, bind_tc_ok] at h
+  simp only [core.slice.Slice.is_empty, massert] at h
+  rw [std_bind_eq_ok_iff] at h
+  obtain ⟨b, hb, h⟩ := h
+  simp only [ok.injEq] at hb
+  subst hb
   split at h
-  · simp only [bind_eq_ok_iff] at h
+  · simp only [std_bind_eq_ok_iff] at h
     obtain ⟨_, _, h⟩ := h
     simp only [lift, ok.injEq, exists_eq_left'] at h
     obtain ⟨_, _, h⟩ := h
     obtain ⟨_, _, h⟩ := h
     obtain ⟨_, _, h⟩ := h
-    obtain ⟨_, _, h⟩ := h
     simp only [Array.to_slice_mut, uncurry_apply_pair] at h
-    simp only [bind_eq_ok_iff] at h
+    simp only [std_bind_eq_ok_iff] at h
     obtain ⟨s6, _, h⟩ := h
     obtain ⟨s7, h_s7, h⟩ := h
     obtain ⟨next1, h_cp, h⟩ := h
@@ -306,22 +314,23 @@ theorem key_loop_body_preserves_next_length
     (h : key_loop.body at1 params i v kh = ok cf) :
     (cfNext cf).length = v.length := by
   unfold key_loop.body at h
-  simp only [bind_eq_ok_iff] at h
+  replace h := (std_bind_eq_ok_iff (i + 1#u32) _ cf).mp h
   obtain ⟨_, _, h⟩ := h
   split at h
-  · simp only [alloc.vec.Vec.deref_mut, lift, bind_tc_ok, uncurry_apply_pair,
-      bind_eq_ok_iff] at h
+  · simp  [alloc.vec.Vec.deref_mut, lift, std_bind_eq_ok_iff] at h
     obtain ⟨⟨_, s1, _⟩, h_nki, h⟩ := h
-    simp only [uncurry_apply_pair, bind_eq_ok_iff] at h
+    simp at h
     obtain ⟨_, _, h⟩ := h
-    obtain ⟨_, _, h⟩ := h
+    obtain ⟨h_nki, _, _, h⟩ := h
+    obtain ⟨_, _,  h⟩ := h
     have h_lens := next_key_internal_ok_lengths _ _ _ h_nki
-    simp only at h_lens
+    simp at h_lens
     split at h
-    · simp only [bind_eq_ok_iff] at h
+    · simp only [std_bind_eq_ok_iff] at h
       obtain ⟨_, _, h⟩ := h
       simp only [ok.injEq] at h; subst h
-      simp only [cfNext, alloc.vec.Vec.length, Slice.length] at h_lens ⊢
+      simp  [cfNext, alloc.vec.Vec.length, Slice.length] at h_lens ⊢
+      simp
       omega
     · simp only [ok.injEq] at h; subst h
       simp only [cfNext, alloc.vec.Vec.length, Slice.length] at h_lens ⊢

@@ -1,6 +1,20 @@
 # Complete Defect List: D1–D63
 
-> **Version:** 2.0 — 2026-10-04
+> **Version:** 2.1 — 2026-10-11 (re-verification pass)
+>
+> **Re-verification (2026-10-11).** Every defect was re-checked against HEAD
+> (`baa499f6`, branch `defects`). **No defect status changed**: all 🔴/🟡/🔵 defects
+> remain unfixed in the Rust sources, and all ✅/🟢 Lean artifacts still exist and
+> compile. However, recent commits (#647 performance refactor, #578 Chain functional
+> models, D18 Rust probes in `src/chain.rs`, and a `#[derive(Copy, Clone)]` charon
+> workaround that shifted `polynomial.rs` by +4 lines) invalidated several line-number
+> and hypothesis-name citations. These anchors were corrected in this version:
+> D1 (Gc hypothesis `h_prev_ctr` → `h_key_ge`; `copy_from_slice` L241 → L243;
+> CorruptedBlobs.lean 48 → 50 theorems), D5 (L735 → L739), D8 (L86 → L87),
+> D21 (`send_ct.rs` L295 → L201), D42 (L573–619 → L577–623), D46 (L850/L772/L919 →
+> L854/L776/L925), D49 (L851/L912 → L855/L917), D50 (L736 → L740; Lean precondition
+> is `h_idx_fits`), D54 (L889 → L893, also L944), D62 (Rust comment corrected under
+> D4; behavioural defect unchanged).
 >
 > Self-contained, sequentially ordered reference for every defect D1–D63. Each entry has
 > severity, Lean spec(s), Rust location, consequence, reproduction evidence, and fix.
@@ -46,7 +60,9 @@ no validation.
 
 **Specs.** `FromPb.lean` proves `Ok` with no hypotheses. `NextKeyInternal.lean` needs
 `h_next_len : next.length = 32`. `Get.lean` needs `h_data_aligned : data.length % 36 = 0`.
-`Gc.lean` needs `h_prev_ctr : data.length ≤ 36 * ctr`.
+`Gc.lean` (`gc_spec`, refactored in #647) needs `h_key_ge : trim_threshold ≤ data.length →
+max_ooo ≤ current_key` (formerly cited as `h_prev_ctr`); the `data.length ≤ 36 * ctr`
+invariant is retained in `CorruptedBlobs.lean` (e.g. L953, L1432).
 
 **Rust.** `chain.rs` L306–312: `from_pb` copies `ctr`, `next`, `prev` verbatim, zero validation.
 
@@ -54,7 +70,7 @@ no validation.
 
 | Corrupted field | Consumer | Failure |
 |---|---|---|
-| `next.len() ≠ 32` | `next_key_internal` L241 | **panic** (`copy_from_slice`) |
+| `next.len() ≠ 32` | `next_key_internal` L243 | **panic** (`copy_from_slice`) |
 | `prev.len() % 36 ≠ 0` | `KeyHistory::get` L191 | **panic** (`assert_eq!`) |
 | `prev` too large for `ctr` | `KeyHistory::gc` L149 | **panic** (`assert!`) |
 | `ctr + maxOoo > U32.max` | `key` L265 | **overflow** (D57: `key_never_ok_of_large_ctr`) |
@@ -62,7 +78,7 @@ no validation.
 
 Corrupted state round-trips through `into_pb` (crash loop).
 
-**Lean.** `CorruptedBlobs.lean`: 48 theorems, 11 phases — `from_pb_never_fails`,
+**Lean.** `CorruptedBlobs.lean`: 50 theorems, 11 phases — `from_pb_never_fails`,
 `recv_key_never_ok_bad_next`, `key_never_ok_of_large_ctr`, `get_never_ok_of_ooo_overflow`,
 `key_never_ok_of_ooo_overflow`, etc.
 
@@ -133,13 +149,14 @@ hold jointly.
 
 ## D5. `PolyEncoder` index truncation `u32→u16` (MEDIUM; blob)
 
-**Status.** 🟢 **Proved.** `polynomial.rs` L735 still uses `as u16`.
+**Status.** 🟢 **Proved.** `polynomial.rs` L739 (was L735; file shifted +4 lines by the
+charon `#[derive(Copy, Clone)]` workaround) still uses `as u16`.
 
 **Specs.** `NextChunk.lean`: `h_idx_fits : self.idx ≤ U16.max`. `FromPb.lean` accepts any `u32`.
 `idx_cast_u16_lossy` — proves `idx % 2^16 ≠ idx` when `idx > U16.max`, showing the
 `u32→u16` cast silently truncates after 65535 chunks.
 
-**Rust.** `polynomial.rs` L735: `self.chunk_at(self.idx as u16)` wraps after 65535.
+**Rust.** `polynomial.rs` L739: `self.chunk_at(self.idx as u16)` wraps after 65535.
 
 **Consequence.** Emitted `chunk.index` wraps to 0. Makes D16 poisoning permanent.
 
@@ -179,7 +196,8 @@ discards cursor on error).
 `System.Platform.numBits = 32`, `trim_size` has no `ok` result because `max_ooo * 11`
 overflows `Usize.max`.
 
-**Rust.** `chain.rs` L86: `max_ooo * 11` overflows on 32-bit.
+**Rust.** `chain.rs` L87: `max_ooo * 11` overflows on 32-bit (guarded only by an erased
+`hax_lib::assume!(max_ooo < 390451572)` at L86).
 
 **Consequence.** `trim_size` wraps small → GC too aggressive → keys lost.
 
@@ -475,7 +493,7 @@ round-robin implementations are intentionally excluded from verification.
 
 **Specs.** `ProtocolDoS.lean` L156: `recv_hdr_chunk_persists_unauthenticated_state`.
 
-**Rust.** `states.rs` L513–526 → `send_ct.rs` L295 `recv_next_epoch`: transition from
+**Rust.** `states.rs` L513–526 → `send_ct.rs` L201 `recv_next_epoch`: transition from
 `Ct2Sampled` to `KeysUnsampled(epoch+1)` with no `Authenticator` consultation.
 
 **Mechanism.** 4-byte message `[1, 2, 1, 0]` with `epoch == self.epoch + 1`. Bob advances
@@ -804,7 +822,7 @@ could have `len != 32`, reaching `compare` with mismatched lengths.
 
 **Detection method.** M4 (property testing candidate).
 
-**Rust.** `polynomial.rs` L573–619: `from_pb` stores `pb.idx` (u32) directly without
+**Rust.** `polynomial.rs` L577–623: `from_pb` stores `pb.idx` (u32) directly without
 validating consistency with point counts. High `idx` with inadmissible point counts
 triggers `debug_assert!(false)` at L310 via `point_at`→`from_complete_points`.
 
@@ -821,12 +839,17 @@ triggers `debug_assert!(false)` at L310 via `point_at`→`from_complete_points`.
 **Detection method.** M3 (fuzz surface) + M8 (panic-path audit).
 
 **Rust.** `chain.rs` L306–312: `from_pb` accepts any `next` length. L243:
-`next.copy_from_slice(&genr8r[..32])` panics if `next.len() != 32`. D1 lists the
-`next.len() ≠ 32` crash at L241 (`copy_from_slice`), but the L243 path is a distinct
-crash in `next_key_internal` — the assert at L229 catches empty `next`, but non-empty
-`next` with `len ∈ {1..31, 33..}` bypasses the assert and crashes at L243.
+`next.copy_from_slice(&genr8r[..32])` panics if `next.len() != 32`.
 
-**Consequence.** Panic → crash loop on corrupted blob. Distinct crash path from D1.
+**Re-verification note (2026-10-11).** Current `chain.rs` has a single `copy_from_slice`
+site (L243) inside `next_key_internal`; the previously claimed "distinct" L241 vs L243
+paths now resolve to the same statement. D43 is therefore a **refinement of D1's first
+row**, not an independent crash site: the `assert!(!next.is_empty())` at L229 catches
+only the empty case, while non-empty `next` with `len ∈ {1..31, 33..}` bypasses the
+assert and panics at L243.
+
+**Consequence.** Panic → crash loop on corrupted blob. Same site as D1 row 1, with the
+empty/non-empty case split made explicit.
 
 **Fix.** Validate `pb.next.len() == 32` in `from_pb`. **Related.** D1.
 
@@ -876,9 +899,9 @@ Via D1 corrupted blob: `from_pb` loads `ctr = 0` with non-empty `prev.data` of s
 
 **Detection method.** M3 (fuzz surface).
 
-**Rust.** `polynomial.rs` L850: `pts_needed: pb.pts_needed as usize`. If `pb.pts_needed == 0`,
-then `necessary_points` at L772 returns `0 / 16 = 0` for all polys. `decoded_message` at
-L919 checks `pts.len() < self.necessary_points(i)` — with 0 necessary, any points suffice.
+**Rust.** `polynomial.rs` L854: `pts_needed: pb.pts_needed as usize`. If `pb.pts_needed == 0`,
+then `necessary_points` at L776 returns `0 / 16 = 0` for all polys. `decoded_message` at
+L925 checks `pts.len() < self.necessary_points(i)` — with 0 necessary, any points suffice.
 An empty decoder with `pts_needed == 0` returns `Some(vec![])` from `decoded_message`.
 
 **Consequence.** Produces an empty decoded message, which downstream callers `split_off`
@@ -933,8 +956,8 @@ silently assumes the bound; if violated, the axiom's postcondition would be unso
 
 **Detection method.** M4 (property testing).
 
-**Rust.** `polynomial.rs` L851: `is_complete: pb.is_complete`. If a blob sets
-`is_complete = true` with non-empty points, `decoded_message` at L912–913 returns
+**Rust.** `polynomial.rs` L855: `is_complete: pb.is_complete`. If a blob sets
+`is_complete = true` with non-empty points, `decoded_message` at L917–918 returns
 `None` forever — the decoder thinks it has already completed, and never returns data.
 
 **Consequence.** The chunked protocol stalls: `decoded_message` always returns `None`,
@@ -982,10 +1005,10 @@ silent DoS via corrupted blob — no error is returned, the session just hangs.
 
 **Status.** ✅ **Fixed (Lean spec tightened; `checked_add` required).**
 
-**Detection method.** M13 (refinement checking) — `wrapping_add` at `polynomial.rs` L736
+**Detection method.** M13 (refinement checking) — `wrapping_add` at `polynomial.rs` L740
 has no corresponding Lean spec postcondition bounding `idx`.
 
-**Rust.** `polynomial.rs` L736: `self.idx = self.idx.wrapping_add(1)`. After 65 536
+**Rust.** `polynomial.rs` L740: `self.idx = self.idx.wrapping_add(1)`. After 65 536
 calls, `idx` wraps to 0. Subsequent chunks carry the same `index` as earlier ones.
 `PolyDecoder::add_chunk` de-duplicates on `x` — wrapped chunks silently discarded.
 
@@ -994,11 +1017,15 @@ chunks the decoder ignores. Silent stall in long-running epochs with retransmiss
 
 **Fix.** Use `checked_add(1).expect(...)` instead of `wrapping_add(1)`.
 
-**Lean.** `NextChunk.lean` spec updated:
-- Added precondition `h_idx_no_overflow : self.idx.val < U32.max` (ensures `checked_add`
-  succeeds).
-- Postcondition changed from `self'.idx.val = (self.idx.val + 1) % U32.size` to
-  `self'.idx.val = self.idx.val + 1` (no wrapping).
+**Lean.** `NextChunk.lean` spec updated (re-verified 2026-10-11; the overflow
+precondition is now named `h_idx_fits : self.idx.val ≤ U16.max` at `NextChunk.lean` L32,
+not `h_idx_no_overflow` as previously stated):
+- Postcondition is `self'.idx.val = self.idx.val + 1` (no wrapping; docstring notes
+  "`checked_add` panics at `U32.max`").
+
+**Note (re-verification).** The Rust at L740 still uses `wrapping_add(1)` — the
+`checked_add` fix described above exists only on the Lean spec side. The Rust-side
+change remains outstanding; D50 is spec-tightened but the runtime wrap is still present.
 
 ---
 
@@ -1070,7 +1097,7 @@ length prefix. Different `(root_key, k)` pairs can produce identical `ikm` when
 
 **Detection method.** M15 (fuel analysis).
 
-**Rust.** `polynomial.rs` L889: `GF16::new(poly_idx as u16)`. When `chunk.index > 4095`,
+**Rust.** `polynomial.rs` L893 (also L944): `GF16::new(poly_idx as u16)`. When `chunk.index > 4095`,
 `as u16` truncation produces colliding x-coordinates. Decoder interpolation wrong.
 
 **Consequence.** Silent wrong decoded data for large chunk indices. **Related.** D50.
@@ -1195,8 +1222,9 @@ transform produces pseudorandom garbage for invalid inputs → silent PQ securit
 
 **Detection method.** M17 (symbolic state-machine model checking).
 
-**Rust.** `polynomial.rs` L898–901: Comment says first-write-wins but implementation
-does last-write-wins. Root cause of chunk poisoning (CorruptedBlobs.md §15.2).
+**Rust.** `polynomial.rs` L902–906: the misleading comment has since been **corrected**
+(it now documents last-write-wins, citing the D4 fix), but the implementation still does
+last-write-wins `push`. Root cause of chunk poisoning (CorruptedBlobs.md §15.2) remains.
 
 **Consequence.** Authenticated peer replaces honest points → permanent stall. **Related.** D16.
 
@@ -1256,7 +1284,7 @@ Subsequent fields parsed from wrong offset → epoch/index misinterpretation.
 | **2-a** | **D58** | `encoding.rs`: replace `unwrap()` with `ok_or(...)` returning `Result`. | Independent. |
 | **2-b** | **D48** ✅ | ~~`kdf.rs`: guard `okm.len() > 8160` before `expand`.~~ **Done.** Erased-bound audit comments added to `HkdfToSlice.lean` and `HkdfToVec.lean`. | Independent. |
 | **2-c** | **D51/D41** | `util.rs`: return `1` on `lhs.len() != rhs.len()`. | Independent. |
-| **2-d** | **D50** ✅ | ~~`polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`.~~ **Done.** Lean spec tightened with `h_idx_no_overflow` precondition; postcondition no longer uses modular wrap. | Independent. |
+| **2-d** | **D50** ✅ | ~~`polynomial.rs`: `checked_add(1)` for encoder `idx`. Update `NextChunk.lean`.~~ **Done (Lean side).** Lean spec tightened with the `h_idx_fits` precondition; postcondition no longer uses modular wrap. Rust `wrapping_add` at L740 still outstanding. | Independent. |
 | **2-e** | **D55** | `polynomial.rs`: return `Err` instead of `debug_assert!(false)` + fallback. | Independent. |
 
 ## Phase 3 — Compositional invariant gaps (depends on Phases 0–2)
