@@ -3,9 +3,12 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Oliver Butterley
 -/
-import SrcTranslated.Funs
-import Spqr.Auxiliary.Aeneas.Vec
+module
+
+public import SrcTranslated.Funs
+public import Spqr.Auxiliary.Aeneas.Vec
 import Spqr.Specs.Kdf.HkdfToSlice
+public import Spqr.Crypto.Hkdf
 
 /-!
 # Spec theorem for `spqr::kdf::hkdf_to_vec`
@@ -18,6 +21,8 @@ Source: "spqr/src/kdf.rs"
 **D48 audit note.** The `h : okm_len.val ≤ 255 * 32` precondition is propagated from
 `hkdf_to_slice_spec`. In Rust, the bound is not enforced — `expand` panics via `expect`.
 See `HkdfToSlice.lean` for the full D48 note and `docs/listDefects.md` §D48. -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result Aeneas.Std.WP
 namespace spqr.kdf

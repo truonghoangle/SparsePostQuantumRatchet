@@ -3,13 +3,18 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Specs.Chain.ChainEpochDirection.NextKey
+module
+
+public import Spqr.Specs.Chain.ChainEpochDirection.NextKey
 import Spqr.Specs.Chain.KeyHistory.Get
 import Spqr.Specs.Chain.KeyHistory.Clear
 import Spqr.Specs.Chain.KeyHistory.Gc
 import Spqr.Specs.Chain.ChainParams.MaxJumpOrDefault
-import Spqr.Specs.Chain.Chain.Defs
+public import Spqr.Specs.Chain.Chain.Defs
 import Spqr.Specs.Chain.KeyHistory.Add
+import Spqr.Specs.Chain.ChainParams.MaxOooKeysOrDefault
+import Spqr.Specs.Chain.DEFAULT_CHAIN_PARAMS
+import Spqr.Specs.Chain.ChainEpochDirection.NextKeyInternal
 /-!
 # Spec theorem for `spqr::chain::{spqr::chain::ChainEpochDirection}::key`: loop body 0
 
@@ -32,6 +37,8 @@ The preconditions require that the chain secret `v` has length 32 and the counte
 below `U32.max` (so that incrementing it does not overflow).
 
 **Source**: spqr/src/chain.rs -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result spqr crypto
 

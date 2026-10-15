@@ -3,9 +3,18 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+module
+
 import Spqr.Math.Poly.Coeff.ListOps
-import Spqr.Math.Poly.Eval
+public import Spqr.Math.Poly.Eval
 import Spqr.Specs.Encoding.Gf.GF16.AddAssign
+public import Spqr.Math.Poly.Basic.Defs
+public import SrcTranslated.Funs
+import Mathlib.Algebra.Order.Ring.Star
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+import Mathlib.Tactic.ComputeDegree
+import Spqr.Math.Gf16.Irreducible
+import Spqr.Math.Poly.Basic.Zero
 
 /-! # Spec theorem for `spqr::encoding::polynomial::{spqr::encoding::polynomial::Poly}::add_assign`
 
@@ -13,6 +22,8 @@ Computes `self + other` in `GF216[X]` by iterating over `other`'s coefficients v
 `deref → iter → enumerate → add_assign_loop`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
+
+@[expose] public section
 open Aeneas Aeneas.Std Result ControlFlow spqr.encoding.gf Polynomial spqr.encoding.polynomial
 open  core.iter.adapters.enumerate core.slice.iter
 

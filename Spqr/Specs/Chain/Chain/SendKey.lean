@@ -3,13 +3,21 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import SrcTranslated.Funs
-import Spqr.Specs.Chain.Chain.EpochIdx
+module
+
+public import SrcTranslated.Funs
+public import Spqr.Specs.Chain.Chain.EpochIdx
 import Spqr.Specs.Chain.ChainEpochDirection.NextKey
 import Spqr.Specs.Chain.EPOCHS_TO_KEEP_PRIOR_TO_SEND_EPOCH
 import Spqr.Specs.Aeneas.RangeIteratorNext
 import Spqr.Specs.Chain.ChainEpochDirection.ClearNext
-import Spqr.Specs.Chain.Chain.Defs
+public import Spqr.Specs.Chain.Chain.Defs
+import Spqr.Auxiliary.Aeneas.StdNextStepUsize
+import Spqr.Specs.Aeneas.CopyFromSlice
+import Spqr.Specs.Aeneas.ResultExpect
+import Spqr.Specs.Aeneas.SliceConcat
+import Spqr.Specs.Aeneas.TryFromSliceToArray
+import Spqr.Specs.Kdf.HkdfToSlice
 /-! # Spec theorem for `spqr::chain::{spqr::chain::Chain}::send_key`: loop body 1
 
 Body of the clearing loop `for i in 0..epoch_index { self.links[i].send.clear_next(); }`.
@@ -19,6 +27,8 @@ via `index_mut` and `clear_next`, then continues with the advanced iterator and 
 Preconditions: `iter.end ≤ vd.length` and `vd.head + vd.length ≤ vd.buf.length`.
 
 **Source**: spqr/src/chain.rs-/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result spqr crypto
 

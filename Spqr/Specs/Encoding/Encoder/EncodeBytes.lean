@@ -3,8 +3,12 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import SrcTranslated.Funs
+module
+
+public import SrcTranslated.Funs
 import Spqr.Specs.Encoding.Polynomial.PolyEncoder.EncodeBytes
+public import Spqr.Specs.Encoding.Polynomial.PolyEncoder.Defs
+import Mathlib.Tactic.ComputeDegree
 
 /-! # Spec theorems for `spqr::encoding::{Encoder for Option<T>}::encode_bytes`
 
@@ -30,6 +34,8 @@ never set. No Lean specs exist for this test-only code because:
 All theorems in this file and in `NextChunk.lean` are instantiated exclusively for `PolyEncoder`.
 The `RoundRobinEncoder` bugs have no impact on verified properties. -/
 
+@[expose] public section
+
 open Aeneas Aeneas.Std Result spqr encoding.polynomial
 
 namespace spqr.core.option.Option.Insts.SpqrEncodingEncoder
@@ -39,7 +45,7 @@ namespace spqr.core.option.Option.Insts.SpqrEncodingEncoder
 If the inner encoder satisfies `P`, then the wrapped encoder satisfies `P` relabelled through
 `Option`: `Ok (some val) ↦ P (Ok val)`, `Err e ↦ P (Err e)`, `Ok none ↦ False`. -/
 @[step]
-theorem encode_bytes_spec_lift
+theorem encode_bytes_spec
     {T : Type} (EncoderInst : encoding.Encoder T) (msg : Slice Std.U8)
     (P : core.result.Result T encoding.EncodingError → Prop)
     (h_inner :
@@ -62,7 +68,6 @@ theorem encode_bytes_spec_lift
 Instantiates `encode_bytes_spec_lift` with the `PolyEncoder` postcondition. Given `h_even` and
 `h_len`, the result is `Ok (some ⟨0#u32, Points pts⟩)` where each `pts[j]` has the expected
 round-robin length and coefficients matching big-endian byte pairs from `msg`. -/
-@[step]
 theorem encode_bytes_spec_poly_encoder
     (msg : Slice U8)
     (h_even : msg.length % 2 = 0)

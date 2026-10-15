@@ -3,10 +3,16 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+module
+
 import Spqr.Specs.Aeneas.TryFromSliceToArray
-import Spqr.Specs.Aeneas.VecIndexRangeFull
-import Spqr.Specs.Aeneas.ResultExpect
-import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
+public import Spqr.Specs.Aeneas.VecIndexRangeFull
+public import Spqr.Specs.Aeneas.ResultExpect
+public import Spqr.Specs.Encoding.Polynomial.PolyEncoder.PointAt
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+import Mathlib.Tactic.ComputeDegree
+import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
+import Spqr.Specs.Aeneas.RangeIteratorNext
 
 /-! # Spec theorem for `PolyEncoder::chunk_at`: loop body 0
 
@@ -18,6 +24,8 @@ The proof composes `IteratorRange.next`, usize arithmetic (`total_idx`, `poly`, 
 `PolyEncoder.point_at`, bit-shift/cast, and two `Vec::push` calls.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 

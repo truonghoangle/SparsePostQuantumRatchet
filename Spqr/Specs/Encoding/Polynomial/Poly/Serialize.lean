@@ -3,11 +3,17 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
-import Spqr.Math.List
-import Spqr.Math.Gf16.Field
+module
+
+public import Spqr.Math.List
+public import Spqr.Math.Gf16.Field
 import Spqr.Specs.Encoding.Polynomial.Pt.Serialize
 import Spqr.Specs.Aeneas.RangeIteratorNext
-import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
+public import Spqr.Math.Poly.Basic.Defs
+public import SrcTranslated.Funs
+import Mathlib.Algebra.Order.Ring.Star
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+import Spqr.Specs.Aeneas.IndexRangeFull
 
 /-!
 # Spec theorem for `Poly::serialize`: loop body 0
@@ -17,6 +23,8 @@ unchanged) or the next coefficient is encoded as 2 big-endian bytes appended to 
 Invariant: `out.len() == 2 * i`, with `out[2*j] * 256 + out[2*j+1] = v[j].value.val` for `j < i`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf
 

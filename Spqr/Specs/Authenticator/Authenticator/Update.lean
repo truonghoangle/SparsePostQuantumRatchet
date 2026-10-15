@@ -3,12 +3,15 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Oliver Butterley
 -/
-import SrcTranslated.Funs
-import Spqr.Specs.Authenticator.Authenticator.MACSIZE
-import Spqr.Specs.Kdf.HkdfToSlice
+module
+
+public import SrcTranslated.Funs
+public import Spqr.Specs.Authenticator.Authenticator.MACSIZE
+public import Spqr.Specs.Kdf.HkdfToSlice
 import Spqr.Specs.Kdf.HkdfToVec
 import Spqr.Auxiliary.Aeneas.Vec
 import Spqr.Specs.Aeneas.SliceConcat
+public import Spqr.Crypto.Hkdf
 
 /-!
 # Spec theorem for `spqr::authenticator::Authenticator::update`
@@ -39,6 +42,8 @@ missing length prefix. The fix is length-prefixed concatenation:
 `mac_key` to diverge permanently. The theorem `update_diverges_on_bad_root_key` formalises
 the consequence chain: D19 (no key-length validation) → D39 (IKM divergence) → permanent
 session break. See also D28, D52. See `docs/listDefects.md` §D39. -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result Aeneas.Std.WP
 namespace spqr.authenticator.Authenticator
