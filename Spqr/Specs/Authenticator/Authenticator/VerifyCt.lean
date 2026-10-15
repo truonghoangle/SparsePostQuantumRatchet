@@ -6,9 +6,13 @@ Authors: Oliver Butterley
 module
 
 public import SrcTranslated.Funs
-public import Spqr.Specs.Authenticator.Authenticator.MacCt
-public import Spqr.Specs.Util.Compare
-public import Spqr.Auxiliary.Aeneas.Vec
+import Spqr.Specs.Authenticator.Authenticator.MacCt
+import Spqr.Specs.Util.Compare
+import Spqr.Auxiliary.Aeneas.Vec
+import Spqr.Auxiliary.Aeneas.SpecRefl
+import Spqr.Auxiliary.Aeneas.StdNextStepUsize
+import Spqr.Specs.Aeneas.SliceConcat
+import Spqr.Specs.Util.IsNonZero
 
 /-!
 # Spec theorem for `spqr::authenticator::Authenticator::verify_ct`
@@ -23,7 +27,7 @@ Source: "spqr/src/authenticator.rs"
 
 open Aeneas Aeneas.Std Result Aeneas.Std.WP
 namespace spqr.authenticator.Authenticator
-open core.result.Result (Ok)
+open Aeneas.Std.core.result.Result (Ok)
 
 /-- `mac_ct_spec`, strengthened with the defining `… = ok r` equation. Registered as a
 file-local `step` lemma. -/

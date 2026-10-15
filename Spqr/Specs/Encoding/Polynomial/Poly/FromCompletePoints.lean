@@ -3,6 +3,8 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+module
+
 import Spqr.Specs.Encoding.Polynomial.ConstPolysToPolys
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeSum
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_1
@@ -11,6 +13,10 @@ import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_5
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_30
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_34
 import Spqr.Specs.Encoding.Polynomial.COMPLETE_POINTS_POLYS_36
+public import Spqr.Math.Poly.Lagrange.CompletePoints
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+import Mathlib.Tactic.ComputeDegree
+
 /-! # Specification for `Poly::from_complete_points`
 
 This file verifies the Rust function `Poly::from_complete_points` from
@@ -30,6 +36,8 @@ This file verifies the Rust function `Poly::from_complete_points` from
    `p = Σⱼ pts[j].y · scaledLagrangeBasis(len, j)` in `GF(2¹⁶)[X]`.
 
 **Source**: `src/encoding/polynomial.rs` -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result spqr.encoding.polynomial spqr.encoding.gf Polynomial
 open core.iter.adapters.enumerate core.slice.iter
@@ -115,7 +123,7 @@ This captures the three possible outcomes of one iteration of the
 
 - **`cont iter'`** — the current point passed validation (`pts[i].x.value = i`),
   the iterator advanced by one, and the loop continues. -/
-private abbrev bodyPost
+abbrev bodyPost
     (pts : Slice Pt) (iter : Enumerate (Iter Pt)) :
     ControlFlow (Enumerate (Iter Pt)) (core.result.Result Poly Unit) → Prop :=
   fun cf =>

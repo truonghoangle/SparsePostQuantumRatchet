@@ -7,8 +7,8 @@ module
 
 public import SrcTranslated.Funs
 public import Spqr.Specs.Chain.Chain.CedForDirection
-public import Spqr.Specs.Lib.Direction.Switch
-public import Spqr.Specs.Kdf.HkdfToSlice
+import Spqr.Specs.Lib.Direction.Switch
+import Spqr.Specs.Kdf.HkdfToSlice
 public import Spqr.Crypto.Hkdf
 /-! # Spec theorem for `spqr::chain::{spqr::chain::Chain}::new`
 
@@ -66,10 +66,10 @@ theorem new_spec (initial_key : Slice U8) (dir : proto.pq_ratchet.Direction)
   | .A2B =>
     step*
     simp_all [Array.make, newHkdfOutput, chainStartLabel, crypto.zeroSalt32, alloc.vec.Vec.val,
-      alloc.vec.Vec.length, List.slice_length, crypto.hkdf_length]
+      alloc.vec.Vec.length, List.slice_length, crypto.hkdf_length, UScalar.eq_equiv]
   | .B2A =>
     step*
     simp_all [Array.make, newHkdfOutput, chainStartLabel, crypto.zeroSalt32, alloc.vec.Vec.val,
-      alloc.vec.Vec.length, List.slice_length, crypto.hkdf_length]
+      alloc.vec.Vec.length, List.slice_length, crypto.hkdf_length, UScalar.eq_equiv]
 
 end spqr.chain.Chain

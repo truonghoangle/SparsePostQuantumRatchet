@@ -3,9 +3,25 @@ Copyright (c) 2026 The Beneficial AI Foundation. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE-APACHE.
 Authors: Hoang Le Truong
 -/
+module
+
 import Spqr.Specs.Encoding.Polynomial.Poly.Clone
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolatePrepare
 import Spqr.Specs.Encoding.Polynomial.Poly.LagrangeInterpolateComplete
+public import Spqr.Math.Poly.Eval
+public import Spqr.Math.Poly.Lagrange.InterpolantSum
+public import SrcTranslated.Funs
+import Mathlib.Data.Int.ConditionallyCompleteOrder
+public import Mathlib.Tactic.ComputeDegree
+import Spqr.Math.Poly.LinearFactors.Degree
+import Spqr.Specs.Encoding.Polynomial.Poly.AddAssign
+import Spqr.Specs.Encoding.Polynomial.Poly.Zero
+import Spqr.Specs.Encoding.Gf.GF16.AddAssign
+import Spqr.Specs.Encoding.Polynomial.Poly.Serialize
+import Spqr.Specs.Aeneas.RangeIteratorNext
+import Spqr.Math.Poly.Identities.Basic
+import Spqr.Math.Poly.CharTwo.ToGF216
+import Spqr.Math.Poly.Coeff.Basic
 
 /-! # Spec theorem for `lagrange_interpolate`: loop body 1
 
@@ -14,6 +30,8 @@ The body retrieves the next index `j`; if exhausted returns `done (v, working)` 
 otherwise performs the GF(2¹⁶) addition and returns `cont (iter1, v1)`.
 
 **Source**: spqr/src/encoding/polynomial.rs -/
+
+@[expose] public section
 
 open Aeneas Aeneas.Std Result  spqr.encoding.gf Polynomial
 
@@ -301,8 +319,10 @@ theorem lagrange_interpolate_formula
     step with lagrange_interpolate_complete_spec template pts 0#usize
       h_nonempty (by grind) h_root_template as ⟨working1, h_w1_len, h_w1_id⟩
     have h_one_le_w1 : (1 : Nat) ≤ working1.degree := by grind
-    step with alloc.vec.Vec.index_RangeFrom_spec working1.coefficients ⟨1#usize⟩ h_one_le_w1
-      as ⟨s, h_s_val, h_s_len⟩
+    step as ⟨s0, h_s0⟩
+    step as ⟨s, h_s_val, h_s_len⟩
+    · simp only [Slice.length, h_s0]; exact h_one_le_w1
+    rw [h_s0] at h_s_val
     have h_s_len_pts : s.length = pts.length := by grind [degree]
     step with extend_from_slice_GF16_spec out.coefficients s (by grind [degree]) as ⟨v, h_v_val⟩
     have h_v_val' : v = s.val := by rw [h_v_val, List.length_eq_zero_iff.mp h_out_len,
