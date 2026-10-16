@@ -94,6 +94,7 @@ private theorem body_spec_chunk
       Order.lt_two_iff, zero_le, Std.le_refl, Array.set_val_eq, List.getElem!_eq_getElem?_getD,
       ne_eq, true_and]
       use g
+      simp_all only
       constructor
       · congr 1
         rw [Nat.shiftLeft_eq]

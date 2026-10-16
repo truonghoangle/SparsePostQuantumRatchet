@@ -30,36 +30,38 @@ namespace spqr.chain.ChainEpochDirection
 def PbCedInv (pb : proto.pq_ratchet.chain.epoch.EpochDirection) : Prop :=
   pb.next.length = 32 ∧ pb.prev.length % 36 = 0 ∧ pb.prev.length ≤ 36 * pb.ctr.val
 
-/-- `from_pb` yields `CedInv` exactly when the blob satisfies `PbCedInv`. -/
+/-- `from_pb` yields `CedInv` exactly when the blob satisfies `PbCedInv`.
+Since v1.6.0, `from_pb` may return `Err StateDecode` for non-empty `next` with length ≠ 32;
+in that case the postcondition is vacuously `True`. -/
 theorem cedInv_from_pb_iff (pb : proto.pq_ratchet.chain.epoch.EpochDirection) :
     from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection Error) =>
       match result with
       | core.result.Result.Ok ced => (CedInv ced ↔ PbCedInv pb)
-      | core.result.Result.Err _ => False ⦄ := by
+      | core.result.Result.Err _ => True ⦄ := by
   apply WP.spec_mono (from_pb_spec pb)
-  intro result
-  match result with
-  | core.result.Result.Err _ =>
-    intro h; simp [FunctionalModels.fromPb] at h
-  | core.result.Result.Ok ced =>
-    intro h
-    have heq : ced = { ctr := pb.ctr, next := pb.next, prev := { data := pb.prev } } := by
-      simp [FunctionalModels.fromPb] at h; exact h
-    subst heq
-    simp only [CedInv, PbCedInv]
+  intro result h
+  subst h
+  show match FunctionalModels.fromPb pb with
+    | .Ok ced => (CedInv ced ↔ PbCedInv pb)
+    | .Err _ => True
+  unfold FunctionalModels.fromPb
+  by_cases h_ok : (pb.next.val).isEmpty = true ∨ pb.next.length = 32
+  · simp only [if_pos h_ok, CedInv, PbCedInv]
+  · simp only [if_neg h_ok]
 
 /-- **Non-preservation**: a blob violating `PbCedInv` loads (with `Ok`) into a direction violating
-`CedInv`.  No hypothesis of any `key`/`next_key` spec is then satisfiable. -/
+`CedInv`.  No hypothesis of any `key`/`next_key` spec is then satisfiable.
+When `from_pb` returns `Err` (v1.6.0 next-length check), the postcondition is vacuously `True`. -/
 theorem from_pb_not_cedInv (pb : proto.pq_ratchet.chain.epoch.EpochDirection)
     (h_bad : ¬ PbCedInv pb) :
     from_pb pb ⦃ (result : core.result.Result chain.ChainEpochDirection Error) =>
       match result with
       | core.result.Result.Ok ced => ¬ CedInv ced
-      | core.result.Result.Err _ => False ⦄ := by
+      | core.result.Result.Err _ => True ⦄ := by
   apply WP.spec_mono (cedInv_from_pb_iff pb)
   intro result
   match result with
-  | core.result.Result.Err _ => intro h; exact h
+  | core.result.Result.Err _ => intro _; trivial
   | core.result.Result.Ok ced =>
     intro h_iff
     exact fun h => h_bad (h_iff.mp h)

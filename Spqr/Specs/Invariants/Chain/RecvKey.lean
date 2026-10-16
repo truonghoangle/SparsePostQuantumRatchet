@@ -28,40 +28,45 @@ theorem recvKeyPost_preserves_chainInv (self self' : chain.Chain) (epoch : U64) 
     (h_post : recvKeyPost self epoch index result self') :
     ChainInv self' := by
   obtain ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩ := h_inv
-  obtain ⟨h_err, h_ok⟩ := h_post
-  by_cases h_in : epoch.val ≤ self.current_epoch.val ∧
-      self.current_epoch.val - epoch.val < self.links.length.val
-  · obtain ⟨⟨_, hce, hse, hnr, _, hhd, hln, hbl, _, hoth⟩, hphys⟩ := h_ok h_in
-    have hidx : sendIdx self' = sendIdx self := by
-      simp only [sendIdx, hce, hse, hln]
-    refine ⟨by rw [hnr]; exact h_root, by rw [hln]; exact h_len1,
-      by rw [hce, hse]; exact h_se, by rw [hce, hse, hln]; exact h_diff,
-      by rw [hhd, hln, hbl]; exact h_wf, ?_⟩
-    intro j hj1 hj2 ce' hce'
-    simp only [hhd, hln] at hj1 hj2
-    rw [hidx, hhd]
-    by_cases hj : j = self.links.head.val + recvKeyIdx self epoch
-    · subst hj
-      revert hphys
-      cases h1 : self.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
-      | none => intro h; exact h.elim
-      | some ce =>
-        cases h2 : self'.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
-        | none => intro h; exact h.elim
-        | some ce2 =>
-          intro hep
-          rw [hce'] at h2
-          cases h2
-          obtain ⟨hsend, hcedpost⟩ := hep
-          obtain ⟨hr, hs1, hs2, hs3⟩ := h_slots _ hj1 hj2 ce h1
-          exact ⟨ChainEpochDirection.cedKeyPost_preserves_cedInv _ _ _ _ _ hr hcedpost,
-            by rw [hsend]; exact hs1, by rw [hsend]; exact hs2, by rw [hsend]; exact hs3⟩
-    · rw [hoth j hj] at hce'
-      exact h_slots j hj1 hj2 ce' hce'
-  · have hout : epoch.val > self.current_epoch.val ∨
-        self.current_epoch.val - epoch.val ≥ self.links.length.val := by omega
-    obtain ⟨_, rfl⟩ := h_err hout
+  unfold recvKeyPost at h_post
+  split at h_post
+  · obtain ⟨_, rfl⟩ := h_post
     exact ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩
+  · rename_i h00
+    obtain ⟨h_err, h_ok⟩ := h_post
+    by_cases h_in : epoch.val ≤ self.current_epoch.val ∧
+        self.current_epoch.val - epoch.val < self.links.length.val
+    · obtain ⟨⟨_, hce, hse, hnr, _, hhd, hln, hbl, _, hoth⟩, hphys⟩ := h_ok h_in
+      have hidx : sendIdx self' = sendIdx self := by
+        simp only [sendIdx, hce, hse, hln]
+      refine ⟨by rw [hnr]; exact h_root, by rw [hln]; exact h_len1,
+        by rw [hce, hse]; exact h_se, by rw [hce, hse, hln]; exact h_diff,
+        by rw [hhd, hln, hbl]; exact h_wf, ?_⟩
+      intro j hj1 hj2 ce' hce'
+      simp only [hhd, hln] at hj1 hj2
+      rw [hidx, hhd]
+      by_cases hj : j = self.links.head.val + recvKeyIdx self epoch
+      · subst hj
+        revert hphys
+        cases h1 : self.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+        | none => intro h; exact h.elim
+        | some ce =>
+          cases h2 : self'.links.buf.val[self.links.head.val + recvKeyIdx self epoch]? with
+          | none => intro h; exact h.elim
+          | some ce2 =>
+            intro hep
+            rw [hce'] at h2
+            cases h2
+            obtain ⟨hsend, hcedpost⟩ := hep
+            obtain ⟨hr, hs1, hs2, hs3⟩ := h_slots _ hj1 hj2 ce h1
+            exact ⟨ChainEpochDirection.cedKeyPost_preserves_cedInv _ _ _ _ _ hr hcedpost,
+              by rw [hsend]; exact hs1, by rw [hsend]; exact hs2, by rw [hsend]; exact hs3⟩
+      · rw [hoth j hj] at hce'
+        exact h_slots j hj1 hj2 ce' hce'
+    · have hout : epoch.val > self.current_epoch.val ∨
+          self.current_epoch.val - epoch.val ≥ self.links.length.val := by omega
+      obtain ⟨_, rfl⟩ := h_err hout
+      exact ⟨h_root, h_len1, h_se, h_diff, h_wf, h_slots⟩
 
 /-- `ChainInv` yields `CedInv` on the `recv` direction of the `recv_key` target slot. -/
 theorem cedInv_recv_of_chainInv (self : chain.Chain) (epoch : U64)

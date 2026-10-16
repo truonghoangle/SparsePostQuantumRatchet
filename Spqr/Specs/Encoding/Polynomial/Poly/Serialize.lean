@@ -14,6 +14,7 @@ public import SrcTranslated.Funs
 import Mathlib.Algebra.Order.Ring.Star
 import Mathlib.Data.Int.ConditionallyCompleteOrder
 import Spqr.Specs.Aeneas.IndexRangeFull
+import Spqr.Specs.Encoding.Polynomial.Poly.Deserialize
 
 /-!
 # Spec theorem for `Poly::serialize`: loop body 0
